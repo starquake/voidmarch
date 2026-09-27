@@ -83,6 +83,36 @@ func TestWebClient_WebDirOverride(t *testing.T) {
 	}
 }
 
+func TestWebClient_Audio(t *testing.T) {
+	t.Parallel()
+
+	baseURL := startServer(t, nil)
+
+	static, err := web.Static()
+	if err != nil {
+		t.Fatalf("web.Static() error = %v", err)
+	}
+
+	for ext, wantType := range map[string]string{".ogg": "audio/ogg", ".mp3": "audio/mpeg"} {
+		files, err := fs.Glob(static, "audio/*/*"+ext)
+		if err != nil {
+			t.Fatalf("fs.Glob() error = %v", err)
+		}
+		if len(files) == 0 {
+			t.Fatalf("no %s audio embedded", ext)
+		}
+		for _, name := range files {
+			resp := get(t, baseURL+"/static/"+name)
+			if got, want := resp.status, http.StatusOK; got != want {
+				t.Errorf("GET %s status = %d, want %d", name, got, want)
+			}
+			if got, want := resp.header.Get("Content-Type"), wantType; got != want {
+				t.Errorf("GET %s Content-Type = %q, want %q", name, got, want)
+			}
+		}
+	}
+}
+
 func TestWebClient_Assets(t *testing.T) {
 	t.Parallel()
 

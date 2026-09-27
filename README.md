@@ -35,8 +35,11 @@ make server
 | Mouse | Aim |
 | Left button (hold) | Fire |
 | C | Switch to screen-relative movement (W is up the screen) and back |
+| M | Sound on/off |
+| N | Music on/off |
 
-The movement choice is remembered in the browser.
+The movement, sound and music choices are remembered in the browser. Sound
+starts after the first click or key press.
 
 The sandbox has debug keys until loadouts arrive: **1**, **2** and **3** cycle
 the weapon, engine and shield; **H** cycles the hull damage state; **R**
@@ -69,7 +72,9 @@ committed so `go build` needs no Node.js.
 
 ## Credits
 
-Art: the Void asset packs by [Foozle](https://foozlecc.itch.io/), CC0.
+- Art: the Void asset packs by [Foozle](https://foozlecc.itch.io/), CC0.
+- Music: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music) by Foozle, CC0.
+- Sound effects: [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) by Kenney, CC0.
 
 ## License
 

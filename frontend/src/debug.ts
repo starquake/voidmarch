@@ -16,6 +16,15 @@ export interface DebugState {
   zoom: number;
   fps: number;
   weaponFrame: number;
+  audio: {
+    muted: boolean;
+    music: boolean;
+    locked: boolean;
+    /** Which Phaser sound backend runs: webaudio, html5, or none. */
+    backend: string;
+    musicLoaded: boolean;
+    playingMusic: string | null;
+  };
 }
 
 declare global {

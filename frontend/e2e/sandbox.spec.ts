@@ -141,3 +141,21 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
   expect(Math.max(...charging)).toBeLessThan(7);
   expect(samples.at(-1)?.frame).toBeGreaterThanOrEqual(7);
 });
+
+test('music starts after the first input, and M and N are remembered', async ({ page }) => {
+  const { x, y } = await centre(page);
+  await page.mouse.click(x + 100, y);
+  try {
+    await expect.poll(async () => (await state(page)).audio.playingMusic).toMatch(/^music-/);
+  } finally {
+    console.log(`${test.info().project.name} audio: ${JSON.stringify((await state(page)).audio)}`);
+  }
+
+  await page.keyboard.press('m');
+  await page.keyboard.press('n');
+  await expect.poll(async () => (await state(page)).audio).toMatchObject({ muted: true, music: false, playingMusic: null });
+
+  await page.reload();
+  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+  expect((await state(page)).audio).toMatchObject({ muted: true, music: false });
+});

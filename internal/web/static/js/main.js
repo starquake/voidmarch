@@ -1,8 +1,55 @@
 // src/main.ts
-import Phaser3 from "./vendor/phaser.js";
+import Phaser4 from "./vendor/phaser.js";
 
 // src/scenes/boot.ts
 import Phaser from "./vendor/phaser.js";
+
+// src/sounds.ts
+var AUDIO = "/static/audio";
+var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
+var SHOT_SOUNDS = {
+  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
+  rockets: ["sfx-rocket-launch"],
+  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
+  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
+};
+var EXPIRE_SOUNDS = {
+  rockets: "sfx-rocket-blast",
+  bigSpaceGun: "sfx-big-blast"
+};
+var CHARGE_SOUNDS = {
+  bigSpaceGun: "sfx-charge"
+};
+var ENGINE_LOOPS = {
+  base: "sfx-engine-base",
+  bigPulse: "sfx-engine-big-pulse",
+  burst: "sfx-engine-burst",
+  supercharged: "sfx-engine-supercharged"
+};
+var SHIELD_SOUND = "sfx-shield";
+var PART_SWITCH_SOUND = "sfx-part-switch";
+var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
+function effectFiles() {
+  const files = [
+    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
+    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
+    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
+    both("sfx-rocket-launch", "sfx/rocket-launch"),
+    both("sfx-rocket-blast", "sfx/rocket-blast"),
+    both("sfx-big-blast", "sfx/big-blast"),
+    both("sfx-charge", "sfx/charge"),
+    both(SHIELD_SOUND, "sfx/shield"),
+    both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    both("sfx-engine-base", "sfx/engine-base"),
+    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
+    both("sfx-engine-burst", "sfx/engine-burst"),
+    both("sfx-engine-supercharged", "sfx/engine-supercharged")
+  ];
+  return files;
+}
+function musicFiles() {
+  return MUSIC.map((key) => both(key, `music/${key.replace(/^music-/, "")}`));
+}
 
 // src/sim/loadout.ts
 var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
@@ -248,6 +295,9 @@ var BootScene = class extends Phaser.Scene {
         frameHeight: sheet.frameHeight
       });
     }
+    for (const sound of effectFiles()) {
+      this.load.audio(sound.key, sound.urls);
+    }
   }
   create() {
     for (const sheet of sheets()) {
@@ -265,7 +315,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser2 from "./vendor/phaser.js";
+import Phaser3 from "./vendor/phaser.js";
 
 // src/debug.ts
 function publishDebugState(state) {
@@ -342,6 +392,29 @@ function loadControlMode(store = browserStorage()) {
 function saveControlMode(mode, store = browserStorage()) {
   try {
     store?.setItem(CONTROL_MODE_KEY, mode);
+  } catch {
+  }
+}
+var AUDIO_KEY = "voidmarch.audio";
+var DEFAULT_AUDIO = { muted: false, music: true };
+function loadAudioSettings(store = browserStorage()) {
+  try {
+    const parsed = JSON.parse(store?.getItem(AUDIO_KEY) ?? "null");
+    if (typeof parsed !== "object" || parsed === null) {
+      return { ...DEFAULT_AUDIO };
+    }
+    const saved = parsed;
+    return {
+      muted: typeof saved.muted === "boolean" ? saved.muted : DEFAULT_AUDIO.muted,
+      music: typeof saved.music === "boolean" ? saved.music : DEFAULT_AUDIO.music
+    };
+  } catch {
+    return { ...DEFAULT_AUDIO };
+  }
+}
+function saveAudioSettings(settings, store = browserStorage()) {
+  try {
+    store?.setItem(AUDIO_KEY, JSON.stringify(settings));
   } catch {
   }
 }
@@ -670,6 +743,163 @@ var WeaponAnimator = class {
   }
 };
 
+// src/scenes/audio.ts
+import Phaser2 from "./vendor/phaser.js";
+
+// src/mix.ts
+var ENGINE_IDLE_VOLUME = 0.12;
+var ENGINE_THRUST_VOLUME = 0.32;
+var ENGINE_MIN_RATE = 0.85;
+var ENGINE_RATE_RANGE = 0.35;
+function engineMix(speed, maxSpeed, thrusting) {
+  const fraction = maxSpeed > 0 ? Math.min(1, Math.max(0, speed / maxSpeed)) : 0;
+  return {
+    volume: thrusting ? ENGINE_THRUST_VOLUME : ENGINE_IDLE_VOLUME + (ENGINE_THRUST_VOLUME - ENGINE_IDLE_VOLUME) * fraction * 0.5,
+    rate: ENGINE_MIN_RATE + ENGINE_RATE_RANGE * fraction
+  };
+}
+function nextVariant(variants, counter) {
+  if (variants.length === 0) {
+    return void 0;
+  }
+  return variants[counter % variants.length];
+}
+var DETUNE_CENTS = 80;
+function shotDetune(random) {
+  return (random() * 2 - 1) * DETUNE_CENTS;
+}
+
+// src/scenes/audio.ts
+var SHOT_VOLUME = 0.35;
+var CHARGE_VOLUME = 0.3;
+var CHARGE_DETUNE = 300;
+var EXPIRE_VOLUME = 0.3;
+var UI_VOLUME = 0.3;
+var MUSIC_VOLUME = 0.3;
+var ShipAudio = class {
+  engine;
+  engineId;
+  music;
+  musicIndex = 0;
+  musicLoaded = false;
+  shots = 0;
+  scene;
+  settings;
+  constructor(scene, settings) {
+    this.scene = scene;
+    this.settings = settings;
+    scene.sound.mute = settings.muted;
+    scene.sound.pauseOnBlur = true;
+    this.loadMusic();
+  }
+  /** Whether the music has finished loading. */
+  get musicReady() {
+    return this.musicLoaded;
+  }
+  /** Which sound backend Phaser picked for this browser. */
+  get backend() {
+    const sound = this.scene.sound;
+    if (sound instanceof Phaser2.Sound.WebAudioSoundManager) {
+      return "webaudio";
+    }
+    return sound instanceof Phaser2.Sound.HTML5AudioSoundManager ? "html5" : "none";
+  }
+  /** The key of the playing track, or null. */
+  get playingMusic() {
+    return this.music?.isPlaying === true ? this.music.key : null;
+  }
+  /** Swaps the engine loop to match the fitted engine. */
+  setEngine(id) {
+    if (id === this.engineId) {
+      return;
+    }
+    this.engine?.destroy();
+    this.engineId = id;
+    this.engine = this.scene.sound.add(ENGINE_LOOPS[id], { loop: true, volume: 0 });
+    this.engine.play();
+  }
+  update(ship, events) {
+    if (this.engine !== void 0) {
+      const mix = engineMix(Math.hypot(ship.vx, ship.vy), ENGINE_STATS[ship.loadout.engine].maxSpeed, ship.thrusting);
+      this.engine.setVolume(mix.volume);
+      this.engine.setRate(mix.rate);
+    }
+    for (const weapon of events.charges) {
+      const key = CHARGE_SOUNDS[weapon];
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
+      }
+    }
+    const volleys = /* @__PURE__ */ new Set();
+    for (const shot of events.shots) {
+      const volley = WEAPON_STATS[shot.weapon].alternate ? `${shot.weapon}-${shot.muzzle}-${volleys.size}` : shot.weapon;
+      if (volleys.has(volley)) {
+        continue;
+      }
+      volleys.add(volley);
+      const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
+      }
+    }
+    for (const expired of events.expired) {
+      const key = EXPIRE_SOUNDS[expired.weapon];
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+      }
+    }
+  }
+  shieldSwitched() {
+    this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
+  }
+  partSwitched() {
+    this.scene.sound.play(PART_SWITCH_SOUND, { volume: UI_VOLUME });
+  }
+  toggleMute() {
+    this.settings.muted = !this.settings.muted;
+    this.scene.sound.mute = this.settings.muted;
+  }
+  toggleMusic() {
+    this.settings.music = !this.settings.music;
+    if (this.settings.music) {
+      this.playMusic();
+    } else {
+      this.music?.stop();
+    }
+  }
+  /** Loads the music after the game has started, so it never delays the first frame. */
+  loadMusic() {
+    const loader = this.scene.load;
+    for (const file of musicFiles()) {
+      loader.audio(file.key, file.urls);
+    }
+    loader.once(Phaser2.Loader.Events.COMPLETE, () => {
+      this.musicLoaded = true;
+      this.playMusic();
+    });
+    loader.start();
+  }
+  playMusic() {
+    if (!this.musicLoaded || !this.settings.music || this.music?.isPlaying === true) {
+      return;
+    }
+    if (this.scene.sound.locked) {
+      this.scene.sound.once(Phaser2.Sound.Events.UNLOCKED, () => {
+        this.playMusic();
+      });
+      return;
+    }
+    const key = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
+    this.music?.destroy();
+    this.music = this.scene.sound.add(key, { volume: MUSIC_VOLUME });
+    this.music.once(Phaser2.Sound.Events.COMPLETE, () => {
+      this.musicIndex++;
+      this.playMusic();
+    });
+    this.music.play();
+  }
+};
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
@@ -677,7 +907,7 @@ var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var HUD_REFRESH_MS = 250;
 var SPRITE_FACING = Math.PI / 2;
-var SandboxScene = class extends Phaser2.Scene {
+var SandboxScene = class extends Phaser3.Scene {
   sim = new Sandbox();
   world;
   backgrounds = [];
@@ -697,11 +927,15 @@ var SandboxScene = class extends Phaser2.Scene {
   hudUpdatedAt = 0;
   debug;
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
+  audioSettings;
+  audio;
   constructor() {
     super("sandbox");
   }
   create() {
     this.sim.controlMode = loadControlMode();
+    this.audioSettings = loadAudioSettings();
+    this.audio = new ShipAudio(this, this.audioSettings);
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
@@ -712,7 +946,7 @@ var SandboxScene = class extends Phaser2.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser2.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser3.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.debug = {
@@ -728,7 +962,8 @@ var SandboxScene = class extends Phaser2.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
-      weaponFrame: 0
+      weaponFrame: 0,
+      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null }
     };
     this.publish();
   }
@@ -737,6 +972,7 @@ var SandboxScene = class extends Phaser2.Scene {
     this.drawShip(events);
     this.drawProjectiles();
     this.playEffects(events);
+    this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -781,7 +1017,7 @@ var SandboxScene = class extends Phaser2.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser2.BlendModes.ADD,
+      blendMode: Phaser3.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -790,7 +1026,7 @@ var SandboxScene = class extends Phaser2.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser2.BlendModes.ADD,
+      blendMode: Phaser3.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -800,7 +1036,7 @@ var SandboxScene = class extends Phaser2.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser2.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
+    this.bloom = Phaser3.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -812,7 +1048,7 @@ var SandboxScene = class extends Phaser2.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser2.Input.Keyboard.KeyCodes;
+    const codes = Phaser3.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -826,7 +1062,7 @@ var SandboxScene = class extends Phaser2.Scene {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    this.events.once(Phaser2.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser3.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
     });
   }
@@ -838,14 +1074,27 @@ var SandboxScene = class extends Phaser2.Scene {
         ship.cooldown = 0;
         ship.nextMuzzle = 0;
         this.applyLoadout();
+        this.audio.partSwitched();
         break;
       case "Digit2":
         ship.loadout.engine = nextInCycle(ENGINES, ship.loadout.engine);
         this.applyLoadout();
+        this.audio.partSwitched();
         break;
       case "Digit3":
         ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
         this.applyLoadout();
+        this.audio.shieldSwitched();
+        break;
+      case "KeyM":
+        this.audio.toggleMute();
+        saveAudioSettings(this.audioSettings);
+        this.updateHud();
+        break;
+      case "KeyN":
+        this.audio.toggleMusic();
+        saveAudioSettings(this.audioSettings);
+        this.updateHud();
         break;
       case "KeyH":
         this.damage = nextInCycle(DAMAGE_STATES, this.damage);
@@ -881,6 +1130,7 @@ var SandboxScene = class extends Phaser2.Scene {
     this.ship.weapon.setTexture(keys.weapon(weapon), 0);
     this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
     this.ship.shield.play(keys.shield(shield));
+    this.audio.setEngine(engine);
     this.updateHud();
   }
   resize() {
@@ -974,8 +1224,8 @@ var SandboxScene = class extends Phaser2.Scene {
     const { loadout, rotationSnap } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects"
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects"
     ]);
   }
   publish() {
@@ -993,20 +1243,26 @@ var SandboxScene = class extends Phaser2.Scene {
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
     this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
+    this.debug.audio.muted = this.audioSettings.muted;
+    this.debug.audio.music = this.audioSettings.music;
+    this.debug.audio.locked = this.sound.locked;
+    this.debug.audio.playingMusic = this.audio.playingMusic;
+    this.debug.audio.backend = this.audio.backend;
+    this.debug.audio.musicLoaded = this.audio.musicReady;
     publishDebugState(this.debug);
   }
 };
 
 // src/main.ts
-new Phaser3.Game({
-  type: Phaser3.AUTO,
+new Phaser4.Game({
+  type: Phaser4.AUTO,
   parent: "game",
   backgroundColor: "#05030a",
   pixelArt: true,
   roundPixels: true,
   banner: false,
   scale: {
-    mode: Phaser3.Scale.RESIZE,
+    mode: Phaser4.Scale.RESIZE,
     width: "100%",
     height: "100%"
   },

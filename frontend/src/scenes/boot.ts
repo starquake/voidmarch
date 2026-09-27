@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { effectFiles } from '../sounds.ts';
 import { sheets } from '../sprites.ts';
 
 /** Loads every sprite sheet and creates its animation, then starts the sandbox. */
@@ -14,6 +15,9 @@ export class BootScene extends Phaser.Scene {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight,
       });
+    }
+    for (const sound of effectFiles()) {
+      this.load.audio(sound.key, sound.urls);
     }
   }
 

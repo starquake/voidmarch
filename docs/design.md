@@ -191,7 +191,9 @@ if got, want := err.Error(), "error creating question"; !strings.Contains(got, w
 7. **Siege boss:** Kla'ed Dreadnought with persistent health and regeneration; unlock ring 2.
 8. **Rings 2 and 3:** Nairan and Nautolan factions, tinted backgrounds.
 9. **Season end and reset.**
-10. **Later:** asteroid mining, escort missions, sound and music.
+10. **Later:** asteroid mining, escort missions.
+
+Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney's Sci-Fi Sounds for effects, Foozle's Explorer Chiptunes for music, with Eerie Space Music set aside for the home planet and the Dreadnought fights.
 
 ## 12. Open questions
 
@@ -200,4 +202,4 @@ if got, want := err.Error(), "error creating question"; !strings.Contains(got, w
 - Do personal unlocks reset at season end?
 - Dreadnought health and regeneration numbers for a 1–16 player group.
 - Map size and how rings are separated.
-- Sound and music (not in the Void packs; Foozle's other packs or other CC0 sources).
+- ~~Sound and music~~: decided in #14 (Kenney Sci-Fi Sounds, Foozle Explorer Chiptunes and Eerie Space Music, all CC0).

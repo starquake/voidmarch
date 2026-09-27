@@ -94,6 +94,14 @@ jobs:
           key: playwright-${{ matrix.browser }}-${{ hashFiles('frontend/package-lock.json') }}
       - run: npx playwright install --with-deps ${{ matrix.browser }}
         working-directory: frontend
+      # Headless Firefox needs an audio device before Web Audio starts; a null sink is enough.
+      - name: Virtual sound card
+        if: matrix.browser == 'firefox'
+        run: |
+          sudo apt-get install -y --no-install-recommends pulseaudio
+          pulseaudio -D --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=silent
+          pactl set-default-sink silent
       - run: npx playwright test --project=${{ matrix.browser }}
         working-directory: frontend
       - uses: actions/upload-artifact@v7

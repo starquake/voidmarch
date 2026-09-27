@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { loadControlMode, saveControlMode } from './settings.ts';
+import { loadAudioSettings, loadControlMode, saveAudioSettings, saveControlMode } from './settings.ts';
 
 const memoryStore = (): Pick<Storage, 'getItem' | 'setItem'> => {
   const data = new Map<string, string>();
@@ -45,4 +45,32 @@ test('denied storage neither throws nor remembers', () => {
     saveControlMode('screen', brokenStore);
   });
   assert.equal(loadControlMode(brokenStore), 'ship');
+});
+
+test('sound and music are on by default', () => {
+  assert.deepEqual(loadAudioSettings(memoryStore()), { muted: false, music: true });
+  assert.deepEqual(loadAudioSettings(undefined), { muted: false, music: true });
+});
+
+test('saved sound settings are loaded back', () => {
+  const store = memoryStore();
+  saveAudioSettings({ muted: true, music: false }, store);
+  assert.deepEqual(loadAudioSettings(store), { muted: true, music: false });
+});
+
+test('damaged sound settings fall back field by field', () => {
+  const store = memoryStore();
+  store.setItem('voidmarch.audio', '{"muted": "yes", "music": false}');
+  assert.deepEqual(loadAudioSettings(store), { muted: false, music: false });
+  store.setItem('voidmarch.audio', 'not json');
+  assert.deepEqual(loadAudioSettings(store), { muted: false, music: true });
+  store.setItem('voidmarch.audio', '42');
+  assert.deepEqual(loadAudioSettings(store), { muted: false, music: true });
+});
+
+test('denied storage keeps the default sound settings', () => {
+  assert.doesNotThrow(() => {
+    saveAudioSettings({ muted: true, music: true }, brokenStore);
+  });
+  assert.deepEqual(loadAudioSettings(brokenStore), { muted: false, music: true });
 });

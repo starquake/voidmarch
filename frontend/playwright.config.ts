@@ -16,8 +16,17 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 960, height: 540 } } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'], viewport: { width: 960, height: 540 } } },
+    { name: 'chromium', use: {
+      ...devices['Desktop Chrome'],
+      viewport: { width: 960, height: 540 },
+      // The game plays music; keep test runs silent.
+      launchOptions: { args: ['--mute-audio'] },
+    } },
+    { name: 'firefox', use: {
+      ...devices['Desktop Firefox'],
+      viewport: { width: 960, height: 540 },
+      launchOptions: { firefoxUserPrefs: { 'media.volume_scale': '0.0' } },
+    } },
   ],
   webServer: {
     command: 'go run ./cmd/voidmarch',

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 	"strings"
 	"sync"
@@ -23,7 +24,16 @@ type staticFiles struct {
 }
 
 func newStaticFiles(fsys fs.FS, cacheETags bool) *staticFiles {
+	registerAudioTypes()
+
 	return &staticFiles{fsys: noDirFS{fsys}, cacheETags: cacheETags}
+}
+
+// registerAudioTypes adds audio types missing from Go's built-in table; the
+// distroless image has no system MIME database to fall back on.
+func registerAudioTypes() {
+	_ = mime.AddExtensionType(".ogg", "audio/ogg")
+	_ = mime.AddExtensionType(".mp3", "audio/mpeg")
 }
 
 // serve writes the named file, or a 404 when it does not exist.
