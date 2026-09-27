@@ -34,6 +34,13 @@ enum Shield {
   SHIELD_INVINCIBILITY = 4;
 }
 
+// Enemy classes from the Void Fleet packs.
+enum EnemyKind {
+  ENEMY_KIND_UNSPECIFIED = 0;
+  ENEMY_KIND_SCOUT = 1;
+  ENEMY_KIND_FIGHTER = 2;
+}
+
 // Loadout is the part fitted in each slot.
 message Loadout {
   Weapon weapon = 1;
@@ -71,12 +78,21 @@ message ShotFired {
   float angle = 6;
 }
 
+// Hit reports that one of the player's shots hit an enemy; the client is
+// trusted for it (docs/design.md, section 9).
+message Hit {
+  uint32 enemy_id = 1;
+  uint32 shot_id = 2;
+  uint32 damage = 3;
+}
+
 // ClientMessage is everything a browser sends.
 message ClientMessage {
   oneof kind {
     Hello hello = 1;
     ShipState state = 2;
     ShotFired shot = 3;
+    Hit hit = 4;
   }
 }
 
@@ -99,10 +115,49 @@ message PlayerSnapshot {
   ShipState state = 4;
 }
 
-// Snapshot is every other player at a server tick.
+// EnemyState is one enemy at a tick; the server moves enemies.
+message EnemyState {
+  uint32 enemy_id = 1;
+  EnemyKind kind = 2;
+  float x = 3;
+  float y = 4;
+  // Facing in radians; 0 is +x and y grows downward.
+  float angle = 5;
+}
+
+// Snapshot is every other player, and every enemy, at a server tick.
 message Snapshot {
   uint32 tick = 1;
   repeated PlayerSnapshot players = 2;
+  repeated EnemyState enemies = 3;
+}
+
+// EnemyFired is an enemy firing its pattern; every client expands the pattern
+// from the seed, so bullets are never streamed.
+message EnemyFired {
+  uint32 enemy_id = 1;
+  EnemyKind kind = 2;
+  uint32 tick = 3;
+  uint32 seed = 4;
+  float x = 5;
+  float y = 6;
+  float angle = 7;
+}
+
+// EnemyDestroyed is an enemy shot down, at the tick and place it died.
+message EnemyDestroyed {
+  uint32 enemy_id = 1;
+  EnemyKind kind = 2;
+  string by_player_id = 3;
+  uint32 tick = 4;
+  float x = 5;
+  float y = 6;
+}
+
+// ShotEnded removes a player's shot everywhere once it hit something.
+message ShotEnded {
+  string player_id = 1;
+  uint32 shot_id = 2;
 }
 
 // RemoteShot is another player's shot, stamped with the server tick it arrived at.
@@ -128,5 +183,8 @@ message ServerMessage {
     RemoteShot shot = 3;
     PlayerLeft left = 4;
     Full full = 5;
+    EnemyFired enemy_fired = 6;
+    EnemyDestroyed enemy_destroyed = 7;
+    ShotEnded shot_ended = 8;
   }
 }

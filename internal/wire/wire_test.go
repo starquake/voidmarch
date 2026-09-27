@@ -61,6 +61,31 @@ func messages() []proto.Message {
 		},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_Left{Left: &pb.PlayerLeft{PlayerId: "p2"}}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_Full{Full: &pb.Full{}}},
+		&pb.ClientMessage{
+			Kind: &pb.ClientMessage_Hit{Hit: &pb.Hit{EnemyId: 3, ShotId: 9, Damage: 4}},
+		},
+		&pb.ServerMessage{
+			Kind: &pb.ServerMessage_Snapshot{
+				Snapshot: &pb.Snapshot{Tick: 5, Enemies: []*pb.EnemyState{
+					{EnemyId: 3, Kind: pb.EnemyKind_ENEMY_KIND_FIGHTER, X: 1, Y: 2, Angle: 0.5},
+				}},
+			},
+		},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
+			EnemyId: 3,
+			Kind:    pb.EnemyKind_ENEMY_KIND_SCOUT,
+			Tick:    6,
+			Seed:    42,
+			X:       1,
+			Y:       2,
+			Angle:   -1,
+		}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{
+			EnemyId: 3, Kind: pb.EnemyKind_ENEMY_KIND_SCOUT, ByPlayerId: "p1", Tick: 7, X: 1, Y: 2,
+		}}},
+		&pb.ServerMessage{
+			Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{PlayerId: "p1", ShotId: 9}},
+		},
 	}
 }
 
