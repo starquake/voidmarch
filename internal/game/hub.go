@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"math/rand/v2"
 	"time"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -110,12 +111,36 @@ type Hub struct {
 	incoming chan inbound
 	done     chan struct{}
 
-	tick    uint32
-	members map[string]*member
+	tick      uint32
+	members   map[string]*member
+	enemies   map[uint32]*enemy
+	nextEnemy uint32
+	rng       *rand.Rand
+}
+
+// HubOption configures a [Hub].
+type HubOption func(*hubOptions)
+
+type hubOptions struct {
+	seed   uint64
+	seeded bool
+}
+
+// WithSeed makes the hub's randomness (spawns, steering, fire timing)
+// repeatable, for tests.
+func WithSeed(seed uint64) HubOption {
+	return func(o *hubOptions) {
+		o.seed, o.seeded = seed, true
+	}
 }
 
 // NewHub returns a hub; start it with [Hub.Run].
-func NewHub(logger *slog.Logger) *Hub {
+func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
+	var o hubOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	return &Hub{
 		logger:   logger,
 		join:     make(chan joinRequest),
@@ -123,7 +148,21 @@ func NewHub(logger *slog.Logger) *Hub {
 		incoming: make(chan inbound),
 		done:     make(chan struct{}),
 		members:  make(map[string]*member),
+		enemies:  make(map[uint32]*enemy),
+		rng:      newRand(o),
 	}
+}
+
+// newRand returns the hub's random source: seeded for tests, else random.
+// It drives spawns, steering and fire timing, never anything secret.
+func newRand(o hubOptions) *rand.Rand {
+	seed := o.seed
+	if !o.seeded {
+		seed = rand.Uint64() //nolint:gosec // game randomness, not security.
+	}
+	const mix = 0x9e3779b97f4a7c15
+
+	return rand.New(rand.NewPCG(seed, seed^mix)) //nolint:gosec // game randomness, not security.
 }
 
 // Join adds a player's ship to the world. A player who is already in (a
@@ -211,6 +250,8 @@ func (h *Hub) handleMessage(in inbound) {
 	switch kind := in.msg.GetKind().(type) {
 	case *pb.ClientMessage_State:
 		m.state = kind.State
+	case *pb.ClientMessage_Hit:
+		h.hit(in.session.Player.ID, kind.Hit)
 	case *pb.ClientMessage_Shot:
 		shot := &pb.ServerMessage{Kind: &pb.ServerMessage_Shot{Shot: &pb.RemoteShot{
 			PlayerId: in.session.Player.ID,
@@ -233,8 +274,11 @@ func (h *Hub) step() {
 		}
 	}
 
+	h.stepEnemies()
+	enemies := h.enemySnapshot()
+
 	for id := range h.members {
-		snapshot := &pb.Snapshot{Tick: h.tick}
+		snapshot := &pb.Snapshot{Tick: h.tick, Enemies: enemies}
 		for otherID, other := range h.members {
 			if otherID == id || other.state == nil {
 				continue

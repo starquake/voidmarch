@@ -19,7 +19,7 @@ func testHub(t *testing.T) (*Hub, func(n int)) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	ticks := make(chan time.Time)
-	hub := NewHub(slog.New(slog.DiscardHandler))
+	hub := NewHub(slog.New(slog.DiscardHandler), WithSeed(1))
 	done := make(chan struct{})
 	go func() {
 		hub.Run(ctx, ticks)
