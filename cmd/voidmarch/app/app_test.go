@@ -80,12 +80,8 @@ func TestRun_ShutsDownOnCancel(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- Run(ctx, envFunc(nil), stdout, ln) }()
 
-	if err := testutil.WaitForReady(
-		ctx,
-		t,
-		10*time.Second,
-		"http://"+ln.Addr().String()+"/healthz",
-	); err != nil {
+	healthz := "http://" + ln.Addr().String() + "/healthz"
+	if err := testutil.WaitForReady(ctx, t, 10*time.Second, healthz); err != nil {
 		t.Fatalf("WaitForReady() error = %v", err)
 	}
 

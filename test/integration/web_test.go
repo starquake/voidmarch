@@ -39,12 +39,8 @@ func TestWebClient_Embedded(t *testing.T) {
 			if got, want := resp.status, http.StatusOK; got != want {
 				t.Errorf("status = %d, want %d", got, want)
 			}
-			if got, want := resp.header.Get(
-				"Content-Type",
-			), tc.wantType; !strings.Contains(
-				got,
-				want,
-			) {
+			contentType := resp.header.Get("Content-Type")
+			if got, want := contentType, tc.wantType; !strings.Contains(got, want) {
 				t.Errorf("Content-Type = %q, should contain %q", got, want)
 			}
 			if got, want := resp.body, tc.wantContain; !strings.Contains(got, want) {
@@ -71,11 +67,8 @@ func TestWebClient_WebDirOverride(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	if err := os.WriteFile(
-		filepath.Join(dir, "index.html"),
-		[]byte("from disk"),
-		0o600,
-	); err != nil {
+	index := filepath.Join(dir, "index.html")
+	if err := os.WriteFile(index, []byte("from disk"), 0o600); err != nil {
 		t.Fatalf("writing index.html: %v", err)
 	}
 

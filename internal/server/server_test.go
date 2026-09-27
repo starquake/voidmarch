@@ -117,12 +117,8 @@ func TestNew_Routes(t *testing.T) {
 			if got, want := resp.status, tc.wantStatus; got != want {
 				t.Errorf("status = %d, want %d", got, want)
 			}
-			if got, want := resp.header.Get(
-				"Content-Type",
-			), tc.wantType; !strings.Contains(
-				got,
-				want,
-			) {
+			contentType := resp.header.Get("Content-Type")
+			if got, want := contentType, tc.wantType; !strings.Contains(got, want) {
 				t.Errorf("Content-Type = %q, should contain %q", got, want)
 			}
 			if got, want := resp.body, tc.wantContain; !strings.Contains(got, want) {
@@ -208,20 +204,15 @@ func TestNew_SecurityHeaders(t *testing.T) {
 			srv := newServer(t, &config.Config{AppEnvironment: tc.env})
 			resp := get(t, srv.URL+"/", nil)
 
-			if got, want := resp.header.Get(
-				"Content-Security-Policy",
-			), "script-src 'self'"; !strings.Contains(
-				got,
-				want,
-			) {
+			csp := resp.header.Get("Content-Security-Policy")
+			if got, want := csp, "script-src 'self'"; !strings.Contains(got, want) {
 				t.Errorf("Content-Security-Policy = %q, should contain %q", got, want)
 			}
 			if got, want := resp.header.Get("X-Content-Type-Options"), "nosniff"; got != want {
 				t.Errorf("X-Content-Type-Options = %q, want %q", got, want)
 			}
-			if got, want := resp.header.Get(
-				"Strict-Transport-Security",
-			) != "", tc.wantHSTS; got != want {
+			hasHSTS := resp.header.Get("Strict-Transport-Security") != ""
+			if got, want := hasHSTS, tc.wantHSTS; got != want {
 				t.Errorf("HSTS present = %t, want %t", got, want)
 			}
 		})

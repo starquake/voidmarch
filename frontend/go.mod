@@ -2,4 +2,4 @@
 // whose node_modules can contain stray Go files.
 module github.com/starquake/voidmarch/frontend
 
-go 1.27
+go 1.27.1

@@ -8,7 +8,7 @@ FRONTEND := frontend
 JS_OUT := internal/web/static/js
 JS_DEPS := $(FRONTEND)/node_modules/.package-lock.json
 
-GOLANGCI_VERSION := v2.13.2
+GOLANGCI_VERSION := v2.14.0
 GOLANGCI_BIN := $(BIN_DIR)/golangci-lint
 
 UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
