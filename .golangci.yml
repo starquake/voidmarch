@@ -1,0 +1,192 @@
+version: "2"
+linters:
+  enable:
+    - arangolint
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - embeddedstructfieldcheck
+    - err113
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - forcetypeassert
+    - funcorder
+    - gocheckcompilerdirectives
+    - gochecknoglobals
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
+    - gocritic
+    - gocyclo
+    - godoclint
+    - godot
+    - godox
+    - goheader
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
+    - govet
+    - grouper
+    - iface
+    - importas
+    - inamedparam
+    - ineffassign
+    # - interfacebloat # disabled — keep interfaces decent by judgement
+    - intrange
+    - iotamixing
+    # - ireturn      # Caching causes issues with this linter
+    - loggercheck
+    - makezero
+    - mirror
+    - misspell
+    - mnd
+    - modernize
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - nlreturn
+    - noctx
+    - nolintlint
+    # - nonamedreturns # disabled — named returns clarify some helpers
+    - nosprintfhostport
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - tagalign
+    - tagliatelle
+    - testableexamples
+    - testifylint
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unqueryvet
+    - unused
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
+    - wrapcheck
+  settings:
+    gocognit:
+      min-complexity: 20
+    gocyclo:
+      min-complexity: 20
+    godoclint:
+      default: all
+      disable:
+        - max-len
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    revive:
+      enable-all-rules: true
+      rules:
+        - name: cognitive-complexity
+          disabled: true # Already covered by gocognit
+        - name: cyclomatic
+          disabled: true # Already covered by gocyclo
+        - name: line-length-limit
+          disabled: true
+        - name: add-constant
+          exclude: ["**/*_test.go"]
+          arguments:
+            - maxLitCount: "3"
+              allow-strs: '"","%v: %w","err"'
+              allow-ints: "0,1,2"
+        - name: max-public-structs
+          disabled: true
+        - name: function-length
+          exclude: ["**/*_test.go"]
+        - name: confusing-naming
+          disabled: false
+          exclude:
+            - "**/export_test.go"
+        - name: dot-imports
+          exclude: ["**/*_test.go"]
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      # golangci-lint's incremental cache can intermittently miss the issue a
+      # nolint suppresses (e.g. the revive flag-parameter nolint in
+      # internal/mailer/status.go), making nolintlint flag a still-needed
+      # directive as "unused" and failing CI nondeterministically. Tolerate it.
+      # Upstream bug: https://github.com/golangci/golangci-lint/issues/3228
+      allow-unused: true
+    godox:
+      keywords:
+        - TODO
+        - BUG
+        - FIXME
+  exclusions:
+    # sqlc-generated code under internal/db carries the canonical
+    # "Code generated ... DO NOT EDIT." header; lax tells
+    # golangci-lint v2 to honour it and skip the file. Without this
+    # the generated wrappers spam ~50 godoclint + dupl + errcheck
+    # findings on every run, drowning out real issues in the diff.
+    generated: lax
+    paths:
+      # Claude Code agents run in git worktrees under .claude/worktrees/;
+      # without this golangci-lint scans those sibling checkouts and floods
+      # the run with phantom findings from the in-flight branch copies.
+      - .claude
+    rules:
+      - path: (_test\.go|internal/testutil/|test/)
+        linters:
+          - gosec
+      - path: _test\.go
+        linters:
+          - dupl
+          - err113
+          - godoclint
+          - gochecknoglobals
+          - gocyclo
+          - gocognit
+          - wrapcheck
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+  settings:
+    gci:
+      sections:
+        - standard # Standard section: captures all standard packages.
+        - default # Default section: contains all imports that could not be matched to another section type.
+        - localmodule # Local module section: contains all local packages. This section is not present unless explicitly enabled.
+    gofmt:
+      simplify: true

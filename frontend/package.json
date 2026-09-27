@@ -1,0 +1,31 @@
+{
+  "name": "voidmarch",
+  "private": true,
+  "description": "Build tooling for the Voidmarch browser client (esbuild, TypeScript, ESLint). Not a runtime dependency.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.3",
+    "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "check": "tsc",
+    "lint": "eslint --max-warnings=0 .",
+    "lint:fix": "eslint --fix .",
+    "test": "node --test --experimental-test-coverage --test-coverage-include='src/sim/**' --test-coverage-exclude='**/*.test.ts' --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 'src/**/*.test.ts'",
+    "e2e": "playwright test"
+  }
+}

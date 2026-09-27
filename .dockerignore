@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+.idea
+build
+bin
+docs
+frontend
+*.md
+Makefile
+.env

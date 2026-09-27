@@ -1,0 +1,203 @@
+# Voidmarch — Game Design Document
+
+> A drop-in/drop-out, persistent-world, co-op twin-stick space shooter for a group of friends (1–16 players), playable in the browser with no install.
+>
+> *About the name: a "march" is an old word for a borderland, literally a frontier. Voidmarch is the frontier of the void, pushed outward together.*
+
+## 1. Vision
+
+- **Web only, no install.** Open a URL, pick a name, play.
+- **Drop in / drop out.** The world is persistent and keeps existing when nobody is online. Some evenings 1 player is on, sometimes 3, on a busy evening 16.
+- **Nobody feels behind.** Progress is mostly *shared* (the frontier). Personal progress is *horizontal* (more options, not more power).
+- **Shared goal:** push the frontier outward by defeating each alien faction's Dreadnought. Defeat all three and the season ends.
+- **Personal goals:** collect all 12 ship parts and experiment with loadouts.
+- **Players are friends.** Griefing and cheating are not design concerns. This lets us trust the client (see §9).
+
+## 2. Hard constraint: art
+
+**Only use mechanics and items that exist in Foozle's "Void" asset packs** (CC0, <https://foozlecc.itch.io/>). Recoloring and tinting existing sprites **is allowed**.
+
+| Pack | Contents | Use |
+|---|---|---|
+| Void – Main Ship | Player ship base sprite in 4 damage states, 4 engines, 4 shields, 4 weapons (with projectiles), all animated | Player ships |
+| Void – Pickups Pack | 12 animated pickups (expected: icons for the 4 weapons, 4 engines, 4 shields; **verify after download**) | Part drops / unlocks |
+| Void – Fleet Pack 1 (Kla'ed) | 8 ships: Scout, Fighter, Support Ship, Bomber, Torpedo Ship, Frigate, Battlecruiser, Dreadnought. Animated engines, shields, weapons, destruction. 5 projectiles | Faction 1 enemies |
+| Void – Fleet Pack 2 (Nairan) | Same 8 classes, different faction look | Faction 2 enemies |
+| Void – Fleet Pack 3 (Nautolan) | Same 8 classes, different faction look | Faction 3 enemies |
+| Void – Environment Pack | Layered parallax backgrounds, animated planet, asteroid | World, home planet, asteroids |
+
+Everything is pixel art at native resolution. Render with nearest-neighbor scaling (e.g. 2× or 3×). Aseprite sources are included if re-exporting is needed.
+
+**Things intentionally NOT in the game (no art for them):** currency/scrap, space stations, outposts, base building, player ship explosion.
+
+**Future (allowed via reuse/recolor):** asteroid mining (Environment asteroid), escort missions (enemy ships recolored as friendly convoys).
+
+## 3. Controls & feel
+
+- **Twin-stick:** WASD to move, mouse to aim, hold left mouse button to fire.
+- The ship sprite **rotates to face the mouse**. Pixel art may look jaggy at odd angles. Start with free rotation, fall back to snapping to 16 directions if it looks bad.
+- **Difficulty: gentle.** "Pretty bullets you can dodge", not bullet hell. Enemy projectiles are slow, readable and telegraphed.
+
+## 4. The player ship
+
+### Loadout (horizontal progression)
+
+Three slots, four options each = 64 loadouts:
+
+| Slot | Options (from Main Ship pack) | Gameplay role (tunable) |
+|---|---|---|
+| Weapon | Auto cannon, Rockets, Big space gun, Zapper (zigzag beam) | Different fire rate / damage / pattern |
+| Engine | 4 engine variants | Speed / acceleration / handling trade-offs |
+| Shield | 4 shield variants (incl. front, front+sides, round bubble) | Coverage vs strength trade-offs |
+
+- Every new player starts with **one default part per slot**.
+- **Parts are permanent unlocks.** Enemies drop part pickups. Collecting a pickup for a part you don't own unlocks it forever for your player.
+- Loadout can be changed **at the home planet**.
+- Weapon/engine/shield *choices* should be sidegrades, never strictly better. A new player with defaults is useful in any fight.
+
+### Shields and facing
+
+Because the ship faces the mouse, a **front shield blocks projectiles coming from the aim direction**. This rewards skill without extra art. The round shield covers all directions but is weaker (tunable).
+
+### Health
+
+- **3 hits and you're down.** The 4 damage-state sprites *are* the health display:
+  1. Full health
+  2. Slight damage
+  3. Damaged
+  4. Very damaged = downed
+- Shields absorb hits on top of that (tunable per shield type).
+- Health regenerates slowly out of combat (tunable).
+
+## 5. Going down (death without setbacks)
+
+- At 0 health the ship is **downed**: it stays as the "very damaged" sprite, drifting slowly, unable to shoot.
+- **Revive:** a teammate hovering near the downed ship for N seconds (tunable, ~3s) revives it at 1 health step.
+- **Respawn:** a downed player can choose to respawn at the home planet, or next to a living friend, after a short delay.
+- **Nothing is lost.** No currency, no parts, no tier. The only cost is time.
+
+## 6. Enemies
+
+Each faction uses its 8 ship classes in these roles:
+
+| Class | Role |
+|---|---|
+| Scout | Fast fodder, erratic movement, weak shots |
+| Fighter | Standard fodder, strafes and fires at players |
+| Bomber | Slow; drops large, slow, dodgeable projectiles |
+| Torpedo Ship | Slow; fires telegraphed torpedoes |
+| Support Ship | Shields/repairs nearby enemies — priority target |
+| Frigate | Encounter boss (mini) |
+| Battlecruiser | Encounter boss |
+| Dreadnought | Siege boss (one per faction) |
+
+- Enemy projectiles use the 5 projectiles from each fleet pack.
+- Enemies use their pack's destruction animation when killed.
+- Killed enemies may drop part pickups (drop rate tunable; favor parts the nearby players don't own yet).
+
+## 7. Bosses and scaling for 1–16 players
+
+### Encounter bosses (Frigate, Battlecruiser)
+
+- Normal fights, a few minutes long.
+- **Health scales with the number of players nearby** when the fight starts (and optionally as players join).
+- Reset if everyone leaves or goes down.
+
+### Siege bosses (Dreadnought)
+
+- One per faction, guarding the path to the next ring.
+- **Persistent health** stored on the server. It does not reset when players log off.
+- A solo player on a lunch break can chip off a few percent. A busy evening finishes it.
+- **Slow regeneration** (tunable) so it's not purely a grind, and concentrated group effort matters.
+- Defeating it **unlocks the next ring permanently** for everyone.
+
+## 8. World structure: the frontier
+
+- Large 2D map, camera follows the player, parallax backgrounds from the Environment pack.
+- **Home planet** at the center (Environment planet). Spawn point, loadout changes, safe zone.
+- **Three rings** around it:
+  1. Kla'ed space
+  2. Nairan space
+  3. Nautolan space
+- Each ring gets its own **tinted background** so it feels distinct (recoloring allowed).
+- Ring N+1 is inaccessible until ring N's Dreadnought is destroyed (barrier/boundary; no special art needed — e.g. a hard edge or tinted zone).
+- Asteroids (Environment pack) as obstacles/cover.
+
+### Season
+
+- When all three Dreadnoughts are destroyed, the season ends.
+- New season: reset frontier and boss health, optionally reshuffle the ring order or layout. **Keep personal part unlocks** (or reset them — decide later).
+
+## 9. Technical architecture
+
+### Overview
+
+- **Server:** Go. Authoritative for the world state: enemies, bosses, frontier, player unlocks, persistence.
+- **Client:** browser, HTML5 canvas, served by the Go server. Keep it simple (plain JS or TypeScript, no heavy framework needed).
+- **Transport:** WebSockets.
+- **Persistence:** a database for persistent state (frontier progress, Dreadnought health, player unlocks). SQLite is a good fit.
+
+### Trust model (friends only)
+
+Because all players are friends, **trust the client** for:
+- Its own movement.
+- "I got hit" detection.
+- "I hit enemy X for Y damage" reports.
+
+The server applies damage reports to enemies/bosses and broadcasts results. This avoids lag compensation complexity.
+
+### Networking
+
+- Server tick rate ~20 Hz (tunable). Broadcast snapshots of nearby entities.
+- Client-side interpolation for other players and enemies.
+- **Deterministic enemy bullet patterns:** the server sends "enemy E fires pattern P at tick T with seed S" and each client simulates the projectiles locally, instead of streaming every bullet.
+- Only send entities near each player (interest management by distance/area) if bandwidth becomes an issue.
+
+### Persistent state (at minimum)
+
+- Players: id, name, token, unlocked parts, current loadout.
+- Frontier: which rings are unlocked, current season.
+- Dreadnoughts: current health per faction, last update time (for regeneration).
+
+Enemies roaming the world do not need to be persisted; respawn them on server start.
+
+### Identity
+
+- Friends only: a player picks a name on first visit, the server issues a token stored in the browser. No passwords.
+
+## 10. Go conventions
+
+- Prefer the **standard library**; use a third-party library only when it really is a better option (e.g. a WebSocket library, since the stdlib has no WebSocket server; an SQLite driver).
+- Idiomatic Go following the Google Go Style Guide: <https://google.github.io/styleguide/go/> and the standard library's style.
+- Use one of the official module layouts: <https://go.dev/doc/modules/layout> (a server project: `cmd/` for the binary, `internal/` for packages).
+- Always handle errors. Never shadow `err`. Always wrap errors when returning them (`fmt.Errorf("...: %w", err)`).
+- Tests with real databases (e.g. a temporary SQLite file), not mocks, unless mocking is the only option.
+- Test assertion style:
+
+```go
+if got, want := err.Error(), "error creating question"; !strings.Contains(got, want) {
+	t.Errorf("err.Error() = %q, should contain %q", got, want)
+}
+```
+
+## 11. Milestones
+
+1. **Single-player sandbox:** canvas client, one ship flying with WASD + mouse aim + shooting, parallax background, nearest-neighbor rendering of Void sprites.
+2. **Multiplayer movement:** Go server with WebSockets, several browsers see each other fly and shoot.
+3. **Enemies:** Kla'ed fodder (Scout, Fighter) spawned by the server, killed by players, destruction animations.
+4. **Health, downed state, revive, respawn.**
+5. **Pickups and loadouts:** part drops, permanent unlocks, loadout change at the home planet, persistence.
+6. **Encounter boss:** Kla'ed Frigate with player-count scaling.
+7. **Siege boss:** Kla'ed Dreadnought with persistent health and regeneration; unlock ring 2.
+8. **Rings 2 and 3:** Nairan and Nautolan factions, tinted backgrounds.
+9. **Season end and reset.**
+10. **Later:** asteroid mining, escort missions, sound and music.
+
+## 12. Open questions
+
+- Exact contents of the Pickups Pack (verify the 12 pickups map to the 12 parts).
+- Stats for each weapon, engine and shield.
+- Do personal unlocks reset at season end?
+- Dreadnought health and regeneration numbers for a 1–16 player group.
+- Map size and how rings are separated.
+- Sound and music (not in the Void packs; Foozle's other packs or other CC0 sources).

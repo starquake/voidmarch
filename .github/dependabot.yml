@@ -1,0 +1,39 @@
+# Keeps Go modules, the golangci-lint pin (via /tools), npm packages and the
+# workflow actions current. See dependabot-auto-merge.yml.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+
+  - package-ecosystem: gomod
+    directory: /tools
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1; lift once it supports 7.
+      - dependency-name: typescript
+        versions: ['>= 6.1']
+    groups:
+      lint:
+        patterns: ['eslint', '@eslint/*', 'typescript-eslint']
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    groups:
+      actions:
+        patterns: ['*']

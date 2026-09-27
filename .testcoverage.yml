@@ -1,0 +1,9 @@
+# The total-coverage threshold is set in .github/workflows/ci.yml: the action's
+# threshold-total input defaults to -1 and overrides any value here.
+
+exclude:
+  packages:
+    - github.com/starquake/voidmarch/cmd/voidmarch$
+    - github.com/starquake/voidmarch/internal/testutil
+
+profile: build/coverage/coverage.out
