@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/starquake/voidmarch/internal/config"
+	"github.com/starquake/voidmarch/internal/game"
 	"github.com/starquake/voidmarch/internal/health"
 	"github.com/starquake/voidmarch/internal/players"
 )
@@ -26,4 +27,5 @@ func addRoutes(
 	mux.Handle("GET /healthz", health.HandleHealthz(logger))
 	mux.Handle("GET /version", health.HandleVersion(logger, cfg.AppEnvironment))
 	mux.Handle("POST /api/players", players.HandleRegister(logger, svc.Players))
+	mux.Handle("GET /ws", game.HandleWS(logger, svc.Hub, svc.Players, cfg.WireLog))
 }

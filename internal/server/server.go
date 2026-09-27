@@ -7,12 +7,14 @@ import (
 	"net/http"
 
 	"github.com/starquake/voidmarch/internal/config"
+	"github.com/starquake/voidmarch/internal/game"
 	"github.com/starquake/voidmarch/internal/players"
 )
 
 // Services bundles the stateful parts the handlers share.
 type Services struct {
 	Players *players.Store
+	Hub     *game.Hub
 }
 
 // New returns the server's HTTP handler. static holds the web client files.
