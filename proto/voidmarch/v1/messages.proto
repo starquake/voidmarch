@@ -1,0 +1,132 @@
+// The messages between a browser and the Voidmarch server over the WebSocket
+// at /ws. Frames are binary protobuf, or protobuf JSON in text frames when a
+// client asks for it (?wire=json); the server answers in the format it gets.
+syntax = "proto3";
+
+package voidmarch.v1;
+
+option go_package = "github.com/starquake/voidmarch/internal/gen/voidmarch/v1;voidmarchv1";
+
+// Weapons from the Void Main Ship pack.
+enum Weapon {
+  WEAPON_UNSPECIFIED = 0;
+  WEAPON_AUTO_CANNON = 1;
+  WEAPON_ROCKETS = 2;
+  WEAPON_BIG_SPACE_GUN = 3;
+  WEAPON_ZAPPER = 4;
+}
+
+// Engines from the Void Main Ship pack.
+enum Engine {
+  ENGINE_UNSPECIFIED = 0;
+  ENGINE_BASE = 1;
+  ENGINE_BIG_PULSE = 2;
+  ENGINE_BURST = 3;
+  ENGINE_SUPERCHARGED = 4;
+}
+
+// Shields from the Void Main Ship pack.
+enum Shield {
+  SHIELD_UNSPECIFIED = 0;
+  SHIELD_FRONT = 1;
+  SHIELD_FRONT_AND_SIDE = 2;
+  SHIELD_ROUND = 3;
+  SHIELD_INVINCIBILITY = 4;
+}
+
+// Loadout is the part fitted in each slot.
+message Loadout {
+  Weapon weapon = 1;
+  Engine engine = 2;
+  Shield shield = 3;
+}
+
+// ShipState is a ship as its own client simulates it; the server trusts it.
+message ShipState {
+  float x = 1;
+  float y = 2;
+  float vx = 3;
+  float vy = 4;
+  // Facing in radians; 0 is +x and y grows downward.
+  float angle = 5;
+  bool thrusting = 6;
+  Loadout loadout = 7;
+  // Hits taken: 0 is full health, 3 is downed.
+  uint32 damage = 8;
+}
+
+// Hello is the first message on a connection.
+message Hello {
+  string token = 1;
+}
+
+// ShotFired is one projectile leaving a ship; every client simulates it.
+message ShotFired {
+  // Unique per player, so a hit can end the shot everywhere.
+  uint32 id = 1;
+  Weapon weapon = 2;
+  uint32 muzzle = 3;
+  float x = 4;
+  float y = 5;
+  float angle = 6;
+}
+
+// ClientMessage is everything a browser sends.
+message ClientMessage {
+  oneof kind {
+    Hello hello = 1;
+    ShipState state = 2;
+    ShotFired shot = 3;
+  }
+}
+
+// Welcome answers Hello: who you are and where to appear.
+message Welcome {
+  string player_id = 1;
+  // The player's name colour as 0xRRGGBB.
+  uint32 colour = 2;
+  float spawn_x = 3;
+  float spawn_y = 4;
+  uint32 tick = 5;
+  uint32 tick_rate = 6;
+}
+
+// PlayerSnapshot is one other player at a tick.
+message PlayerSnapshot {
+  string player_id = 1;
+  string name = 2;
+  uint32 colour = 3;
+  ShipState state = 4;
+}
+
+// Snapshot is every other player at a server tick.
+message Snapshot {
+  uint32 tick = 1;
+  repeated PlayerSnapshot players = 2;
+}
+
+// RemoteShot is another player's shot, stamped with the server tick it arrived at.
+message RemoteShot {
+  string player_id = 1;
+  uint32 tick = 2;
+  ShotFired shot = 3;
+}
+
+// PlayerLeft says a player's ship is gone.
+message PlayerLeft {
+  string player_id = 1;
+}
+
+// Full says the frontier has no room; the server closes the connection after it.
+message Full {}
+
+// ServerMessage is everything the server sends.
+message ServerMessage {
+  oneof kind {
+    Welcome welcome = 1;
+    Snapshot snapshot = 2;
+    RemoteShot shot = 3;
+    PlayerLeft left = 4;
+    Full full = 5;
+  }
+}
