@@ -185,6 +185,7 @@ if got, want := err.Error(), "error creating question"; !strings.Contains(got, w
 1. **Single-player sandbox:** canvas client, one ship flying with WASD + mouse aim + shooting, parallax background, nearest-neighbor rendering of Void sprites.
 2. **Multiplayer movement:** Go server with WebSockets, several browsers see each other fly and shoot.
 3. **Enemies:** Kla'ed fodder (Scout, Fighter) spawned by the server, killed by players, destruction animations.
+   - **Companion ships** (§13) follow, in slices alongside milestones 2–6.
 4. **Health, downed state, revive, respawn.**
 5. **Pickups and loadouts:** part drops, permanent unlocks, loadout change at the home planet, persistence.
 6. **Encounter boss:** Kla'ed Frigate with player-count scaling.
@@ -203,3 +204,39 @@ Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney'
 - Dreadnought health and regeneration numbers for a 1–16 player group.
 - Map size and how rings are separated.
 - ~~Sound and music~~: decided in #14 (Kenney Sci-Fi Sounds, Foozle Explorer Chiptunes and Eerie Space Music, all CC0).
+
+## 13. Companions
+
+Companions are AI-flown wingmates. They make playing alone, or with one friend, feel like playing with the group, and real players replace them as they come online.
+
+- **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The owner's client simulates its companions (the trust model, §9), and on the wire they are players with an owner.
+- **How many:** up to 3 per player, and at most 4 ships per wing (players within one screen of each other), companions included.
+- **Summoning** happens at the home planet, alongside the loadout change. The owner picks each companion's loadout from their own unlocked parts.
+- **Looks:** the Main Ship sprites, tinted per owner. Orders and names are HUD text; no new art.
+
+### Joining and leaving
+
+- **A joining player chooses:** take over an online player's companion, or start as their own ship.
+  - A takeover inherits the companion's position, velocity, health and current order, but flies the joiner's own loadout. The companion disappears, and its owner sees who took it.
+  - A downed companion can't be taken over.
+- **The wing cap holds.** When a human flies into a full wing, the owner's newest companion is sent home, never one mid-revive.
+- **Dropping out mid-fight** leaves an AI in the seat, owned by the nearest friend, until the fight ends.
+
+### Difficulty
+
+- A companion counts as **half a player** for encounter-boss health (§7).
+- When a companion becomes a human mid-fight, the boss gains the missing half player of health, so a takeover never makes a fight easier.
+- A pickup a companion collects goes to its owner, only for parts the owner lacks, and only under the Collect order.
+
+### Orders
+
+Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last order. Orders go to all companions, or to one when the cursor is on it. There is no ammo or consumable in the game, so the "use it or save it" choices are about shields, health, big shots and enemy attention.
+
+| Group | Orders |
+|---|---|
+| Stance | **Escort** (default: formation on the owner), **Aggressive** (hunt within a leash), **Defensive** (stay tight, front shields toward fire, back off at 1 health), **Hold position** (under the cursor) |
+| Fire | **Weapons free**, **Return fire**, **Hold fire** (sneak past, don't pull a boss) |
+| Resources | **Spend** (volleys at will, soak hits), **Conserve** (save big shots for bosses and Support Ships, retreat to recharge) |
+| Targets | **Focus my target** (one-shot), **Support Ships first** (toggle) |
+| Team | **Revive** (one-shot), **Shield me** (one-shot), **Collect** pickups (toggle) |
+| Movement | **Regroup** (one-shot), **Go home** (one-shot) |
