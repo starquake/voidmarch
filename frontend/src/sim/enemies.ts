@@ -5,7 +5,7 @@ export type EnemyKind = (typeof ENEMY_KINDS)[number];
 /** Enemy bullets, from the Kla'ed projectiles. */
 export type EnemyBulletId = 'klaedBullet' | 'klaedBigBullet';
 
-/** Each enemy's bullet: the Scout's single, the Fighter's dual shot. */
+/** Each enemy's bullet: the Scout's small one, the Fighter's big one. */
 export const ENEMY_BULLET: Readonly<Record<EnemyKind, EnemyBulletId>> = {
   scout: 'klaedBullet',
   fighter: 'klaedBigBullet',

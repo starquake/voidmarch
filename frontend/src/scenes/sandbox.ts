@@ -399,7 +399,6 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
   /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
   private showHits(net: NetFrame): void {
     for (const hit of net.enemyHits) {
@@ -413,6 +412,7 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
   private scrollBackgrounds(time: number): void {
     const camera = this.cameras.main;
     const frame = Math.floor((time / 1000) * BACKGROUND_FPS) % BACKGROUND_FRAMES;

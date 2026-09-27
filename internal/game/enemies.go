@@ -326,6 +326,7 @@ func (h *Hub) hit(from string, hit *pb.Hit) {
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{
 		PlayerId: from,
 		ShotId:   hit.GetShotId(),
+		Tick:     h.tick,
 	}}}, from)
 
 	e.hp = damaged(e.hp, hit.GetDamage())

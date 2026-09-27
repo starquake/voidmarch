@@ -446,7 +446,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKGAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiLwoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiBgoERnVsbCL+AgoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAQgYKBGtpbmQqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCpVCglFbmVteUtpbmQSGgoWRU5FTVlfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVORU1ZX0tJTkRfU0NPVVQQARIWChJFTkVNWV9LSU5EX0ZJR0hURVIQAkJGWkRnaXRodWIuY29tL3N0YXJxdWFrZS92b2lkbWFyY2gvaW50ZXJuYWwvZ2VuL3ZvaWRtYXJjaC92MTt2b2lkbWFyY2h2MWIGcHJvdG8z");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKGAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiPQoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSIGCgRGdWxsIv4CCg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 5);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 16);
@@ -608,12 +608,16 @@ function travelled(stats, age) {
   const ramp = stats.speed * rampTime + 0.5 * stats.acceleration * rampTime * rampTime;
   return ramp + stats.maxSpeed * (age - rampTime);
 }
-function place(p) {
+function positionAt(p, age) {
   const stats = projectileStats(p.kind);
-  const lateral = stats.zigzag.amplitude * triangleWave(p.age * stats.zigzag.frequency);
-  const offset = rotateOffset(travelled(stats, p.age), lateral, p.angle);
-  p.x = p.originX + offset.x;
-  p.y = p.originY + offset.y;
+  const lateral = stats.zigzag.amplitude * triangleWave(age * stats.zigzag.frequency);
+  const offset = rotateOffset(travelled(stats, age), lateral, p.angle);
+  return { x: p.originX + offset.x, y: p.originY + offset.y };
+}
+function place(p) {
+  const { x, y } = positionAt(p, p.age);
+  p.x = x;
+  p.y = y;
 }
 var ProjectilePool = class {
   items;
@@ -658,6 +662,14 @@ var ProjectilePool = class {
     chosen.age = options.ageSeconds ?? 0;
     place(chosen);
     return chosen;
+  }
+  /** Ends every projectile of a faction: the server's are gone once offline. */
+  clear(faction) {
+    for (const p of this.items) {
+      if (p.faction === faction) {
+        p.active = false;
+      }
+    }
   }
   /** Ends a remote player's shot that hit something, and returns it. */
   end(owner, shotId) {
@@ -1346,12 +1358,12 @@ var INTERPOLATION_DELAY_TICKS = 2;
 var MAX_SAMPLES = 32;
 var StateBuffer = class {
   samples = [];
-  push(tick, ship) {
+  push(tick, state) {
     const last = this.samples.at(-1);
     if (last !== void 0 && tick <= last.tick) {
       return;
     }
-    this.samples.push({ tick, ship });
+    this.samples.push({ tick, state });
     if (this.samples.length > MAX_SAMPLES) {
       this.samples.shift();
     }
@@ -1359,7 +1371,7 @@ var StateBuffer = class {
   get empty() {
     return this.samples.length === 0;
   }
-  /** The ship at a (fractional) tick, or undefined with no samples. */
+  /** The state at a (fractional) tick, or undefined with no samples. */
   sample(tick) {
     const first = this.samples[0];
     const last = this.samples.at(-1);
@@ -1367,10 +1379,10 @@ var StateBuffer = class {
       return void 0;
     }
     if (tick <= first.tick) {
-      return first.ship;
+      return first.state;
     }
     if (tick >= last.tick) {
-      return last.ship;
+      return last.state;
     }
     let i = this.samples.length - 1;
     while (i > 0 && (this.samples[i - 1]?.tick ?? 0) > tick) {
@@ -1379,14 +1391,14 @@ var StateBuffer = class {
     const a = this.samples[i - 1];
     const b = this.samples[i];
     if (a === void 0 || b === void 0) {
-      return last.ship;
+      return last.state;
     }
     const t = (tick - a.tick) / (b.tick - a.tick);
     return {
-      ...a.ship,
-      x: a.ship.x + (b.ship.x - a.ship.x) * t,
-      y: a.ship.y + (b.ship.y - a.ship.y) * t,
-      angle: wrapAngle(a.ship.angle + wrapAngle(b.ship.angle - a.ship.angle) * t)
+      ...a.state,
+      x: a.state.x + (b.state.x - a.state.x) * t,
+      y: a.state.y + (b.state.y - a.state.y) * t,
+      angle: wrapAngle(a.state.angle + wrapAngle(b.state.angle - a.state.angle) * t)
     };
   }
 };
@@ -1426,8 +1438,20 @@ var ENEMY_RADIUS = {
 };
 
 // src/sim/hits.ts
-function hitTarget(x, y, targets) {
-  return targets.find((t) => Math.hypot(t.x - x, t.y - y) <= t.radius + SHOT_RADIUS);
+function hitTargetAlong(x0, y0, x1, y1, targets) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const lengthSquared = dx * dx + dy * dy;
+  let first;
+  let firstAlong = Infinity;
+  for (const t of targets) {
+    const along = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((t.x - x0) * dx + (t.y - y0) * dy) / lengthSquared));
+    if (Math.hypot(t.x - (x0 + along * dx), t.y - (y0 + along * dy)) <= t.radius + SHOT_RADIUS && along < firstAlong) {
+      first = t;
+      firstAlong = along;
+    }
+  }
+  return first;
 }
 
 // src/sim/patterns.ts
@@ -1583,6 +1607,10 @@ var NetPlay = class {
   remotes = /* @__PURE__ */ new Map();
   enemies = /* @__PURE__ */ new Map();
   enemyVolleys = new TimedQueue(20);
+  destructions = new TimedQueue(20);
+  shotEnds = new TimedQueue(20);
+  latestSnapshot = 0;
+  tickRate = 20;
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed = 0;
   hitsTaken = 0;
@@ -1633,15 +1661,18 @@ var NetPlay = class {
             enemy.view.destroy(false);
             this.enemies.delete(id);
           }
+          this.resetTimeline(this.tickRate);
+          options.sim.projectiles.clear("remote");
+          options.sim.projectiles.clear("enemy");
         },
         enemyFired: (fired) => {
           this.enemyFired(fired);
         },
         enemyDestroyed: (destroyed) => {
-          this.enemyDestroyed(destroyed);
+          this.destructions.add(destroyed.tick, destroyed);
         },
         shotEnded: (ended) => {
-          options.sim.projectiles.end(ended.playerId, ended.shotId);
+          this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
         }
       }
     });
@@ -1717,8 +1748,11 @@ var NetPlay = class {
         shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
       }
     }
+    for (const { item: ended } of this.shotEnds.due(renderTick)) {
+      this.options.sim.projectiles.end(ended.owner, ended.shotId);
+    }
     this.drawEnemies(renderTick);
-    this.testHits(frame);
+    this.testHits(frame, events.ticks * TICK_SECONDS);
     return frame;
   }
   drawEnemies(renderTick) {
@@ -1735,13 +1769,23 @@ var NetPlay = class {
       this.enemies.get(volley.enemyId)?.view.fired();
       this.options.audio.enemyShot();
     }
+    for (const { item: destroyed } of this.destructions.due(renderTick)) {
+      this.destroyEnemy(destroyed);
+    }
+    for (const [id, enemy] of this.enemies) {
+      if (enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
+        enemy.view.destroy(false);
+        this.enemies.delete(id);
+      }
+    }
   }
   /**
    * Own shots against enemies as drawn, reported to the server (the design's
    * trust model); enemy bullets against the local ship, which only flash it
-   * until health exists (#5).
+   * until health exists (#5). Each projectile is tested along the path it
+   * flew during the frame's stepSeconds, so low frame rates don't skip hits.
    */
-  testHits(frame) {
+  testHits(frame, stepSeconds) {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
       id,
       x: e.view.x,
@@ -1749,19 +1793,21 @@ var NetPlay = class {
       radius: ENEMY_RADIUS[e.view.kind]
     }));
     const ship = this.options.sim.ship;
+    const me = [{ id: "me", x: ship.x, y: ship.y, radius: SHIP_RADIUS }];
     for (const p of this.options.sim.projectiles.items) {
-      if (!p.active) {
+      if (!p.active || p.faction === "remote") {
         continue;
       }
+      const from = positionAt(p, Math.max(0, p.age - stepSeconds));
       if (p.faction === "own" && isWeapon(p.kind)) {
-        const target = hitTarget(p.x, p.y, targets);
+        const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
         if (target !== void 0) {
           p.active = false;
           this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
-      } else if (p.faction === "enemy" && Math.hypot(p.x - ship.x, p.y - ship.y) <= SHIP_RADIUS + SHOT_RADIUS) {
+      } else if (p.faction === "enemy" && hitTargetAlong(from.x, from.y, p.x, p.y, me) !== void 0) {
         p.active = false;
         this.hitsTaken++;
         frame.hitsOnMe.push({ x: p.x, y: p.y });
@@ -1775,7 +1821,7 @@ var NetPlay = class {
       bullets: enemyPattern(kind, fired.x, fired.y, fired.angle, fired.seed)
     });
   }
-  enemyDestroyed(destroyed) {
+  destroyEnemy(destroyed) {
     const enemy = this.enemies.get(destroyed.enemyId);
     if (enemy === void 0) {
       return;
@@ -1791,8 +1837,8 @@ var NetPlay = class {
     this.status = "online";
     this.playerId = welcome.playerId;
     this.clock = new ServerClock(welcome.tickRate);
-    this.shots = new TimedQueue(welcome.tickRate);
-    this.enemyVolleys = new TimedQueue(welcome.tickRate);
+    this.tickRate = welcome.tickRate;
+    this.resetTimeline(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
     if (!this.spawned) {
       this.spawned = true;
@@ -1803,8 +1849,16 @@ var NetPlay = class {
       ship.vy = 0;
     }
   }
+  /** Drops everything waiting for the delayed timeline. */
+  resetTimeline(tickRate) {
+    this.shots = new TimedQueue(tickRate);
+    this.enemyVolleys = new TimedQueue(tickRate);
+    this.destructions = new TimedQueue(tickRate);
+    this.shotEnds = new TimedQueue(tickRate);
+  }
   snapshot(snapshot) {
     this.clock.observe(snapshot.tick, now());
+    this.latestSnapshot = snapshot.tick;
     for (const player of snapshot.players) {
       if (player.state === void 0) {
         continue;
@@ -1812,24 +1866,18 @@ var NetPlay = class {
       const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
-    const present = /* @__PURE__ */ new Set();
     for (const state of snapshot.enemies) {
-      present.add(state.enemyId);
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === void 0) {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
-          buffer: new StateBuffer()
+          buffer: new StateBuffer(),
+          lastSeen: snapshot.tick
         };
         this.enemies.set(state.enemyId, enemy);
       }
+      enemy.lastSeen = snapshot.tick;
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
-    }
-    for (const [id, enemy] of this.enemies) {
-      if (!present.has(id)) {
-        enemy.view.destroy(false);
-        this.enemies.delete(id);
-      }
     }
   }
   add(id, name, colour) {
@@ -2187,7 +2235,6 @@ var SandboxScene = class extends Phaser5.Scene {
       this.puff.explode(4, p.x, p.y);
     }
   }
-  /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
   /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
   showHits(net) {
     for (const hit of net.enemyHits) {
@@ -2200,6 +2247,7 @@ var SandboxScene = class extends Phaser5.Scene {
       this.ship.flash(this);
     }
   }
+  /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
   scrollBackgrounds(time) {
     const camera = this.cameras.main;
     const frame = Math.floor(time / 1e3 * BACKGROUND_FPS) % BACKGROUND_FRAMES;

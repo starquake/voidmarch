@@ -472,7 +472,8 @@ export declare type EnemyDestroyed = Message<"voidmarch.v1.EnemyDestroyed"> & {
 export declare const EnemyDestroyedSchema: GenMessage<EnemyDestroyed>;
 
 /**
- * ShotEnded removes a player's shot everywhere once it hit something.
+ * ShotEnded removes a player's shot everywhere once it hit something, at the
+ * server tick the hit arrived, so clients end it on their delayed timeline.
  *
  * @generated from message voidmarch.v1.ShotEnded
  */
@@ -486,6 +487,11 @@ export declare type ShotEnded = Message<"voidmarch.v1.ShotEnded"> & {
    * @generated from field: uint32 shot_id = 2;
    */
   shotId: number;
+
+  /**
+   * @generated from field: uint32 tick = 3;
+   */
+  tick: number;
 };
 
 /**

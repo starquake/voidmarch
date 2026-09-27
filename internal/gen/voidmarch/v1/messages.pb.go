@@ -1188,11 +1188,13 @@ func (x *EnemyDestroyed) GetY() float32 {
 	return 0
 }
 
-// ShotEnded removes a player's shot everywhere once it hit something.
+// ShotEnded removes a player's shot everywhere once it hit something, at the
+// server tick the hit arrived, so clients end it on their delayed timeline.
 type ShotEnded struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	PlayerId      string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
 	ShotId        uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
+	Tick          uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1237,6 +1239,13 @@ func (x *ShotEnded) GetPlayerId() string {
 func (x *ShotEnded) GetShotId() uint32 {
 	if x != nil {
 		return x.ShotId
+	}
+	return 0
+}
+
+func (x *ShotEnded) GetTick() uint32 {
+	if x != nil {
+		return x.Tick
 	}
 	return 0
 }
@@ -1639,10 +1648,11 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"byPlayerId\x12\x12\n" +
 	"\x04tick\x18\x04 \x01(\rR\x04tick\x12\f\n" +
 	"\x01x\x18\x05 \x01(\x02R\x01x\x12\f\n" +
-	"\x01y\x18\x06 \x01(\x02R\x01y\"A\n" +
+	"\x01y\x18\x06 \x01(\x02R\x01y\"U\n" +
 	"\tShotEnded\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x17\n" +
-	"\ashot_id\x18\x02 \x01(\rR\x06shotId\"j\n" +
+	"\ashot_id\x18\x02 \x01(\rR\x06shotId\x12\x12\n" +
+	"\x04tick\x18\x03 \x01(\rR\x04tick\"j\n" +
 	"\n" +
 	"RemoteShot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +

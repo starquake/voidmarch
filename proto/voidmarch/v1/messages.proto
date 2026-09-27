@@ -154,10 +154,12 @@ message EnemyDestroyed {
   float y = 6;
 }
 
-// ShotEnded removes a player's shot everywhere once it hit something.
+// ShotEnded removes a player's shot everywhere once it hit something, at the
+// server tick the hit arrived, so clients end it on their delayed timeline.
 message ShotEnded {
   string player_id = 1;
   uint32 shot_id = 2;
+  uint32 tick = 3;
 }
 
 // RemoteShot is another player's shot, stamped with the server tick it arrived at.

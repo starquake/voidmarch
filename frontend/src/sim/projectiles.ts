@@ -64,15 +64,22 @@ export function travelled(stats: ProjectileStats, age: number): number {
 }
 
 /**
- * Places p at its age. Position is a pure function of the spawn and the age,
- * so every client can simulate the same projectile from the same spawn.
+ * Where p is at the given age. Position is a pure function of the spawn and
+ * the age, so every client can simulate the same projectile from the same spawn.
  */
-export function place(p: Projectile): void {
+export function positionAt(p: Projectile, age: number): { x: number; y: number } {
   const stats = projectileStats(p.kind);
-  const lateral = stats.zigzag.amplitude * triangleWave(p.age * stats.zigzag.frequency);
-  const offset = rotateOffset(travelled(stats, p.age), lateral, p.angle);
-  p.x = p.originX + offset.x;
-  p.y = p.originY + offset.y;
+  const lateral = stats.zigzag.amplitude * triangleWave(age * stats.zigzag.frequency);
+  const offset = rotateOffset(travelled(stats, age), lateral, p.angle);
+
+  return { x: p.originX + offset.x, y: p.originY + offset.y };
+}
+
+/** Places p at its age. */
+export function place(p: Projectile): void {
+  const { x, y } = positionAt(p, p.age);
+  p.x = x;
+  p.y = y;
 }
 
 /** A fixed-size pool, so firing never allocates. When full, the oldest shot is reused. */
@@ -124,6 +131,15 @@ export class ProjectilePool {
     place(chosen);
 
     return chosen;
+  }
+
+  /** Ends every projectile of a faction: the server's are gone once offline. */
+  clear(faction: Faction): void {
+    for (const p of this.items) {
+      if (p.faction === faction) {
+        p.active = false;
+      }
+    }
   }
 
   /** Ends a remote player's shot that hit something, and returns it. */

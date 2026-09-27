@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ProjectilePool, isWeapon, place, projectileStats, travelled, type Projectile } from './projectiles.ts';
+import { ProjectilePool, isWeapon, place, positionAt, projectileStats, travelled, type Projectile } from './projectiles.ts';
 import { ENEMY_BULLET_STATS, TICK_SECONDS, WEAPON_STATS } from './tuning.ts';
 
 const always = (): boolean => true;
@@ -103,6 +103,26 @@ test('own shots get increasing ids; remote shots keep theirs', () => {
 
   const remote = pool.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 }, { faction: 'remote', owner: 'mo', shotId: 77 });
   assert.deepEqual([remote.faction, remote.owner, remote.shotId], ['remote', 'mo', 77]);
+});
+
+test('positionAt gives earlier points on the same path', () => {
+  const pool = new ProjectilePool(1);
+  const p = pool.spawn({ kind: 'autoCannon', x: 5, y: 7, angle: 0.5 }, { ageSeconds: 0.4 });
+  assert.deepEqual(positionAt(p, p.age), { x: p.x, y: p.y });
+  assert.deepEqual(positionAt(p, 0), { x: 5, y: 7 });
+});
+
+test('clear ends one faction and keeps the rest', () => {
+  const pool = new ProjectilePool(4);
+  pool.spawn({ kind: 'klaedBullet', x: 0, y: 0, angle: 0 }, { faction: 'enemy', owner: '3' });
+  pool.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 }, { faction: 'remote', owner: 'mo', shotId: 1 });
+  pool.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 });
+  pool.clear('enemy');
+  pool.clear('remote');
+  assert.deepEqual(
+    pool.items.filter((p) => p.active).map((p) => p.faction),
+    ['own'],
+  );
 });
 
 test('a remote shot can be ended by owner and id', () => {
