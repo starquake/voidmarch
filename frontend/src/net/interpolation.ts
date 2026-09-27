@@ -1,24 +1,30 @@
 import { wrapAngle } from '../sim/math.ts';
-import type { RemoteShip } from './mapping.ts';
 
 /** Remote ships are drawn this many ticks in the past, between two snapshots. */
 export const INTERPOLATION_DELAY_TICKS = 2;
 
 const MAX_SAMPLES = 32;
 
-interface Sample {
+/** Anything drawn at a position and facing. */
+export interface Pose {
+  x: number;
+  y: number;
+  angle: number;
+}
+
+interface Sample<T extends Pose> {
   tick: number;
-  ship: RemoteShip;
+  ship: T;
 }
 
 /**
  * A remote player's recent states. Sampled between the two that surround a
  * tick; before the first or after the last it holds, never guessing ahead.
  */
-export class StateBuffer {
-  private readonly samples: Sample[] = [];
+export class StateBuffer<T extends Pose> {
+  private readonly samples: Sample<T>[] = [];
 
-  push(tick: number, ship: RemoteShip): void {
+  push(tick: number, ship: T): void {
     const last = this.samples.at(-1);
     if (last !== undefined && tick <= last.tick) {
       return;
@@ -34,7 +40,7 @@ export class StateBuffer {
   }
 
   /** The ship at a (fractional) tick, or undefined with no samples. */
-  sample(tick: number): RemoteShip | undefined {
+  sample(tick: number): T | undefined {
     const first = this.samples[0];
     const last = this.samples.at(-1);
     if (first === undefined || last === undefined) {

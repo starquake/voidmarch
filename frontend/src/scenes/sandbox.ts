@@ -21,7 +21,7 @@ import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { ShipAudio } from './audio.ts';
-import { NetPlay } from './netplay.ts';
+import { NetPlay, type NetFrame } from './netplay.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 
 /** How far each background layer moves relative to the camera. */
@@ -30,6 +30,8 @@ const BACKGROUND_FPS = 6;
 const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
 const HUD_REFRESH_MS = 250;
+/** Particles in a hit's spark. */
+const HIT_SPARKS = 5;
 /** HUD text size and margin in CSS pixels; scaled to device pixels on resize. */
 const HUD_FONT_PX = 12;
 const HUD_MARGIN_PX = 8;
@@ -106,14 +108,20 @@ export class SandboxScene extends Phaser.Scene {
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
       net: { status: 'offline', playerId: undefined, others: [] },
+      enemies: [],
+      enemiesDestroyed: 0,
+      hitsTaken: 0,
     };
     this.publish();
   }
 
   override update(time: number, deltaMs: number): void {
     const events = this.sim.advance(deltaMs / 1000, this.readInput());
-    this.net?.update(events);
+    const net = this.net?.update(events);
     this.drawShip(events);
+    if (net !== undefined) {
+      this.showHits(net);
+    }
     this.drawProjectiles();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
@@ -392,6 +400,19 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
+  /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
+  private showHits(net: NetFrame): void {
+    for (const hit of net.enemyHits) {
+      this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    for (const hit of net.hitsOnMe) {
+      this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    if (net.hitsOnMe.length > 0) {
+      this.ship.flash(this);
+    }
+  }
+
   private scrollBackgrounds(time: number): void {
     const camera = this.cameras.main;
     const frame = Math.floor((time / 1000) * BACKGROUND_FPS) % BACKGROUND_FRAMES;
@@ -459,6 +480,9 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.net.status = this.net?.status ?? 'offline';
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
+    this.debug.enemies = this.net?.enemyList ?? [];
+    this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
+    this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
     publishDebugState(this.debug);
   }
 }

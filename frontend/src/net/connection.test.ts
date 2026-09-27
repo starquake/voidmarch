@@ -93,6 +93,9 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     full: () => log.events.push('full'),
     unknownToken: () => log.events.push('unknown token'),
     disconnected: () => log.events.push('disconnected'),
+    enemyFired: (f) => log.events.push(`enemy fired ${f.enemyId}`),
+    enemyDestroyed: (d) => log.events.push(`enemy destroyed ${d.enemyId}`),
+    shotEnded: (e) => log.events.push(`shot ended ${e.playerId}:${e.shotId}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -148,7 +151,18 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'snapshot', value: { tick: 7 } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'shot', value: { playerId: 'mo' } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'left', value: { playerId: 'mo' } } }));
-  assert.deepEqual(log.events, ['welcome me', 'snapshot 7', 'shot mo', 'left mo']);
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'enemyFired', value: { enemyId: 3 } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'enemyDestroyed', value: { enemyId: 3 } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'shotEnded', value: { playerId: 'mo', shotId: 9 } } }));
+  assert.deepEqual(log.events, [
+    'welcome me',
+    'snapshot 7',
+    'shot mo',
+    'left mo',
+    'enemy fired 3',
+    'enemy destroyed 3',
+    'shot ended mo:9',
+  ]);
   assert.equal(conn.connected, true);
 });
 
@@ -239,4 +253,21 @@ test('stop closes the socket and does not reconnect', () => {
   socket.drop(1000);
   assert.equal(timers.pending.length, 0);
   assert.equal(conn.connected, false);
+});
+
+test('hits are reported once welcomed', () => {
+  const { conn, socket } = welcomed();
+  conn.sendHit(3, 9, 4);
+  const hits = socket.messages().flatMap((m) => (m.kind.case === 'hit' ? [m.kind.value] : []));
+  assert.deepEqual(
+    hits.map((h) => [h.enemyId, h.shotId, h.damage]),
+    [[3, 9, 4]],
+  );
+});
+
+test('hits before the welcome are not sent', () => {
+  const { conn, sockets } = setup();
+  conn.start();
+  conn.sendHit(3, 9, 4);
+  assert.deepEqual(sockets[0]?.sent, []);
 });

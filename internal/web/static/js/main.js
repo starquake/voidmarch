@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser5 from "./vendor/phaser.js";
+import Phaser6 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -103,6 +103,8 @@ var ENGINE_LOOPS = {
   supercharged: "sfx-engine-supercharged"
 };
 var SHIELD_SOUND = "sfx-shield";
+var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
+var ENEMY_SHOT_SOUND = "sfx-auto-cannon-1";
 var PART_SWITCH_SOUND = "sfx-part-switch";
 var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
 function effectFiles() {
@@ -114,6 +116,7 @@ function effectFiles() {
     both("sfx-rocket-blast", "sfx/rocket-blast"),
     both("sfx-big-blast", "sfx/big-blast"),
     both("sfx-charge", "sfx/charge"),
+    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
     both("sfx-engine-base", "sfx/engine-base"),
@@ -234,6 +237,10 @@ var ENEMY_BULLET_STATS = {
   klaedBullet: { speed: 110, acceleration: 0, maxSpeed: 110, lifetime: 3.2, zigzag: STRAIGHT },
   klaedBigBullet: { speed: 130, acceleration: 0, maxSpeed: 130, lifetime: 3, zigzag: STRAIGHT }
 };
+var ENEMY_AIM_JITTER = 0.08;
+var ENEMY_MUZZLE = 14;
+var SHIP_RADIUS = 12;
+var SHOT_RADIUS = 3;
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -427,7 +434,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser4 from "./vendor/phaser.js";
+import Phaser5 from "./vendor/phaser.js";
 
 // src/debug.ts
 function publishDebugState(state) {
@@ -449,6 +456,8 @@ var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
 var Engine = /* @__PURE__ */ tsEnum(EngineSchema);
 var ShieldSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 2);
 var Shield = /* @__PURE__ */ tsEnum(ShieldSchema);
+var EnemyKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 3);
+var EnemyKind = /* @__PURE__ */ tsEnum(EnemyKindSchema);
 
 // src/net/codec.ts
 function wireFormatFrom(search) {
@@ -955,6 +964,8 @@ function shotDetune(random) {
 // src/scenes/audio.ts
 var SHOT_VOLUME = 0.35;
 var REMOTE_SHOT_VOLUME = 0.5;
+var ENEMY_SHOT_VOLUME = 0.15;
+var ENEMY_SHOT_DETUNE = -600;
 var CHARGE_VOLUME = 0.3;
 var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
@@ -1039,6 +1050,13 @@ var ShipAudio = class {
     if (key !== void 0) {
       this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
+  }
+  /** An enemy's shot: the auto cannon, lower and quieter. */
+  enemyShot() {
+    this.scene.sound.play(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
+  }
+  enemyDestroyed() {
+    this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
   }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
@@ -1141,6 +1159,7 @@ var WEAPON_IDS = reverse(WEAPONS2);
 var ENGINE_IDS = reverse(ENGINES2);
 var SHIELD_IDS = reverse(SHIELDS2);
 var toWeapon = (id) => WEAPONS2[id];
+var fromEnemyKind = (kind) => kind === EnemyKind.FIGHTER ? "fighter" : "scout";
 var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
 function toShipState(ship) {
   return create(ShipStateSchema, {
@@ -1239,6 +1258,13 @@ var Connection = class {
       })
     );
   }
+  /** Reports that one of our shots hit an enemy; the server trusts it. */
+  sendHit(enemyId, shotId, damage) {
+    if (!this.welcomed) {
+      return;
+    }
+    this.send(create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage } } }));
+  }
   open() {
     const socket = this.makeSocket(this.options.url);
     socket.binaryType = "arraybuffer";
@@ -1276,6 +1302,15 @@ var Connection = class {
         break;
       case "full":
         events.full();
+        break;
+      case "enemyFired":
+        events.enemyFired(message.kind.value);
+        break;
+      case "enemyDestroyed":
+        events.enemyDestroyed(message.kind.value);
+        break;
+      case "shotEnded":
+        events.shotEnded(message.kind.value);
         break;
       default:
     }
@@ -1380,9 +1415,36 @@ var TimedQueue = class {
   }
 };
 
+// src/sim/enemies.ts
+var ENEMY_BULLET = {
+  scout: "klaedBullet",
+  fighter: "klaedBigBullet"
+};
+var ENEMY_RADIUS = {
+  scout: 11,
+  fighter: 12
+};
+
+// src/sim/hits.ts
+function hitTarget(x, y, targets) {
+  return targets.find((t) => Math.hypot(t.x - x, t.y - y) <= t.radius + SHOT_RADIUS);
+}
+
+// src/sim/patterns.ts
+function enemyPattern(kind, x, y, angle, seed) {
+  const random = seededRandom(seed);
+  const aim = angle + (random() * 2 - 1) * ENEMY_AIM_JITTER;
+  const muzzle = rotateOffset(ENEMY_MUZZLE, 0, aim);
+  return [{ kind: ENEMY_BULLET[kind], x: x + muzzle.x, y: y + muzzle.y, angle: aim }];
+}
+
+// src/scenes/enemyview.ts
+import Phaser4 from "./vendor/phaser.js";
+
 // src/scenes/shipview.ts
-import "./vendor/phaser.js";
+import Phaser3 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
+var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
 var ShipView = class {
   root;
@@ -1443,9 +1505,71 @@ var ShipView = class {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
   }
+  /** A short white flash of the hull where an enemy bullet hit. */
+  flash(scene) {
+    this.hull.setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
+    scene.time.delayedCall(HIT_FLASH_MS, () => {
+      this.hull.clearTint().setTintMode(Phaser3.TintModes.MULTIPLY);
+    });
+  }
   destroy() {
     this.root.destroy();
     this.label?.destroy();
+  }
+};
+
+// src/scenes/enemyview.ts
+var FLASH_MS = 70;
+var EnemyView = class {
+  kind;
+  root;
+  base;
+  weapon;
+  scene;
+  constructor(scene, parent, kind) {
+    this.scene = scene;
+    this.kind = kind;
+    const engine = scene.add.sprite(0, 0, keys.enemyEngine(kind)).play(keys.enemyEngine(kind));
+    this.base = scene.add.image(0, 0, keys.enemyBase(kind));
+    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(kind), 0);
+    this.weapon.on(Phaser4.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.weapon.setFrame(0);
+    });
+    this.root = scene.add.container(0, 0, [engine, this.base, this.weapon]);
+    parent.add(this.root);
+  }
+  get x() {
+    return this.root.x;
+  }
+  get y() {
+    return this.root.y;
+  }
+  place(x, y, angle) {
+    this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
+  }
+  fired() {
+    this.weapon.play(keys.enemyWeapons(this.kind));
+  }
+  /** A short white flash where a shot landed. */
+  flash() {
+    this.base.setTint(16777215).setTintMode(Phaser4.TintModes.FILL);
+    this.scene.time.delayedCall(FLASH_MS, () => {
+      this.base.clearTint().setTintMode(Phaser4.TintModes.MULTIPLY);
+    });
+  }
+  /** Plays the pack's destruction animation in place of the ship, then goes. */
+  destroy(explode) {
+    if (!explode) {
+      this.root.destroy();
+      return;
+    }
+    const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.kind)).setRotation(this.root.rotation);
+    this.root.parentContainer.add(boom);
+    this.root.destroy();
+    boom.once(Phaser4.Animations.Events.ANIMATION_COMPLETE, () => {
+      boom.destroy();
+    });
+    boom.play(keys.enemyDestruction(this.kind));
   }
 };
 
@@ -1457,6 +1581,11 @@ var NetPlay = class {
   options;
   connection;
   remotes = /* @__PURE__ */ new Map();
+  enemies = /* @__PURE__ */ new Map();
+  enemyVolleys = new TimedQueue(20);
+  /** Enemies this player shot down, and enemy bullets that hit this ship. */
+  enemiesDestroyed = 0;
+  hitsTaken = 0;
   clock = new ServerClock(20);
   shots = new TimedQueue(20);
   spawned = false;
@@ -1500,6 +1629,19 @@ var NetPlay = class {
           for (const id of [...this.remotes.keys()]) {
             this.remove(id);
           }
+          for (const [id, enemy] of this.enemies) {
+            enemy.view.destroy(false);
+            this.enemies.delete(id);
+          }
+        },
+        enemyFired: (fired) => {
+          this.enemyFired(fired);
+        },
+        enemyDestroyed: (destroyed) => {
+          this.enemyDestroyed(destroyed);
+        },
+        shotEnded: (ended) => {
+          options.sim.projectiles.end(ended.playerId, ended.shotId);
         }
       }
     });
@@ -1520,8 +1662,16 @@ var NetPlay = class {
       y: r.view.root.y
     }));
   }
-  /** Once a frame: send the local ship, draw the others, spawn their shots. */
+  /** Enemies as drawn, for the E2E tests. */
+  get enemyList() {
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
+  }
+  /**
+   * Once a frame: send the local ship, draw the others and the enemies, spawn
+   * their shots, and test hits. Returns where hits landed.
+   */
   update(events) {
+    const frame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
     this.connection.sendState(this.options.sim.ship, nowMs);
     for (const shot of events.shots) {
@@ -1529,7 +1679,7 @@ var NetPlay = class {
     }
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === void 0) {
-      return;
+      return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     const seconds = nowMs / 1e3;
@@ -1567,12 +1717,82 @@ var NetPlay = class {
         shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
       }
     }
+    this.drawEnemies(renderTick);
+    this.testHits(frame);
+    return frame;
+  }
+  drawEnemies(renderTick) {
+    for (const enemy of this.enemies.values()) {
+      const pose = enemy.buffer.sample(renderTick);
+      if (pose !== void 0) {
+        enemy.view.place(pose.x, pose.y, pose.angle);
+      }
+    }
+    for (const { item: volley, ageSeconds } of this.enemyVolleys.due(renderTick)) {
+      for (const bullet of volley.bullets) {
+        this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
+      }
+      this.enemies.get(volley.enemyId)?.view.fired();
+      this.options.audio.enemyShot();
+    }
+  }
+  /**
+   * Own shots against enemies as drawn, reported to the server (the design's
+   * trust model); enemy bullets against the local ship, which only flash it
+   * until health exists (#5).
+   */
+  testHits(frame) {
+    const targets = [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      x: e.view.x,
+      y: e.view.y,
+      radius: ENEMY_RADIUS[e.view.kind]
+    }));
+    const ship = this.options.sim.ship;
+    for (const p of this.options.sim.projectiles.items) {
+      if (!p.active) {
+        continue;
+      }
+      if (p.faction === "own" && isWeapon(p.kind)) {
+        const target = hitTarget(p.x, p.y, targets);
+        if (target !== void 0) {
+          p.active = false;
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+          this.enemies.get(target.id)?.view.flash();
+          frame.enemyHits.push({ x: p.x, y: p.y });
+        }
+      } else if (p.faction === "enemy" && Math.hypot(p.x - ship.x, p.y - ship.y) <= SHIP_RADIUS + SHOT_RADIUS) {
+        p.active = false;
+        this.hitsTaken++;
+        frame.hitsOnMe.push({ x: p.x, y: p.y });
+      }
+    }
+  }
+  enemyFired(fired) {
+    const kind = fromEnemyKind(fired.kind);
+    this.enemyVolleys.add(fired.tick, {
+      enemyId: fired.enemyId,
+      bullets: enemyPattern(kind, fired.x, fired.y, fired.angle, fired.seed)
+    });
+  }
+  enemyDestroyed(destroyed) {
+    const enemy = this.enemies.get(destroyed.enemyId);
+    if (enemy === void 0) {
+      return;
+    }
+    this.enemies.delete(destroyed.enemyId);
+    enemy.view.destroy(true);
+    this.options.audio.enemyDestroyed();
+    if (destroyed.byPlayerId === this.playerId) {
+      this.enemiesDestroyed++;
+    }
   }
   welcome(welcome) {
     this.status = "online";
     this.playerId = welcome.playerId;
     this.clock = new ServerClock(welcome.tickRate);
     this.shots = new TimedQueue(welcome.tickRate);
+    this.enemyVolleys = new TimedQueue(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
     if (!this.spawned) {
       this.spawned = true;
@@ -1591,6 +1811,25 @@ var NetPlay = class {
       }
       const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
+    }
+    const present = /* @__PURE__ */ new Set();
+    for (const state of snapshot.enemies) {
+      present.add(state.enemyId);
+      let enemy = this.enemies.get(state.enemyId);
+      if (enemy === void 0) {
+        enemy = {
+          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
+          buffer: new StateBuffer()
+        };
+        this.enemies.set(state.enemyId, enemy);
+      }
+      enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
+    }
+    for (const [id, enemy] of this.enemies) {
+      if (!present.has(id)) {
+        enemy.view.destroy(false);
+        this.enemies.delete(id);
+      }
     }
   }
   add(id, name, colour) {
@@ -1620,9 +1859,10 @@ var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var HUD_REFRESH_MS = 250;
+var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
-var SandboxScene = class extends Phaser4.Scene {
+var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
   backgrounds = [];
@@ -1665,7 +1905,7 @@ var SandboxScene = class extends Phaser4.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser4.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser5.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -1684,14 +1924,20 @@ var SandboxScene = class extends Phaser4.Scene {
       fps: 0,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
-      net: { status: "offline", playerId: void 0, others: [] }
+      net: { status: "offline", playerId: void 0, others: [] },
+      enemies: [],
+      enemiesDestroyed: 0,
+      hitsTaken: 0
     };
     this.publish();
   }
   update(time, deltaMs) {
     const events = this.sim.advance(deltaMs / 1e3, this.readInput());
-    this.net?.update(events);
+    const net = this.net?.update(events);
     this.drawShip(events);
+    if (net !== void 0) {
+      this.showHits(net);
+    }
     this.drawProjectiles();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
@@ -1737,7 +1983,7 @@ var SandboxScene = class extends Phaser4.Scene {
       }
     });
     this.net.start();
-    this.events.once(Phaser4.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => this.net?.stop());
   }
   createProjectiles() {
     this.projectileSprites = this.sim.projectiles.items.map(() => {
@@ -1753,7 +1999,7 @@ var SandboxScene = class extends Phaser4.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser4.BlendModes.ADD,
+      blendMode: Phaser5.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -1762,7 +2008,7 @@ var SandboxScene = class extends Phaser4.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser4.BlendModes.ADD,
+      blendMode: Phaser5.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -1772,7 +2018,7 @@ var SandboxScene = class extends Phaser4.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser4.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
+    this.bloom = Phaser5.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -1784,7 +2030,7 @@ var SandboxScene = class extends Phaser4.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser4.Input.Keyboard.KeyCodes;
+    const codes = Phaser5.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -1798,7 +2044,7 @@ var SandboxScene = class extends Phaser4.Scene {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    this.events.once(Phaser4.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
     });
   }
@@ -1942,6 +2188,18 @@ var SandboxScene = class extends Phaser4.Scene {
     }
   }
   /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
+  /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
+  showHits(net) {
+    for (const hit of net.enemyHits) {
+      this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    for (const hit of net.hitsOnMe) {
+      this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    if (net.hitsOnMe.length > 0) {
+      this.ship.flash(this);
+    }
+  }
   scrollBackgrounds(time) {
     const camera = this.cameras.main;
     const frame = Math.floor(time / 1e3 * BACKGROUND_FPS) % BACKGROUND_FRAMES;
@@ -2005,6 +2263,9 @@ var SandboxScene = class extends Phaser4.Scene {
     this.debug.net.status = this.net?.status ?? "offline";
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
+    this.debug.enemies = this.net?.enemyList ?? [];
+    this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
+    this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
     publishDebugState(this.debug);
   }
 };
@@ -2019,8 +2280,8 @@ async function start() {
     }
   }
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser5.Game({
-    type: Phaser5.AUTO,
+  const game = new Phaser6.Game({
+    type: Phaser6.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -2029,7 +2290,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser5.Scale.NONE,
+      mode: Phaser6.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

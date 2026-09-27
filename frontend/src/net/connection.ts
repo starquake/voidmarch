@@ -2,7 +2,10 @@ import { create } from '@bufbuild/protobuf';
 
 import {
   ClientMessageSchema,
+  type EnemyDestroyed,
+  type EnemyFired,
   type RemoteShot,
+  type ShotEnded,
   type Snapshot,
   type Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
@@ -41,6 +44,10 @@ export interface ConnectionEvents {
   unknownToken(): void;
   /** The link dropped; the connection is retrying. */
   disconnected(): void;
+  enemyFired(fired: EnemyFired): void;
+  enemyDestroyed(destroyed: EnemyDestroyed): void;
+  /** Another player's shot hit something; remove it. */
+  shotEnded(ended: ShotEnded): void;
 }
 
 export interface Timers {
@@ -129,6 +136,14 @@ export class Connection {
     );
   }
 
+  /** Reports that one of our shots hit an enemy; the server trusts it. */
+  sendHit(enemyId: number, shotId: number, damage: number): void {
+    if (!this.welcomed) {
+      return;
+    }
+    this.send(create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage } } }));
+  }
+
   private open(): void {
     const socket = this.makeSocket(this.options.url);
     socket.binaryType = 'arraybuffer';
@@ -167,6 +182,15 @@ export class Connection {
         break;
       case 'full':
         events.full();
+        break;
+      case 'enemyFired':
+        events.enemyFired(message.kind.value);
+        break;
+      case 'enemyDestroyed':
+        events.enemyDestroyed(message.kind.value);
+        break;
+      case 'shotEnded':
+        events.shotEnded(message.kind.value);
         break;
       default:
     }

@@ -19,13 +19,13 @@ const close = (actual: number | undefined, expected: number): void => {
 };
 
 test('an empty buffer has nothing to show', () => {
-  const buffer = new StateBuffer();
+  const buffer = new StateBuffer<RemoteShip>();
   assert.equal(buffer.empty, true);
   assert.equal(buffer.sample(10), undefined);
 });
 
 test('positions are blended between the surrounding snapshots', () => {
-  const buffer = new StateBuffer();
+  const buffer = new StateBuffer<RemoteShip>();
   buffer.push(10, ship(0, 0));
   buffer.push(11, ship(10, 20));
   buffer.push(12, ship(30, 20));
@@ -35,7 +35,7 @@ test('positions are blended between the surrounding snapshots', () => {
 });
 
 test('before the first and after the last snapshot the ship holds still', () => {
-  const buffer = new StateBuffer();
+  const buffer = new StateBuffer<RemoteShip>();
   buffer.push(10, ship(1, 1));
   buffer.push(11, ship(2, 2));
   close(buffer.sample(5)?.x, 1);
@@ -43,7 +43,7 @@ test('before the first and after the last snapshot the ship holds still', () => 
 });
 
 test('angles turn the short way round', () => {
-  const buffer = new StateBuffer();
+  const buffer = new StateBuffer<RemoteShip>();
   buffer.push(1, ship(0, 0, Math.PI - 0.1));
   buffer.push(2, ship(0, 0, -Math.PI + 0.1));
   const angle = buffer.sample(1.5)?.angle ?? 0;
@@ -51,7 +51,7 @@ test('angles turn the short way round', () => {
 });
 
 test('discrete state comes from the earlier snapshot', () => {
-  const buffer = new StateBuffer();
+  const buffer = new StateBuffer<RemoteShip>();
   buffer.push(1, ship(0, 0, 0, false));
   buffer.push(2, ship(0, 0, 0, true));
   assert.equal(buffer.sample(1.9)?.thrusting, false);
@@ -59,7 +59,7 @@ test('discrete state comes from the earlier snapshot', () => {
 });
 
 test('out-of-order snapshots are ignored and old ones are forgotten', () => {
-  const buffer = new StateBuffer();
+  const buffer = new StateBuffer<RemoteShip>();
   buffer.push(5, ship(5, 0));
   buffer.push(4, ship(4, 0));
   close(buffer.sample(4)?.x, 5);

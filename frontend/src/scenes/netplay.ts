@@ -1,19 +1,24 @@
 import type Phaser from 'phaser';
 
-import type { Snapshot, Welcome } from '../gen/voidmarch/v1/messages_pb.js';
+import type { EnemyDestroyed, EnemyFired, Snapshot, Welcome } from '../gen/voidmarch/v1/messages_pb.js';
 import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
-import { INTERPOLATION_DELAY_TICKS, StateBuffer } from '../net/interpolation.ts';
-import { fromShipState, fromWeapon } from '../net/mapping.ts';
+import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interpolation.ts';
+import { fromEnemyKind, fromShipState, fromWeapon, type RemoteShip } from '../net/mapping.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
+import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
+import { hitTarget } from '../sim/hits.ts';
 import type { WeaponId } from '../sim/loadout.ts';
+import { enemyPattern } from '../sim/patterns.ts';
+import { isWeapon, type ProjectileSpawn } from '../sim/projectiles.ts';
 import type { ShotSpawn } from '../sim/weapons.ts';
 import type { FrameEvents, Sandbox } from '../sim/sandbox.ts';
-import { WEAPON_STATS } from '../sim/tuning.ts';
+import { SHIP_RADIUS, SHOT_RADIUS, WEAPON_STATS } from '../sim/tuning.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
+import { EnemyView } from './enemyview.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
 
 /** Where the game is with the server. */
@@ -28,7 +33,7 @@ interface RemoteShotItem {
 
 interface Remote {
   view: ShipView;
-  buffer: StateBuffer;
+  buffer: StateBuffer<RemoteShip>;
   animator: WeaponAnimator;
   weapon: WeaponId;
   name: string;
@@ -47,6 +52,31 @@ export interface NetPlayOptions {
   labelResolution: () => number;
   /** The server forgot the token (it restarted); the player registers again. */
   onUnknownToken: () => void;
+}
+
+interface Enemy {
+  view: EnemyView;
+  buffer: StateBuffer<Pose>;
+}
+
+/** An enemy volley, waiting for the delayed timeline. */
+interface EnemyVolley {
+  enemyId: number;
+  bullets: ProjectileSpawn[];
+}
+
+/** Where hits landed this frame, for sparks and flashes. */
+export interface NetFrame {
+  enemyHits: { x: number; y: number }[];
+  hitsOnMe: { x: number; y: number }[];
+}
+
+/** An enemy as the E2E tests see it. */
+export interface EnemyDebug {
+  id: number;
+  kind: EnemyKind;
+  x: number;
+  y: number;
 }
 
 /** A remote player as the E2E tests see them. */
@@ -70,6 +100,11 @@ export class NetPlay {
   private readonly options: NetPlayOptions;
   private readonly connection: Connection;
   private readonly remotes = new Map<string, Remote>();
+  private readonly enemies = new Map<number, Enemy>();
+  private enemyVolleys = new TimedQueue<EnemyVolley>(20);
+  /** Enemies this player shot down, and enemy bullets that hit this ship. */
+  enemiesDestroyed = 0;
+  hitsTaken = 0;
   private clock = new ServerClock(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
   private spawned = false;
@@ -114,6 +149,19 @@ export class NetPlay {
           for (const id of [...this.remotes.keys()]) {
             this.remove(id);
           }
+          for (const [id, enemy] of this.enemies) {
+            enemy.view.destroy(false);
+            this.enemies.delete(id);
+          }
+        },
+        enemyFired: (fired) => {
+          this.enemyFired(fired);
+        },
+        enemyDestroyed: (destroyed) => {
+          this.enemyDestroyed(destroyed);
+        },
+        shotEnded: (ended) => {
+          options.sim.projectiles.end(ended.playerId, ended.shotId);
         },
       },
     });
@@ -138,8 +186,17 @@ export class NetPlay {
     }));
   }
 
-  /** Once a frame: send the local ship, draw the others, spawn their shots. */
-  update(events: FrameEvents): void {
+  /** Enemies as drawn, for the E2E tests. */
+  get enemyList(): EnemyDebug[] {
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
+  }
+
+  /**
+   * Once a frame: send the local ship, draw the others and the enemies, spawn
+   * their shots, and test hits. Returns where hits landed.
+   */
+  update(events: FrameEvents): NetFrame {
+    const frame: NetFrame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
     this.connection.sendState(this.options.sim.ship, nowMs);
     for (const shot of events.shots) {
@@ -148,7 +205,7 @@ export class NetPlay {
 
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === undefined) {
-      return;
+      return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     const seconds = nowMs / 1000;
@@ -189,6 +246,81 @@ export class NetPlay {
         shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
       }
     }
+
+    this.drawEnemies(renderTick);
+    this.testHits(frame);
+
+    return frame;
+  }
+
+  private drawEnemies(renderTick: number): void {
+    for (const enemy of this.enemies.values()) {
+      const pose = enemy.buffer.sample(renderTick);
+      if (pose !== undefined) {
+        enemy.view.place(pose.x, pose.y, pose.angle);
+      }
+    }
+    for (const { item: volley, ageSeconds } of this.enemyVolleys.due(renderTick)) {
+      for (const bullet of volley.bullets) {
+        this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
+      }
+      this.enemies.get(volley.enemyId)?.view.fired();
+      this.options.audio.enemyShot();
+    }
+  }
+
+  /**
+   * Own shots against enemies as drawn, reported to the server (the design's
+   * trust model); enemy bullets against the local ship, which only flash it
+   * until health exists (#5).
+   */
+  private testHits(frame: NetFrame): void {
+    const targets = [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      x: e.view.x,
+      y: e.view.y,
+      radius: ENEMY_RADIUS[e.view.kind],
+    }));
+    const ship = this.options.sim.ship;
+    for (const p of this.options.sim.projectiles.items) {
+      if (!p.active) {
+        continue;
+      }
+      if (p.faction === 'own' && isWeapon(p.kind)) {
+        const target = hitTarget(p.x, p.y, targets);
+        if (target !== undefined) {
+          p.active = false;
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+          this.enemies.get(target.id)?.view.flash();
+          frame.enemyHits.push({ x: p.x, y: p.y });
+        }
+      } else if (p.faction === 'enemy' && Math.hypot(p.x - ship.x, p.y - ship.y) <= SHIP_RADIUS + SHOT_RADIUS) {
+        p.active = false;
+        this.hitsTaken++;
+        frame.hitsOnMe.push({ x: p.x, y: p.y });
+      }
+    }
+  }
+
+  private enemyFired(fired: EnemyFired): void {
+    const kind = fromEnemyKind(fired.kind);
+    this.enemyVolleys.add(fired.tick, {
+      enemyId: fired.enemyId,
+      bullets: enemyPattern(kind, fired.x, fired.y, fired.angle, fired.seed),
+    });
+  }
+
+  private enemyDestroyed(destroyed: EnemyDestroyed): void {
+    const enemy = this.enemies.get(destroyed.enemyId);
+    if (enemy === undefined) {
+      return;
+    }
+    this.enemies.delete(destroyed.enemyId);
+    enemy.view.destroy(true);
+    this.options.audio.enemyDestroyed();
+    if (destroyed.byPlayerId === this.playerId) {
+      this.enemiesDestroyed++;
+    }
   }
 
   private welcome(welcome: Welcome): void {
@@ -196,6 +328,7 @@ export class NetPlay {
     this.playerId = welcome.playerId;
     this.clock = new ServerClock(welcome.tickRate);
     this.shots = new TimedQueue<RemoteShotItem>(welcome.tickRate);
+    this.enemyVolleys = new TimedQueue<EnemyVolley>(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
     // A reconnect keeps the ship where it is; only the first join places it.
     if (!this.spawned) {
@@ -217,6 +350,27 @@ export class NetPlay {
       const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
+
+    const present = new Set<number>();
+    for (const state of snapshot.enemies) {
+      present.add(state.enemyId);
+      let enemy = this.enemies.get(state.enemyId);
+      if (enemy === undefined) {
+        enemy = {
+          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
+          buffer: new StateBuffer<Pose>(),
+        };
+        this.enemies.set(state.enemyId, enemy);
+      }
+      enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
+    }
+    // Despawned far from everyone: gone without an explosion.
+    for (const [id, enemy] of this.enemies) {
+      if (!present.has(id)) {
+        enemy.view.destroy(false);
+        this.enemies.delete(id);
+      }
+    }
   }
 
   private add(id: string, name: string, colour: number): Remote {
@@ -225,7 +379,7 @@ export class NetPlay {
     view.setLabel(scene, ships, name, colour, this.options.labelResolution());
     const remote: Remote = {
       view,
-      buffer: new StateBuffer(),
+      buffer: new StateBuffer<RemoteShip>(),
       animator: new WeaponAnimator(weaponTiming('autoCannon')),
       weapon: 'autoCannon',
       name,
