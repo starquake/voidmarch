@@ -818,7 +818,13 @@ var ShipAudio = class {
         this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
       }
     }
+    const volleys = /* @__PURE__ */ new Set();
     for (const shot of events.shots) {
+      const volley = WEAPON_STATS[shot.weapon].alternate ? `${shot.weapon}-${shot.muzzle}-${volleys.size}` : shot.weapon;
+      if (volleys.has(volley)) {
+        continue;
+      }
+      volleys.add(volley);
       const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
       if (key !== void 0) {
         this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });

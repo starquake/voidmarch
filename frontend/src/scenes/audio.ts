@@ -5,7 +5,7 @@ import type { AudioSettings } from '../settings.ts';
 import type { EngineId } from '../sim/loadout.ts';
 import type { FrameEvents } from '../sim/sandbox.ts';
 import type { Ship } from '../sim/ship.ts';
-import { ENGINE_STATS } from '../sim/tuning.ts';
+import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
 import {
   CHARGE_SOUNDS,
   ENGINE_LOOPS,
@@ -74,7 +74,14 @@ export class ShipAudio {
         this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
       }
     }
+    const volleys = new Set<string>();
     for (const shot of events.shots) {
+      // Weapons that fire every muzzle at once (the zapper's two prongs) get one sound per volley.
+      const volley = WEAPON_STATS[shot.weapon].alternate ? `${shot.weapon}-${shot.muzzle}-${volleys.size}` : shot.weapon;
+      if (volleys.has(volley)) {
+        continue;
+      }
+      volleys.add(volley);
       const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
       if (key !== undefined) {
         this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
