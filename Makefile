@@ -65,7 +65,7 @@ lint-fix: $(GOLANGCI_BIN) $(JS_DEPS) ## Lint and auto-fix Go and TypeScript code
 
 .PHONY: lint-ascii
 lint-ascii: ## Fail on non-ASCII characters in Go sources
-	@hits=$$(find cmd internal test -name '*.go' -print0 | xargs -0 perl -ne 'print "$$ARGV:$$.: $$_" if /[^\x00-\x7F]/'); \
+	@hits=$$(find cmd internal test -name '*.go' -print0 | xargs -0 perl -ne 'print "$$ARGV:$$.: $$_" if /[^\x00-\x7F]/; close ARGV if eof'); \
 	if [ -n "$$hits" ]; then echo "$$hits"; echo "non-ASCII characters in Go sources"; exit 1; fi
 
 .PHONY: build

@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/starquake/voidmarch/internal/config"
+	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/server"
 	"github.com/starquake/voidmarch/internal/version"
 	"github.com/starquake/voidmarch/internal/web"
@@ -60,7 +61,9 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		}
 	}
 
-	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static), logger)
+	svc := server.Services{Players: players.NewStore()}
+
+	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static, svc), logger)
 }
 
 // staticFiles returns the web client: from WEB_DIR when set, else embedded.

@@ -7,9 +7,16 @@ import (
 
 	"github.com/starquake/voidmarch/internal/config"
 	"github.com/starquake/voidmarch/internal/health"
+	"github.com/starquake/voidmarch/internal/players"
 )
 
-func addRoutes(mux *http.ServeMux, logger *slog.Logger, cfg *config.Config, static fs.FS) {
+func addRoutes(
+	mux *http.ServeMux,
+	logger *slog.Logger,
+	cfg *config.Config,
+	static fs.FS,
+	svc Services,
+) {
 	// Files served from disk can change under a running server, so their
 	// ETags are not cached.
 	files := newStaticFiles(static, cfg.WebDir == "")
@@ -18,4 +25,5 @@ func addRoutes(mux *http.ServeMux, logger *slog.Logger, cfg *config.Config, stat
 	mux.Handle("GET /static/", http.StripPrefix("/static", handleStatic(files)))
 	mux.Handle("GET /healthz", health.HandleHealthz(logger))
 	mux.Handle("GET /version", health.HandleVersion(logger, cfg.AppEnvironment))
+	mux.Handle("POST /api/players", players.HandleRegister(logger, svc.Players))
 }
