@@ -1,6 +1,17 @@
 // src/main.ts
 import Phaser5 from "./vendor/phaser.js";
 
+// src/display.ts
+function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
+  const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  return {
+    width: Math.max(1, Math.floor(cssWidth * dpr)),
+    height: Math.max(1, Math.floor(cssHeight * dpr)),
+    zoom: 1 / dpr,
+    dpr
+  };
+}
+
 // src/name.ts
 var MAX_NAME_LENGTH = 16;
 var NAME = /^[\p{L}\p{N} _-]+$/u;
@@ -1553,6 +1564,8 @@ var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var HUD_REFRESH_MS = 250;
+var HUD_FONT_PX = 12;
+var HUD_MARGIN_PX = 8;
 var SandboxScene = class extends Phaser4.Scene {
   sim = new Sandbox();
   world;
@@ -1802,6 +1815,8 @@ var SandboxScene = class extends Phaser4.Scene {
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
     this.hudCamera.setSize(width, height);
+    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -1947,25 +1962,49 @@ async function start() {
       saveToken(token);
     }
   }
-  new Phaser5.Game({
+  const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+  const game = new Phaser5.Game({
     type: Phaser5.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
     roundPixels: true,
     banner: false,
+    // Sized in device pixels and shown at CSS size, so pixel art stays even
+    // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser5.Scale.RESIZE,
-      width: "100%",
-      height: "100%"
+      mode: Phaser5.Scale.NONE,
+      width: size.width,
+      height: size.height,
+      zoom: size.zoom
     },
     scene: [BootScene, SandboxScene],
     callbacks: {
       // The registry carries the token even where the browser refuses storage.
-      preBoot: (game) => {
-        game.registry.set("token", token);
+      preBoot: (game2) => {
+        game2.registry.set("token", token);
       }
     }
   });
+  fitToWindow(game);
+}
+function fitToWindow(game) {
+  const fit = () => {
+    const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+    game.scale.setZoom(size.zoom);
+    game.scale.resize(size.width, size.height);
+  };
+  window.addEventListener("resize", fit);
+  const watchRatio = () => {
+    window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener(
+      "change",
+      () => {
+        fit();
+        watchRatio();
+      },
+      { once: true }
+    );
+  };
+  watchRatio();
 }
 void start();

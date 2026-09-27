@@ -29,6 +29,9 @@ const BACKGROUND_FPS = 6;
 const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
 const HUD_REFRESH_MS = 250;
+/** HUD text size and margin in CSS pixels; scaled to device pixels on resize. */
+const HUD_FONT_PX = 12;
+const HUD_MARGIN_PX = 8;
 
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
@@ -305,9 +308,13 @@ export class SandboxScene extends Phaser.Scene {
 
   private resize(): void {
     const { width, height } = this.scale;
+    // width and height are device pixels (see display.ts), so the zoom makes
+    // every art pixel a whole number of device pixels.
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
     this.hudCamera.setSize(width, height);
+    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
