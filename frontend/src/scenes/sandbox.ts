@@ -37,6 +37,7 @@ export class SandboxScene extends Phaser.Scene {
   private readonly sim = new Sandbox();
   private world!: Phaser.GameObjects.Layer;
   private backgrounds: Background[] = [];
+  private backgroundFrame = 0;
   private ship!: ShipView;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -307,9 +308,11 @@ export class SandboxScene extends Phaser.Scene {
   private scrollBackgrounds(time: number): void {
     const camera = this.cameras.main;
     const frame = Math.floor((time / 1000) * BACKGROUND_FPS) % BACKGROUND_FRAMES;
+    const frameChanged = frame !== this.backgroundFrame;
+    this.backgroundFrame = frame;
     for (const { sprite, factor } of this.backgrounds) {
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
-      if (sprite.frame.name !== String(frame)) {
+      if (frameChanged) {
         sprite.setFrame(frame);
       }
     }

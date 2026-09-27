@@ -521,6 +521,7 @@ var SandboxScene = class extends Phaser2.Scene {
   sim = new Sandbox();
   world;
   backgrounds = [];
+  backgroundFrame = 0;
   ship;
   projectileSprites = [];
   muzzleFlash;
@@ -761,9 +762,11 @@ var SandboxScene = class extends Phaser2.Scene {
   scrollBackgrounds(time) {
     const camera = this.cameras.main;
     const frame = Math.floor(time / 1e3 * BACKGROUND_FPS) % BACKGROUND_FRAMES;
+    const frameChanged = frame !== this.backgroundFrame;
+    this.backgroundFrame = frame;
     for (const { sprite, factor } of this.backgrounds) {
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
-      if (sprite.frame.name !== String(frame)) {
+      if (frameChanged) {
         sprite.setFrame(frame);
       }
     }
