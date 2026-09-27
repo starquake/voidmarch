@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
-import { loadControlMode, saveControlMode } from '../settings.ts';
+import { loadAudioSettings, loadControlMode, saveAudioSettings, saveControlMode, type AudioSettings } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
@@ -10,6 +10,7 @@ import { ROTATION_SNAP_STEPS, VIEW_HEIGHT, VIEW_WIDTH, WEAPON_STATS } from '../s
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
+import { ShipAudio } from './audio.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -55,6 +56,8 @@ export class SandboxScene extends Phaser.Scene {
   private hudUpdatedAt = 0;
   private debug!: DebugState;
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
+  private audioSettings!: AudioSettings;
+  private audio!: ShipAudio;
 
   constructor() {
     super('sandbox');
@@ -62,6 +65,8 @@ export class SandboxScene extends Phaser.Scene {
 
   create(): void {
     this.sim.controlMode = loadControlMode();
+    this.audioSettings = loadAudioSettings();
+    this.audio = new ShipAudio(this, this.audioSettings);
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
@@ -90,6 +95,7 @@ export class SandboxScene extends Phaser.Scene {
       zoom: 1,
       fps: 0,
       weaponFrame: 0,
+      audio: { muted: false, music: false, locked: true, playingMusic: null },
     };
     this.publish();
   }
@@ -99,6 +105,7 @@ export class SandboxScene extends Phaser.Scene {
     this.drawShip(events);
     this.drawProjectiles();
     this.playEffects(events);
+    this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -218,14 +225,27 @@ export class SandboxScene extends Phaser.Scene {
         ship.cooldown = 0;
         ship.nextMuzzle = 0;
         this.applyLoadout();
+        this.audio.partSwitched();
         break;
       case 'Digit2':
         ship.loadout.engine = nextInCycle(ENGINES, ship.loadout.engine);
         this.applyLoadout();
+        this.audio.partSwitched();
         break;
       case 'Digit3':
         ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
         this.applyLoadout();
+        this.audio.shieldSwitched();
+        break;
+      case 'KeyM':
+        this.audio.toggleMute();
+        saveAudioSettings(this.audioSettings);
+        this.updateHud();
+        break;
+      case 'KeyN':
+        this.audio.toggleMusic();
+        saveAudioSettings(this.audioSettings);
+        this.updateHud();
         break;
       case 'KeyH':
         this.damage = nextInCycle(DAMAGE_STATES, this.damage);
@@ -262,6 +282,7 @@ export class SandboxScene extends Phaser.Scene {
     this.ship.weapon.setTexture(keys.weapon(weapon), 0);
     this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
     this.ship.shield.play(keys.shield(shield));
+    this.audio.setEngine(engine);
     this.updateHud();
   }
 
@@ -367,8 +388,8 @@ export class SandboxScene extends Phaser.Scene {
     const { loadout, rotationSnap } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
-      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · C controls · 1/2/3 parts · H hull · R rotation · F effects',
+      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
+      'WASD move · mouse aim · hold left button to fire · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
     ]);
   }
 
@@ -387,6 +408,10 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
     this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
+    this.debug.audio.muted = this.audioSettings.muted;
+    this.debug.audio.music = this.audioSettings.music;
+    this.debug.audio.locked = this.sound.locked;
+    this.debug.audio.playingMusic = this.audio.playingMusic;
     publishDebugState(this.debug);
   }
 }

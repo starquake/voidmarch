@@ -16,6 +16,7 @@ export interface DebugState {
   zoom: number;
   fps: number;
   weaponFrame: number;
+  audio: { muted: boolean; music: boolean; locked: boolean; playingMusic: string | null };
 }
 
 declare global {

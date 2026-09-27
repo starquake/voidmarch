@@ -32,3 +32,40 @@ export function saveControlMode(mode: ControlMode, store: Store | undefined = br
     // Private windows can refuse storage; the mode then lasts for this visit.
   }
 }
+
+const AUDIO_KEY = 'voidmarch.audio';
+
+/** Sound preferences: M mutes everything, N switches the music. */
+export interface AudioSettings {
+  muted: boolean;
+  music: boolean;
+}
+
+const DEFAULT_AUDIO: Readonly<AudioSettings> = { muted: false, music: true };
+
+/** The saved sound preferences, or sound and music on when none are saved. */
+export function loadAudioSettings(store: Store | undefined = browserStorage()): AudioSettings {
+  try {
+    const parsed: unknown = JSON.parse(store?.getItem(AUDIO_KEY) ?? 'null');
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { ...DEFAULT_AUDIO };
+    }
+    const saved = parsed as Partial<Record<keyof AudioSettings, unknown>>;
+
+    return {
+      muted: typeof saved.muted === 'boolean' ? saved.muted : DEFAULT_AUDIO.muted,
+      music: typeof saved.music === 'boolean' ? saved.music : DEFAULT_AUDIO.music,
+    };
+  } catch {
+    return { ...DEFAULT_AUDIO };
+  }
+}
+
+/** Remembers the sound preferences in this browser; a denied write is ignored. */
+export function saveAudioSettings(settings: AudioSettings, store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(AUDIO_KEY, JSON.stringify(settings));
+  } catch {
+    // Private windows can refuse storage; the settings then last for this visit.
+  }
+}

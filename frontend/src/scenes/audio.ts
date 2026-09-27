@@ -1,0 +1,137 @@
+import Phaser from 'phaser';
+
+import { engineMix, nextVariant, shotDetune } from '../mix.ts';
+import type { AudioSettings } from '../settings.ts';
+import type { EngineId } from '../sim/loadout.ts';
+import type { FrameEvents } from '../sim/sandbox.ts';
+import type { Ship } from '../sim/ship.ts';
+import { ENGINE_STATS } from '../sim/tuning.ts';
+import {
+  ENGINE_LOOPS,
+  EXPIRE_SOUNDS,
+  MUSIC,
+  PART_SWITCH_SOUND,
+  SHIELD_SOUND,
+  SHOT_SOUNDS,
+  musicFiles,
+} from '../sounds.ts';
+
+type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound | Phaser.Sound.NoAudioSound;
+
+const SHOT_VOLUME = 0.35;
+const EXPIRE_VOLUME = 0.3;
+const UI_VOLUME = 0.3;
+const MUSIC_VOLUME = 0.3;
+
+/** Plays the ship's sounds and the music, driven by the sim's frame events. */
+export class ShipAudio {
+  private engine: Sound | undefined;
+  private engineId: EngineId | undefined;
+  private music: Sound | undefined;
+  private musicIndex = 0;
+  private musicLoaded = false;
+  private shots = 0;
+  private readonly scene: Phaser.Scene;
+  private readonly settings: AudioSettings;
+
+  constructor(scene: Phaser.Scene, settings: AudioSettings) {
+    this.scene = scene;
+    this.settings = settings;
+    scene.sound.mute = settings.muted;
+    scene.sound.pauseOnBlur = true;
+    this.loadMusic();
+  }
+
+  /** The key of the playing track, or null. */
+  get playingMusic(): string | null {
+    return this.music?.isPlaying === true ? this.music.key : null;
+  }
+
+  /** Swaps the engine loop to match the fitted engine. */
+  setEngine(id: EngineId): void {
+    if (id === this.engineId) {
+      return;
+    }
+    this.engine?.destroy();
+    this.engineId = id;
+    this.engine = this.scene.sound.add(ENGINE_LOOPS[id], { loop: true, volume: 0 });
+    this.engine.play();
+  }
+
+  update(ship: Ship, events: FrameEvents): void {
+    if (this.engine !== undefined) {
+      const mix = engineMix(Math.hypot(ship.vx, ship.vy), ENGINE_STATS[ship.loadout.engine].maxSpeed, ship.thrusting);
+      this.engine.setVolume(mix.volume);
+      this.engine.setRate(mix.rate);
+    }
+    for (const shot of events.shots) {
+      const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
+      if (key !== undefined) {
+        this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
+      }
+    }
+    for (const expired of events.expired) {
+      const key = EXPIRE_SOUNDS[expired.weapon];
+      if (key !== undefined) {
+        this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+      }
+    }
+  }
+
+  shieldSwitched(): void {
+    this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
+  }
+
+  partSwitched(): void {
+    this.scene.sound.play(PART_SWITCH_SOUND, { volume: UI_VOLUME });
+  }
+
+  toggleMute(): void {
+    this.settings.muted = !this.settings.muted;
+    this.scene.sound.mute = this.settings.muted;
+  }
+
+  toggleMusic(): void {
+    this.settings.music = !this.settings.music;
+    if (this.settings.music) {
+      this.playMusic();
+    } else {
+      this.music?.stop();
+    }
+  }
+
+  /** Loads the music after the game has started, so it never delays the first frame. */
+  private loadMusic(): void {
+    const loader = this.scene.load;
+    for (const file of musicFiles()) {
+      loader.audio(file.key, file.urls);
+    }
+    loader.once(Phaser.Loader.Events.COMPLETE, () => {
+      this.musicLoaded = true;
+      this.playMusic();
+    });
+    loader.start();
+  }
+
+  private playMusic(): void {
+    if (!this.musicLoaded || !this.settings.music || this.music?.isPlaying === true) {
+      return;
+    }
+    // Browsers keep audio locked until the first click or key press.
+    if (this.scene.sound.locked) {
+      this.scene.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
+        this.playMusic();
+      });
+
+      return;
+    }
+    const key = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
+    this.music?.destroy();
+    this.music = this.scene.sound.add(key, { volume: MUSIC_VOLUME });
+    this.music.once(Phaser.Sound.Events.COMPLETE, () => {
+      this.musicIndex++;
+      this.playMusic();
+    });
+    this.music.play();
+  }
+}
