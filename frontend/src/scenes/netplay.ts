@@ -163,9 +163,17 @@ export class NetPlay {
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
     }
 
+    const volleys = new Set<string>();
     for (const due of this.shots.due(renderTick)) {
       this.options.sim.projectiles.spawn(due.shot, due.ageSeconds);
-      this.options.audio.remoteShot(due.shot.weapon);
+      // Weapons that fire every muzzle at once (the zapper) get one sound per volley.
+      const volley = WEAPON_STATS[due.shot.weapon].alternate ? undefined : `${due.from}:${due.shot.weapon}`;
+      if (volley === undefined || !volleys.has(volley)) {
+        this.options.audio.remoteShot(due.shot.weapon);
+      }
+      if (volley !== undefined) {
+        volleys.add(volley);
+      }
       const shooter = this.remotes.get(due.from);
       if (shooter !== undefined) {
         const stats = WEAPON_STATS[due.shot.weapon];

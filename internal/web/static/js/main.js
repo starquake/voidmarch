@@ -1484,9 +1484,16 @@ var NetPlay = class {
       remote.view.place(ship.x, ship.y, ship.angle);
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
     }
+    const volleys = /* @__PURE__ */ new Set();
     for (const due of this.shots.due(renderTick)) {
       this.options.sim.projectiles.spawn(due.shot, due.ageSeconds);
-      this.options.audio.remoteShot(due.shot.weapon);
+      const volley = WEAPON_STATS[due.shot.weapon].alternate ? void 0 : `${due.from}:${due.shot.weapon}`;
+      if (volley === void 0 || !volleys.has(volley)) {
+        this.options.audio.remoteShot(due.shot.weapon);
+      }
+      if (volley !== void 0) {
+        volleys.add(volley);
+      }
       const shooter = this.remotes.get(due.from);
       if (shooter !== void 0) {
         const stats = WEAPON_STATS[due.shot.weapon];
