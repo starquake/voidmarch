@@ -1,7 +1,9 @@
 package game
 
 import (
+	"maps"
 	"math"
+	"slices"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 )
@@ -52,7 +54,12 @@ const (
 	fighterFireEvery    = 2 * TickRate
 	fighterKeepDistance = 170
 
-	aggroRange = 450
+	// aggroRange covers the whole spawn ring, so every enemy spawned for a
+	// player comes for them.
+	aggroRange = nearRadius
+	// fireRange stays inside the Scout's bullet reach (110 px/s for 3.2 s,
+	// ENEMY_BULLET_STATS in frontend/src/sim/tuning.ts), so no shot falls short.
+	fireRange = 340
 )
 
 type enemyStats struct {
@@ -110,7 +117,10 @@ func (h *Hub) stepEnemies() {
 	if h.tick%spawnEvery == 0 {
 		h.spawnEnemies(players)
 	}
-	for id, e := range h.enemies {
+	// In id order: steering draws from h.rng, so map order would make a
+	// seeded hub differ between runs.
+	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
+		e := h.enemies[id]
 		h.steer(e, players)
 		if h.tick-e.lastNear > despawnAfter {
 			delete(h.enemies, id)
@@ -120,7 +130,8 @@ func (h *Hub) stepEnemies() {
 
 func (h *Hub) playersOutsideSafeZone() []point {
 	var out []point
-	for _, m := range h.members {
+	for _, id := range slices.Sorted(maps.Keys(h.members)) {
+		m := h.members[id]
 		if m.state == nil {
 			continue
 		}
@@ -187,7 +198,7 @@ func (h *Hub) enemiesNear(p point, radius float64) int {
 }
 
 // steer moves one enemy toward its role's goal around the nearest player,
-// and fires when its cooldown allows.
+// and fires when its cooldown and range allow.
 func (h *Hub) steer(e *enemy, players []point) {
 	stats := statsFor(e.kind)
 	target, distance, found := nearest(e, players)
@@ -195,15 +206,9 @@ func (h *Hub) steer(e *enemy, players []point) {
 		e.lastNear = h.tick
 	}
 
-	if found && distance < stats.aggroRange {
-		goal := h.goal(e, target, stats)
-		accelerate(e, goal, stats)
-		e.angle = math.Atan2(target.y-e.y, target.x-e.x)
-		e.cooldown--
-		if e.cooldown <= 0 {
-			e.cooldown = stats.fireEvery + h.rng.IntN(2*fireJitter+1) - fireJitter
-			h.fire(e)
-		}
+	engaged := found && distance < stats.aggroRange
+	if engaged {
+		accelerate(e, h.goal(e, target, stats), stats)
 	} else {
 		e.vx *= idleDamping
 		e.vy *= idleDamping
@@ -214,6 +219,19 @@ func (h *Hub) steer(e *enemy, players []point) {
 	keepOutOfSafeZone(e)
 	e.x = math.Max(-worldHalf, math.Min(worldHalf, e.x))
 	e.y = math.Max(-worldHalf, math.Min(worldHalf, e.y))
+
+	if !engaged {
+		return
+	}
+	// Aim and fire from where this tick's snapshot shows the enemy.
+	e.angle = math.Atan2(target.y-e.y, target.x-e.x)
+	if e.cooldown > 0 {
+		e.cooldown--
+	}
+	if e.cooldown <= 0 && math.Hypot(target.x-e.x, target.y-e.y) < fireRange {
+		e.cooldown = stats.fireEvery + h.rng.IntN(2*fireJitter+1) - fireJitter
+		h.fire(e)
+	}
 }
 
 // goal is where the enemy wants to be: a Scout darts around near its target,
@@ -310,7 +328,7 @@ func (h *Hub) hit(from string, hit *pb.Hit) {
 		ShotId:   hit.GetShotId(),
 	}}}, from)
 
-	e.hp -= int(min(hit.GetDamage(), maxHitDamage))
+	e.hp = damaged(e.hp, hit.GetDamage())
 	if e.hp > 0 {
 		return
 	}
@@ -328,9 +346,15 @@ func (h *Hub) hit(from string, hit *pb.Hit) {
 	)
 }
 
+// damaged is hp after a reported hit, capped at the strongest weapon's damage.
+func damaged(hp int, damage uint32) int {
+	return hp - int(min(damage, maxHitDamage))
+}
+
 func (h *Hub) enemySnapshot() []*pb.EnemyState {
 	out := make([]*pb.EnemyState, 0, len(h.enemies))
-	for _, e := range h.enemies {
+	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
+		e := h.enemies[id]
 		out = append(out, &pb.EnemyState{
 			EnemyId: e.id,
 			Kind:    e.kind,

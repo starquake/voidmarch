@@ -56,7 +56,26 @@ func TestEnemies_SpawnAroundPlayersJustOutOfView(t *testing.T) {
 
 	hub, tick := testHub(t)
 	s, _ := join(t, hub, "a")
-	snap, _ := latest(t, s, tick, 5*TickRate, 1000, 0)
+	var snap *pb.Snapshot
+	seen := map[uint32]bool{}
+	for range 5 * TickRate {
+		snap, _ = latest(t, s, tick, 1, 1000, 0)
+		for _, e := range snap.GetEnemies() {
+			if seen[e.GetEnemyId()] {
+				continue
+			}
+			seen[e.GetEnemyId()] = true
+			// Just outside the 640x360 view, allowing for the first tick's move.
+			d := math.Hypot(float64(e.GetX())-1000, float64(e.GetY()))
+			if d < 370 || d > 470 {
+				t.Errorf(
+					"enemy %d appeared %.0f px from the player, want 380 to 460",
+					e.GetEnemyId(),
+					d,
+				)
+			}
+		}
+	}
 
 	enemies := snap.GetEnemies()
 	if got := len(enemies); got == 0 || got > 3 {
@@ -177,29 +196,28 @@ func TestEnemies_HitsDestroyThem(t *testing.T) {
 	}
 }
 
-func TestEnemies_HitDamageIsCapped(t *testing.T) {
+func TestDamaged(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
-	a, _ := join(t, hub, "a")
-	snap, _ := latest(t, a, tick, 2*TickRate, 1000, 0)
-	target := snap.GetEnemies()[0]
-
-	a.Send(
-		&pb.ClientMessage{
-			Kind: &pb.ClientMessage_Hit{
-				Hit: &pb.Hit{EnemyId: target.GetEnemyId(), Damage: 1_000_000},
-			},
-		},
-	)
-	_, messages := latest(t, a, tick, 1, 1000, 0)
-
-	var destroyed bool
-	for _, msg := range messages {
-		destroyed = destroyed || msg.GetEnemyDestroyed() != nil
+	tests := []struct {
+		name   string
+		hp     int
+		damage uint32
+		want   int
+	}{
+		{"a normal hit", 6, 1, 5},
+		{"the cap itself", 20, MaxHitDamage, 20 - MaxHitDamage},
+		{"a huge hit is capped", 100, 1_000_000, 100 - MaxHitDamage},
+		{"the largest report is capped", 100, math.MaxUint32, 100 - MaxHitDamage},
 	}
-	if !destroyed {
-		t.Error("a capped hit (12) should still destroy a Scout (2) or Fighter (6)")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := Damaged(tc.hp, tc.damage); got != tc.want {
+				t.Errorf("Damaged(%d, %d) = %d, want %d", tc.hp, tc.damage, got, tc.want)
+			}
+		})
 	}
 }
 

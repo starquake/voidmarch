@@ -1,6 +1,6 @@
 // Package game runs the shared world: who is in it, where their ships are, and
-// what they fire. Clients are trusted for their own ships (docs/design.md, section 9), so the
-// hub relays rather than simulates.
+// what they fire. Clients are trusted for their own ships (docs/design.md,
+// section 9), so the hub relays those; it simulates only the enemies.
 package game
 
 import (
