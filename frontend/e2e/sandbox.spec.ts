@@ -30,7 +30,7 @@ test.beforeEach(async ({ page }) => {
 
 test('ship-relative is the default: W flies toward the mouse', async ({ page }) => {
   const { x, y } = await centre(page);
-  await page.mouse.move(x + 300, y);
+  await page.mouse.move(x + 150, y);
   await expect.poll(async () => Math.abs((await state(page)).ship.angle)).toBeLessThan(0.2);
 
   const before = await state(page);
@@ -46,7 +46,7 @@ test('C switches to screen-relative, and the choice survives a reload', async ({
   await expect.poll(async () => (await state(page)).controlMode).toBe('screen');
 
   const { x, y } = await centre(page);
-  await page.mouse.move(x + 300, y);
+  await page.mouse.move(x + 150, y);
   const before = await state(page);
   await page.keyboard.down('w');
   await expect.poll(async () => (await state(page)).ship.y).toBeLessThan(before.ship.y - 20);
@@ -60,16 +60,16 @@ test('C switches to screen-relative, and the choice survives a reload', async ({
 test('the ship turns to face the mouse', async ({ page }) => {
   const { x, y } = await centre(page);
 
-  await page.mouse.move(x + 200, y);
+  await page.mouse.move(x + 120, y);
   await expect.poll(async () => Math.abs((await state(page)).ship.angle)).toBeLessThan(0.2);
 
-  await page.mouse.move(x, y + 200);
+  await page.mouse.move(x, y + 120);
   await expect.poll(async () => Math.abs((await state(page)).ship.angle - Math.PI / 2)).toBeLessThan(0.2);
 });
 
 test('holding the left button fires projectiles', async ({ page }) => {
   const { x, y } = await centre(page);
-  await page.mouse.move(x + 200, y);
+  await page.mouse.move(x + 120, y);
   await page.mouse.down();
   await expect.poll(async () => (await state(page)).projectiles).toBeGreaterThan(0);
   await expect.poll(async () => (await state(page)).shotsFired).toBeGreaterThanOrEqual(3);
@@ -111,7 +111,7 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
   await expect.poll(async () => (await state(page)).loadout.weapon).toBe('bigSpaceGun');
 
   const { x, y } = await centre(page);
-  await page.mouse.move(x + 200, y);
+  await page.mouse.move(x + 120, y);
   // Held while sampling: a click shorter than one game frame is never seen.
   await page.mouse.down();
 
