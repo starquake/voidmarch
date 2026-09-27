@@ -1,11 +1,14 @@
 package integration_test
 
 import (
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/starquake/voidmarch/internal/web"
 )
 
 func TestWebClient_Embedded(t *testing.T) {
@@ -77,5 +80,33 @@ func TestWebClient_WebDirOverride(t *testing.T) {
 	resp := get(t, baseURL+"/")
 	if got, want := resp.body, "from disk"; got != want {
 		t.Errorf("body = %q, want %q", got, want)
+	}
+}
+
+func TestWebClient_Assets(t *testing.T) {
+	t.Parallel()
+
+	baseURL := startServer(t, nil)
+
+	static, err := web.Static()
+	if err != nil {
+		t.Fatalf("web.Static() error = %v", err)
+	}
+	pngs, err := fs.Glob(static, "assets/*/*.png")
+	if err != nil {
+		t.Fatalf("fs.Glob() error = %v", err)
+	}
+	if len(pngs) == 0 {
+		t.Fatal("no PNG assets embedded")
+	}
+
+	for _, name := range pngs {
+		resp := get(t, baseURL+"/static/"+name)
+		if got, want := resp.status, http.StatusOK; got != want {
+			t.Errorf("GET %s status = %d, want %d", name, got, want)
+		}
+		if got, want := resp.header.Get("Content-Type"), "image/png"; got != want {
+			t.Errorf("GET %s Content-Type = %q, want %q", name, got, want)
+		}
 	}
 }
