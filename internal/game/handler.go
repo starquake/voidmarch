@@ -161,7 +161,7 @@ func (c *connection) read(ctx context.Context) (*pb.ClientMessage, wire.Format, 
 
 	msg := &pb.ClientMessage{}
 	if err = format.Unmarshal(data, msg); err != nil {
-		return nil, format, err //nolint:wrapcheck // already wrapped by wire.
+		return nil, format, fmt.Errorf("error decoding frame from %s: %w", c.player, err)
 	}
 	c.log(ctx, "in", format, msg)
 
@@ -171,7 +171,7 @@ func (c *connection) read(ctx context.Context) (*pb.ClientMessage, wire.Format, 
 func (c *connection) write(ctx context.Context, msg *pb.ServerMessage) error {
 	data, err := c.format.Marshal(msg)
 	if err != nil {
-		return err //nolint:wrapcheck // already wrapped by wire.
+		return fmt.Errorf("error encoding for %s: %w", c.player, err)
 	}
 	typ := websocket.MessageBinary
 	if c.format == wire.JSON {

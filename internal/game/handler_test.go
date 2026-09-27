@@ -31,7 +31,7 @@ func (b *syncBuffer) Write(p []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	return b.buf.Write(p) //nolint:wrapcheck // a test buffer.
+	return b.buf.Write(p)
 }
 
 func (b *syncBuffer) String() string {
@@ -121,7 +121,7 @@ func (c *wsClient) recv() (*pb.ServerMessage, error) {
 
 	typ, data, err := c.conn.Read(ctx)
 	if err != nil {
-		return nil, err //nolint:wrapcheck // tests inspect the close status.
+		return nil, err
 	}
 	if got, want := typ == websocket.MessageText, c.format == wire.JSON; got != want {
 		c.t.Errorf(
