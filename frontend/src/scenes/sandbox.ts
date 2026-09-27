@@ -16,6 +16,7 @@ import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
 import { Sandbox, type FrameEvents } from '../sim/sandbox.ts';
 import { ROTATION_SNAP_STEPS, VIEW_HEIGHT, VIEW_WIDTH, WEAPON_STATS } from '../sim/tuning.ts';
+import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
@@ -369,7 +370,7 @@ export class SandboxScene extends Phaser.Scene {
         return;
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
-      sprite.play(keys.projectile(p.weapon), true);
+      sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
     });
   }
 

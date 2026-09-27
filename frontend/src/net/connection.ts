@@ -7,7 +7,7 @@ import {
   type Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Ship } from '../sim/ship.ts';
-import type { ShotSpawn } from '../sim/weapons.ts';
+import type { FiredShot } from '../sim/sandbox.ts';
 import { decodeServer, encodeClient, type WireFormat } from './codec.ts';
 import { toShipState, toWeapon } from './mapping.ts';
 
@@ -80,7 +80,6 @@ export class Connection {
   private welcomed = false;
   private stateIntervalMs = 50;
   private lastStateAt = Number.NEGATIVE_INFINITY;
-  private shotId = 0;
 
   constructor(options: ConnectionOptions) {
     this.options = options;
@@ -115,16 +114,16 @@ export class Connection {
     this.send(create(ClientMessageSchema, { kind: { case: 'state', value: toShipState(ship) } }));
   }
 
-  sendShot(shot: ShotSpawn): void {
+  /** Sends a shot under its projectile-pool id, which a hit later reports. */
+  sendShot(shot: FiredShot): void {
     if (!this.welcomed) {
       return;
     }
-    this.shotId++;
     this.send(
       create(ClientMessageSchema, {
         kind: {
           case: 'shot',
-          value: { id: this.shotId, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle },
+          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle },
         },
       }),
     );

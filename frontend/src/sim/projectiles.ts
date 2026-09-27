@@ -1,11 +1,46 @@
-import { DEFAULT_LOADOUT, type WeaponId } from './loadout.ts';
+import type { EnemyBulletId } from './enemies.ts';
+import { WEAPONS, type WeaponId } from './loadout.ts';
 import { rotateOffset, triangleWave } from './math.ts';
-import { WEAPON_STATS, type WeaponStats } from './tuning.ts';
-import type { ShotSpawn } from './weapons.ts';
+import { ENEMY_BULLET_STATS, WEAPON_STATS, type ProjectileStats } from './tuning.ts';
+
+/** What a projectile is: a player weapon's shot or an enemy's bullet. */
+export type ProjectileKind = WeaponId | EnemyBulletId;
+
+/** Whose it is: this player's, another player's, or an enemy's. */
+export type Faction = 'own' | 'remote' | 'enemy';
+
+export function isWeapon(kind: ProjectileKind): kind is WeaponId {
+  return (WEAPONS as readonly string[]).includes(kind);
+}
+
+export function projectileStats(kind: ProjectileKind): ProjectileStats {
+  return isWeapon(kind) ? WEAPON_STATS[kind] : ENEMY_BULLET_STATS[kind];
+}
+
+/** Where a projectile starts, which way, and what it is. */
+export interface ProjectileSpawn {
+  kind: ProjectileKind;
+  x: number;
+  y: number;
+  angle: number;
+}
+
+export interface SpawnOptions {
+  /** Already this old: a shot seen late on the delayed timeline. */
+  ageSeconds?: number;
+  faction?: Faction;
+  /** The remote player or enemy it belongs to; empty for own shots. */
+  owner?: string;
+  /** The shot's id for its owner; own shots get the next one. */
+  shotId?: number;
+}
 
 export interface Projectile {
   active: boolean;
-  weapon: WeaponId;
+  kind: ProjectileKind;
+  faction: Faction;
+  owner: string;
+  shotId: number;
   originX: number;
   originY: number;
   angle: number;
@@ -15,7 +50,7 @@ export interface Projectile {
 }
 
 /** Distance travelled after age seconds, accelerating up to maxSpeed. */
-export function travelled(stats: WeaponStats, age: number): number {
+export function travelled(stats: ProjectileStats, age: number): number {
   if (stats.acceleration <= 0) {
     return stats.speed * age;
   }
@@ -33,7 +68,7 @@ export function travelled(stats: WeaponStats, age: number): number {
  * so every client can simulate the same projectile from the same spawn.
  */
 export function place(p: Projectile): void {
-  const stats = WEAPON_STATS[p.weapon];
+  const stats = projectileStats(p.kind);
   const lateral = stats.zigzag.amplitude * triangleWave(p.age * stats.zigzag.frequency);
   const offset = rotateOffset(travelled(stats, p.age), lateral, p.angle);
   p.x = p.originX + offset.x;
@@ -44,11 +79,15 @@ export function place(p: Projectile): void {
 export class ProjectilePool {
   readonly items: Projectile[];
   private next = 0;
+  private lastShotId = 0;
 
   constructor(capacity: number) {
     this.items = Array.from({ length: capacity }, () => ({
       active: false,
-      weapon: DEFAULT_LOADOUT.weapon,
+      kind: WEAPONS[0],
+      faction: 'own' satisfies Faction,
+      owner: '',
+      shotId: 0,
       originX: 0,
       originY: 0,
       angle: 0,
@@ -62,8 +101,7 @@ export class ProjectilePool {
     return this.items.reduce((n, p) => n + Number(p.active), 0);
   }
 
-  /** Starts a projectile, already ageSeconds old: a remote shot seen late. */
-  spawn(shot: ShotSpawn, ageSeconds = 0): Projectile {
+  spawn(shot: ProjectileSpawn, options: SpawnOptions = {}): Projectile {
     let chosen: Projectile | undefined;
     for (let i = 0; i < this.items.length && chosen === undefined; i++) {
       const candidate = this.items[(this.next + i) % this.items.length];
@@ -75,14 +113,27 @@ export class ProjectilePool {
     chosen ??= this.oldest();
 
     chosen.active = true;
-    chosen.weapon = shot.weapon;
+    chosen.kind = shot.kind;
+    chosen.faction = options.faction ?? 'own';
+    chosen.owner = options.owner ?? '';
+    chosen.shotId = options.shotId ?? ++this.lastShotId;
     chosen.originX = shot.x;
     chosen.originY = shot.y;
     chosen.angle = shot.angle;
-    chosen.age = ageSeconds;
+    chosen.age = options.ageSeconds ?? 0;
     place(chosen);
 
     return chosen;
+  }
+
+  /** Ends a remote player's shot that hit something, and returns it. */
+  end(owner: string, shotId: number): Projectile | undefined {
+    const p = this.items.find((q) => q.active && q.faction === 'remote' && q.owner === owner && q.shotId === shotId);
+    if (p !== undefined) {
+      p.active = false;
+    }
+
+    return p;
   }
 
   /** Ages every projectile by dt and returns those that expired this tick. */
@@ -94,7 +145,7 @@ export class ProjectilePool {
       }
       p.age += dt;
       place(p);
-      if (p.age >= WEAPON_STATS[p.weapon].lifetime || !inBounds(p.x, p.y)) {
+      if (p.age >= projectileStats(p.kind).lifetime || !inBounds(p.x, p.y)) {
         p.active = false;
         expired.push(p);
       }

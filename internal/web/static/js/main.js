@@ -230,6 +230,10 @@ var SHIELD_STATS = {
   round: { coverage: Math.PI * 2, strength: 1, recharge: 3 },
   invincibility: { coverage: Math.PI * 2, strength: 3, recharge: 12 }
 };
+var ENEMY_BULLET_STATS = {
+  klaedBullet: { speed: 110, acceleration: 0, maxSpeed: 110, lifetime: 3.2, zigzag: STRAIGHT },
+  klaedBigBullet: { speed: 130, acceleration: 0, maxSpeed: 130, lifetime: 3, zigzag: STRAIGHT }
+};
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -243,8 +247,8 @@ var still = (key, url, size) => ({
   loop: false
 });
 var KLAED_FILES = {
-  scout: { engine: 10, weapons: 6, destruction: 10, bullet: "bullet" },
-  fighter: { engine: 10, weapons: 6, destruction: 9, bullet: "big-bullet" }
+  scout: { engine: 10, weapons: 6, destruction: 10 },
+  fighter: { engine: 10, weapons: 6, destruction: 9 }
 };
 var BULLET_FRAMES = {
   bullet: { width: 4, frames: 4 },
@@ -334,7 +338,7 @@ var keys = {
   enemyEngine: (kind) => `klaed-${kind}-engine`,
   enemyWeapons: (kind) => `klaed-${kind}-weapons`,
   enemyDestruction: (kind) => `klaed-${kind}-destruction`,
-  enemyBullet: (kind) => `klaed-${KLAED_FILES[kind].bullet}`
+  enemyBullet: (id) => id === "klaedBullet" ? "klaed-bullet" : "klaed-big-bullet"
 };
 function sheets() {
   const ship = `${ASSETS}/mainship`;
@@ -578,6 +582,12 @@ function clearToken(store = browserStorage()) {
 }
 
 // src/sim/projectiles.ts
+function isWeapon(kind) {
+  return WEAPONS.includes(kind);
+}
+function projectileStats(kind) {
+  return isWeapon(kind) ? WEAPON_STATS[kind] : ENEMY_BULLET_STATS[kind];
+}
 function travelled(stats, age) {
   if (stats.acceleration <= 0) {
     return stats.speed * age;
@@ -590,7 +600,7 @@ function travelled(stats, age) {
   return ramp + stats.maxSpeed * (age - rampTime);
 }
 function place(p) {
-  const stats = WEAPON_STATS[p.weapon];
+  const stats = projectileStats(p.kind);
   const lateral = stats.zigzag.amplitude * triangleWave(p.age * stats.zigzag.frequency);
   const offset = rotateOffset(travelled(stats, p.age), lateral, p.angle);
   p.x = p.originX + offset.x;
@@ -599,10 +609,14 @@ function place(p) {
 var ProjectilePool = class {
   items;
   next = 0;
+  lastShotId = 0;
   constructor(capacity) {
     this.items = Array.from({ length: capacity }, () => ({
       active: false,
-      weapon: DEFAULT_LOADOUT.weapon,
+      kind: WEAPONS[0],
+      faction: "own",
+      owner: "",
+      shotId: 0,
       originX: 0,
       originY: 0,
       angle: 0,
@@ -614,8 +628,7 @@ var ProjectilePool = class {
   get activeCount() {
     return this.items.reduce((n, p) => n + Number(p.active), 0);
   }
-  /** Starts a projectile, already ageSeconds old: a remote shot seen late. */
-  spawn(shot, ageSeconds = 0) {
+  spawn(shot, options = {}) {
     let chosen;
     for (let i = 0; i < this.items.length && chosen === void 0; i++) {
       const candidate = this.items[(this.next + i) % this.items.length];
@@ -626,13 +639,24 @@ var ProjectilePool = class {
     }
     chosen ??= this.oldest();
     chosen.active = true;
-    chosen.weapon = shot.weapon;
+    chosen.kind = shot.kind;
+    chosen.faction = options.faction ?? "own";
+    chosen.owner = options.owner ?? "";
+    chosen.shotId = options.shotId ?? ++this.lastShotId;
     chosen.originX = shot.x;
     chosen.originY = shot.y;
     chosen.angle = shot.angle;
-    chosen.age = ageSeconds;
+    chosen.age = options.ageSeconds ?? 0;
     place(chosen);
     return chosen;
+  }
+  /** Ends a remote player's shot that hit something, and returns it. */
+  end(owner, shotId) {
+    const p = this.items.find((q) => q.active && q.faction === "remote" && q.owner === owner && q.shotId === shotId);
+    if (p !== void 0) {
+      p.active = false;
+    }
+    return p;
   }
   /** Ages every projectile by dt and returns those that expired this tick. */
   step(dt, inBounds) {
@@ -643,7 +667,7 @@ var ProjectilePool = class {
       }
       p.age += dt;
       place(p);
-      if (p.age >= WEAPON_STATS[p.weapon].lifetime || !inBounds(p.x, p.y)) {
+      if (p.age >= projectileStats(p.kind).lifetime || !inBounds(p.x, p.y)) {
         p.active = false;
         expired.push(p);
       }
@@ -825,11 +849,11 @@ var Sandbox = class {
       events.charges.push(this.ship.loadout.weapon);
     }
     for (const shot of weapon.shots) {
-      this.projectiles.spawn(shot);
-      events.shots.push(shot);
+      const p = this.projectiles.spawn({ kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle });
+      events.shots.push({ ...shot, id: p.shotId });
     }
     for (const p of this.projectiles.step(TICK_SECONDS, projectileInBounds)) {
-      events.expired.push({ weapon: p.weapon, x: p.x, y: p.y });
+      events.expired.push({ kind: p.kind, faction: p.faction, x: p.x, y: p.y });
     }
     events.ticks++;
   }
@@ -1003,7 +1027,7 @@ var ShipAudio = class {
       }
     }
     for (const expired of events.expired) {
-      const key = EXPIRE_SOUNDS[expired.weapon];
+      const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : void 0;
       if (key !== void 0) {
         this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
@@ -1173,7 +1197,6 @@ var Connection = class {
   welcomed = false;
   stateIntervalMs = 50;
   lastStateAt = Number.NEGATIVE_INFINITY;
-  shotId = 0;
   constructor(options) {
     this.options = options;
     this.makeSocket = options.socket ?? ((url) => new WebSocket(url));
@@ -1202,16 +1225,16 @@ var Connection = class {
     this.lastStateAt = nowMs;
     this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
   }
+  /** Sends a shot under its projectile-pool id, which a hit later reports. */
   sendShot(shot) {
     if (!this.welcomed) {
       return;
     }
-    this.shotId++;
     this.send(
       create2(ClientMessageSchema, {
         kind: {
           case: "shot",
-          value: { id: this.shotId, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
+          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
         }
       })
     );
@@ -1334,23 +1357,23 @@ var StateBuffer = class {
 };
 
 // src/net/remoteshots.ts
-var RemoteShots = class {
+var TimedQueue = class {
   pending = [];
   tickRate;
   constructor(tickRate) {
     this.tickRate = tickRate;
   }
-  add(tick, from, shot) {
-    this.pending.push({ tick, from, shot });
+  add(tick, item) {
+    this.pending.push({ tick, item });
   }
-  /** Removes and returns the shots at or before renderTick, with their age. */
+  /** Removes and returns what is at or before renderTick, with its age. */
   due(renderTick) {
     const due = [];
     this.pending = this.pending.filter((p) => {
       if (p.tick > renderTick) {
         return true;
       }
-      due.push({ from: p.from, shot: p.shot, ageSeconds: (renderTick - p.tick) / this.tickRate });
+      due.push({ item: p.item, ageSeconds: (renderTick - p.tick) / this.tickRate });
       return false;
     });
     return due;
@@ -1435,7 +1458,7 @@ var NetPlay = class {
   connection;
   remotes = /* @__PURE__ */ new Map();
   clock = new ServerClock(20);
-  shots = new RemoteShots(20);
+  shots = new TimedQueue(20);
   spawned = false;
   constructor(options) {
     this.options = options;
@@ -1455,12 +1478,10 @@ var NetPlay = class {
           if (shot === void 0 || !this.remotes.has(remote.playerId)) {
             return;
           }
-          this.shots.add(remote.tick, remote.playerId, {
-            weapon: fromWeapon(shot.weapon),
-            muzzle: shot.muzzle,
-            x: shot.x,
-            y: shot.y,
-            angle: shot.angle
+          this.shots.add(remote.tick, {
+            from: remote.playerId,
+            id: shot.id,
+            shot: { weapon: fromWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
           });
         },
         left: (playerId) => {
@@ -1528,8 +1549,11 @@ var NetPlay = class {
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
     }
     const volleys = /* @__PURE__ */ new Set();
-    for (const due of this.shots.due(renderTick)) {
-      this.options.sim.projectiles.spawn(due.shot, due.ageSeconds);
+    for (const { item: due, ageSeconds } of this.shots.due(renderTick)) {
+      this.options.sim.projectiles.spawn(
+        { kind: due.shot.weapon, x: due.shot.x, y: due.shot.y, angle: due.shot.angle },
+        { ageSeconds, faction: "remote", owner: due.from, shotId: due.id }
+      );
       const volley = WEAPON_STATS[due.shot.weapon].alternate ? void 0 : `${due.from}:${due.shot.weapon}`;
       if (volley === void 0 || !volleys.has(volley)) {
         this.options.audio.remoteShot(due.shot.weapon);
@@ -1548,7 +1572,7 @@ var NetPlay = class {
     this.status = "online";
     this.playerId = welcome.playerId;
     this.clock = new ServerClock(welcome.tickRate);
-    this.shots = new RemoteShots(welcome.tickRate);
+    this.shots = new TimedQueue(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
     if (!this.spawned) {
       this.spawned = true;
@@ -1898,7 +1922,7 @@ var SandboxScene = class extends Phaser4.Scene {
         return;
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
-      sprite.play(keys.projectile(p.weapon), true);
+      sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
     });
   }
   playEffects(events) {

@@ -4,6 +4,7 @@ import { engineMix, nextVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
 import type { EngineId, WeaponId } from '../sim/loadout.ts';
 import type { FrameEvents } from '../sim/sandbox.ts';
+import { isWeapon } from '../sim/projectiles.ts';
 import type { Ship } from '../sim/ship.ts';
 import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
 import {
@@ -105,7 +106,7 @@ export class ShipAudio {
       }
     }
     for (const expired of events.expired) {
-      const key = EXPIRE_SOUNDS[expired.weapon];
+      const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : undefined;
       if (key !== undefined) {
         this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }

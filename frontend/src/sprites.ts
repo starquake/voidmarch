@@ -1,4 +1,5 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
+import type { EnemyBulletId, EnemyKind } from './sim/enemies.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
 
@@ -26,12 +27,10 @@ const still = (key: string, url: string, size: number): Sheet => ({
   loop: false,
 });
 
-/** An enemy class from the Kla'ed fleet. */
-export type EnemyKind = 'scout' | 'fighter';
 
-const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruction: number; bullet: string }> = {
-  scout: { engine: 10, weapons: 6, destruction: 10, bullet: 'bullet' },
-  fighter: { engine: 10, weapons: 6, destruction: 9, bullet: 'big-bullet' },
+const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruction: number }> = {
+  scout: { engine: 10, weapons: 6, destruction: 10 },
+  fighter: { engine: 10, weapons: 6, destruction: 9 },
 };
 
 /** Enemy bullet strips: frames are narrower than they are tall. */
@@ -142,7 +141,7 @@ export const keys = {
   enemyEngine: (kind: EnemyKind): string => `klaed-${kind}-engine`,
   enemyWeapons: (kind: EnemyKind): string => `klaed-${kind}-weapons`,
   enemyDestruction: (kind: EnemyKind): string => `klaed-${kind}-destruction`,
-  enemyBullet: (kind: EnemyKind): string => `klaed-${KLAED_FILES[kind].bullet}`,
+  enemyBullet: (id: EnemyBulletId): string => (id === 'klaedBullet' ? 'klaed-bullet' : 'klaed-big-bullet'),
 };
 
 /** Every sheet the client loads, with its frame layout from the Void packs. */

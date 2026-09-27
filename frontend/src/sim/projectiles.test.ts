@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ProjectilePool, place, travelled, type Projectile } from './projectiles.ts';
-import { TICK_SECONDS, WEAPON_STATS } from './tuning.ts';
+import { ProjectilePool, isWeapon, place, projectileStats, travelled, type Projectile } from './projectiles.ts';
+import { ENEMY_BULLET_STATS, TICK_SECONDS, WEAPON_STATS } from './tuning.ts';
 
 const always = (): boolean => true;
 
@@ -22,7 +22,7 @@ test('travelled accelerates rockets up to their top speed', () => {
 test('place is a pure function of spawn and age', () => {
   const make = (): Projectile => ({
     active: true,
-    weapon: 'zapper',
+    kind: 'zapper', faction: 'own', owner: '', shotId: 0,
     originX: 10,
     originY: 20,
     angle: 1,
@@ -38,7 +38,7 @@ test('place is a pure function of spawn and age', () => {
 });
 
 test('the zapper zigzags across its line of fire', () => {
-  const p: Projectile = { active: true, weapon: 'zapper', originX: 0, originY: 0, angle: 0, age: 0, x: 0, y: 0 };
+  const p: Projectile = { active: true, kind: 'zapper', faction: 'own', owner: '', shotId: 0, originX: 0, originY: 0, angle: 0, age: 0, x: 0, y: 0 };
   const sides = new Set<number>();
   for (let age = 0.01; age < 0.4; age += 0.02) {
     p.age = age;
@@ -50,7 +50,7 @@ test('the zapper zigzags across its line of fire', () => {
 
 test('projectiles fly and expire at the end of their lifetime', () => {
   const pool = new ProjectilePool(8);
-  const p = pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
+  const p = pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
   assert.equal(pool.activeCount, 1);
 
   pool.step(TICK_SECONDS, always);
@@ -66,30 +66,60 @@ test('projectiles fly and expire at the end of their lifetime', () => {
 
 test('projectiles expire when they leave the bounds', () => {
   const pool = new ProjectilePool(4);
-  pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
+  pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
   const expired = pool.step(TICK_SECONDS, () => false);
   assert.equal(expired.length, 1);
 });
 
 test('a full pool reuses its oldest projectile', () => {
   const pool = new ProjectilePool(2);
-  const first = pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
+  const first = pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
   pool.step(TICK_SECONDS, always);
-  pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
-  const third = pool.spawn({ weapon: 'rockets', muzzle: 0, x: 5, y: 5, angle: 0 });
+  pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
+  const third = pool.spawn({ kind: 'rockets', x: 5, y: 5, angle: 0 });
   assert.equal(third, first);
-  assert.equal(third.weapon, 'rockets');
+  assert.equal(third.kind, 'rockets');
   assert.equal(pool.activeCount, 2);
 });
 
 test('a pool needs capacity', () => {
   const pool = new ProjectilePool(0);
-  assert.throws(() => pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 }), /zero capacity/);
+  assert.throws(() => pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 }), /zero capacity/);
 });
 
 test('a projectile can start part-way through its flight', () => {
   const pool = new ProjectilePool(2);
-  const p = pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 }, 0.5);
+  const p = pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 }, { ageSeconds: 0.5 });
   assert.equal(p.age, 0.5);
   assert.equal(p.x, WEAPON_STATS.autoCannon.speed * 0.5);
+});
+
+test('own shots get increasing ids; remote shots keep theirs', () => {
+  const pool = new ProjectilePool(4);
+  const a = pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
+  const b = pool.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
+  assert.equal(a.faction, 'own');
+  assert.equal(b.shotId, a.shotId + 1);
+
+  const remote = pool.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 }, { faction: 'remote', owner: 'mo', shotId: 77 });
+  assert.deepEqual([remote.faction, remote.owner, remote.shotId], ['remote', 'mo', 77]);
+});
+
+test('a remote shot can be ended by owner and id', () => {
+  const pool = new ProjectilePool(4);
+  pool.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 }, { faction: 'remote', owner: 'mo', shotId: 7 });
+  const own = pool.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 });
+  assert.equal(pool.end('sanne', 7), undefined);
+  assert.equal(pool.end('mo', 7)?.shotId, 7);
+  assert.equal(pool.activeCount, 1);
+  assert.equal(pool.end('', own.shotId), undefined, 'own shots are not ended this way');
+});
+
+test('enemy bullets fly slowly and expire on their own lifetime', () => {
+  const pool = new ProjectilePool(2);
+  const p = pool.spawn({ kind: 'klaedBullet', x: 0, y: 0, angle: 0 }, { faction: 'enemy', owner: '3' });
+  pool.step(1, always);
+  assert.equal(p.x, ENEMY_BULLET_STATS.klaedBullet.speed);
+  assert.equal(isWeapon(p.kind), false);
+  assert.equal(projectileStats('klaedBigBullet'), ENEMY_BULLET_STATS.klaedBigBullet);
 });

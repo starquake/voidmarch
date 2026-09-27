@@ -171,10 +171,10 @@ test('state is sent at most at the tick rate, and only once welcomed', () => {
   assert.equal(states[0]?.kind.case === 'state' ? states[0].kind.value.x : 0, 5);
 });
 
-test('shots carry increasing ids and the wire weapon', () => {
+test('shots carry their pool ids and the wire weapon', () => {
   const { conn, socket } = welcomed();
-  conn.sendShot({ weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });
-  conn.sendShot({ weapon: 'zapper', muzzle: 0, x: 1, y: 2, angle: 0.5 });
+  conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });
+  conn.sendShot({ id: 2, weapon: 'zapper', muzzle: 0, x: 1, y: 2, angle: 0.5 });
   const shots = socket.messages().flatMap((m) => (m.kind.case === 'shot' ? [m.kind.value] : []));
   assert.deepEqual(
     shots.map((s) => [s.id, s.weapon, s.muzzle]),
@@ -188,7 +188,7 @@ test('shots carry increasing ids and the wire weapon', () => {
 test('shots before the welcome are not sent', () => {
   const { conn, sockets } = setup();
   conn.start();
-  conn.sendShot({ weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });
+  conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });
   assert.deepEqual(sockets[0]?.sent, []);
 });
 

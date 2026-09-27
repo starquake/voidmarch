@@ -6,9 +6,10 @@ import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
 import { INTERPOLATION_DELAY_TICKS, StateBuffer } from '../net/interpolation.ts';
 import { fromShipState, fromWeapon } from '../net/mapping.ts';
-import { RemoteShots } from '../net/remoteshots.ts';
+import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import type { WeaponId } from '../sim/loadout.ts';
+import type { ShotSpawn } from '../sim/weapons.ts';
 import type { FrameEvents, Sandbox } from '../sim/sandbox.ts';
 import { WEAPON_STATS } from '../sim/tuning.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
@@ -17,6 +18,13 @@ import { ShipView, type ShipParent } from './shipview.ts';
 
 /** Where the game is with the server. */
 export type NetStatus = 'connecting' | 'online' | 'offline' | 'full';
+
+/** Another player's shot, waiting for the delayed timeline. */
+interface RemoteShotItem {
+  from: string;
+  id: number;
+  shot: ShotSpawn;
+}
 
 interface Remote {
   view: ShipView;
@@ -63,7 +71,7 @@ export class NetPlay {
   private readonly connection: Connection;
   private readonly remotes = new Map<string, Remote>();
   private clock = new ServerClock(20);
-  private shots = new RemoteShots(20);
+  private shots = new TimedQueue<RemoteShotItem>(20);
   private spawned = false;
 
   constructor(options: NetPlayOptions) {
@@ -84,12 +92,10 @@ export class NetPlay {
           if (shot === undefined || !this.remotes.has(remote.playerId)) {
             return;
           }
-          this.shots.add(remote.tick, remote.playerId, {
-            weapon: fromWeapon(shot.weapon),
-            muzzle: shot.muzzle,
-            x: shot.x,
-            y: shot.y,
-            angle: shot.angle,
+          this.shots.add(remote.tick, {
+            from: remote.playerId,
+            id: shot.id,
+            shot: { weapon: fromWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle },
           });
         },
         left: (playerId) => {
@@ -164,8 +170,11 @@ export class NetPlay {
     }
 
     const volleys = new Set<string>();
-    for (const due of this.shots.due(renderTick)) {
-      this.options.sim.projectiles.spawn(due.shot, due.ageSeconds);
+    for (const { item: due, ageSeconds } of this.shots.due(renderTick)) {
+      this.options.sim.projectiles.spawn(
+        { kind: due.shot.weapon, x: due.shot.x, y: due.shot.y, angle: due.shot.angle },
+        { ageSeconds, faction: 'remote', owner: due.from, shotId: due.id },
+      );
       // Weapons that fire every muzzle at once (the zapper) get one sound per volley.
       const volley = WEAPON_STATS[due.shot.weapon].alternate ? undefined : `${due.from}:${due.shot.weapon}`;
       if (volley === undefined || !volleys.has(volley)) {
@@ -186,7 +195,7 @@ export class NetPlay {
     this.status = 'online';
     this.playerId = welcome.playerId;
     this.clock = new ServerClock(welcome.tickRate);
-    this.shots = new RemoteShots(welcome.tickRate);
+    this.shots = new TimedQueue<RemoteShotItem>(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
     // A reconnect keeps the ship where it is; only the first join places it.
     if (!this.spawned) {

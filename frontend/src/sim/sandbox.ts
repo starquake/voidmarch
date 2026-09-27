@@ -1,5 +1,5 @@
 import { relativeTo, toCommand, type ControlMode, type InputSnapshot, type ShipCommand } from './input.ts';
-import { ProjectilePool, type Projectile } from './projectiles.ts';
+import { ProjectilePool, type Faction, type ProjectileKind } from './projectiles.ts';
 import { createShip, stepShip, type Ship } from './ship.ts';
 import type { WeaponId } from './loadout.ts';
 import { MAX_TICKS_PER_FRAME, TICK_SECONDS } from './tuning.ts';
@@ -8,13 +8,16 @@ import { applyWorldEdge, projectileInBounds } from './world.ts';
 
 const PROJECTILE_CAPACITY = 256;
 
+/** A shot the local ship fired, with its id in the projectile pool. */
+export type FiredShot = ShotSpawn & { id: number };
+
 /** What happened during one frame's ticks, for effects and sounds. */
 export interface FrameEvents {
   ticks: number;
   /** Weapons whose charge started this frame. */
   charges: WeaponId[];
-  shots: ShotSpawn[];
-  expired: { weapon: Projectile['weapon']; x: number; y: number }[];
+  shots: FiredShot[];
+  expired: { kind: ProjectileKind; faction: Faction; x: number; y: number }[];
 }
 
 /** The single-player world: one ship and its projectiles, stepped at a fixed rate. */
@@ -59,11 +62,11 @@ export class Sandbox {
       events.charges.push(this.ship.loadout.weapon);
     }
     for (const shot of weapon.shots) {
-      this.projectiles.spawn(shot);
-      events.shots.push(shot);
+      const p = this.projectiles.spawn({ kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle });
+      events.shots.push({ ...shot, id: p.shotId });
     }
     for (const p of this.projectiles.step(TICK_SECONDS, projectileInBounds)) {
-      events.expired.push({ weapon: p.weapon, x: p.x, y: p.y });
+      events.expired.push({ kind: p.kind, faction: p.faction, x: p.x, y: p.y });
     }
     events.ticks++;
   }
