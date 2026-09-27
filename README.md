@@ -26,6 +26,19 @@ From a checkout (needs Go and Node.js 24):
 make server
 ```
 
+## Controls
+
+| Input | Action |
+|---|---|
+| W A S D | Move |
+| Mouse | Aim |
+| Left button (hold) | Fire |
+
+The sandbox has debug keys until loadouts arrive: **1**, **2** and **3** cycle
+the weapon, engine and shield; **H** cycles the hull damage state; **R**
+switches between free rotation and 16 directions; **F** turns effects on and
+off.
+
 ## Configuration
 
 | Variable  | Default      | Meaning |
