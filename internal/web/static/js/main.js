@@ -17,6 +17,9 @@ var EXPIRE_SOUNDS = {
   rockets: "sfx-rocket-blast",
   bigSpaceGun: "sfx-big-blast"
 };
+var CHARGE_SOUNDS = {
+  bigSpaceGun: "sfx-charge"
+};
 var ENGINE_LOOPS = {
   base: "sfx-engine-base",
   bigPulse: "sfx-engine-big-pulse",
@@ -34,6 +37,7 @@ function effectFiles() {
     both("sfx-rocket-launch", "sfx/rocket-launch"),
     both("sfx-rocket-blast", "sfx/rocket-blast"),
     both("sfx-big-blast", "sfx/big-blast"),
+    both("sfx-charge", "sfx/charge"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
     both("sfx-engine-base", "sfx/engine-base"),
@@ -767,6 +771,8 @@ function shotDetune(random) {
 
 // src/scenes/audio.ts
 var SHOT_VOLUME = 0.35;
+var CHARGE_VOLUME = 0.3;
+var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
 var UI_VOLUME = 0.3;
 var MUSIC_VOLUME = 0.3;
@@ -805,6 +811,12 @@ var ShipAudio = class {
       const mix = engineMix(Math.hypot(ship.vx, ship.vy), ENGINE_STATS[ship.loadout.engine].maxSpeed, ship.thrusting);
       this.engine.setVolume(mix.volume);
       this.engine.setRate(mix.rate);
+    }
+    for (const weapon of events.charges) {
+      const key = CHARGE_SOUNDS[weapon];
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
+      }
     }
     for (const shot of events.shots) {
       const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);

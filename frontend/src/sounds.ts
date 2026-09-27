@@ -24,6 +24,11 @@ export const EXPIRE_SOUNDS: Readonly<Partial<Record<WeaponId, string>>> = {
   bigSpaceGun: 'sfx-big-blast',
 };
 
+/** Sounds while a weapon charges, before its shot sound. */
+export const CHARGE_SOUNDS: Readonly<Partial<Record<WeaponId, string>>> = {
+  bigSpaceGun: 'sfx-charge',
+};
+
 export const ENGINE_LOOPS: Readonly<Record<EngineId, string>> = {
   base: 'sfx-engine-base',
   bigPulse: 'sfx-engine-big-pulse',
@@ -46,6 +51,7 @@ export function effectFiles(): SoundFile[] {
     both('sfx-rocket-launch', 'sfx/rocket-launch'),
     both('sfx-rocket-blast', 'sfx/rocket-blast'),
     both('sfx-big-blast', 'sfx/big-blast'),
+    both('sfx-charge', 'sfx/charge'),
     both(SHIELD_SOUND, 'sfx/shield'),
     both(PART_SWITCH_SOUND, 'sfx/part-switch'),
     both('sfx-engine-base', 'sfx/engine-base'),

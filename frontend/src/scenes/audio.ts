@@ -7,6 +7,7 @@ import type { FrameEvents } from '../sim/sandbox.ts';
 import type { Ship } from '../sim/ship.ts';
 import { ENGINE_STATS } from '../sim/tuning.ts';
 import {
+  CHARGE_SOUNDS,
   ENGINE_LOOPS,
   EXPIRE_SOUNDS,
   MUSIC,
@@ -19,6 +20,9 @@ import {
 type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound | Phaser.Sound.NoAudioSound;
 
 const SHOT_VOLUME = 0.35;
+const CHARGE_VOLUME = 0.3;
+/** Pitches the charge above the shield sound it shares a source with. */
+const CHARGE_DETUNE = 300;
 const EXPIRE_VOLUME = 0.3;
 const UI_VOLUME = 0.3;
 const MUSIC_VOLUME = 0.3;
@@ -63,6 +67,12 @@ export class ShipAudio {
       const mix = engineMix(Math.hypot(ship.vx, ship.vy), ENGINE_STATS[ship.loadout.engine].maxSpeed, ship.thrusting);
       this.engine.setVolume(mix.volume);
       this.engine.setRate(mix.rate);
+    }
+    for (const weapon of events.charges) {
+      const key = CHARGE_SOUNDS[weapon];
+      if (key !== undefined) {
+        this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
+      }
     }
     for (const shot of events.shots) {
       const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
