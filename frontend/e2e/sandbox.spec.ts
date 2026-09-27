@@ -1,4 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+
+import { expect, test } from './fixtures.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -113,16 +115,17 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
   // Held while sampling: a click shorter than one game frame is never seen.
   await page.mouse.down();
 
-  // Sample every animation frame until the ball is out, recording what the gun showed.
+  // Sample every animation frame until our own ball is out (other players' shots
+  // arrive too, since every test is a player on the same server).
   const samples = await page.evaluate(
     () =>
-      new Promise<{ frame: number; projectiles: number }[]>((resolve) => {
-        const seen: { frame: number; projectiles: number }[] = [];
+      new Promise<{ frame: number; shots: number }[]>((resolve) => {
+        const seen: { frame: number; shots: number }[] = [];
         const sample = (): void => {
           const s = window.voidmarch;
           if (s !== undefined) {
-            seen.push({ frame: s.weaponFrame, projectiles: s.projectiles });
-            if (s.projectiles > 0 || seen.length > 600) {
+            seen.push({ frame: s.weaponFrame, shots: s.shotsFired });
+            if (s.shotsFired > 0 || seen.length > 600) {
               resolve(seen);
 
               return;
@@ -136,7 +139,7 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
 
   await page.mouse.up();
 
-  const charging = samples.filter((s) => s.projectiles === 0).map((s) => s.frame);
+  const charging = samples.filter((s) => s.shots === 0).map((s) => s.frame);
   expect(Math.max(...charging)).toBeGreaterThan(0);
   expect(Math.max(...charging)).toBeLessThan(7);
   expect(samples.at(-1)?.frame).toBeGreaterThanOrEqual(7);

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.ts';
 
 test('the client boots into the sandbox without errors', async ({ page }) => {
   const problems: string[] = [];

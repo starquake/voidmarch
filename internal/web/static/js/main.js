@@ -1,6 +1,71 @@
 // src/main.ts
 import Phaser5 from "./vendor/phaser.js";
 
+// src/name.ts
+var MAX_NAME_LENGTH = 16;
+var NAME = /^[\p{L}\p{N} _-]+$/u;
+function nameProblem(raw) {
+  const name = raw.trim();
+  if (name === "") {
+    return "Pick a name first.";
+  }
+  if (Array.from(name).length > MAX_NAME_LENGTH) {
+    return `A name is at most ${MAX_NAME_LENGTH} characters.`;
+  }
+  if (!NAME.test(name)) {
+    return "Use letters, digits, spaces, - or _.";
+  }
+  return void 0;
+}
+async function register(name, fetcher = fetch) {
+  const response = await fetcher("/api/players", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name.trim() })
+  });
+  const body = await response.json();
+  if (!response.ok || body.token === void 0) {
+    throw new RegisterError(body.error ?? `The server said ${response.status}.`);
+  }
+  return body.token;
+}
+var RegisterError = class extends Error {
+  name = "RegisterError";
+};
+function askName() {
+  const form = document.querySelector("#name-form");
+  const input = document.querySelector("#name");
+  const error = document.querySelector("#name-error");
+  const alone = document.querySelector("#play-alone");
+  if (form === null || input === null || error === null || alone === null) {
+    return Promise.resolve(void 0);
+  }
+  form.hidden = false;
+  input.focus();
+  return new Promise((resolve) => {
+    const done = (token) => {
+      form.hidden = true;
+      resolve(token);
+    };
+    alone.addEventListener("click", () => {
+      done(void 0);
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const problem = nameProblem(input.value);
+      if (problem !== void 0) {
+        error.textContent = problem;
+        return;
+      }
+      error.textContent = "";
+      register(input.value).then(done).catch((err) => {
+        error.textContent = err instanceof RegisterError ? err.message : "Can't reach the server. Try again, or play alone for now.";
+        alone.hidden = false;
+      });
+    });
+  });
+}
+
 // src/scenes/boot.ts
 import Phaser from "./vendor/phaser.js";
 
@@ -456,6 +521,12 @@ function loadToken(store = browserStorage()) {
     return void 0;
   }
 }
+function saveToken(token, store = browserStorage()) {
+  try {
+    store?.setItem(TOKEN_KEY, token);
+  } catch {
+  }
+}
 function clearToken(store = browserStorage()) {
   try {
     store?.removeItem(TOKEN_KEY);
@@ -753,10 +824,10 @@ var WeaponAnimator = class {
       index = (index + 1) % count;
     }
     const last = index === count - 1;
-    const start = this.timing.releaseFrames[index] ?? 0;
+    const start2 = this.timing.releaseFrames[index] ?? 0;
     const next = this.timing.releaseFrames[index + 1];
     this.segment = {
-      start,
+      start: start2,
       end: last || next === void 0 ? this.timing.frames - 1 : next - 1,
       startedAt: now2,
       fps: this.timing.releaseFps,
@@ -1570,7 +1641,7 @@ var SandboxScene = class extends Phaser4.Scene {
   }
   /** Plays with others once the player has a name; without one it stays single-player. */
   startNetPlay() {
-    const token = loadToken();
+    const token = this.registry.get("token") ?? loadToken();
     if (token === void 0) {
       return;
     }
@@ -1861,17 +1932,33 @@ var SandboxScene = class extends Phaser4.Scene {
 };
 
 // src/main.ts
-new Phaser5.Game({
-  type: Phaser5.AUTO,
-  parent: "game",
-  backgroundColor: "#05030a",
-  pixelArt: true,
-  roundPixels: true,
-  banner: false,
-  scale: {
-    mode: Phaser5.Scale.RESIZE,
-    width: "100%",
-    height: "100%"
-  },
-  scene: [BootScene, SandboxScene]
-});
+async function start() {
+  let token = loadToken();
+  if (token === void 0) {
+    token = await askName();
+    if (token !== void 0) {
+      saveToken(token);
+    }
+  }
+  new Phaser5.Game({
+    type: Phaser5.AUTO,
+    parent: "game",
+    backgroundColor: "#05030a",
+    pixelArt: true,
+    roundPixels: true,
+    banner: false,
+    scale: {
+      mode: Phaser5.Scale.RESIZE,
+      width: "100%",
+      height: "100%"
+    },
+    scene: [BootScene, SandboxScene],
+    callbacks: {
+      // The registry carries the token even where the browser refuses storage.
+      preBoot: (game) => {
+        game.registry.set("token", token);
+      }
+    }
+  });
+}
+void start();

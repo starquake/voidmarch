@@ -139,7 +139,7 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Plays with others once the player has a name; without one it stays single-player. */
   private startNetPlay(): void {
-    const token = loadToken();
+    const token = (this.registry.get('token') as string | undefined) ?? loadToken();
     if (token === undefined) {
       return;
     }
