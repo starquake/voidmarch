@@ -27,7 +27,7 @@
     "check": "tsc",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",
-    "test": "node --test --experimental-test-coverage --test-coverage-include='src/sim/**' --test-coverage-exclude='**/*.test.ts' --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 'src/**/*.test.ts'",
+    "test": "node --test --experimental-test-coverage --test-coverage-include='src/sim/**' --test-coverage-include='src/net/**' --test-coverage-exclude='**/*.test.ts' --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 'src/**/*.test.ts'",
     "e2e": "playwright test"
   }
 }
