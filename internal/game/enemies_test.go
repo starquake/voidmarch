@@ -38,31 +38,6 @@ func latest(
 	return snap, others
 }
 
-// waitShotEnded reads s's messages until the given shot has ended.
-func waitShotEnded(t *testing.T, s *Session, shotID uint32) {
-	t.Helper()
-
-	for {
-		if next(t, s).GetShotEnded().GetShotId() == shotID {
-			return
-		}
-	}
-}
-
-// queuedDestroyed returns an EnemyDestroyed already waiting for s, or nil.
-func queuedDestroyed(s *Session) *pb.EnemyDestroyed {
-	for {
-		select {
-		case msg := <-s.Out:
-			if d := msg.GetEnemyDestroyed(); d != nil {
-				return d
-			}
-		default:
-			return nil
-		}
-	}
-}
-
 func TestEnemies_NoneWithoutPlayers(t *testing.T) {
 	t.Parallel()
 
@@ -154,18 +129,34 @@ func TestEnemies_HitsDestroyThem(t *testing.T) {
 	b.Send(state(0, 180))
 	snap, _ := latest(t, a, tick, 2*TickRate, 1000, 0)
 	target := snap.GetEnemies()[0]
-	drain(b)
+	// Catch b up to the same tick; the hub may still be sending it.
+	caughtUp := false
+	for !caughtUp {
+		caughtUp = next(t, b).GetSnapshot().GetTick() == snap.GetTick()
+	}
 
 	hits := 0
 	var destroyed *pb.EnemyDestroyed
+	var after *pb.Snapshot
 	for destroyed == nil && hits < 20 {
 		hits++
 		a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Hit{Hit: &pb.Hit{
 			EnemyId: target.GetEnemyId(), ShotId: uint32(hits), Damage: 1,
 		}}})
-		waitShotEnded(t, b, uint32(hits))
-		// The hub queues EnemyDestroyed right after ShotEnded, in the same step.
-		destroyed = queuedDestroyed(b)
+		// The hub handles the hit before it takes the next tick, so b's
+		// messages up to that tick's snapshot include everything it caused.
+		var messages []*pb.ServerMessage
+		after, messages = latest(t, b, tick, 1, 0, 180)
+		ended := false
+		for _, msg := range messages {
+			ended = ended || msg.GetShotEnded().GetShotId() == uint32(hits)
+			if d := msg.GetEnemyDestroyed(); d != nil {
+				destroyed = d
+			}
+		}
+		if !ended {
+			t.Fatalf("shot %d did not end for the other player", hits)
+		}
 	}
 
 	want := 2
@@ -179,8 +170,7 @@ func TestEnemies_HitsDestroyThem(t *testing.T) {
 		t.Errorf("destroyed by %q, want %q", got, want)
 	}
 
-	snap, _ = latest(t, a, tick, 1, 1000, 0)
-	for _, e := range snap.GetEnemies() {
+	for _, e := range after.GetEnemies() {
 		if e.GetEnemyId() == target.GetEnemyId() {
 			t.Error("the destroyed enemy is still in the snapshot")
 		}
