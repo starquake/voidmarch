@@ -16,6 +16,8 @@ export interface Ship {
   damage: number;
   /** Seconds until the weapon may fire again; at most 0 when ready. */
   cooldown: number;
+  /** Seconds until a charging shot leaves; 0 when not charging. */
+  charging: number;
   /** The muzzle an alternating weapon fires next. */
   nextMuzzle: number;
   /** 0 for free rotation, else the number of facing directions. */
@@ -33,6 +35,7 @@ export function createShip(x: number, y: number, loadout: Loadout = DEFAULT_LOAD
     loadout: { ...loadout },
     damage: 0,
     cooldown: 0,
+    charging: 0,
     nextMuzzle: 0,
     rotationSnap: 0,
   };

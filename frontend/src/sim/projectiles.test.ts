@@ -50,7 +50,7 @@ test('the zapper zigzags across its line of fire', () => {
 
 test('projectiles fly and expire at the end of their lifetime', () => {
   const pool = new ProjectilePool(8);
-  const p = pool.spawn({ weapon: 'autoCannon', x: 0, y: 0, angle: 0 });
+  const p = pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
   assert.equal(pool.activeCount, 1);
 
   pool.step(TICK_SECONDS, always);
@@ -66,17 +66,17 @@ test('projectiles fly and expire at the end of their lifetime', () => {
 
 test('projectiles expire when they leave the bounds', () => {
   const pool = new ProjectilePool(4);
-  pool.spawn({ weapon: 'autoCannon', x: 0, y: 0, angle: 0 });
+  pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
   const expired = pool.step(TICK_SECONDS, () => false);
   assert.equal(expired.length, 1);
 });
 
 test('a full pool reuses its oldest projectile', () => {
   const pool = new ProjectilePool(2);
-  const first = pool.spawn({ weapon: 'autoCannon', x: 0, y: 0, angle: 0 });
+  const first = pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
   pool.step(TICK_SECONDS, always);
-  pool.spawn({ weapon: 'autoCannon', x: 0, y: 0, angle: 0 });
-  const third = pool.spawn({ weapon: 'rockets', x: 5, y: 5, angle: 0 });
+  pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 });
+  const third = pool.spawn({ weapon: 'rockets', muzzle: 0, x: 5, y: 5, angle: 0 });
   assert.equal(third, first);
   assert.equal(third.weapon, 'rockets');
   assert.equal(pool.activeCount, 2);
@@ -84,5 +84,5 @@ test('a full pool reuses its oldest projectile', () => {
 
 test('a pool needs capacity', () => {
   const pool = new ProjectilePool(0);
-  assert.throws(() => pool.spawn({ weapon: 'autoCannon', x: 0, y: 0, angle: 0 }), /zero capacity/);
+  assert.throws(() => pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 }), /zero capacity/);
 });

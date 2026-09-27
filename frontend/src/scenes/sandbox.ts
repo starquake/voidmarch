@@ -2,13 +2,14 @@ import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { loadControlMode, saveControlMode } from '../settings.ts';
-import { keys } from '../sprites.ts';
+import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
 import { Sandbox, type FrameEvents } from '../sim/sandbox.ts';
 import { ROTATION_SNAP_STEPS, VIEW_HEIGHT, VIEW_WIDTH, WEAPON_STATS } from '../sim/tuning.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
+import { WeaponAnimator } from '../weaponframes.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -53,6 +54,7 @@ export class SandboxScene extends Phaser.Scene {
   private shotsFired = 0;
   private hudUpdatedAt = 0;
   private debug!: DebugState;
+  private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
 
   constructor() {
     super('sandbox');
@@ -87,6 +89,7 @@ export class SandboxScene extends Phaser.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      weaponFrame: 0,
     };
     this.publish();
   }
@@ -127,7 +130,6 @@ export class SandboxScene extends Phaser.Scene {
     const weapon = this.add.sprite(0, 0, keys.weapon('autoCannon'), 0);
     const shield = this.add.sprite(0, 0, keys.shield('front'));
     const root = this.add.container(this.sim.ship.x, this.sim.ship.y, [engine, flame, hull, weapon, shield]);
-    weapon.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => weapon.setFrame(0));
     this.world.add(root);
 
     return { root, engine, flame, hull, weapon, shield };
@@ -257,7 +259,8 @@ export class SandboxScene extends Phaser.Scene {
     const { weapon, engine, shield } = this.sim.ship.loadout;
     this.ship.engine.setTexture(keys.engine(engine));
     this.ship.flame.play(keys.flameIdle(engine));
-    this.ship.weapon.stop().setTexture(keys.weapon(weapon), 0);
+    this.ship.weapon.setTexture(keys.weapon(weapon), 0);
+    this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
     this.ship.shield.play(keys.shield(shield));
     this.updateHud();
   }
@@ -295,9 +298,23 @@ export class SandboxScene extends Phaser.Scene {
 
     const engine = ship.loadout.engine;
     this.ship.flame.play(ship.thrusting ? keys.flamePowering(engine) : keys.flameIdle(engine), true);
-    if (events.shots.length > 0) {
-      this.ship.weapon.play(keys.weapon(ship.loadout.weapon));
+    this.animateWeapon(events);
+  }
+
+  private animateWeapon(events: FrameEvents): void {
+    const now = this.time.now / 1000;
+    const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
+    if (events.charges.length > 0) {
+      this.weaponFrames.charge(now, stats.charge);
     }
+    if (stats.alternate) {
+      for (const shot of events.shots) {
+        this.weaponFrames.release(now, shot.muzzle, stats.muzzles.length);
+      }
+    } else if (events.shots.length > 0) {
+      this.weaponFrames.release(now, 0, 1);
+    }
+    this.ship.weapon.setFrame(this.weaponFrames.frame(now));
   }
 
   private drawProjectiles(): void {
@@ -369,6 +386,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
+    this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
     publishDebugState(this.debug);
   }
 }

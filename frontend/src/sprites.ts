@@ -1,5 +1,6 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
+import type { WeaponTiming } from './weaponframes.ts';
 
 const ASSETS = '/static/assets';
 
@@ -35,12 +36,61 @@ const strip = (key: string, url: string, size: number, frames: number, fps: numb
   loop,
 });
 
-const WEAPON_FILES: Record<WeaponId, { weapon: string; projectile: string; frames: number; projectileFrames: number }> = {
-  autoCannon: { weapon: 'weapon-auto-cannon', projectile: 'projectile-auto-cannon', frames: 7, projectileFrames: 4 },
-  rockets: { weapon: 'weapon-rockets', projectile: 'projectile-rocket', frames: 17, projectileFrames: 3 },
-  bigSpaceGun: { weapon: 'weapon-big-space-gun', projectile: 'projectile-big-space-gun', frames: 12, projectileFrames: 10 },
-  zapper: { weapon: 'weapon-zapper', projectile: 'projectile-zapper', frames: 14, projectileFrames: 8 },
+interface WeaponFiles {
+  weapon: string;
+  projectile: string;
+  frames: number;
+  projectileFrames: number;
+  /** Frames where a shot leaves, read off the sheets: the barrel flashes, a rocket goes, the recoil starts. */
+  releaseFrames: readonly number[];
+  releaseFps: number;
+}
+
+const WEAPON_FILES: Record<WeaponId, WeaponFiles> = {
+  // Frame 1 flashes the left barrel, frame 2 the right, then smoke.
+  autoCannon: {
+    weapon: 'weapon-auto-cannon',
+    projectile: 'projectile-auto-cannon',
+    frames: 7,
+    projectileFrames: 4,
+    releaseFrames: [1, 2],
+    releaseFps: 16,
+  },
+  // Two pods of three; a rocket leaves every second frame, left pod first.
+  rockets: {
+    weapon: 'weapon-rockets',
+    projectile: 'projectile-rocket',
+    frames: 17,
+    projectileFrames: 3,
+    releaseFrames: [2, 4, 6, 8, 10, 12],
+    releaseFps: 2 / WEAPON_STATS.rockets.interval,
+  },
+  // Frames 0-6 glow up while charging; the recoil starts on frame 7.
+  bigSpaceGun: {
+    weapon: 'weapon-big-space-gun',
+    projectile: 'projectile-big-space-gun',
+    frames: 12,
+    projectileFrames: 10,
+    releaseFrames: [7],
+    releaseFps: 12,
+  },
+  // The prongs light up over frames 2-7 and discharge after.
+  zapper: {
+    weapon: 'weapon-zapper',
+    projectile: 'projectile-zapper',
+    frames: 14,
+    projectileFrames: 8,
+    releaseFrames: [7],
+    releaseFps: 30,
+  },
 };
+
+/** When the weapon sheet's frames happen; see WeaponAnimator. */
+export function weaponTiming(id: WeaponId): WeaponTiming {
+  const f = WEAPON_FILES[id];
+
+  return { frames: f.frames, releaseFrames: f.releaseFrames, releaseFps: f.releaseFps };
+}
 
 const ENGINE_FILES: Record<EngineId, { file: string; idle: number; powering: number }> = {
   base: { file: 'engine-base', idle: 3, powering: 4 },
@@ -97,8 +147,8 @@ export function sheets(): Sheet[] {
       const f = WEAPON_FILES[id];
 
       return [
-        // One firing animation per shot interval, so it keeps up with holding the trigger.
-        strip(keys.weapon(id), `${ship}/${f.weapon}.png`, 48, f.frames, f.frames / WEAPON_STATS[id].interval, false),
+        // Frames are picked by WeaponAnimator, so no Phaser animation.
+        strip(keys.weapon(id), `${ship}/${f.weapon}.png`, 48, f.frames, 0, false),
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12),
       ];
     }),

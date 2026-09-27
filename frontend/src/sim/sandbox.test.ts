@@ -36,6 +36,20 @@ test('holding W moves the ship up and remembers the previous position', () => {
   assert.ok(sandbox.previous.y > sandbox.ship.y);
 });
 
+test('a charging weapon reports the charge, then the shot', () => {
+  const sandbox = new Sandbox();
+  sandbox.ship.loadout.weapon = 'bigSpaceGun';
+  const first = sandbox.advance(TICK_SECONDS, input({ fire: true }));
+  assert.deepEqual(first.charges, ['bigSpaceGun']);
+  assert.equal(first.shots.length, 0);
+
+  let shots = 0;
+  for (let t = 0; t < 1; t += TICK_SECONDS) {
+    shots += sandbox.advance(TICK_SECONDS, input()).shots.length;
+  }
+  assert.equal(shots, 1);
+});
+
 test('firing spawns projectiles and reports shots and expiries', () => {
   const sandbox = new Sandbox();
   const events = sandbox.advance(TICK_SECONDS, input({ fire: true }));

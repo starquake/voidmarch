@@ -1,6 +1,7 @@
 import { relativeTo, toCommand, type ControlMode, type InputSnapshot, type ShipCommand } from './input.ts';
 import { ProjectilePool, type Projectile } from './projectiles.ts';
 import { createShip, stepShip, type Ship } from './ship.ts';
+import type { WeaponId } from './loadout.ts';
 import { MAX_TICKS_PER_FRAME, TICK_SECONDS } from './tuning.ts';
 import { stepWeapon, type ShotSpawn } from './weapons.ts';
 import { applyWorldEdge, projectileInBounds } from './world.ts';
@@ -10,6 +11,8 @@ const PROJECTILE_CAPACITY = 256;
 /** What happened during one frame's ticks, for effects and sounds. */
 export interface FrameEvents {
   ticks: number;
+  /** Weapons whose charge started this frame. */
+  charges: WeaponId[];
   shots: ShotSpawn[];
   expired: { weapon: Projectile['weapon']; x: number; y: number }[];
 }
@@ -31,7 +34,7 @@ export class Sandbox {
 
   /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
   advance(frameSeconds: number, input: InputSnapshot): FrameEvents {
-    const events: FrameEvents = { ticks: 0, shots: [], expired: [] };
+    const events: FrameEvents = { ticks: 0, charges: [], shots: [], expired: [] };
     this.accumulator = Math.min(this.accumulator + frameSeconds, TICK_SECONDS * MAX_TICKS_PER_FRAME);
 
     const cmd = toCommand(input);
@@ -51,7 +54,11 @@ export class Sandbox {
     stepShip(this.ship, cmd, TICK_SECONDS);
     applyWorldEdge(this.ship, TICK_SECONDS);
 
-    for (const shot of stepWeapon(this.ship, cmd.fire, TICK_SECONDS)) {
+    const weapon = stepWeapon(this.ship, cmd.fire, TICK_SECONDS);
+    if (weapon.chargeStarted) {
+      events.charges.push(this.ship.loadout.weapon);
+    }
+    for (const shot of weapon.shots) {
       this.projectiles.spawn(shot);
       events.shots.push(shot);
     }

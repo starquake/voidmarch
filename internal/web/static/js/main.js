@@ -41,6 +41,7 @@ var STRAIGHT = { amplitude: 0, frequency: 0 };
 var WEAPON_STATS = {
   autoCannon: {
     interval: 0.13,
+    charge: 0,
     speed: 520,
     acceleration: 0,
     maxSpeed: 520,
@@ -56,6 +57,7 @@ var WEAPON_STATS = {
   },
   rockets: {
     interval: 0.32,
+    charge: 0,
     speed: 140,
     acceleration: 900,
     maxSpeed: 560,
@@ -71,6 +73,7 @@ var WEAPON_STATS = {
   },
   bigSpaceGun: {
     interval: 0.9,
+    charge: 0.45,
     speed: 300,
     acceleration: 0,
     maxSpeed: 300,
@@ -83,6 +86,7 @@ var WEAPON_STATS = {
   },
   zapper: {
     interval: 0.24,
+    charge: 0.1,
     speed: 430,
     acceleration: 0,
     maxSpeed: 430,
@@ -125,11 +129,47 @@ var strip = (key, url, size, frames, fps, loop = true) => ({
   loop
 });
 var WEAPON_FILES = {
-  autoCannon: { weapon: "weapon-auto-cannon", projectile: "projectile-auto-cannon", frames: 7, projectileFrames: 4 },
-  rockets: { weapon: "weapon-rockets", projectile: "projectile-rocket", frames: 17, projectileFrames: 3 },
-  bigSpaceGun: { weapon: "weapon-big-space-gun", projectile: "projectile-big-space-gun", frames: 12, projectileFrames: 10 },
-  zapper: { weapon: "weapon-zapper", projectile: "projectile-zapper", frames: 14, projectileFrames: 8 }
+  // Frame 1 flashes the left barrel, frame 2 the right, then smoke.
+  autoCannon: {
+    weapon: "weapon-auto-cannon",
+    projectile: "projectile-auto-cannon",
+    frames: 7,
+    projectileFrames: 4,
+    releaseFrames: [1, 2],
+    releaseFps: 16
+  },
+  // Two pods of three; a rocket leaves every second frame, left pod first.
+  rockets: {
+    weapon: "weapon-rockets",
+    projectile: "projectile-rocket",
+    frames: 17,
+    projectileFrames: 3,
+    releaseFrames: [2, 4, 6, 8, 10, 12],
+    releaseFps: 2 / WEAPON_STATS.rockets.interval
+  },
+  // Frames 0-6 glow up while charging; the recoil starts on frame 7.
+  bigSpaceGun: {
+    weapon: "weapon-big-space-gun",
+    projectile: "projectile-big-space-gun",
+    frames: 12,
+    projectileFrames: 10,
+    releaseFrames: [7],
+    releaseFps: 12
+  },
+  // The prongs light up over frames 2-7 and discharge after.
+  zapper: {
+    weapon: "weapon-zapper",
+    projectile: "projectile-zapper",
+    frames: 14,
+    projectileFrames: 8,
+    releaseFrames: [7],
+    releaseFps: 30
+  }
 };
+function weaponTiming(id) {
+  const f = WEAPON_FILES[id];
+  return { frames: f.frames, releaseFrames: f.releaseFrames, releaseFps: f.releaseFps };
+}
 var ENGINE_FILES = {
   base: { file: "engine-base", idle: 3, powering: 4 },
   bigPulse: { file: "engine-big-pulse", idle: 4, powering: 4 },
@@ -177,8 +217,8 @@ function sheets() {
     ...WEAPONS.flatMap((id) => {
       const f = WEAPON_FILES[id];
       return [
-        // One firing animation per shot interval, so it keeps up with holding the trigger.
-        strip(keys.weapon(id), `${ship}/${f.weapon}.png`, 48, f.frames, f.frames / WEAPON_STATS[id].interval, false),
+        // Frames are picked by WeaponAnimator, so no Phaser animation.
+        strip(keys.weapon(id), `${ship}/${f.weapon}.png`, 48, f.frames, 0, false),
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12)
       ];
     }),
@@ -404,6 +444,7 @@ function createShip(x, y, loadout = DEFAULT_LOADOUT) {
     loadout: { ...loadout },
     damage: 0,
     cooldown: 0,
+    charging: 0,
     nextMuzzle: 0,
     rotationSnap: 0
   };
@@ -433,25 +474,48 @@ function stepShip(ship, cmd, dt) {
 // src/sim/weapons.ts
 function stepWeapon(ship, fire, dt) {
   const stats = WEAPON_STATS[ship.loadout.weapon];
-  const shots = [];
+  const step = { chargeStarted: false, shots: [] };
   ship.cooldown -= dt;
+  if (ship.charging > 0) {
+    ship.charging -= dt;
+    if (ship.charging <= 0) {
+      ship.charging = 0;
+      fireVolley(ship, stats, step.shots);
+    }
+    return step;
+  }
   if (!fire) {
     ship.cooldown = Math.max(ship.cooldown, 0);
-    return shots;
+    return step;
   }
   while (ship.cooldown <= 0) {
     ship.cooldown += stats.interval;
-    const muzzles = stats.alternate ? [stats.muzzles[ship.nextMuzzle % stats.muzzles.length]] : stats.muzzles;
-    ship.nextMuzzle = (ship.nextMuzzle + 1) % stats.muzzles.length;
-    for (const muzzle of muzzles) {
-      if (muzzle === void 0) {
-        continue;
-      }
-      const offset = rotateOffset(muzzle.forward, muzzle.right, ship.angle);
-      shots.push({ weapon: ship.loadout.weapon, x: ship.x + offset.x, y: ship.y + offset.y, angle: ship.angle });
+    if (stats.charge > 0) {
+      ship.charging = stats.charge;
+      step.chargeStarted = true;
+      break;
     }
+    fireVolley(ship, stats, step.shots);
   }
-  return shots;
+  return step;
+}
+function fireVolley(ship, stats, shots) {
+  const muzzles = stats.alternate ? [ship.nextMuzzle % stats.muzzles.length] : stats.muzzles.map((_, i) => i);
+  ship.nextMuzzle = (ship.nextMuzzle + 1) % stats.muzzles.length;
+  for (const index of muzzles) {
+    const muzzle = stats.muzzles[index];
+    if (muzzle === void 0) {
+      continue;
+    }
+    const offset = rotateOffset(muzzle.forward, muzzle.right, ship.angle);
+    shots.push({
+      weapon: ship.loadout.weapon,
+      muzzle: index,
+      x: ship.x + offset.x,
+      y: ship.y + offset.y,
+      angle: ship.angle
+    });
+  }
 }
 
 // src/sim/world.ts
@@ -509,7 +573,7 @@ var Sandbox = class {
   }
   /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
   advance(frameSeconds, input) {
-    const events = { ticks: 0, shots: [], expired: [] };
+    const events = { ticks: 0, charges: [], shots: [], expired: [] };
     this.accumulator = Math.min(this.accumulator + frameSeconds, TICK_SECONDS * MAX_TICKS_PER_FRAME);
     const cmd = toCommand(input);
     while (this.accumulator >= TICK_SECONDS) {
@@ -524,7 +588,11 @@ var Sandbox = class {
     const cmd = this.controlMode === "ship" ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
     stepShip(this.ship, cmd, TICK_SECONDS);
     applyWorldEdge(this.ship, TICK_SECONDS);
-    for (const shot of stepWeapon(this.ship, cmd.fire, TICK_SECONDS)) {
+    const weapon = stepWeapon(this.ship, cmd.fire, TICK_SECONDS);
+    if (weapon.chargeStarted) {
+      events.charges.push(this.ship.loadout.weapon);
+    }
+    for (const shot of weapon.shots) {
       this.projectiles.spawn(shot);
       events.shots.push(shot);
     }
@@ -541,6 +609,66 @@ function integerZoom(viewportWidth, viewportHeight, targetWidth, targetHeight) {
   const fit = Math.floor(Math.min(viewportWidth / targetWidth, viewportHeight / targetHeight));
   return Math.max(MIN_ZOOM, fit);
 }
+
+// src/weaponframes.ts
+var HOLD_SECONDS = 0.6;
+var WeaponAnimator = class {
+  timing;
+  segment;
+  salvo = 0;
+  constructor(timing) {
+    this.timing = timing;
+  }
+  /** Plays the frames before the first release over the charge time. */
+  charge(now, seconds) {
+    const first = this.timing.releaseFrames[0] ?? 0;
+    this.segment = { start: 0, end: first - 1, startedAt: now, fps: first / seconds, ends: false };
+  }
+  /**
+   * Jumps to the next release frame fired from muzzle. Cycles with more
+   * release frames than muzzles (rocket pods) pick the next one on that side.
+   */
+  release(now, muzzle, muzzles) {
+    const count = this.timing.releaseFrames.length;
+    let index = this.salvo % count;
+    for (let tries = 0; tries < count && index % muzzles !== muzzle % muzzles; tries++) {
+      index = (index + 1) % count;
+    }
+    const last = index === count - 1;
+    const start = this.timing.releaseFrames[index] ?? 0;
+    const next = this.timing.releaseFrames[index + 1];
+    this.segment = {
+      start,
+      end: last || next === void 0 ? this.timing.frames - 1 : next - 1,
+      startedAt: now,
+      fps: this.timing.releaseFps,
+      ends: last
+    };
+    this.salvo = last ? 0 : index + 1;
+  }
+  /** Back to rest, e.g. after switching weapons. */
+  reset() {
+    this.segment = void 0;
+    this.salvo = 0;
+  }
+  frame(now) {
+    const segment = this.segment;
+    if (segment === void 0) {
+      return 0;
+    }
+    const elapsed = now - segment.startedAt;
+    const frame = segment.start + Math.floor(elapsed * segment.fps);
+    if (frame <= segment.end) {
+      return Math.max(segment.start, frame);
+    }
+    const heldFor = elapsed - (segment.end - segment.start + 1) / segment.fps;
+    if (segment.ends || heldFor > HOLD_SECONDS) {
+      this.reset();
+      return 0;
+    }
+    return segment.end;
+  }
+};
 
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
@@ -568,6 +696,7 @@ var SandboxScene = class extends Phaser2.Scene {
   shotsFired = 0;
   hudUpdatedAt = 0;
   debug;
+  weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   constructor() {
     super("sandbox");
   }
@@ -598,7 +727,8 @@ var SandboxScene = class extends Phaser2.Scene {
       projectiles: 0,
       shotsFired: 0,
       zoom: 1,
-      fps: 0
+      fps: 0,
+      weaponFrame: 0
     };
     this.publish();
   }
@@ -634,7 +764,6 @@ var SandboxScene = class extends Phaser2.Scene {
     const weapon = this.add.sprite(0, 0, keys.weapon("autoCannon"), 0);
     const shield = this.add.sprite(0, 0, keys.shield("front"));
     const root = this.add.container(this.sim.ship.x, this.sim.ship.y, [engine, flame, hull, weapon, shield]);
-    weapon.on(Phaser2.Animations.Events.ANIMATION_COMPLETE, () => weapon.setFrame(0));
     this.world.add(root);
     return { root, engine, flame, hull, weapon, shield };
   }
@@ -749,7 +878,8 @@ var SandboxScene = class extends Phaser2.Scene {
     const { weapon, engine, shield } = this.sim.ship.loadout;
     this.ship.engine.setTexture(keys.engine(engine));
     this.ship.flame.play(keys.flameIdle(engine));
-    this.ship.weapon.stop().setTexture(keys.weapon(weapon), 0);
+    this.ship.weapon.setTexture(keys.weapon(weapon), 0);
+    this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
     this.ship.shield.play(keys.shield(shield));
     this.updateHud();
   }
@@ -780,9 +910,22 @@ var SandboxScene = class extends Phaser2.Scene {
     this.ship.root.setPosition(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha).setRotation(ship.angle + SPRITE_FACING);
     const engine = ship.loadout.engine;
     this.ship.flame.play(ship.thrusting ? keys.flamePowering(engine) : keys.flameIdle(engine), true);
-    if (events.shots.length > 0) {
-      this.ship.weapon.play(keys.weapon(ship.loadout.weapon));
+    this.animateWeapon(events);
+  }
+  animateWeapon(events) {
+    const now = this.time.now / 1e3;
+    const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
+    if (events.charges.length > 0) {
+      this.weaponFrames.charge(now, stats.charge);
     }
+    if (stats.alternate) {
+      for (const shot of events.shots) {
+        this.weaponFrames.release(now, shot.muzzle, stats.muzzles.length);
+      }
+    } else if (events.shots.length > 0) {
+      this.weaponFrames.release(now, 0, 1);
+    }
+    this.ship.weapon.setFrame(this.weaponFrames.frame(now));
   }
   drawProjectiles() {
     this.sim.projectiles.items.forEach((p, i) => {
@@ -849,6 +992,7 @@ var SandboxScene = class extends Phaser2.Scene {
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
+    this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
     publishDebugState(this.debug);
   }
 };

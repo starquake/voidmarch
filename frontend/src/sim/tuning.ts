@@ -51,6 +51,8 @@ export interface Muzzle {
 export interface WeaponStats {
   /** Seconds between shots. */
   interval: number;
+  /** Seconds between pulling the trigger and the shot leaving; a started charge always fires. */
+  charge: number;
   /** Launch speed in px/s. */
   speed: number;
   /** px/s², 0 for constant speed. */
@@ -75,6 +77,7 @@ const STRAIGHT = { amplitude: 0, frequency: 0 };
 export const WEAPON_STATS: Readonly<Record<WeaponId, WeaponStats>> = {
   autoCannon: {
     interval: 0.13,
+    charge: 0,
     speed: 520,
     acceleration: 0,
     maxSpeed: 520,
@@ -90,6 +93,7 @@ export const WEAPON_STATS: Readonly<Record<WeaponId, WeaponStats>> = {
   },
   rockets: {
     interval: 0.32,
+    charge: 0,
     speed: 140,
     acceleration: 900,
     maxSpeed: 560,
@@ -105,6 +109,7 @@ export const WEAPON_STATS: Readonly<Record<WeaponId, WeaponStats>> = {
   },
   bigSpaceGun: {
     interval: 0.9,
+    charge: 0.45,
     speed: 300,
     acceleration: 0,
     maxSpeed: 300,
@@ -117,6 +122,7 @@ export const WEAPON_STATS: Readonly<Record<WeaponId, WeaponStats>> = {
   },
   zapper: {
     interval: 0.24,
+    charge: 0.1,
     speed: 430,
     acceleration: 0,
     maxSpeed: 430,
