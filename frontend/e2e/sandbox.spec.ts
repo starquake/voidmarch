@@ -145,7 +145,9 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
 test('music starts after the first input, and M and N are remembered', async ({ page }) => {
   const { x, y } = await centre(page);
   await page.mouse.click(x + 100, y);
-  await expect.poll(async () => (await state(page)).audio.playingMusic).toMatch(/^music-/);
+  await expect
+    .poll(async () => (await state(page)).audio, { message: 'music should play after the first click' })
+    .toMatchObject({ playingMusic: expect.stringMatching(/^music-/) });
 
   await page.keyboard.press('m');
   await page.keyboard.press('n');

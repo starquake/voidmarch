@@ -95,7 +95,7 @@ export class SandboxScene extends Phaser.Scene {
       zoom: 1,
       fps: 0,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, playingMusic: null },
+      audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
     };
     this.publish();
   }
@@ -412,6 +412,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.audio.music = this.audioSettings.music;
     this.debug.audio.locked = this.sound.locked;
     this.debug.audio.playingMusic = this.audio.playingMusic;
+    this.debug.audio.backend = this.audio.backend;
+    this.debug.audio.musicLoaded = this.audio.musicReady;
     publishDebugState(this.debug);
   }
 }

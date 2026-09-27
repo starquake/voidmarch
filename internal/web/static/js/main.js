@@ -792,6 +792,18 @@ var ShipAudio = class {
     scene.sound.pauseOnBlur = true;
     this.loadMusic();
   }
+  /** Whether the music has finished loading. */
+  get musicReady() {
+    return this.musicLoaded;
+  }
+  /** Which sound backend Phaser picked for this browser. */
+  get backend() {
+    const sound = this.scene.sound;
+    if (sound instanceof Phaser2.Sound.WebAudioSoundManager) {
+      return "webaudio";
+    }
+    return sound instanceof Phaser2.Sound.HTML5AudioSoundManager ? "html5" : "none";
+  }
   /** The key of the playing track, or null. */
   get playingMusic() {
     return this.music?.isPlaying === true ? this.music.key : null;
@@ -951,7 +963,7 @@ var SandboxScene = class extends Phaser3.Scene {
       zoom: 1,
       fps: 0,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, playingMusic: null }
+      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null }
     };
     this.publish();
   }
@@ -1235,6 +1247,8 @@ var SandboxScene = class extends Phaser3.Scene {
     this.debug.audio.music = this.audioSettings.music;
     this.debug.audio.locked = this.sound.locked;
     this.debug.audio.playingMusic = this.audio.playingMusic;
+    this.debug.audio.backend = this.audio.backend;
+    this.debug.audio.musicLoaded = this.audio.musicReady;
     publishDebugState(this.debug);
   }
 };

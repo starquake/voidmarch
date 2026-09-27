@@ -46,6 +46,21 @@ export class ShipAudio {
     this.loadMusic();
   }
 
+  /** Whether the music has finished loading. */
+  get musicReady(): boolean {
+    return this.musicLoaded;
+  }
+
+  /** Which sound backend Phaser picked for this browser. */
+  get backend(): string {
+    const sound = this.scene.sound;
+    if (sound instanceof Phaser.Sound.WebAudioSoundManager) {
+      return 'webaudio';
+    }
+
+    return sound instanceof Phaser.Sound.HTML5AudioSoundManager ? 'html5' : 'none';
+  }
+
   /** The key of the playing track, or null. */
   get playingMusic(): string | null {
     return this.music?.isPlaying === true ? this.music.key : null;
