@@ -16,3 +16,55 @@ body {
   image-rendering: pixelated;
   cursor: crosshair;
 }
+
+.name-screen {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(20rem, calc(100% - 2rem));
+  height: fit-content;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: rgb(5 3 10 / 92%);
+  border: 1px solid #8fd8ff;
+  color: #d8f8ff;
+  font: 16px/1.4 monospace;
+}
+
+.name-screen[hidden] {
+  display: none;
+}
+
+.name-screen h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  letter-spacing: 0.15em;
+}
+
+.name-screen input,
+.name-screen button {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  color: #d8f8ff;
+  background: #120c1f;
+  border: 1px solid #8fd8ff;
+}
+
+.name-screen button {
+  cursor: pointer;
+}
+
+.name-screen button:hover,
+.name-screen button:focus-visible,
+.name-screen input:focus-visible {
+  outline: 2px solid #fff08a;
+  outline-offset: 1px;
+}
+
+.name-error {
+  min-height: 1.4em;
+  margin: 0;
+  color: #ff9a8a;
+}

@@ -24,6 +24,8 @@ var (
 	ErrInvalidAppEnv = errors.New("invalid APP_ENV")
 	// ErrInvalidPort is returned when PORT is not a number between 0 and 65535.
 	ErrInvalidPort = errors.New("invalid PORT")
+	// ErrInvalidWireLog is returned when WIRE_LOG is not a boolean.
+	ErrInvalidWireLog = errors.New("invalid WIRE_LOG")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
 	ErrWebDirNotAllowed = errors.New("WEB_DIR is only allowed when APP_ENV=development")
 )
@@ -38,6 +40,8 @@ type Config struct {
 	// WebDir serves the web client from disk instead of the embedded copy, so
 	// edits show without a rebuild. Development only.
 	WebDir string
+	// WireLog logs every WebSocket message, decoded. Noisy; for debugging.
+	WireLog bool
 }
 
 // Parse reads the configuration through getenv, applying defaults for unset
@@ -70,6 +74,14 @@ func Parse(getenv func(string) string) (*Config, error) {
 			return nil, ErrWebDirNotAllowed
 		}
 		c.WebDir = val
+	}
+
+	if val := getenv("WIRE_LOG"); val != "" {
+		wireLog, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %q", ErrInvalidWireLog, val)
+		}
+		c.WireLog = wireLog
 	}
 
 	return c, nil

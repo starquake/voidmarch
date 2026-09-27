@@ -11,8 +11,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/starquake/voidmarch/internal/config"
+	"github.com/starquake/voidmarch/internal/game"
+	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/server"
 	"github.com/starquake/voidmarch/internal/version"
 	"github.com/starquake/voidmarch/internal/web"
@@ -60,7 +63,21 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		}
 	}
 
-	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static), logger)
+	hub := game.NewHub(logger)
+	ticker := time.NewTicker(time.Second / game.TickRate)
+	defer ticker.Stop()
+	hubDone := make(chan struct{})
+	go func() {
+		defer close(hubDone)
+		hub.Run(signalCtx, ticker.C)
+	}()
+	// The hub stops with the signal; waiting keeps Run from returning while it
+	// still closes its sessions.
+	defer func() { <-hubDone }()
+
+	svc := server.Services{Players: players.NewStore(), Hub: hub}
+
+	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static, svc), logger)
 }
 
 // staticFiles returns the web client: from WEB_DIR when set, else embedded.

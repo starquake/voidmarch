@@ -2,7 +2,7 @@ import { CONTROL_MODES, type ControlMode } from './sim/input.ts';
 
 const CONTROL_MODE_KEY = 'voidmarch.controlMode';
 
-type Store = Pick<Storage, 'getItem' | 'setItem'>;
+type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 /** Returns the storage, or undefined where the browser denies access. */
 function browserStorage(): Store | undefined {
@@ -67,5 +67,34 @@ export function saveAudioSettings(settings: AudioSettings, store: Store | undefi
     store?.setItem(AUDIO_KEY, JSON.stringify(settings));
   } catch {
     // Private windows can refuse storage; the settings then last for this visit.
+  }
+}
+
+const TOKEN_KEY = 'voidmarch.token';
+
+/** The player's token from registering, or undefined before the first visit. */
+export function loadToken(store: Store | undefined = browserStorage()): string | undefined {
+  try {
+    return store?.getItem(TOKEN_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Remembers the player's token in this browser; a denied write is ignored. */
+export function saveToken(token: string, store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(TOKEN_KEY, token);
+  } catch {
+    // Private windows can refuse storage; the player then registers each visit.
+  }
+}
+
+/** Forgets the token, after the server said it doesn't know it. */
+export function clearToken(store: Pick<Storage, 'removeItem'> | undefined = browserStorage()): void {
+  try {
+    store?.removeItem(TOKEN_KEY);
+  } catch {
+    // Nothing to forget where storage is denied.
   }
 }

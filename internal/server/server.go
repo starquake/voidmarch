@@ -7,12 +7,20 @@ import (
 	"net/http"
 
 	"github.com/starquake/voidmarch/internal/config"
+	"github.com/starquake/voidmarch/internal/game"
+	"github.com/starquake/voidmarch/internal/players"
 )
 
+// Services bundles the stateful parts the handlers share.
+type Services struct {
+	Players *players.Store
+	Hub     *game.Hub
+}
+
 // New returns the server's HTTP handler. static holds the web client files.
-func New(logger *slog.Logger, cfg *config.Config, static fs.FS) http.Handler {
+func New(logger *slog.Logger, cfg *config.Config, static fs.FS, svc Services) http.Handler {
 	mux := http.NewServeMux()
-	addRoutes(mux, logger, cfg, static)
+	addRoutes(mux, logger, cfg, static, svc)
 
 	var handler http.Handler = mux
 	// Innermost, so the headers are set before any handler writes, including

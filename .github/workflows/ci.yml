@@ -45,7 +45,7 @@ jobs:
         with:
           version: ${{ steps.golangci.outputs.version }}
           skip-cache: true
-      - run: make lint-ascii ts-check ts-lint
+      - run: make lint-ascii proto-lint proto-check ts-check ts-lint
 
   build:
     runs-on: ubuntu-24.04

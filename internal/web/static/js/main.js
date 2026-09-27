@@ -1,5 +1,70 @@
 // src/main.ts
-import Phaser4 from "./vendor/phaser.js";
+import Phaser5 from "./vendor/phaser.js";
+
+// src/name.ts
+var MAX_NAME_LENGTH = 16;
+var NAME = /^[\p{L}\p{N} _-]+$/u;
+function nameProblem(raw) {
+  const name = raw.trim();
+  if (name === "") {
+    return "Pick a name first.";
+  }
+  if (Array.from(name).length > MAX_NAME_LENGTH) {
+    return `A name is at most ${MAX_NAME_LENGTH} characters.`;
+  }
+  if (!NAME.test(name)) {
+    return "Use letters, digits, spaces, - or _.";
+  }
+  return void 0;
+}
+async function register(name, fetcher = fetch) {
+  const response = await fetcher("/api/players", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name.trim() })
+  });
+  const body = await response.json();
+  if (!response.ok || body.token === void 0) {
+    throw new RegisterError(body.error ?? `The server said ${response.status}.`);
+  }
+  return body.token;
+}
+var RegisterError = class extends Error {
+  name = "RegisterError";
+};
+function askName() {
+  const form = document.querySelector("#name-form");
+  const input = document.querySelector("#name");
+  const error = document.querySelector("#name-error");
+  const alone = document.querySelector("#play-alone");
+  if (form === null || input === null || error === null || alone === null) {
+    return Promise.resolve(void 0);
+  }
+  form.hidden = false;
+  input.focus();
+  return new Promise((resolve) => {
+    const done = (token) => {
+      form.hidden = true;
+      resolve(token);
+    };
+    alone.addEventListener("click", () => {
+      done(void 0);
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const problem = nameProblem(input.value);
+      if (problem !== void 0) {
+        error.textContent = problem;
+        return;
+      }
+      error.textContent = "";
+      register(input.value).then(done).catch((err) => {
+        error.textContent = err instanceof RegisterError ? err.message : "Can't reach the server. Try again, or play alone for now.";
+        alone.hidden = false;
+      });
+    });
+  });
+}
 
 // src/scenes/boot.ts
 import Phaser from "./vendor/phaser.js";
@@ -315,11 +380,41 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser3 from "./vendor/phaser.js";
+import Phaser4 from "./vendor/phaser.js";
 
 // src/debug.ts
 function publishDebugState(state) {
   window.voidmarch = state;
+}
+
+// src/net/codec.ts
+import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/protobuf.js";
+
+// src/gen/voidmarch/v1/messages_pb.js
+import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIikAEKDUNsaWVudE1lc3NhZ2USJAoFaGVsbG8YASABKAsyEy52b2lkbWFyY2gudjEuSGVsbG9IABIoCgVzdGF0ZRgCIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGVIABInCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZEgAQgYKBGtpbmQibwoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDgoGY29sb3VyGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDSJpCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZjb2xvdXIYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlIkcKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdCJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIgYKBEZ1bGwi5QEKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEARCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
+var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
+var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 4);
+var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 11);
+var WeaponSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 0);
+var Weapon = /* @__PURE__ */ tsEnum(WeaponSchema);
+var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
+var Engine = /* @__PURE__ */ tsEnum(EngineSchema);
+var ShieldSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 2);
+var Shield = /* @__PURE__ */ tsEnum(ShieldSchema);
+
+// src/net/codec.ts
+function wireFormatFrom(search) {
+  return new URLSearchParams(search).get("wire") === "json" ? "json" : "binary";
+}
+function encodeClient(message, format) {
+  return format === "json" ? toJsonString(ClientMessageSchema, message) : toBinary(ClientMessageSchema, message);
+}
+function decodeServer(data) {
+  if (typeof data === "string") {
+    return fromJsonString(ServerMessageSchema, data);
+  }
+  return fromBinary(ServerMessageSchema, data instanceof Uint8Array ? data : new Uint8Array(data));
 }
 
 // src/sim/math.ts
@@ -418,6 +513,26 @@ function saveAudioSettings(settings, store = browserStorage()) {
   } catch {
   }
 }
+var TOKEN_KEY = "voidmarch.token";
+function loadToken(store = browserStorage()) {
+  try {
+    return store?.getItem(TOKEN_KEY) ?? void 0;
+  } catch {
+    return void 0;
+  }
+}
+function saveToken(token, store = browserStorage()) {
+  try {
+    store?.setItem(TOKEN_KEY, token);
+  } catch {
+  }
+}
+function clearToken(store = browserStorage()) {
+  try {
+    store?.removeItem(TOKEN_KEY);
+  } catch {
+  }
+}
 
 // src/sim/projectiles.ts
 function travelled(stats, age) {
@@ -456,7 +571,8 @@ var ProjectilePool = class {
   get activeCount() {
     return this.items.reduce((n, p) => n + Number(p.active), 0);
   }
-  spawn(shot) {
+  /** Starts a projectile, already ageSeconds old: a remote shot seen late. */
+  spawn(shot, ageSeconds = 0) {
     let chosen;
     for (let i = 0; i < this.items.length && chosen === void 0; i++) {
       const candidate = this.items[(this.next + i) % this.items.length];
@@ -471,7 +587,7 @@ var ProjectilePool = class {
     chosen.originX = shot.x;
     chosen.originY = shot.y;
     chosen.angle = shot.angle;
-    chosen.age = 0;
+    chosen.age = ageSeconds;
     place(chosen);
     return chosen;
   }
@@ -693,27 +809,27 @@ var WeaponAnimator = class {
     this.timing = timing;
   }
   /** Plays the frames before the first release over the charge time. */
-  charge(now, seconds) {
+  charge(now2, seconds) {
     const first = this.timing.releaseFrames[0] ?? 0;
-    this.segment = { start: 0, end: first - 1, startedAt: now, fps: first / seconds, ends: false };
+    this.segment = { start: 0, end: first - 1, startedAt: now2, fps: first / seconds, ends: false };
   }
   /**
    * Jumps to the next release frame fired from muzzle. Cycles with more
    * release frames than muzzles (rocket pods) pick the next one on that side.
    */
-  release(now, muzzle, muzzles) {
+  release(now2, muzzle, muzzles) {
     const count = this.timing.releaseFrames.length;
     let index = this.salvo % count;
     for (let tries = 0; tries < count && index % muzzles !== muzzle % muzzles; tries++) {
       index = (index + 1) % count;
     }
     const last = index === count - 1;
-    const start = this.timing.releaseFrames[index] ?? 0;
+    const start2 = this.timing.releaseFrames[index] ?? 0;
     const next = this.timing.releaseFrames[index + 1];
     this.segment = {
-      start,
+      start: start2,
       end: last || next === void 0 ? this.timing.frames - 1 : next - 1,
-      startedAt: now,
+      startedAt: now2,
       fps: this.timing.releaseFps,
       ends: last
     };
@@ -724,12 +840,12 @@ var WeaponAnimator = class {
     this.segment = void 0;
     this.salvo = 0;
   }
-  frame(now) {
+  frame(now2) {
     const segment = this.segment;
     if (segment === void 0) {
       return 0;
     }
-    const elapsed = now - segment.startedAt;
+    const elapsed = now2 - segment.startedAt;
     const frame = segment.start + Math.floor(elapsed * segment.fps);
     if (frame <= segment.end) {
       return Math.max(segment.start, frame);
@@ -771,6 +887,7 @@ function shotDetune(random) {
 
 // src/scenes/audio.ts
 var SHOT_VOLUME = 0.35;
+var REMOTE_SHOT_VOLUME = 0.5;
 var CHARGE_VOLUME = 0.3;
 var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
@@ -849,6 +966,13 @@ var ShipAudio = class {
       }
     }
   }
+  /** Another player's shot: the same sound, quieter. */
+  remoteShot(weapon) {
+    const key = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
+    if (key !== void 0) {
+      this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
+    }
+  }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
   }
@@ -900,19 +1024,543 @@ var ShipAudio = class {
   }
 };
 
+// src/net/clock.ts
+var ServerClock = class _ServerClock {
+  offset;
+  ticksPerMs;
+  constructor(tickRate) {
+    this.ticksPerMs = tickRate / 1e3;
+  }
+  /** How far a stale estimate may fall back per report, in ticks. */
+  static DRIFT = 0.05;
+  /** Records that the server was at tick when a report arrived at nowMs. */
+  observe(tick, nowMs) {
+    const sample = tick - nowMs * this.ticksPerMs;
+    this.offset = this.offset === void 0 ? sample : Math.max(sample, this.offset - _ServerClock.DRIFT);
+  }
+  /** The estimated server tick at nowMs, fractional; undefined before any report. */
+  tickAt(nowMs) {
+    return this.offset === void 0 ? void 0 : this.offset + nowMs * this.ticksPerMs;
+  }
+};
+
+// src/net/connection.ts
+import { create as create2 } from "./vendor/protobuf.js";
+
+// src/net/mapping.ts
+import { create } from "./vendor/protobuf.js";
+var WEAPONS2 = {
+  autoCannon: Weapon.AUTO_CANNON,
+  rockets: Weapon.ROCKETS,
+  bigSpaceGun: Weapon.BIG_SPACE_GUN,
+  zapper: Weapon.ZAPPER
+};
+var ENGINES2 = {
+  base: Engine.BASE,
+  bigPulse: Engine.BIG_PULSE,
+  burst: Engine.BURST,
+  supercharged: Engine.SUPERCHARGED
+};
+var SHIELDS2 = {
+  front: Shield.FRONT,
+  frontAndSide: Shield.FRONT_AND_SIDE,
+  round: Shield.ROUND,
+  invincibility: Shield.INVINCIBILITY
+};
+function reverse(map) {
+  return new Map(Object.entries(map).map(([k, v]) => [v, k]));
+}
+var WEAPON_IDS = reverse(WEAPONS2);
+var ENGINE_IDS = reverse(ENGINES2);
+var SHIELD_IDS = reverse(SHIELDS2);
+var toWeapon = (id) => WEAPONS2[id];
+var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
+function toShipState(ship) {
+  return create(ShipStateSchema, {
+    x: ship.x,
+    y: ship.y,
+    vx: ship.vx,
+    vy: ship.vy,
+    angle: ship.angle,
+    thrusting: ship.thrusting,
+    loadout: {
+      weapon: WEAPONS2[ship.loadout.weapon],
+      engine: ENGINES2[ship.loadout.engine],
+      shield: SHIELDS2[ship.loadout.shield]
+    },
+    damage: ship.damage
+  });
+}
+function fromShipState(state) {
+  const loadout = state.loadout;
+  return {
+    x: state.x,
+    y: state.y,
+    angle: state.angle,
+    thrusting: state.thrusting,
+    loadout: {
+      weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
+      engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
+      shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield
+    },
+    damage: Math.min(state.damage, DAMAGE_STATES.length - 1)
+  };
+}
+
+// src/net/connection.ts
+var CLOSE_UNKNOWN_TOKEN = 4001;
+var CLOSE_TRY_AGAIN_LATER = 1013;
+var BACKOFF_MS = [1e3, 2e3, 4e3, 8e3];
+var MAX_BACKOFF_MS = 1e4;
+var FULL_RETRY_MS = 1e4;
+var browserTimers = {
+  setTimeout: (fn, ms) => window.setTimeout(fn, ms),
+  clearTimeout: (handle) => {
+    window.clearTimeout(handle);
+  }
+};
+var Connection = class {
+  options;
+  makeSocket;
+  timers;
+  socket;
+  retry;
+  attempts = 0;
+  stopped = false;
+  welcomed = false;
+  stateIntervalMs = 50;
+  lastStateAt = Number.NEGATIVE_INFINITY;
+  shotId = 0;
+  constructor(options) {
+    this.options = options;
+    this.makeSocket = options.socket ?? ((url) => new WebSocket(url));
+    this.timers = options.timers ?? browserTimers;
+  }
+  /** Whether the server has welcomed this connection and it is still open. */
+  get connected() {
+    return this.welcomed;
+  }
+  start() {
+    this.stopped = false;
+    this.open();
+  }
+  stop() {
+    this.stopped = true;
+    this.timers.clearTimeout(this.retry);
+    this.socket?.close(1e3);
+    this.socket = void 0;
+    this.welcomed = false;
+  }
+  /** Sends the ship's state, at most at the server's tick rate. */
+  sendState(ship, nowMs) {
+    if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
+      return;
+    }
+    this.lastStateAt = nowMs;
+    this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
+  }
+  sendShot(shot) {
+    if (!this.welcomed) {
+      return;
+    }
+    this.shotId++;
+    this.send(
+      create2(ClientMessageSchema, {
+        kind: {
+          case: "shot",
+          value: { id: this.shotId, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
+        }
+      })
+    );
+  }
+  open() {
+    const socket = this.makeSocket(this.options.url);
+    socket.binaryType = "arraybuffer";
+    socket.onopen = () => {
+      this.send(create2(ClientMessageSchema, { kind: { case: "hello", value: { token: this.options.token } } }), socket);
+    };
+    socket.onmessage = (event) => {
+      this.receive(event.data);
+    };
+    socket.onclose = (event) => {
+      this.closed(socket, event.code);
+    };
+    this.socket = socket;
+  }
+  receive(data) {
+    const message = decodeServer(data);
+    const events = this.options.events;
+    switch (message.kind.case) {
+      case "welcome":
+        this.welcomed = true;
+        this.attempts = 0;
+        if (message.kind.value.tickRate > 0) {
+          this.stateIntervalMs = 1e3 / message.kind.value.tickRate;
+        }
+        events.welcome(message.kind.value);
+        break;
+      case "snapshot":
+        events.snapshot(message.kind.value);
+        break;
+      case "shot":
+        events.shot(message.kind.value);
+        break;
+      case "left":
+        events.left(message.kind.value.playerId);
+        break;
+      case "full":
+        events.full();
+        break;
+      default:
+    }
+  }
+  closed(socket, code) {
+    if (socket !== this.socket) {
+      return;
+    }
+    this.socket = void 0;
+    this.welcomed = false;
+    if (this.stopped) {
+      return;
+    }
+    this.options.events.disconnected();
+    if (code === CLOSE_UNKNOWN_TOKEN) {
+      this.options.events.unknownToken();
+      return;
+    }
+    const delay = code === CLOSE_TRY_AGAIN_LATER ? FULL_RETRY_MS : BACKOFF_MS[this.attempts] ?? MAX_BACKOFF_MS;
+    this.attempts++;
+    this.retry = this.timers.setTimeout(() => {
+      this.open();
+    }, delay);
+  }
+  send(message, socket = this.socket) {
+    const data = encodeClient(message, this.options.format);
+    socket?.send(typeof data === "string" ? data : data);
+  }
+};
+
+// src/net/interpolation.ts
+var INTERPOLATION_DELAY_TICKS = 2;
+var MAX_SAMPLES = 32;
+var StateBuffer = class {
+  samples = [];
+  push(tick, ship) {
+    const last = this.samples.at(-1);
+    if (last !== void 0 && tick <= last.tick) {
+      return;
+    }
+    this.samples.push({ tick, ship });
+    if (this.samples.length > MAX_SAMPLES) {
+      this.samples.shift();
+    }
+  }
+  get empty() {
+    return this.samples.length === 0;
+  }
+  /** The ship at a (fractional) tick, or undefined with no samples. */
+  sample(tick) {
+    const first = this.samples[0];
+    const last = this.samples.at(-1);
+    if (first === void 0 || last === void 0) {
+      return void 0;
+    }
+    if (tick <= first.tick) {
+      return first.ship;
+    }
+    if (tick >= last.tick) {
+      return last.ship;
+    }
+    let i = this.samples.length - 1;
+    while (i > 0 && (this.samples[i - 1]?.tick ?? 0) > tick) {
+      i--;
+    }
+    const a = this.samples[i - 1];
+    const b = this.samples[i];
+    if (a === void 0 || b === void 0) {
+      return last.ship;
+    }
+    const t = (tick - a.tick) / (b.tick - a.tick);
+    return {
+      ...a.ship,
+      x: a.ship.x + (b.ship.x - a.ship.x) * t,
+      y: a.ship.y + (b.ship.y - a.ship.y) * t,
+      angle: wrapAngle(a.ship.angle + wrapAngle(b.ship.angle - a.ship.angle) * t)
+    };
+  }
+};
+
+// src/net/remoteshots.ts
+var RemoteShots = class {
+  pending = [];
+  tickRate;
+  constructor(tickRate) {
+    this.tickRate = tickRate;
+  }
+  add(tick, from, shot) {
+    this.pending.push({ tick, from, shot });
+  }
+  /** Removes and returns the shots at or before renderTick, with their age. */
+  due(renderTick) {
+    const due = [];
+    this.pending = this.pending.filter((p) => {
+      if (p.tick > renderTick) {
+        return true;
+      }
+      due.push({ from: p.from, shot: p.shot, ageSeconds: (renderTick - p.tick) / this.tickRate });
+      return false;
+    });
+    return due;
+  }
+};
+
+// src/scenes/shipview.ts
+import "./vendor/phaser.js";
+var SPRITE_FACING = Math.PI / 2;
+var LABEL_OFFSET = 26;
+var ShipView = class {
+  root;
+  weapon;
+  engine;
+  flame;
+  hull;
+  shield;
+  label;
+  loadout;
+  thrusting = false;
+  constructor(scene, layer, x, y) {
+    this.engine = scene.add.image(0, 0, keys.engine("base"));
+    this.flame = scene.add.sprite(0, 0, keys.flameIdle("base"));
+    this.hull = scene.add.image(0, 0, keys.hull("fullHealth"));
+    this.weapon = scene.add.sprite(0, 0, keys.weapon("autoCannon"), 0);
+    this.shield = scene.add.sprite(0, 0, keys.shield("front"));
+    this.root = scene.add.container(x, y, [this.engine, this.flame, this.hull, this.weapon, this.shield]);
+    layer.add(this.root);
+  }
+  /** Shows a name under the ship in the player's colour (0xRRGGBB). */
+  setLabel(scene, layer, name, colour, resolution) {
+    this.label?.destroy();
+    this.label = scene.add.text(this.root.x, this.root.y + LABEL_OFFSET, name, {
+      fontFamily: "monospace",
+      fontSize: "8px",
+      color: `#${colour.toString(16).padStart(6, "0")}`,
+      resolution
+    }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    layer.add(this.label);
+  }
+  /** Fits the parts; unchanged parts keep their animation running. */
+  setLoadout(loadout) {
+    const old = this.loadout;
+    if (old?.engine !== loadout.engine) {
+      this.engine.setTexture(keys.engine(loadout.engine));
+      this.flame.play(this.thrusting ? keys.flamePowering(loadout.engine) : keys.flameIdle(loadout.engine));
+    }
+    if (old?.weapon !== loadout.weapon) {
+      this.weapon.setTexture(keys.weapon(loadout.weapon), 0);
+    }
+    if (old?.shield !== loadout.shield) {
+      this.shield.play(keys.shield(loadout.shield));
+    }
+    this.loadout = { ...loadout };
+  }
+  setDamage(damage) {
+    const state = DAMAGE_STATES[Math.min(Math.max(0, damage), DAMAGE_STATES.length - 1)] ?? "fullHealth";
+    this.hull.setTexture(keys.hull(state));
+  }
+  setThrusting(thrusting) {
+    this.thrusting = thrusting;
+    const engine = this.loadout?.engine ?? "base";
+    this.flame.play(thrusting ? keys.flamePowering(engine) : keys.flameIdle(engine), true);
+  }
+  /** Places the ship facing angle (0 is +x). */
+  place(x, y, angle) {
+    this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
+    this.label?.setPosition(x, y + LABEL_OFFSET);
+  }
+  destroy() {
+    this.root.destroy();
+    this.label?.destroy();
+  }
+};
+
+// src/scenes/netplay.ts
+var now = () => performance.now();
+var NetPlay = class {
+  status = "connecting";
+  playerId;
+  options;
+  connection;
+  remotes = /* @__PURE__ */ new Map();
+  clock = new ServerClock(20);
+  shots = new RemoteShots(20);
+  spawned = false;
+  constructor(options) {
+    this.options = options;
+    this.connection = new Connection({
+      url: options.url,
+      token: options.token,
+      format: options.format,
+      events: {
+        welcome: (welcome) => {
+          this.welcome(welcome);
+        },
+        snapshot: (snapshot) => {
+          this.snapshot(snapshot);
+        },
+        shot: (remote) => {
+          const shot = remote.shot;
+          if (shot === void 0 || !this.remotes.has(remote.playerId)) {
+            return;
+          }
+          this.shots.add(remote.tick, remote.playerId, {
+            weapon: fromWeapon(shot.weapon),
+            muzzle: shot.muzzle,
+            x: shot.x,
+            y: shot.y,
+            angle: shot.angle
+          });
+        },
+        left: (playerId) => {
+          this.remove(playerId);
+        },
+        full: () => {
+          this.status = "full";
+        },
+        unknownToken: () => {
+          options.onUnknownToken();
+        },
+        disconnected: () => {
+          if (this.status !== "full") {
+            this.status = "offline";
+          }
+          for (const id of [...this.remotes.keys()]) {
+            this.remove(id);
+          }
+        }
+      }
+    });
+  }
+  start() {
+    this.connection.start();
+  }
+  stop() {
+    this.connection.stop();
+  }
+  /** Other players, for the HUD and the E2E tests. */
+  get others() {
+    return [...this.remotes.entries()].map(([id, r]) => ({
+      id,
+      name: r.name,
+      colour: r.colour,
+      x: r.view.root.x,
+      y: r.view.root.y
+    }));
+  }
+  /** Once a frame: send the local ship, draw the others, spawn their shots. */
+  update(events) {
+    const nowMs = now();
+    this.connection.sendState(this.options.sim.ship, nowMs);
+    for (const shot of events.shots) {
+      this.connection.sendShot(shot);
+    }
+    const serverTick = this.clock.tickAt(nowMs);
+    if (serverTick === void 0) {
+      return;
+    }
+    const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
+    const seconds = nowMs / 1e3;
+    for (const remote of this.remotes.values()) {
+      const ship = remote.buffer.sample(renderTick);
+      if (ship === void 0) {
+        continue;
+      }
+      if (ship.loadout.weapon !== remote.weapon) {
+        remote.weapon = ship.loadout.weapon;
+        remote.animator = new WeaponAnimator(weaponTiming(remote.weapon));
+      }
+      remote.view.setLoadout(ship.loadout);
+      remote.view.setDamage(ship.damage);
+      remote.view.setThrusting(ship.thrusting);
+      remote.view.place(ship.x, ship.y, ship.angle);
+      remote.view.weapon.setFrame(remote.animator.frame(seconds));
+    }
+    const volleys = /* @__PURE__ */ new Set();
+    for (const due of this.shots.due(renderTick)) {
+      this.options.sim.projectiles.spawn(due.shot, due.ageSeconds);
+      const volley = WEAPON_STATS[due.shot.weapon].alternate ? void 0 : `${due.from}:${due.shot.weapon}`;
+      if (volley === void 0 || !volleys.has(volley)) {
+        this.options.audio.remoteShot(due.shot.weapon);
+      }
+      if (volley !== void 0) {
+        volleys.add(volley);
+      }
+      const shooter = this.remotes.get(due.from);
+      if (shooter !== void 0) {
+        const stats = WEAPON_STATS[due.shot.weapon];
+        shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
+      }
+    }
+  }
+  welcome(welcome) {
+    this.status = "online";
+    this.playerId = welcome.playerId;
+    this.clock = new ServerClock(welcome.tickRate);
+    this.shots = new RemoteShots(welcome.tickRate);
+    this.clock.observe(welcome.tick, now());
+    if (!this.spawned) {
+      this.spawned = true;
+      const { ship, previous } = this.options.sim;
+      ship.x = previous.x = welcome.spawnX;
+      ship.y = previous.y = welcome.spawnY;
+      ship.vx = 0;
+      ship.vy = 0;
+    }
+  }
+  snapshot(snapshot) {
+    this.clock.observe(snapshot.tick, now());
+    for (const player of snapshot.players) {
+      if (player.state === void 0) {
+        continue;
+      }
+      const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
+      remote.buffer.push(snapshot.tick, fromShipState(player.state));
+    }
+  }
+  add(id, name, colour) {
+    const { scene, ships } = this.options;
+    const view = new ShipView(scene, ships, 0, 0);
+    view.setLabel(scene, ships, name, colour, this.options.labelResolution());
+    const remote = {
+      view,
+      buffer: new StateBuffer(),
+      animator: new WeaponAnimator(weaponTiming("autoCannon")),
+      weapon: "autoCannon",
+      name,
+      colour
+    };
+    this.remotes.set(id, remote);
+    return remote;
+  }
+  remove(id) {
+    this.remotes.get(id)?.view.destroy();
+    this.remotes.delete(id);
+  }
+};
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var HUD_REFRESH_MS = 250;
-var SPRITE_FACING = Math.PI / 2;
-var SandboxScene = class extends Phaser3.Scene {
+var SandboxScene = class extends Phaser4.Scene {
   sim = new Sandbox();
   world;
   backgrounds = [];
   backgroundFrame = 0;
+  ships;
   ship;
+  net;
   projectileSprites = [];
   muzzleFlash;
   puff;
@@ -939,16 +1587,19 @@ var SandboxScene = class extends Phaser3.Scene {
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
-    this.ship = this.createShip();
+    this.ships = this.add.container(0, 0);
+    this.world.add(this.ships);
+    this.ship = new ShipView(this, this.ships, this.sim.ship.x, this.sim.ship.y);
     this.createProjectiles();
     this.createParticles();
     this.createCameras();
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser3.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser4.Scale.Events.RESIZE, () => {
       this.resize();
     });
+    this.startNetPlay();
     this.debug = {
       ready: true,
       scene: this.scene.key,
@@ -963,12 +1614,14 @@ var SandboxScene = class extends Phaser3.Scene {
       zoom: 1,
       fps: 0,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null }
+      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
+      net: { status: "offline", playerId: void 0, others: [] }
     };
     this.publish();
   }
   update(time, deltaMs) {
     const events = this.sim.advance(deltaMs / 1e3, this.readInput());
+    this.net?.update(events);
     this.drawShip(events);
     this.drawProjectiles();
     this.playEffects(events);
@@ -993,15 +1646,29 @@ var SandboxScene = class extends Phaser3.Scene {
     }
     this.world.add(this.add.sprite(0, 0, keys.planet).play(keys.planet));
   }
-  createShip() {
-    const engine = this.add.image(0, 0, keys.engine("base"));
-    const flame = this.add.sprite(0, 0, keys.flameIdle("base"));
-    const hull = this.add.image(0, 0, keys.hull("fullHealth"));
-    const weapon = this.add.sprite(0, 0, keys.weapon("autoCannon"), 0);
-    const shield = this.add.sprite(0, 0, keys.shield("front"));
-    const root = this.add.container(this.sim.ship.x, this.sim.ship.y, [engine, flame, hull, weapon, shield]);
-    this.world.add(root);
-    return { root, engine, flame, hull, weapon, shield };
+  /** Plays with others once the player has a name; without one it stays single-player. */
+  startNetPlay() {
+    const token = this.registry.get("token") ?? loadToken();
+    if (token === void 0) {
+      return;
+    }
+    const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+    this.net = new NetPlay({
+      scene: this,
+      ships: this.ships,
+      sim: this.sim,
+      audio: this.audio,
+      url: `${scheme}://${window.location.host}/ws`,
+      token,
+      format: wireFormatFrom(window.location.search),
+      labelResolution: () => this.cameras.main.zoom,
+      onUnknownToken: () => {
+        clearToken();
+        window.location.reload();
+      }
+    });
+    this.net.start();
+    this.events.once(Phaser4.Scenes.Events.SHUTDOWN, () => this.net?.stop());
   }
   createProjectiles() {
     this.projectileSprites = this.sim.projectiles.items.map(() => {
@@ -1017,7 +1684,7 @@ var SandboxScene = class extends Phaser3.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser3.BlendModes.ADD,
+      blendMode: Phaser4.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -1026,7 +1693,7 @@ var SandboxScene = class extends Phaser3.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser3.BlendModes.ADD,
+      blendMode: Phaser4.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -1036,7 +1703,7 @@ var SandboxScene = class extends Phaser3.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser3.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
+    this.bloom = Phaser4.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -1048,7 +1715,7 @@ var SandboxScene = class extends Phaser3.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser3.Input.Keyboard.KeyCodes;
+    const codes = Phaser4.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -1062,7 +1729,7 @@ var SandboxScene = class extends Phaser3.Scene {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    this.events.once(Phaser3.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser4.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
     });
   }
@@ -1099,7 +1766,7 @@ var SandboxScene = class extends Phaser3.Scene {
       case "KeyH":
         this.damage = nextInCycle(DAMAGE_STATES, this.damage);
         ship.damage = DAMAGE_STATES.indexOf(this.damage);
-        this.ship.hull.setTexture(keys.hull(this.damage));
+        this.ship.setDamage(ship.damage);
         break;
       case "KeyC":
         this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
@@ -1124,12 +1791,9 @@ var SandboxScene = class extends Phaser3.Scene {
     }
   }
   applyLoadout() {
-    const { weapon, engine, shield } = this.sim.ship.loadout;
-    this.ship.engine.setTexture(keys.engine(engine));
-    this.ship.flame.play(keys.flameIdle(engine));
-    this.ship.weapon.setTexture(keys.weapon(weapon), 0);
+    const { weapon, engine } = this.sim.ship.loadout;
+    this.ship.setLoadout(this.sim.ship.loadout);
     this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
-    this.ship.shield.play(keys.shield(shield));
     this.audio.setEngine(engine);
     this.updateHud();
   }
@@ -1157,25 +1821,24 @@ var SandboxScene = class extends Phaser3.Scene {
   }
   drawShip(events) {
     const { ship, previous, alpha } = this.sim;
-    this.ship.root.setPosition(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha).setRotation(ship.angle + SPRITE_FACING);
-    const engine = ship.loadout.engine;
-    this.ship.flame.play(ship.thrusting ? keys.flamePowering(engine) : keys.flameIdle(engine), true);
+    this.ship.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
+    this.ship.setThrusting(ship.thrusting);
     this.animateWeapon(events);
   }
   animateWeapon(events) {
-    const now = this.time.now / 1e3;
+    const now2 = this.time.now / 1e3;
     const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
     if (events.charges.length > 0) {
-      this.weaponFrames.charge(now, stats.charge);
+      this.weaponFrames.charge(now2, stats.charge);
     }
     if (stats.alternate) {
       for (const shot of events.shots) {
-        this.weaponFrames.release(now, shot.muzzle, stats.muzzles.length);
+        this.weaponFrames.release(now2, shot.muzzle, stats.muzzles.length);
       }
     } else if (events.shots.length > 0) {
-      this.weaponFrames.release(now, 0, 1);
+      this.weaponFrames.release(now2, 0, 1);
     }
-    this.ship.weapon.setFrame(this.weaponFrames.frame(now));
+    this.ship.weapon.setFrame(this.weaponFrames.frame(now2));
   }
   drawProjectiles() {
     this.sim.projectiles.items.forEach((p, i) => {
@@ -1225,8 +1888,27 @@ var SandboxScene = class extends Phaser3.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects"
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
+      this.netStatus()
     ]);
+  }
+  netStatus() {
+    const net = this.net;
+    if (net === void 0) {
+      return "playing alone";
+    }
+    switch (net.status) {
+      case "online": {
+        const count = net.others.length;
+        return `online \xB7 ${count === 0 ? "nobody else here yet" : `${count} other${count === 1 ? "" : "s"} here`}`;
+      }
+      case "full":
+        return "the frontier is full, try again soon";
+      case "offline":
+        return "offline \xB7 reconnecting";
+      default:
+        return "connecting";
+    }
   }
   publish() {
     const { ship, projectiles } = this.sim;
@@ -1249,22 +1931,41 @@ var SandboxScene = class extends Phaser3.Scene {
     this.debug.audio.playingMusic = this.audio.playingMusic;
     this.debug.audio.backend = this.audio.backend;
     this.debug.audio.musicLoaded = this.audio.musicReady;
+    this.debug.net.status = this.net?.status ?? "offline";
+    this.debug.net.playerId = this.net?.playerId;
+    this.debug.net.others = this.net?.others ?? [];
     publishDebugState(this.debug);
   }
 };
 
 // src/main.ts
-new Phaser4.Game({
-  type: Phaser4.AUTO,
-  parent: "game",
-  backgroundColor: "#05030a",
-  pixelArt: true,
-  roundPixels: true,
-  banner: false,
-  scale: {
-    mode: Phaser4.Scale.RESIZE,
-    width: "100%",
-    height: "100%"
-  },
-  scene: [BootScene, SandboxScene]
-});
+async function start() {
+  let token = loadToken();
+  if (token === void 0) {
+    token = await askName();
+    if (token !== void 0) {
+      saveToken(token);
+    }
+  }
+  new Phaser5.Game({
+    type: Phaser5.AUTO,
+    parent: "game",
+    backgroundColor: "#05030a",
+    pixelArt: true,
+    roundPixels: true,
+    banner: false,
+    scale: {
+      mode: Phaser5.Scale.RESIZE,
+      width: "100%",
+      height: "100%"
+    },
+    scene: [BootScene, SandboxScene],
+    callbacks: {
+      // The registry carries the token even where the browser refuses storage.
+      preBoot: (game) => {
+        game.registry.set("token", token);
+      }
+    }
+  });
+}
+void start();

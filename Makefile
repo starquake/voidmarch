@@ -10,31 +10,36 @@ JS_DEPS := $(FRONTEND)/node_modules/.package-lock.json
 
 GOLANGCI_VERSION := v2.14.0
 GOLANGCI_BIN := $(BIN_DIR)/golangci-lint
+BUF_VERSION := v1.73.0
+BUF_BIN := $(BIN_DIR)/buf
+# Built from the version tools/go.mod requires.
+PROTOC_GEN_GO := $(BIN_DIR)/protoc-gen-go
 
 UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 UNAME_M := $(shell uname -m)
 ARCH := $(if $(filter x86_64,$(UNAME_M)),amd64,$(if $(filter aarch64,$(UNAME_M)),arm64,$(UNAME_M)))
+BUF_ASSET := buf-$(shell uname -s)-$(UNAME_M)
 
 # A downloaded tool records its version beside the binary; a mismatch with the
 # pin deletes the binary so the next run fetches the pinned one. Skipped for
 # `make -n`.
 MAKE_DRY_RUN := $(if $(filter-out -%,$(firstword $(MAKEFLAGS))),$(findstring n,$(firstword $(MAKEFLAGS))))
 toolpin = $(if $(MAKE_DRY_RUN),,$(shell [ "$$(cat $(1).version 2>/dev/null)" = "$(2)" ] || rm -f $(1)))
-TOOLPIN_CHECKED := $(call toolpin,$(GOLANGCI_BIN),$(GOLANGCI_VERSION))
+TOOLPIN_CHECKED := $(call toolpin,$(GOLANGCI_BIN),$(GOLANGCI_VERSION))$(call toolpin,$(BUF_BIN),$(BUF_VERSION))
 
 VERSION_PKG := github.com/starquake/voidmarch/internal/version
 VERSION_LDFLAGS := -X $(VERSION_PKG).Version=$(shell cat VERSION 2>/dev/null) \
 	-X $(VERSION_PKG).Commit=$(shell git rev-parse HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo -dirty) \
 	-X $(VERSION_PKG).Date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/internal/testutil$$|/test/' | paste -sd "," -)
+COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/internal/testutil$$|/internal/gen/|/test/' | paste -sd "," -)
 
 .PHONY: help
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii ts-check ts-lint ts-test js-check build test-coverage ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check build test-coverage ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -60,7 +65,7 @@ lint-fix: $(GOLANGCI_BIN) $(JS_DEPS) ## Lint and auto-fix Go and TypeScript code
 
 .PHONY: lint-ascii
 lint-ascii: ## Fail on non-ASCII characters in Go sources
-	@hits=$$(find cmd internal test -name '*.go' -print0 | xargs -0 perl -ne 'print "$$ARGV:$$.: $$_" if /[^\x00-\x7F]/'); \
+	@hits=$$(find cmd internal test -name '*.go' -print0 | xargs -0 perl -ne 'print "$$ARGV:$$.: $$_" if /[^\x00-\x7F]/; close ARGV if eof'); \
 	if [ -n "$$hits" ]; then echo "$$hits"; echo "non-ASCII characters in Go sources"; exit 1; fi
 
 .PHONY: build
@@ -93,6 +98,37 @@ server: ## Run the server with the embedded client on :8080
 .PHONY: server-dev
 server-dev: ## Run the server serving the client from disk (pair with js-watch)
 	APP_ENV=development WEB_DIR=internal/web/static go run -ldflags "$(VERSION_LDFLAGS)" ./cmd/voidmarch
+
+# --- Protocol -----------------------------------------------------------------
+
+$(BUF_BIN):
+	@mkdir -p $(BIN_DIR)
+	curl -sSfL --retry 5 --retry-delay 2 --retry-all-errors -o $@ \
+		https://github.com/bufbuild/buf/releases/download/$(BUF_VERSION)/$(BUF_ASSET)
+	@chmod +x $@
+	@echo $(BUF_VERSION) > $@.version
+
+$(PROTOC_GEN_GO): tools/go.mod
+	@mkdir -p $(BIN_DIR)
+	cd tools && go build -o ../$(PROTOC_GEN_GO) google.golang.org/protobuf/cmd/protoc-gen-go
+
+PROTO_TOOLS := $(BUF_BIN) $(PROTOC_GEN_GO) $(JS_DEPS)
+
+.PHONY: proto
+proto: $(PROTO_TOOLS) ## Generate Go and TypeScript from proto/
+	$(BUF_BIN) generate
+
+.PHONY: proto-lint
+proto-lint: $(BUF_BIN) ## Lint the protobuf schema
+	$(BUF_BIN) lint
+
+.PHONY: proto-check
+proto-check: $(PROTO_TOOLS) ## Fail when the committed generated code is stale
+	@tmp=$$(mktemp -d); \
+	$(BUF_BIN) generate -o "$$tmp" && \
+	diff -r "$$tmp/internal/gen" internal/gen && diff -r "$$tmp/frontend/src/gen" frontend/src/gen \
+		|| { echo "generated code is stale: run make proto"; rm -rf "$$tmp"; exit 1; }; \
+	rm -rf "$$tmp"
 
 # --- Frontend -----------------------------------------------------------------
 

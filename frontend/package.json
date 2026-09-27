@@ -8,9 +8,11 @@
     "node": ">=24"
   },
   "dependencies": {
+    "@bufbuild/protobuf": "2.15.0",
     "phaser": "4.2.1"
   },
   "devDependencies": {
+    "@bufbuild/protoc-gen-es": "2.15.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.3",
@@ -25,7 +27,7 @@
     "check": "tsc",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",
-    "test": "node --test --experimental-test-coverage --test-coverage-include='src/sim/**' --test-coverage-exclude='**/*.test.ts' --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 'src/**/*.test.ts'",
+    "test": "node --test --experimental-test-coverage --test-coverage-include='src/sim/**' --test-coverage-include='src/net/**' --test-coverage-exclude='**/*.test.ts' --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 'src/**/*.test.ts'",
     "e2e": "playwright test"
   }
 }

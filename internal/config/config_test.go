@@ -37,10 +37,11 @@ func TestParse_Values(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := Parse(envFunc(map[string]string{
-		"APP_ENV": "development",
-		"HOST":    "127.0.0.1",
-		"PORT":    "9000",
-		"WEB_DIR": "internal/web/static",
+		"APP_ENV":  "development",
+		"HOST":     "127.0.0.1",
+		"PORT":     "9000",
+		"WEB_DIR":  "internal/web/static",
+		"WIRE_LOG": "true",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -54,6 +55,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := cfg.WebDir, "internal/web/static"; got != want {
 		t.Errorf("cfg.WebDir = %q, want %q", got, want)
+	}
+	if got, want := cfg.WireLog, true; got != want {
+		t.Errorf("cfg.WireLog = %t, want %t", got, want)
 	}
 }
 
@@ -77,6 +81,11 @@ func TestParse_Errors(t *testing.T) {
 			name: "web dir in production",
 			env:  map[string]string{"WEB_DIR": "web"},
 			want: ErrWebDirNotAllowed,
+		},
+		{
+			name: "wire log not a boolean",
+			env:  map[string]string{"WIRE_LOG": "loud"},
+			want: ErrInvalidWireLog,
 		},
 	}
 
