@@ -54,6 +54,14 @@ their name under their ship, in their own colour. Up to 16 players fit; the
 17th sees "the frontier is full, try again soon". Without a connection the
 game keeps running on its own and reconnects when it can.
 
+## Enemies
+
+The home planet is safe. Fly away from it and the Kla'ed come for you: Scouts,
+fast and erratic, go down in two hits; Fighters strafe around you and take
+six. They fire at anyone within range, and they leave once nobody is near.
+Enemy bullets flash your hull but do no damage yet; health arrives in the next
+milestone. Enemies need the server, so offline the sandbox stays empty.
+
 Add `?wire=json` to the address to see the game's messages as readable JSON in
 the browser's network panel.
 

@@ -70,6 +70,11 @@ pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
   tick. The client draws others 2 ticks (100 ms) in the past
   (`frontend/src/net/interpolation.ts`), and their shots on the same delayed
   timeline, so both line up.
+- **Enemies are the server's** (`internal/game/enemies.go`): it spawns, steers
+  and fires them, and applies the clients' `Hit` reports. Enemy bullets are
+  never streamed: `EnemyFired` carries a seed, and `frontend/src/sim/patterns.ts`
+  expands it identically on every client. Hub tests use `WithSeed` and step the
+  hub by hand, so enemy behaviour is deterministic.
 - **E2E runs everyone on one server**: each test's page is a registered player
   (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
   Assert on your own state (`shotsFired`, `ship`), never on shared counts.
