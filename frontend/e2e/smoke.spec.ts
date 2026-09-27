@@ -19,4 +19,9 @@ test('the client boots into the sandbox without errors', async ({ page }) => {
 
   await expect(page.locator('#game canvas')).toBeVisible();
   expect(problems).toEqual([]);
+
+  await page.waitForTimeout(1000);
+  const fps = await page.evaluate(() => window.voidmarch?.fps ?? 0);
+  test.info().annotations.push({ type: 'fps', description: fps.toFixed(1) });
+  console.log(`${test.info().project.name}: ${fps.toFixed(1)} fps`);
 });

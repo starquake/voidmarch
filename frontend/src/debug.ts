@@ -12,6 +12,7 @@ export interface DebugState {
   projectiles: number;
   shotsFired: number;
   zoom: number;
+  fps: number;
 }
 
 declare global {

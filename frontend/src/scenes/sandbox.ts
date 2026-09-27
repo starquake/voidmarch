@@ -83,6 +83,7 @@ export class SandboxScene extends Phaser.Scene {
       projectiles: 0,
       shotsFired: 0,
       zoom: 1,
+      fps: 0,
     };
     this.publish();
   }
@@ -339,6 +340,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
+    this.debug.fps = this.game.loop.actualFps;
     publishDebugState(this.debug);
   }
 }

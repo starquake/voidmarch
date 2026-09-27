@@ -29,8 +29,8 @@ test.beforeEach(async ({ page }) => {
 test('holding W moves the ship up', async ({ page }) => {
   const before = await state(page);
   await page.keyboard.down('w');
+  await expect.poll(async () => (await state(page)).ship.thrusting).toBe(true);
   await expect.poll(async () => (await state(page)).ship.y).toBeLessThan(before.ship.y - 20);
-  expect((await state(page)).ship.thrusting).toBe(true);
   await page.keyboard.up('w');
 });
 
@@ -48,8 +48,8 @@ test('holding the left button fires projectiles', async ({ page }) => {
   const { x, y } = await centre(page);
   await page.mouse.move(x + 200, y);
   await page.mouse.down();
+  await expect.poll(async () => (await state(page)).projectiles).toBeGreaterThan(0);
   await expect.poll(async () => (await state(page)).shotsFired).toBeGreaterThanOrEqual(3);
-  expect((await state(page)).projectiles).toBeGreaterThan(0);
   await page.mouse.up();
 });
 
@@ -61,11 +61,19 @@ test('debug keys cycle parts, hull, rotation and effects', async ({ page }) => {
   await page.keyboard.press('r');
   await page.keyboard.press('f');
 
-  const s = await state(page);
-  expect(s.loadout).toEqual({ weapon: 'rockets', engine: 'bigPulse', shield: 'frontAndSide' });
-  expect(s.damage).toBe('slightDamage');
-  expect(s.rotationSnap).toBe(16);
-  expect(s.effects).toBe(false);
+  // Phaser handles queued key events on its next update, so wait for it.
+  await expect
+    .poll(async () => {
+      const s = await state(page);
+
+      return { loadout: s.loadout, damage: s.damage, rotationSnap: s.rotationSnap, effects: s.effects };
+    })
+    .toEqual({
+      loadout: { weapon: 'rockets', engine: 'bigPulse', shield: 'frontAndSide' },
+      damage: 'slightDamage',
+      rotationSnap: 16,
+      effects: false,
+    });
 });
 
 test('the view uses a whole-number zoom of at least 2', async ({ page }) => {
