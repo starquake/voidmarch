@@ -1,7 +1,17 @@
+import type { DamageState, Loadout } from './sim/loadout.ts';
+
 /** Read-only state the E2E tests inspect through window.voidmarch. */
 export interface DebugState {
   ready: boolean;
   scene: string;
+  ship: { x: number; y: number; angle: number; thrusting: boolean };
+  loadout: Loadout;
+  damage: DamageState;
+  rotationSnap: number;
+  effects: boolean;
+  projectiles: number;
+  shotsFired: number;
+  zoom: number;
 }
 
 declare global {
