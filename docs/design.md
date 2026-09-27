@@ -153,6 +153,13 @@ The server applies damage reports to enemies/bosses and broadcasts results. This
 - **Deterministic enemy bullet patterns:** the server sends "enemy E fires pattern P at tick T with seed S" and each client simulates the projectiles locally, instead of streaming every bullet.
 - Only send entities near each player (interest management by distance/area) if bandwidth becomes an issue.
 
+As built in milestone 2 (#3):
+
+- **Protocol**: WebSocket at `/ws`, Protocol Buffers (`proto/voidmarch/v1/messages.proto`) in binary frames, or protobuf JSON in text frames per connection for debugging.
+- **Ships**: each client sends its ship's state 20 times a second; the server keeps the latest and sends everyone a snapshot of the others every tick. Clients draw other ships 100 ms in the past, blended between snapshots.
+- **Shots**: a shot is one message; the server stamps it with its tick and relays it; every client simulates the projectile from that spawn (position is a pure function of spawn and age), on the same delayed timeline as the ships.
+- **Players**: name and token in memory until persistence arrives with unlocks; a client whose token the server forgot is asked for a name again. At most 16 players; a player silent for 3 s is removed; a client too slow to keep up is dropped rather than slowing the others.
+
 ### Persistent state (at minimum)
 
 - Players: id, name, token, unlocked parts, current loadout.

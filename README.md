@@ -46,6 +46,17 @@ the weapon, engine and shield; **H** cycles the hull damage state; **R**
 switches between free rotation and 16 directions; **F** turns effects on and
 off.
 
+## Playing together
+
+Everyone connected to the same server plays in the same world. On the first
+visit you pick a name; your browser remembers it. Other players show up with
+their name under their ship, in their own colour. Up to 16 players fit; the
+17th sees "the frontier is full, try again soon". Without a connection the
+game keeps running on its own and reconnects when it can.
+
+Add `?wire=json` to the address to see the game's messages as readable JSON in
+the browser's network panel.
+
 ## Configuration
 
 | Variable  | Default      | Meaning |
@@ -54,6 +65,7 @@ off.
 | `HOST`    | (all)        | Address to listen on. |
 | `PORT`    | `8080`       | Port to listen on. |
 | `WEB_DIR` | (embedded)   | Serve the client from this directory instead of the embedded copy. Development only. |
+| `WIRE_LOG` | `false`     | Log every WebSocket message, decoded. For debugging. |
 
 ## Development
 

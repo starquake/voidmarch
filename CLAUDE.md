@@ -36,19 +36,43 @@ board.
 ## Commands
 
 ```bash
-make check      # lint, ascii, ts check/lint/test, bundle drift, build, Go tests + coverage: before every PR
+make check      # lint, ascii, proto lint/drift, ts check/lint/test, bundle drift, build, Go tests + coverage: before every PR
 make test       # fast Go tests (integration tests skip under -short)
 make test-e2e   # Playwright, chromium + firefox, against the embedded client
 make js         # rebuild the committed bundle after any frontend/ change
+make proto      # regenerate Go and TypeScript after any proto/ change
 make lint-fix   # golangci-lint --fix and eslint --fix
 make server     # the server with the embedded client on :8080
 make js-watch   # with make server-dev: edit, reload, no rebuild
 make docker     # the image as voidmarch:dev
 ```
 
-`golangci-lint` is downloaded to `build/bin/` at the version pinned in the
-Makefile (`GOLANGCI_VERSION`); CI reads the same pin. `frontend/go.mod` is a
-stub module so that `go ... ./...` skips `frontend/node_modules`.
+`golangci-lint` and `buf` are downloaded to `build/bin/` at the versions
+pinned in the Makefile (`GOLANGCI_VERSION`, `BUF_VERSION`); CI reads the same
+pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
+`protoc-gen-es` comes from npm. `frontend/go.mod` is a stub module so that
+`go ... ./...` skips `frontend/node_modules`.
+
+## Multiplayer
+
+- **The protocol is `proto/voidmarch/v1/messages.proto`**: WebSocket at
+  `/ws`, binary protobuf, or protobuf JSON in text frames when the page has
+  `?wire=json`. The server answers each connection in the format it receives.
+  `WIRE_LOG=true` logs every message, decoded.
+- **Generated code is committed and never edited**: `internal/gen/` and
+  `frontend/src/gen/` come from `make proto`, and `make proto-check` fails when
+  they are stale. A Dependabot bump of `google.golang.org/protobuf` or
+  `@bufbuild/*` that fails only on proto drift gets `make proto` committed onto
+  its branch, like bundle drift. Change `proto/` in backward-compatible steps
+  (new field numbers, never reused).
+- **Clients are trusted for their own ships** (design §9). `internal/game`'s
+  hub relays: it keeps each player's latest state and stamps shots with its
+  tick. The client draws others 2 ticks (100 ms) in the past
+  (`frontend/src/net/interpolation.ts`), and their shots on the same delayed
+  timeline, so both line up.
+- **E2E runs everyone on one server**: each test's page is a registered player
+  (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
+  Assert on your own state (`shotsFired`, `ship`), never on shared counts.
 
 ## How work lands
 
