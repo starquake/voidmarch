@@ -30,9 +30,13 @@ make server
 
 | Input | Action |
 |---|---|
-| W A S D | Move |
+| W / S | Thrust toward / away from the mouse |
+| A / D | Strafe left / right |
 | Mouse | Aim |
 | Left button (hold) | Fire |
+| C | Switch to screen-relative movement (W is up the screen) and back |
+
+The movement choice is remembered in the browser.
 
 The sandbox has debug keys until loadouts arrive: **1**, **2** and **3** cycle
 the weapon, engine and shield; **H** cycles the hull damage state; **R**

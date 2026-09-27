@@ -1,3 +1,4 @@
+import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
 
 /** Read-only state the E2E tests inspect through window.voidmarch. */
@@ -8,6 +9,7 @@ export interface DebugState {
   loadout: Loadout;
   damage: DamageState;
   rotationSnap: number;
+  controlMode: ControlMode;
   effects: boolean;
   projectiles: number;
   shotsFired: number;

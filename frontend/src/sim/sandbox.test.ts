@@ -48,3 +48,26 @@ test('firing spawns projectiles and reports shots and expiries', () => {
   }
   assert.equal(expired, 1);
 });
+
+test('ship-relative control is the default: W flies toward the aim', () => {
+  const sandbox = new Sandbox();
+  const startX = sandbox.ship.x;
+  const aimRight = input({ up: true, pointerX: 10_000, pointerY: sandbox.ship.y });
+  for (let i = 0; i < 30; i++) {
+    sandbox.advance(TICK_SECONDS, aimRight);
+  }
+  assert.equal(sandbox.controlMode, 'ship');
+  assert.ok(sandbox.ship.x > startX + 20);
+});
+
+test('screen-relative control: W flies up whatever the aim', () => {
+  const sandbox = new Sandbox();
+  sandbox.controlMode = 'screen';
+  const start = { x: sandbox.ship.x, y: sandbox.ship.y };
+  const aimRight = input({ up: true, pointerX: 10_000, pointerY: sandbox.ship.y });
+  for (let i = 0; i < 30; i++) {
+    sandbox.advance(TICK_SECONDS, aimRight);
+  }
+  assert.ok(sandbox.ship.y < start.y - 20);
+  assert.ok(Math.abs(sandbox.ship.x - start.x) < 1e-9);
+});

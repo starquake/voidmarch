@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
+import { loadControlMode, saveControlMode } from '../settings.ts';
 import { keys } from '../sprites.ts';
-import type { InputSnapshot } from '../sim/input.ts';
+import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
 import { Sandbox, type FrameEvents } from '../sim/sandbox.ts';
 import { ROTATION_SNAP_STEPS, VIEW_HEIGHT, VIEW_WIDTH, WEAPON_STATS } from '../sim/tuning.ts';
@@ -58,6 +59,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.sim.controlMode = loadControlMode();
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
@@ -79,6 +81,7 @@ export class SandboxScene extends Phaser.Scene {
       loadout: this.sim.ship.loadout,
       damage: this.damage,
       rotationSnap: 0,
+      controlMode: this.sim.controlMode,
       effects: this.effects,
       projectiles: 0,
       shotsFired: 0,
@@ -227,6 +230,11 @@ export class SandboxScene extends Phaser.Scene {
         ship.damage = DAMAGE_STATES.indexOf(this.damage);
         this.ship.hull.setTexture(keys.hull(this.damage));
         break;
+      case 'KeyC':
+        this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
+        saveControlMode(this.sim.controlMode);
+        this.updateHud();
+        break;
       case 'KeyR':
         ship.rotationSnap = ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0;
         this.updateHud();
@@ -342,8 +350,8 @@ export class SandboxScene extends Phaser.Scene {
     const { loadout, rotationSnap } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
-      `rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · 1/2/3 parts · H hull · R rotation · F effects',
+      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
+      'WASD move · mouse aim · hold left button to fire · C controls · 1/2/3 parts · H hull · R rotation · F effects',
     ]);
   }
 
@@ -355,6 +363,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.ship.thrusting = ship.thrusting;
     this.debug.damage = this.damage;
     this.debug.rotationSnap = ship.rotationSnap;
+    this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;

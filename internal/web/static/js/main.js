@@ -272,9 +272,38 @@ function seededRandom(seed) {
 }
 
 // src/sim/input.ts
+var CONTROL_MODES = ["ship", "screen"];
 function toCommand(input) {
   const move = normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up));
   return { moveX: move.x, moveY: move.y, aimX: input.pointerX, aimY: input.pointerY, fire: input.fire };
+}
+function relativeTo(cmd, angle) {
+  const move = rotateOffset(-cmd.moveY, cmd.moveX, angle);
+  return { ...cmd, moveX: move.x, moveY: move.y };
+}
+
+// src/settings.ts
+var CONTROL_MODE_KEY = "voidmarch.controlMode";
+function browserStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return void 0;
+  }
+}
+function loadControlMode(store = browserStorage()) {
+  try {
+    const saved = store?.getItem(CONTROL_MODE_KEY);
+    return CONTROL_MODES.find((mode) => mode === saved) ?? "ship";
+  } catch {
+    return "ship";
+  }
+}
+function saveControlMode(mode, store = browserStorage()) {
+  try {
+    store?.setItem(CONTROL_MODE_KEY, mode);
+  } catch {
+  }
 }
 
 // src/sim/projectiles.ts
@@ -471,6 +500,8 @@ var Sandbox = class {
   projectiles = new ProjectilePool(PROJECTILE_CAPACITY);
   /** Ship position before the last tick, for smooth drawing between ticks. */
   previous = { x: this.ship.x, y: this.ship.y };
+  /** How WASD maps to movement; ship-relative unless the player switched. */
+  controlMode = "ship";
   accumulator = 0;
   /** How far the display is between the last two ticks, from 0 to 1. */
   get alpha() {
@@ -487,9 +518,10 @@ var Sandbox = class {
     }
     return events;
   }
-  tick(cmd, events) {
+  tick(screenCmd, events) {
     this.previous.x = this.ship.x;
     this.previous.y = this.ship.y;
+    const cmd = this.controlMode === "ship" ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
     stepShip(this.ship, cmd, TICK_SECONDS);
     applyWorldEdge(this.ship, TICK_SECONDS);
     for (const shot of stepWeapon(this.ship, cmd.fire, TICK_SECONDS)) {
@@ -540,6 +572,7 @@ var SandboxScene = class extends Phaser2.Scene {
     super("sandbox");
   }
   create() {
+    this.sim.controlMode = loadControlMode();
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
@@ -560,6 +593,7 @@ var SandboxScene = class extends Phaser2.Scene {
       loadout: this.sim.ship.loadout,
       damage: this.damage,
       rotationSnap: 0,
+      controlMode: this.sim.controlMode,
       effects: this.effects,
       projectiles: 0,
       shotsFired: 0,
@@ -689,6 +723,11 @@ var SandboxScene = class extends Phaser2.Scene {
         ship.damage = DAMAGE_STATES.indexOf(this.damage);
         this.ship.hull.setTexture(keys.hull(this.damage));
         break;
+      case "KeyC":
+        this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
+        saveControlMode(this.sim.controlMode);
+        this.updateHud();
+        break;
       case "KeyR":
         ship.rotationSnap = ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0;
         this.updateHud();
@@ -792,8 +831,8 @@ var SandboxScene = class extends Phaser2.Scene {
     const { loadout, rotationSnap } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
-      `rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects"
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects"
     ]);
   }
   publish() {
@@ -804,6 +843,7 @@ var SandboxScene = class extends Phaser2.Scene {
     this.debug.ship.thrusting = ship.thrusting;
     this.debug.damage = this.damage;
     this.debug.rotationSnap = ship.rotationSnap;
+    this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;

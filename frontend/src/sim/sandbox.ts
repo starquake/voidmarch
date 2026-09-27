@@ -1,4 +1,4 @@
-import { toCommand, type InputSnapshot } from './input.ts';
+import { relativeTo, toCommand, type ControlMode, type InputSnapshot, type ShipCommand } from './input.ts';
 import { ProjectilePool, type Projectile } from './projectiles.ts';
 import { createShip, stepShip, type Ship } from './ship.ts';
 import { MAX_TICKS_PER_FRAME, TICK_SECONDS } from './tuning.ts';
@@ -20,6 +20,8 @@ export class Sandbox {
   readonly projectiles = new ProjectilePool(PROJECTILE_CAPACITY);
   /** Ship position before the last tick, for smooth drawing between ticks. */
   readonly previous = { x: this.ship.x, y: this.ship.y };
+  /** How WASD maps to movement; ship-relative unless the player switched. */
+  controlMode: ControlMode = 'ship';
   private accumulator = 0;
 
   /** How far the display is between the last two ticks, from 0 to 1. */
@@ -41,10 +43,11 @@ export class Sandbox {
     return events;
   }
 
-  private tick(cmd: ReturnType<typeof toCommand>, events: FrameEvents): void {
+  private tick(screenCmd: ShipCommand, events: FrameEvents): void {
     this.previous.x = this.ship.x;
     this.previous.y = this.ship.y;
 
+    const cmd = this.controlMode === 'ship' ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
     stepShip(this.ship, cmd, TICK_SECONDS);
     applyWorldEdge(this.ship, TICK_SECONDS);
 
