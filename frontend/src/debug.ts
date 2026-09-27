@@ -1,3 +1,4 @@
+import type { NetStatus, RemoteDebug } from './scenes/netplay.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
 
@@ -16,6 +17,7 @@ export interface DebugState {
   zoom: number;
   fps: number;
   weaponFrame: number;
+  net: { status: NetStatus; playerId: string | undefined; others: RemoteDebug[] };
   audio: {
     muted: boolean;
     music: boolean;

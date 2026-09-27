@@ -39,6 +39,8 @@ export interface ConnectionEvents {
   full(): void;
   /** The server forgot the token; the player must register again. */
   unknownToken(): void;
+  /** The link dropped; the connection is retrying. */
+  disconnected(): void;
 }
 
 export interface Timers {
@@ -180,6 +182,7 @@ export class Connection {
     if (this.stopped) {
       return;
     }
+    this.options.events.disconnected();
     if (code === CLOSE_UNKNOWN_TOKEN) {
       this.options.events.unknownToken();
 

@@ -2,11 +2,13 @@ import type { ShotSpawn } from '../sim/weapons.ts';
 
 interface Pending {
   tick: number;
+  from: string;
   shot: ShotSpawn;
 }
 
-/** A remote shot to spawn now, already this old. */
+/** A remote shot to spawn now, already this old, fired by player from. */
 export interface DueShot {
+  from: string;
   shot: ShotSpawn;
   ageSeconds: number;
 }
@@ -23,8 +25,8 @@ export class RemoteShots {
     this.tickRate = tickRate;
   }
 
-  add(tick: number, shot: ShotSpawn): void {
-    this.pending.push({ tick, shot });
+  add(tick: number, from: string, shot: ShotSpawn): void {
+    this.pending.push({ tick, from, shot });
   }
 
   /** Removes and returns the shots at or before renderTick, with their age. */
@@ -34,7 +36,7 @@ export class RemoteShots {
       if (p.tick > renderTick) {
         return true;
       }
-      due.push({ shot: p.shot, ageSeconds: (renderTick - p.tick) / this.tickRate });
+      due.push({ from: p.from, shot: p.shot, ageSeconds: (renderTick - p.tick) / this.tickRate });
 
       return false;
     });

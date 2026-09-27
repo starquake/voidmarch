@@ -92,6 +92,7 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     left: (id) => log.events.push(`left ${id}`),
     full: () => log.events.push('full'),
     unknownToken: () => log.events.push('unknown token'),
+    disconnected: () => log.events.push('disconnected'),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -218,7 +219,7 @@ test('a full frontier is reported and retried later', () => {
   sockets[0]?.open();
   sockets[0]?.deliver(create(ServerMessageSchema, { kind: { case: 'full', value: {} } }));
   sockets[0]?.drop(CLOSE_TRY_AGAIN_LATER);
-  assert.deepEqual(log.events, ['full']);
+  assert.deepEqual(log.events, ['full', 'disconnected']);
   assert.equal(timers.fire(), 10_000);
   assert.equal(sockets.length, 2);
 });
@@ -227,7 +228,7 @@ test('an unknown token stops the connection and asks for a new name', () => {
   const { conn, sockets, timers, log } = setup();
   conn.start();
   sockets[0]?.drop(CLOSE_UNKNOWN_TOKEN);
-  assert.deepEqual(log.events, ['unknown token']);
+  assert.deepEqual(log.events, ['disconnected', 'unknown token']);
   assert.equal(timers.pending.length, 0);
 });
 

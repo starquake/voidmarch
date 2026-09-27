@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { engineMix, nextVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
-import type { EngineId } from '../sim/loadout.ts';
+import type { EngineId, WeaponId } from '../sim/loadout.ts';
 import type { FrameEvents } from '../sim/sandbox.ts';
 import type { Ship } from '../sim/ship.ts';
 import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
@@ -20,6 +20,8 @@ import {
 type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound | Phaser.Sound.NoAudioSound;
 
 const SHOT_VOLUME = 0.35;
+/** Other players' shots, relative to your own. */
+const REMOTE_SHOT_VOLUME = 0.5;
 const CHARGE_VOLUME = 0.3;
 /** Pitches the charge above the shield sound it shares a source with. */
 const CHARGE_DETUNE = 300;
@@ -107,6 +109,14 @@ export class ShipAudio {
       if (key !== undefined) {
         this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
+    }
+  }
+
+  /** Another player's shot: the same sound, quieter. */
+  remoteShot(weapon: WeaponId): void {
+    const key = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
+    if (key !== undefined) {
+      this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
   }
 

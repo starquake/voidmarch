@@ -62,7 +62,8 @@ export class ProjectilePool {
     return this.items.reduce((n, p) => n + Number(p.active), 0);
   }
 
-  spawn(shot: ShotSpawn): Projectile {
+  /** Starts a projectile, already ageSeconds old: a remote shot seen late. */
+  spawn(shot: ShotSpawn, ageSeconds = 0): Projectile {
     let chosen: Projectile | undefined;
     for (let i = 0; i < this.items.length && chosen === undefined; i++) {
       const candidate = this.items[(this.next + i) % this.items.length];
@@ -78,7 +79,7 @@ export class ProjectilePool {
     chosen.originX = shot.x;
     chosen.originY = shot.y;
     chosen.angle = shot.angle;
-    chosen.age = 0;
+    chosen.age = ageSeconds;
     place(chosen);
 
     return chosen;

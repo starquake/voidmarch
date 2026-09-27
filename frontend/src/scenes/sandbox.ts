@@ -1,7 +1,16 @@
 import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
-import { loadAudioSettings, loadControlMode, saveAudioSettings, saveControlMode, type AudioSettings } from '../settings.ts';
+import { wireFormatFrom } from '../net/codec.ts';
+import {
+  clearToken,
+  loadAudioSettings,
+  loadControlMode,
+  loadToken,
+  saveAudioSettings,
+  saveControlMode,
+  type AudioSettings,
+} from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
@@ -11,6 +20,8 @@ import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { ShipAudio } from './audio.ts';
+import { NetPlay } from './netplay.ts';
+import { SPRITE_FACING, ShipView } from './shipview.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -18,21 +29,10 @@ const BACKGROUND_FPS = 6;
 const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
 const HUD_REFRESH_MS = 250;
-/** Sprites face up; Phaser's rotation 0 faces right. */
-const SPRITE_FACING = Math.PI / 2;
 
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
   factor: number;
-}
-
-interface ShipView {
-  root: Phaser.GameObjects.Container;
-  engine: Phaser.GameObjects.Image;
-  flame: Phaser.GameObjects.Sprite;
-  hull: Phaser.GameObjects.Image;
-  weapon: Phaser.GameObjects.Sprite;
-  shield: Phaser.GameObjects.Sprite;
 }
 
 /** The single-player sandbox: fly, aim and shoot around the home planet. */
@@ -41,7 +41,9 @@ export class SandboxScene extends Phaser.Scene {
   private world!: Phaser.GameObjects.Layer;
   private backgrounds: Background[] = [];
   private backgroundFrame = 0;
+  private ships!: Phaser.GameObjects.Container;
   private ship!: ShipView;
+  private net: NetPlay | undefined;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -70,7 +72,9 @@ export class SandboxScene extends Phaser.Scene {
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
-    this.ship = this.createShip();
+    this.ships = this.add.container(0, 0);
+    this.world.add(this.ships);
+    this.ship = new ShipView(this, this.ships, this.sim.ship.x, this.sim.ship.y);
     this.createProjectiles();
     this.createParticles();
     this.createCameras();
@@ -80,6 +84,7 @@ export class SandboxScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, () => {
       this.resize();
     });
+    this.startNetPlay();
 
     this.debug = {
       ready: true,
@@ -96,12 +101,14 @@ export class SandboxScene extends Phaser.Scene {
       fps: 0,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
+      net: { status: 'offline', playerId: undefined, others: [] },
     };
     this.publish();
   }
 
   override update(time: number, deltaMs: number): void {
     const events = this.sim.advance(deltaMs / 1000, this.readInput());
+    this.net?.update(events);
     this.drawShip(events);
     this.drawProjectiles();
     this.playEffects(events);
@@ -130,16 +137,29 @@ export class SandboxScene extends Phaser.Scene {
     this.world.add(this.add.sprite(0, 0, keys.planet).play(keys.planet));
   }
 
-  private createShip(): ShipView {
-    const engine = this.add.image(0, 0, keys.engine('base'));
-    const flame = this.add.sprite(0, 0, keys.flameIdle('base'));
-    const hull = this.add.image(0, 0, keys.hull('fullHealth'));
-    const weapon = this.add.sprite(0, 0, keys.weapon('autoCannon'), 0);
-    const shield = this.add.sprite(0, 0, keys.shield('front'));
-    const root = this.add.container(this.sim.ship.x, this.sim.ship.y, [engine, flame, hull, weapon, shield]);
-    this.world.add(root);
-
-    return { root, engine, flame, hull, weapon, shield };
+  /** Plays with others once the player has a name; without one it stays single-player. */
+  private startNetPlay(): void {
+    const token = loadToken();
+    if (token === undefined) {
+      return;
+    }
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    this.net = new NetPlay({
+      scene: this,
+      ships: this.ships,
+      sim: this.sim,
+      audio: this.audio,
+      url: `${scheme}://${window.location.host}/ws`,
+      token,
+      format: wireFormatFrom(window.location.search),
+      labelResolution: () => this.cameras.main.zoom,
+      onUnknownToken: () => {
+        clearToken();
+        window.location.reload();
+      },
+    });
+    this.net.start();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.net?.stop());
   }
 
   private createProjectiles(): void {
@@ -250,7 +270,7 @@ export class SandboxScene extends Phaser.Scene {
       case 'KeyH':
         this.damage = nextInCycle(DAMAGE_STATES, this.damage);
         ship.damage = DAMAGE_STATES.indexOf(this.damage);
-        this.ship.hull.setTexture(keys.hull(this.damage));
+        this.ship.setDamage(ship.damage);
         break;
       case 'KeyC':
         this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
@@ -276,12 +296,9 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private applyLoadout(): void {
-    const { weapon, engine, shield } = this.sim.ship.loadout;
-    this.ship.engine.setTexture(keys.engine(engine));
-    this.ship.flame.play(keys.flameIdle(engine));
-    this.ship.weapon.setTexture(keys.weapon(weapon), 0);
+    const { weapon, engine } = this.sim.ship.loadout;
+    this.ship.setLoadout(this.sim.ship.loadout);
     this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
-    this.ship.shield.play(keys.shield(shield));
     this.audio.setEngine(engine);
     this.updateHud();
   }
@@ -313,12 +330,8 @@ export class SandboxScene extends Phaser.Scene {
 
   private drawShip(events: FrameEvents): void {
     const { ship, previous, alpha } = this.sim;
-    this.ship.root
-      .setPosition(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha)
-      .setRotation(ship.angle + SPRITE_FACING);
-
-    const engine = ship.loadout.engine;
-    this.ship.flame.play(ship.thrusting ? keys.flamePowering(engine) : keys.flameIdle(engine), true);
+    this.ship.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
+    this.ship.setThrusting(ship.thrusting);
     this.animateWeapon(events);
   }
 
@@ -390,7 +403,28 @@ export class SandboxScene extends Phaser.Scene {
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
       'WASD move · mouse aim · hold left button to fire · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
+      this.netStatus(),
     ]);
+  }
+
+  private netStatus(): string {
+    const net = this.net;
+    if (net === undefined) {
+      return 'playing alone';
+    }
+    switch (net.status) {
+      case 'online': {
+        const count = net.others.length;
+
+        return `online · ${count === 0 ? 'nobody else here yet' : `${count} other${count === 1 ? '' : 's'} here`}`;
+      }
+      case 'full':
+        return 'the frontier is full, try again soon';
+      case 'offline':
+        return 'offline · reconnecting';
+      default:
+        return 'connecting';
+    }
   }
 
   private publish(): void {
@@ -414,6 +448,9 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.audio.playingMusic = this.audio.playingMusic;
     this.debug.audio.backend = this.audio.backend;
     this.debug.audio.musicLoaded = this.audio.musicReady;
+    this.debug.net.status = this.net?.status ?? 'offline';
+    this.debug.net.playerId = this.net?.playerId;
+    this.debug.net.others = this.net?.others ?? [];
     publishDebugState(this.debug);
   }
 }

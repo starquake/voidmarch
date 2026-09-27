@@ -86,3 +86,10 @@ test('a pool needs capacity', () => {
   const pool = new ProjectilePool(0);
   assert.throws(() => pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 }), /zero capacity/);
 });
+
+test('a projectile can start part-way through its flight', () => {
+  const pool = new ProjectilePool(2);
+  const p = pool.spawn({ weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0 }, 0.5);
+  assert.equal(p.age, 0.5);
+  assert.equal(p.x, WEAPON_STATS.autoCannon.speed * 0.5);
+});

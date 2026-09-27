@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { loadAudioSettings, loadControlMode, saveAudioSettings, saveControlMode } from './settings.ts';
+import { clearToken, loadAudioSettings, loadControlMode, loadToken, saveAudioSettings, saveControlMode, saveToken } from './settings.ts';
 
-const memoryStore = (): Pick<Storage, 'getItem' | 'setItem'> => {
+const memoryStore = (): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> => {
   const data = new Map<string, string>();
 
   return {
@@ -11,14 +11,20 @@ const memoryStore = (): Pick<Storage, 'getItem' | 'setItem'> => {
     setItem: (key, value) => {
       data.set(key, value);
     },
+    removeItem: (key) => {
+      data.delete(key);
+    },
   };
 };
 
-const brokenStore: Pick<Storage, 'getItem' | 'setItem'> = {
+const brokenStore: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = {
   getItem: () => {
     throw new Error('denied');
   },
   setItem: () => {
+    throw new Error('denied');
+  },
+  removeItem: () => {
     throw new Error('denied');
   },
 };
@@ -73,4 +79,22 @@ test('denied storage keeps the default sound settings', () => {
     saveAudioSettings({ muted: true, music: true }, brokenStore);
   });
   assert.deepEqual(loadAudioSettings(brokenStore), { muted: false, music: true });
+});
+
+test('the token is kept, loaded and forgotten', () => {
+  const store = memoryStore();
+  assert.equal(loadToken(store), undefined);
+  saveToken('abc', store);
+  assert.equal(loadToken(store), 'abc');
+  clearToken(store);
+  assert.equal(loadToken(store), undefined);
+});
+
+test('denied storage has no token and does not throw', () => {
+  assert.equal(loadToken(brokenStore), undefined);
+  assert.equal(loadToken(undefined), undefined);
+  assert.doesNotThrow(() => {
+    saveToken('abc', brokenStore);
+    clearToken(brokenStore);
+  });
 });
