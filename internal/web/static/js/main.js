@@ -242,6 +242,14 @@ var still = (key, url, size) => ({
   fps: 0,
   loop: false
 });
+var KLAED_FILES = {
+  scout: { engine: 10, weapons: 6, destruction: 10, bullet: "bullet" },
+  fighter: { engine: 10, weapons: 6, destruction: 9, bullet: "big-bullet" }
+};
+var BULLET_FRAMES = {
+  bullet: { width: 4, frames: 4 },
+  "big-bullet": { width: 8, frames: 4 }
+};
 var strip = (key, url, size, frames, fps, loop = true) => ({
   key,
   url,
@@ -321,11 +329,17 @@ var keys = {
   projectile: (id) => `projectile-${id}`,
   background: ["background-void", "background-stars", "background-big-stars"],
   planet: "planet",
-  asteroid: "asteroid"
+  asteroid: "asteroid",
+  enemyBase: (kind) => `klaed-${kind}-base`,
+  enemyEngine: (kind) => `klaed-${kind}-engine`,
+  enemyWeapons: (kind) => `klaed-${kind}-weapons`,
+  enemyDestruction: (kind) => `klaed-${kind}-destruction`,
+  enemyBullet: (kind) => `klaed-${KLAED_FILES[kind].bullet}`
 };
 function sheets() {
   const ship = `${ASSETS}/mainship`;
   const env = `${ASSETS}/environment`;
+  const klaed = `${ASSETS}/klaed`;
   return [
     ...DAMAGE_STATES.map((s) => still(keys.hull(s), `${ship}/${HULL_FILES[s]}.png`, 48)),
     ...ENGINES.flatMap((id) => {
@@ -355,7 +369,25 @@ function sheets() {
       loop: true
     })),
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
-    still(keys.asteroid, `${env}/asteroid.png`, 96)
+    still(keys.asteroid, `${env}/asteroid.png`, 96),
+    ...["scout", "fighter"].flatMap((kind) => {
+      const f = KLAED_FILES[kind];
+      return [
+        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, 64),
+        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, 64, f.engine, 12),
+        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, 64, f.weapons, 18, false),
+        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false)
+      ];
+    }),
+    ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
+      key: `klaed-${name}`,
+      url: `${klaed}/${name}.png`,
+      frameWidth: f.width,
+      frameHeight: 16,
+      frames: f.frames,
+      fps: 12,
+      loop: true
+    }))
   ];
 }
 
