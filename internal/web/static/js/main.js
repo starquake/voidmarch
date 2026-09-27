@@ -657,38 +657,54 @@ var SandboxScene = class extends Phaser2.Scene {
       right: keyboard.addKey(codes.D)
     };
     this.input.mouse?.disableContextMenu();
+    const onKeyDown = (event) => {
+      if (!event.repeat) {
+        this.handleDebugKey(event.code);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    this.events.once(Phaser2.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener("keydown", onKeyDown);
+    });
+  }
+  handleDebugKey(code) {
     const ship = this.sim.ship;
-    keyboard.on("keydown-ONE", () => {
-      ship.loadout.weapon = nextInCycle(WEAPONS, ship.loadout.weapon);
-      ship.cooldown = 0;
-      ship.nextMuzzle = 0;
-      this.applyLoadout();
-    });
-    keyboard.on("keydown-TWO", () => {
-      ship.loadout.engine = nextInCycle(ENGINES, ship.loadout.engine);
-      this.applyLoadout();
-    });
-    keyboard.on("keydown-THREE", () => {
-      ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
-      this.applyLoadout();
-    });
-    keyboard.on("keydown-H", () => {
-      this.damage = nextInCycle(DAMAGE_STATES, this.damage);
-      ship.damage = DAMAGE_STATES.indexOf(this.damage);
-      this.ship.hull.setTexture(keys.hull(this.damage));
-    });
-    keyboard.on("keydown-R", () => {
-      ship.rotationSnap = ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0;
-    });
-    keyboard.on("keydown-F", () => {
-      this.effects = !this.effects;
-      if (this.bloom !== void 0) {
-        this.bloom.active = this.effects;
-      }
-      if (this.vignette !== void 0) {
-        this.vignette.active = this.effects;
-      }
-    });
+    switch (code) {
+      case "Digit1":
+        ship.loadout.weapon = nextInCycle(WEAPONS, ship.loadout.weapon);
+        ship.cooldown = 0;
+        ship.nextMuzzle = 0;
+        this.applyLoadout();
+        break;
+      case "Digit2":
+        ship.loadout.engine = nextInCycle(ENGINES, ship.loadout.engine);
+        this.applyLoadout();
+        break;
+      case "Digit3":
+        ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
+        this.applyLoadout();
+        break;
+      case "KeyH":
+        this.damage = nextInCycle(DAMAGE_STATES, this.damage);
+        ship.damage = DAMAGE_STATES.indexOf(this.damage);
+        this.ship.hull.setTexture(keys.hull(this.damage));
+        break;
+      case "KeyR":
+        ship.rotationSnap = ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0;
+        this.updateHud();
+        break;
+      case "KeyF":
+        this.effects = !this.effects;
+        if (this.bloom !== void 0) {
+          this.bloom.active = this.effects;
+        }
+        if (this.vignette !== void 0) {
+          this.vignette.active = this.effects;
+        }
+        this.updateHud();
+        break;
+      default:
+    }
   }
   applyLoadout() {
     const { weapon, engine, shield } = this.sim.ship.loadout;
