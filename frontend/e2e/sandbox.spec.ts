@@ -110,8 +110,8 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
 
   const { x, y } = await centre(page);
   await page.mouse.move(x + 200, y);
+  // Held while sampling: a click shorter than one game frame is never seen.
   await page.mouse.down();
-  await page.mouse.up();
 
   // Sample every animation frame until the ball is out, recording what the gun showed.
   const samples = await page.evaluate(
@@ -133,6 +133,8 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
         sample();
       }),
   );
+
+  await page.mouse.up();
 
   const charging = samples.filter((s) => s.projectiles === 0).map((s) => s.frame);
   expect(Math.max(...charging)).toBeGreaterThan(0);
