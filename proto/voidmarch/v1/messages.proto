@@ -100,6 +100,41 @@ message CompanionState {
   ShipState state = 2;
 }
 
+// ChooseSquadron joins the named squadron, or starts a new one when the name
+// is empty (docs/design.md, section 13).
+message ChooseSquadron {
+  string name = 1;
+}
+
+// CompanionMode is a squadron's standing orders for its companions.
+enum CompanionMode {
+  COMPANION_MODE_UNSPECIFIED = 0;
+  COMPANION_MODE_ESCORT = 1;
+  COMPANION_MODE_ATTACK = 2;
+  COMPANION_MODE_GUARD = 3;
+  COMPANION_MODE_HOLD = 4;
+  COMPANION_MODE_STEALTH = 5;
+}
+
+// CompanionOneShot is an order that runs until done, then returns to the mode.
+enum CompanionOneShot {
+  COMPANION_ONE_SHOT_UNSPECIFIED = 0;
+  COMPANION_ONE_SHOT_FOCUS = 1;
+  COMPANION_ONE_SHOT_REGROUP = 2;
+  COMPANION_ONE_SHOT_GO_HOME = 3;
+}
+
+// SquadronOrder is an order a player gives their squadron: a mode or a
+// one-shot, with where the pointer was (the point to hold) and the enemy to
+// focus. Every client applies it to its own companions.
+message SquadronOrder {
+  CompanionMode mode = 1;
+  CompanionOneShot one_shot = 2;
+  float x = 3;
+  float y = 4;
+  uint32 focus_enemy_id = 5;
+}
+
 // Dismiss gives a companion's seat back.
 message Dismiss {
   uint32 companion = 1;
@@ -115,6 +150,8 @@ message ClientMessage {
     Summon summon = 5;
     CompanionState companion = 6;
     Dismiss dismiss = 7;
+    ChooseSquadron choose_squadron = 8;
+    SquadronOrder squadron_order = 9;
   }
 }
 
@@ -137,6 +174,10 @@ message Welcome {
   // The player's companions the server kept (a reconnect), so the client can
   // fly on with them and give back any it doesn't know.
   repeated uint32 companions = 10;
+  // The squadrons to choose from.
+  Squadrons squadrons = 11;
+  // The player's squadron, kept on a reconnect; empty until they choose one.
+  string squadron = 12;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -148,6 +189,53 @@ message PlayerSnapshot {
   // Set for a companion: the player who owns it. Its player_id is the seat,
   // "<owner_id>/<n>", and name and colour are its owner's.
   string owner_id = 5;
+  // The squadron the player, or the companion's owner, flies in.
+  string squadron = 6;
+}
+
+// SquadronMember is one human in a squadron, with their companions.
+message SquadronMember {
+  string player_id = 1;
+  string name = 2;
+  uint32 companions = 3;
+}
+
+// SquadronInfo is one squadron as the join screen and the HUD show it.
+message SquadronInfo {
+  string name = 1;
+  // In the order they joined.
+  repeated SquadronMember members = 2;
+  CompanionMode mode = 3;
+}
+
+// Squadrons is every squadron, and the name a new one would get. The server
+// sends it on every change.
+message Squadrons {
+  repeated SquadronInfo squadrons = 1;
+  string next_name = 2;
+}
+
+// SquadronJoined answers ChooseSquadron. Taking over a companion puts the
+// player where it was.
+message SquadronJoined {
+  string name = 1;
+  CompanionMode mode = 2;
+  bool took_over = 3;
+  float x = 4;
+  float y = 5;
+}
+
+// SquadronRefused answers ChooseSquadron when the squadron is full.
+message SquadronRefused {
+  string reason = 1;
+}
+
+// SquadronOrdered is a squadmate's order: a callout for the players, and
+// the orders for everyone's companions.
+message SquadronOrdered {
+  string player_id = 1;
+  string name = 2;
+  SquadronOrder order = 3;
 }
 
 // EnemyState is one enemy at a tick; the server moves enemies.
@@ -228,6 +316,8 @@ message CompanionRefused {
 // human joining a full world, or because its states stopped or never came.
 message CompanionDismissed {
   uint32 companion = 1;
+  // Set when a player joining the squadron took the companion over.
+  string taken_by = 2;
 }
 
 // Full says the frontier has no room; the server closes the connection after it.
@@ -247,5 +337,9 @@ message ServerMessage {
     CompanionGranted companion_granted = 9;
     CompanionRefused companion_refused = 10;
     CompanionDismissed companion_dismissed = 11;
+    Squadrons squadrons = 12;
+    SquadronJoined squadron_joined = 13;
+    SquadronRefused squadron_refused = 14;
+    SquadronOrdered squadron_ordered = 15;
   }
 }

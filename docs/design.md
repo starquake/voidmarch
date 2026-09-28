@@ -227,7 +227,7 @@ Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney'
 Companions are AI-flown wingmates. They make playing alone, or with one friend, feel like playing with the group, and real players replace them as they come online.
 
 - **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The owner's client simulates its companions (the trust model, §9), and on the wire they are players with an owner.
-- **How many:** up to 3 per player, and at most 4 ships per wing (players within one screen of each other), companions included. Companions are full seats: they count toward the 16-player cap, and a human joining a full world takes one over or displaces one, so the group, and its difficulty, stays the same whoever flies each ship.
+- **How many:** up to 3 per player, and at most 4 ships per squadron, companions included (#42 replaced the earlier "wing within one screen" cap). Companions are full seats: they count toward the 16-player cap, and a human joining a full world takes one over or displaces one, so the group, and its difficulty, stays the same whoever flies each ship.
 - **Summoning** happens at the home planet, alongside the loadout change. The owner picks each companion's loadout from their own unlocked parts. Until the loadout change exists (milestone 5), G summons one inside the safe zone.
 - **Looks:** the Main Ship sprites, tinted per owner. Orders and names are HUD text; no new art.
 
@@ -236,8 +236,18 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 - **A joining player chooses:** take over an online player's companion, or start as their own ship.
   - A takeover inherits the companion's position, velocity, health and current order, but flies the joiner's own loadout. The companion disappears, and its owner sees who took it.
   - A downed companion can't be taken over.
-- **The wing cap holds.** When a human flies into a full wing, the owner's newest companion is sent home, never one mid-revive.
+- **The squadron cap holds.** A human joining a squadron at 4 ships takes over its newest companion (never one mid-revive, once revive exists).
 - **Dropping out mid-fight** leaves an AI in the seat, owned by the nearest friend, until the fight ends.
+
+### Squadrons
+
+As built (#42), from @starquake's "We need some more mechanics around the groups":
+
+- **Everyone flies in a squadron** of at most 4 ships, companions included. On joining, a player picks a squadron with room on the join screen, or starts a new one. With nothing to pick, they start their own, so 16 solo players make 16 squadrons.
+- **Greek names**, the first free one: Alpha, Beta, Gamma… An emptied squadron frees its name.
+- **The join screen** lists the squadrons with room, the most players first, with seat marks and what joining means. A squadron at 4 ships means taking over its newest companion, and starting where it was. Full squadrons are only named. The last squadron flown is picked, and Enter joins it.
+- **Orders are the squadron's.** Anyone's order is a callout for their squadmates, and every companion in the squadron follows it. The HUD names the squadron, its players, companions and mode, and players' labels show their squadron.
+- **Reasons to fly together** come with health and loadouts: shared part drops (#6); respawning next to a squadmate, faster revives between squadmates and a shield bonus flying together (#5).
 
 ### Difficulty
 
@@ -247,7 +257,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 
 ### Orders
 
-Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last order. Every order goes to the whole wing, and a companion summoned later joins the wing's standing orders (#39; this replaced ordering one companion under the cursor). There is no ammo or consumable in the game, so the "use it or save it" choices are about shields, health, big shots and enemy attention.
+Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last order. Every order goes to the whole squadron: its players see it as a callout ("Sanne: Attack") and may follow or ignore it, and every companion in it follows. A companion summoned later joins the squadron's mode (#39, #42; this replaced ordering one companion under the cursor). There is no ammo or consumable in the game, so the "use it or save it" choices are about shields, health, big shots and enemy attention.
 
 The orders are **five modes and three one-shots** (@starquake, 2026-09-28, #39). Separate switches for stance, fire, resources and targets could contradict each other, for example Aggressive with Hold fire. A mode is one coherent set, and a one-shot runs until done, then the wing returns to its mode.
 
@@ -278,7 +288,7 @@ As built so far (#26): the brain is `think` in `frontend/src/sim/brain.ts`, a pu
 
 As built (#27), single-player companions:
 
-- **Seats:** G asks the server for a companion. The server grants the lowest free number up to 3, only at the home planet and with fewer than 4 ships in the wing, or refuses with a reason shown in the HUD. Development servers keep the same rules, so what's tested is what's played (@starquake, 2026-09-28; this reversed an earlier exception that lifted the limits there).
+- **Seats:** G asks the server for a companion. The server grants the lowest free number up to 3, only at the home planet, to a player in a squadron with fewer than 4 ships, or refuses with a reason shown in the HUD. Development servers keep the same rules, so what's tested is what's played (@starquake, 2026-09-28; this reversed an earlier exception that lifted the limits there).
 - **On the wire:** the owner's client flies each companion with its brain in the sim, and sends its state with the owner's, as the seat `<playerId>/<n>`. Others get it in their snapshots as a player with an `owner_id`. Its shots and hits carry its number, so a kill is credited to the seat. A dismissed companion leaves like a player. A companion whose states stop for 3 s (a closed tab, a lost grant) is dismissed, like a silent player. A reconnect keeps them: `Welcome` lists the ones the server kept, and the client drops the rest (it was dropped for silence meanwhile) and gives back any it doesn't fly (another tab's).
 - **The world counts them:** enemies target companions and spawn around them like players, and they count toward the 16 seats. A human joining a full world displaces the newest companion.
 - **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; enemy bullets flash them. Their shots sound like other players'.

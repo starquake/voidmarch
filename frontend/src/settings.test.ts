@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { clearToken, loadAudioSettings, loadControlMode, loadToken, saveAudioSettings, saveControlMode, saveToken } from './settings.ts';
+import {
+  clearToken,
+  loadAudioSettings,
+  loadControlMode,
+  loadLastSquadron,
+  loadToken,
+  saveAudioSettings,
+  saveControlMode,
+  saveLastSquadron,
+  saveToken,
+} from './settings.ts';
 
 const memoryStore = (): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> => {
   const data = new Map<string, string>();
@@ -96,5 +106,16 @@ test('denied storage has no token and does not throw', () => {
   assert.doesNotThrow(() => {
     saveToken('abc', brokenStore);
     clearToken(brokenStore);
+  });
+});
+
+test('the last squadron is kept, and denied storage forgets it quietly', () => {
+  const store = memoryStore();
+  assert.equal(loadLastSquadron(store), undefined);
+  saveLastSquadron('Beta', store);
+  assert.equal(loadLastSquadron(store), 'Beta');
+  assert.equal(loadLastSquadron(brokenStore), undefined);
+  assert.doesNotThrow(() => {
+    saveLastSquadron('Beta', brokenStore);
   });
 });

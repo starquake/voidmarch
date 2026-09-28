@@ -103,6 +103,8 @@ type member struct {
 	state      *pb.ShipState
 	lastSeen   uint32
 	companions map[uint32]*companion
+	// squadron is the name of the player's squadron, "" until they choose.
+	squadron string
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -120,6 +122,7 @@ type Hub struct {
 	nextEnemy uint32
 	rng       *rand.Rand
 	nextGrant uint64
+	squadrons map[string]*squadron
 }
 
 // HubOption configures a [Hub].
@@ -154,6 +157,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		members:  make(map[string]*member),
 		enemies:  make(map[uint32]*enemy),
 		rng:      newRand(o),
+
+		squadrons: make(map[string]*squadron),
 	}
 }
 
@@ -214,10 +219,13 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 }
 
 func (h *Hub) handleJoin(player players.Player) joinResult {
-	// A player who is back (a reconnect, a second tab) keeps their companions.
+	// A player who is back (a reconnect, a second tab) keeps their companions
+	// and their squadron.
 	companions := make(map[uint32]*companion)
+	var squadron string
 	if old, ok := h.members[player.ID]; ok {
 		companions = old.companions
+		squadron = old.squadron
 		close(old.session.queue)
 		delete(h.members, player.ID)
 	} else if h.seats() >= MaxPlayers && !h.displaceNewestCompanion() {
@@ -233,6 +241,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		colour:     colour,
 		lastSeen:   h.tick,
 		companions: companions,
+		squadron:   squadron,
 	}
 	h.logger.Info(
 		"player joined",
@@ -251,6 +260,8 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 
 		CompanionLimit: companionLimit,
 		Companions:     slices.Sorted(maps.Keys(companions)),
+		Squadrons:      h.squadronsMessage(),
+		Squadron:       squadron,
 	}
 
 	return joinResult{session: s, welcome: welcome}
@@ -276,6 +287,10 @@ func (h *Hub) handleMessage(in inbound) {
 		h.companionState(in.session.Player.ID, m, kind.Companion)
 	case *pb.ClientMessage_Dismiss:
 		h.dismiss(in.session.Player.ID, m, kind.Dismiss.GetCompanion())
+	case *pb.ClientMessage_ChooseSquadron:
+		h.chooseSquadron(in.session.Player.ID, m, kind.ChooseSquadron.GetName())
+	case *pb.ClientMessage_SquadronOrder:
+		h.squadronOrder(in.session.Player.ID, m, kind.SquadronOrder)
 	case *pb.ClientMessage_Shot:
 		shooter, ok := shooterID(in.session.Player.ID, m, kind.Shot.GetCompanion())
 		if !ok {
@@ -317,6 +332,7 @@ func (h *Hub) step() {
 				Name:     other.session.Player.Name,
 				Colour:   other.colour,
 				State:    other.state,
+				Squadron: other.squadron,
 			})
 		}
 		snapshot.Players = append(snapshot.Players, h.companionSnapshots(id)...)
@@ -359,6 +375,8 @@ func (h *Hub) drop(id, reason string) {
 		h.broadcast(left(seatID(id, number)), "")
 	}
 	h.broadcast(left(id), "")
+	h.leaveSquadron(id, m)
+	h.broadcastSquadrons()
 }
 
 func (h *Hub) remove(id string) {

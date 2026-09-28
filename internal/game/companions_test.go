@@ -18,6 +18,38 @@ func companionState(number uint32, x, y float32) *pb.ClientMessage {
 	}}}
 }
 
+func chooseSquadron(name string) *pb.ClientMessage {
+	return &pb.ClientMessage{
+		Kind: &pb.ClientMessage_ChooseSquadron{ChooseSquadron: &pb.ChooseSquadron{Name: name}},
+	}
+}
+
+// chooseAndWait asks for a squadron ("" starts one) and returns the answer.
+func chooseAndWait(t *testing.T, s *Session, name string) *pb.SquadronJoined {
+	t.Helper()
+
+	s.Send(chooseSquadron(name))
+	for {
+		msg := next(t, s)
+		if j := msg.GetSquadronJoined(); j != nil {
+			return j
+		}
+		if r := msg.GetSquadronRefused(); r != nil {
+			t.Fatalf("squadron %q refused: %s", name, r.GetReason())
+		}
+	}
+}
+
+// pilot joins and starts a squadron of their own, so they can summon.
+func pilot(t *testing.T, hub *Hub, id string) (*Session, *pb.Welcome) {
+	t.Helper()
+
+	s, w := join(t, hub, id)
+	chooseAndWait(t, s, "")
+
+	return s, w
+}
+
 // summonReply sends Summon and returns the grant, or the refusal's reason.
 func summonReply(t *testing.T, s *Session) (*pb.CompanionGranted, string) {
 	t.Helper()
@@ -78,7 +110,7 @@ func TestCompanions_SummonedAtHome(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, welcome := join(t, hub, "a")
+	a, welcome := pilot(t, hub, "a")
 	if got, want := welcome.GetCompanionLimit(), uint32(3); got != want {
 		t.Errorf("companion limit = %d, want %d", got, want)
 	}
@@ -100,7 +132,7 @@ func TestCompanions_RefusedAwayFromHome(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
+	a, _ := pilot(t, hub, "a")
 	a.Send(state(1000, 0))
 
 	if _, reason := summonReply(t, a); reason != "summon companions at the home planet" {
@@ -112,7 +144,7 @@ func TestCompanions_AtMostThree(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
+	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	for want := uint32(1); want <= 3; want++ {
 		if got := grant(t, a); got != want {
@@ -125,19 +157,31 @@ func TestCompanions_AtMostThree(t *testing.T) {
 	}
 }
 
-func TestCompanions_WingCap(t *testing.T) {
+func TestCompanions_SquadronCap(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	chooseAndWait(t, b, "Alpha")
+	a.Send(state(0, 180))
+	grant(t, a)
+	grant(t, a)
+
+	if _, reason := summonReply(t, a); reason != "your squadron is full" {
+		t.Errorf("reason = %q, want the squadron cap (a, b and two companions)", reason)
+	}
+}
+
+func TestCompanions_NeedASquadron(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
 	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
 	a.Send(state(0, 180))
-	b.Send(state(40, 180))
-	grant(t, a)
-	grant(t, a)
 
-	if _, reason := summonReply(t, a); reason != "your wing is full" {
-		t.Errorf("reason = %q, want the wing cap (a, b and two companions)", reason)
+	if _, reason := summonReply(t, a); reason != "pick a squadron first" {
+		t.Errorf("reason = %q, want a squadron first", reason)
 	}
 }
 
@@ -150,7 +194,7 @@ func fillSeats(t *testing.T, hub *Hub) []*Session {
 	ids := []string{"a", "b", "c", "d"}
 	out := make([]*Session, 0, len(ids))
 	for i, id := range ids {
-		s, _ := join(t, hub, id)
+		s, _ := pilot(t, hub, id)
 		s.Send(state(0, 180))
 		for range 3 {
 			grant(t, s)
@@ -167,7 +211,7 @@ func TestCompanions_SeatsAreCapped(t *testing.T) {
 
 	hub, _ := testHub(t)
 	fillSeats(t, hub)
-	e, _ := join(t, hub, "e")
+	e, _ := pilot(t, hub, "e")
 	e.Send(state(0, 180))
 
 	if _, reason := summonReply(t, e); reason != "the frontier is full" {
@@ -179,8 +223,8 @@ func TestCompanions_ExpireWhenTheirStatesStop(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	grant(t, a)
 
@@ -209,7 +253,7 @@ func TestCompanions_WelcomeListsTheKeptOnes(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
+	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
 	grant(t, a)
@@ -224,8 +268,8 @@ func TestCompanions_OthersSeeThemAsPlayers(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	b.Send(state(0, -180))
 	n := grant(t, a)
@@ -252,8 +296,8 @@ func TestCompanions_DismissedOnesLeave(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	n := grant(t, a)
 	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: n}}})
@@ -267,8 +311,8 @@ func TestCompanions_LeaveWithTheirOwner(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	grant(t, a)
 	a.Leave()
@@ -285,7 +329,7 @@ func TestCompanions_UnknownOnesAreDismissed(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
+	a, _ := pilot(t, hub, "a")
 	a.Send(companionState(2, 0, 0))
 
 	for {
@@ -303,8 +347,8 @@ func TestCompanions_KeptOnReconnect(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	n := grant(t, a)
 	again, _ := join(t, hub, "a")
@@ -343,8 +387,8 @@ func TestCompanions_ShotsRelayUnderTheirSeat(t *testing.T) {
 	t.Parallel()
 
 	hub, _ := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	n := grant(t, a)
 	a.Send(companionShot(2, 1))
@@ -363,8 +407,8 @@ func TestCompanions_EnemiesComeForThemAndTheirHitsCount(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
-	a, _ := join(t, hub, "a")
-	b, _ := join(t, hub, "b")
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	n := grant(t, a)
 	a.Send(companionState(n, 1000, 0))

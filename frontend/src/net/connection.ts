@@ -8,6 +8,10 @@ import {
   type RemoteShot,
   type ShotEnded,
   type Snapshot,
+  type SquadronJoined,
+  type SquadronOrder,
+  type SquadronOrdered,
+  type Squadrons,
   type Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Ship } from '../sim/ship.ts';
@@ -54,7 +58,15 @@ export interface ConnectionEvents {
   /** A summon was refused, with the reason to show. */
   companionRefused(reason: string): void;
   /** The server took a companion's seat back. */
-  companionDismissed(companion: number): void;
+  companionDismissed(companion: number, takenBy: string): void;
+  /** The squadrons changed. */
+  squadrons(list: Squadrons): void;
+  /** The player is in a squadron now. */
+  squadronJoined(joined: SquadronJoined): void;
+  /** Joining a squadron was refused, with the reason to show. */
+  squadronRefused(reason: string): void;
+  /** A squadmate gave an order. */
+  squadronOrdered(ordered: SquadronOrdered): void;
 }
 
 /** A companion as its states are sent: its number and its ship. */
@@ -138,6 +150,20 @@ export class Connection {
           kind: { case: 'companion', value: { companion: c.number, state: toShipState(c.ship) } },
         }),
       );
+    }
+  }
+
+  /** Joins the named squadron, or starts a new one when name is empty. */
+  sendChooseSquadron(name: string): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'chooseSquadron', value: { name } } }));
+    }
+  }
+
+  /** Gives the squadron an order, which the server passes to the squadmates. */
+  sendSquadronOrder(order: Omit<SquadronOrder, '$typeName'>): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'squadronOrder', value: order } }));
     }
   }
 
@@ -243,7 +269,19 @@ export class Connection {
         events.companionRefused(message.kind.value.reason);
         break;
       case 'companionDismissed':
-        events.companionDismissed(message.kind.value.companion);
+        events.companionDismissed(message.kind.value.companion, message.kind.value.takenBy);
+        break;
+      case 'squadrons':
+        events.squadrons(message.kind.value);
+        break;
+      case 'squadronJoined':
+        events.squadronJoined(message.kind.value);
+        break;
+      case 'squadronRefused':
+        events.squadronRefused(message.kind.value.reason);
+        break;
+      case 'squadronOrdered':
+        events.squadronOrdered(message.kind.value);
         break;
       default:
     }
