@@ -777,13 +777,12 @@ export class SandboxScene extends Phaser.Scene {
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
       'WASD move · mouse aim · hold left button to fire · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
       this.netStatus(),
-      this.wingStatus(),
+      this.squadronStatus(),
     ]);
   }
 
-  /** The companions out, and the latest notice (a refused summon, a companion sent home). */
   /** The squadron, its players and companions and orders, then the latest notice on its own line. */
-  private wingStatus(): string {
+  private squadronStatus(): string {
     const net = this.net;
     if (net === undefined) {
       return '';
@@ -808,7 +807,6 @@ export class SandboxScene extends Phaser.Scene {
 
     return lines.join('\n');
   }
-
 
   private netStatus(): string {
     const net = this.net;

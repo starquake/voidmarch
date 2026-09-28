@@ -462,7 +462,7 @@ export class NetPlay {
   private companionGranted(granted: CompanionGranted): void {
     const { scene, ships, sim } = this.options;
     const companion = sim.addCompanion(granted.companion, granted.x, granted.y);
-    // A first companion takes the squadron's mode; later ones join the wing's orders.
+    // A first companion takes the squadron's mode; later ones join the orders already given.
     if (sim.companions.length === 1) {
       this.followMode(companion);
     }
@@ -739,6 +739,12 @@ export class NetPlay {
     this.squadron = welcome.squadron;
     if (welcome.squadron === '') {
       this.pickSquadron(welcome.squadrons);
+    } else {
+      // Back after a reconnect: the squadron's mode may have changed meanwhile.
+      this.squadronMode = fromCompanionMode(this.squadronInfo?.mode ?? CompanionMode.UNSPECIFIED) ?? 'escort';
+      for (const c of this.options.sim.companions) {
+        this.followMode(c);
+      }
     }
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;

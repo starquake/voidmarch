@@ -2802,6 +2802,11 @@ var NetPlay = class {
     this.squadron = welcome.squadron;
     if (welcome.squadron === "") {
       this.pickSquadron(welcome.squadrons);
+    } else {
+      this.squadronMode = fromCompanionMode(this.squadronInfo?.mode ?? CompanionMode.UNSPECIFIED) ?? "escort";
+      for (const c of this.options.sim.companions) {
+        this.followMode(c);
+      }
     }
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
@@ -3518,12 +3523,11 @@ ${describeOrders(this.sim.ordersFor(first))}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
       this.netStatus(),
-      this.wingStatus()
+      this.squadronStatus()
     ]);
   }
-  /** The companions out, and the latest notice (a refused summon, a companion sent home). */
   /** The squadron, its players and companions and orders, then the latest notice on its own line. */
-  wingStatus() {
+  squadronStatus() {
     const net = this.net;
     if (net === void 0) {
       return "";
