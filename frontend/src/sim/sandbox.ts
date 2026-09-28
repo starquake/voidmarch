@@ -1,10 +1,16 @@
-import { DEFAULT_ORDERS, think, type BrainEnemy, type Orders } from './brain.ts';
+import { DEFAULT_ORDERS, think, type BrainEnemy, type Mover, type Orders } from './brain.ts';
 import { relativeTo, toCommand, type ControlMode, type InputSnapshot, type ShipCommand } from './input.ts';
 import { seededRandom } from './math.ts';
 import { ProjectilePool, type Faction, type ProjectileKind } from './projectiles.ts';
 import { createShip, stepShip, type Ship } from './ship.ts';
 import type { WeaponId } from './loadout.ts';
-import { MAX_TICKS_PER_FRAME, TICK_SECONDS } from './tuning.ts';
+import {
+  BRAIN_ORDER_JITTER,
+  BRAIN_REACTION_MAX,
+  BRAIN_REACTION_MIN,
+  MAX_TICKS_PER_FRAME,
+  TICK_SECONDS,
+} from './tuning.ts';
 import { stepWeapon, type ShotSpawn } from './weapons.ts';
 import { applyWorldEdge, projectileInBounds } from './world.ts';
 
@@ -25,8 +31,15 @@ export interface Companion {
   /** Position before the last tick, for smooth drawing between ticks. */
   readonly previous: { x: number; y: number };
   orders: Orders;
+  /** An order on its way: it takes effect after the ticks left. */
+  pending: { orders: Orders; ticksLeft: number } | undefined;
+  /** How many ticks late it reacts, from its seed. */
+  readonly reactionTicks: number;
   readonly random: () => number;
 }
+
+/** The owner's recent poses, newest last, long enough for the slowest reaction. */
+const OWNER_TRAIL_TICKS = Math.ceil(BRAIN_REACTION_MAX / TICK_SECONDS) + 1;
 
 /** Seeds each companion's brain from its number, so a replay flies the same. */
 const COMPANION_SEED = 0x5eed;
@@ -50,6 +63,7 @@ export class Sandbox {
   controlMode: ControlMode = 'ship';
   /** In formation-slot order. */
   readonly companions: Companion[] = [];
+  private readonly ownerTrail: Mover[] = [];
   private accumulator = 0;
 
   /** How far the display is between the last two ticks, from 0 to 1. */
@@ -60,16 +74,34 @@ export class Sandbox {
   /** Adds a companion the server granted, at (x, y), with the default parts until unlocks exist. */
   addCompanion(number: number, x: number, y: number): Companion {
     this.removeCompanion(number);
+    const random = seededRandom(COMPANION_SEED + number);
+    const reaction = BRAIN_REACTION_MIN + random() * (BRAIN_REACTION_MAX - BRAIN_REACTION_MIN);
     const companion: Companion = {
       number,
       ship: createShip(x, y),
       previous: { x, y },
       orders: { ...DEFAULT_ORDERS },
-      random: seededRandom(COMPANION_SEED + number),
+      pending: undefined,
+      reactionTicks: Math.round(reaction / TICK_SECONDS),
+      random,
     };
     this.companions.push(companion);
 
     return companion;
+  }
+
+  /** The orders a companion will follow: an order on its way, else its current ones. */
+  ordersFor(companion: Companion): Orders {
+    return companion.pending?.orders ?? companion.orders;
+  }
+
+  /**
+   * Gives a companion new orders. They arrive after its reaction time plus a
+   * fresh jitter, so a wing doesn't react as one.
+   */
+  order(companion: Companion, orders: Orders): void {
+    const delay = companion.reactionTicks + Math.round((companion.random() * BRAIN_ORDER_JITTER) / TICK_SECONDS);
+    companion.pending = { orders, ticksLeft: delay };
   }
 
   /** Removes a companion, and its shots still in flight, which could no longer be reported. */
@@ -103,6 +135,10 @@ export class Sandbox {
   }
 
   private tick(screenCmd: ShipCommand, enemies: readonly BrainEnemy[], events: FrameEvents): void {
+    this.ownerTrail.push({ x: this.ship.x, y: this.ship.y, vx: this.ship.vx, vy: this.ship.vy, angle: this.ship.angle });
+    if (this.ownerTrail.length > OWNER_TRAIL_TICKS) {
+      this.ownerTrail.shift();
+    }
     this.previous.x = this.ship.x;
     this.previous.y = this.ship.y;
 
@@ -131,7 +167,13 @@ export class Sandbox {
     const { ship, previous } = companion;
     previous.x = ship.x;
     previous.y = ship.y;
-    const step = think({ self: ship, owner: this.ship, slot, enemies }, companion.orders, companion.random);
+    if (companion.pending !== undefined && --companion.pending.ticksLeft <= 0) {
+      companion.orders = companion.pending.orders;
+      companion.pending = undefined;
+    }
+    // It sees its owner as they were its reaction time ago.
+    const seen = this.ownerTrail[Math.max(0, this.ownerTrail.length - 1 - companion.reactionTicks)] ?? this.ship;
+    const step = think({ self: ship, owner: seen, slot, enemies }, companion.orders, companion.random);
     if (step.done) {
       companion.orders = { ...companion.orders, oneShot: undefined };
     }

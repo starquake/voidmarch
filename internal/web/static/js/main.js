@@ -263,6 +263,9 @@ var BRAIN_AIM_JITTER = 0.04;
 var BRAIN_BADLY_DAMAGED = 3;
 var BRAIN_HOME_RADIUS = 250;
 var BRAIN_SHIELD_DISTANCE = 45;
+var BRAIN_REACTION_MIN = 0.15;
+var BRAIN_REACTION_MAX = 0.5;
+var BRAIN_ORDER_JITTER = 0.25;
 var ENEMY_FIRE_GLOW_COLOUR = 4172031;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
 var ENEMY_FIRE_GLOW_QUALITY = 3;
@@ -1144,6 +1147,7 @@ function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
 
 // src/sim/sandbox.ts
 var PROJECTILE_CAPACITY = 256;
+var OWNER_TRAIL_TICKS = Math.ceil(BRAIN_REACTION_MAX / TICK_SECONDS) + 1;
 var COMPANION_SEED = 24301;
 var Sandbox = class {
   ship = createShip(0, 160);
@@ -1154,6 +1158,7 @@ var Sandbox = class {
   controlMode = "ship";
   /** In formation-slot order. */
   companions = [];
+  ownerTrail = [];
   accumulator = 0;
   /** How far the display is between the last two ticks, from 0 to 1. */
   get alpha() {
@@ -1162,15 +1167,31 @@ var Sandbox = class {
   /** Adds a companion the server granted, at (x, y), with the default parts until unlocks exist. */
   addCompanion(number, x, y) {
     this.removeCompanion(number);
+    const random = seededRandom(COMPANION_SEED + number);
+    const reaction = BRAIN_REACTION_MIN + random() * (BRAIN_REACTION_MAX - BRAIN_REACTION_MIN);
     const companion = {
       number,
       ship: createShip(x, y),
       previous: { x, y },
       orders: { ...DEFAULT_ORDERS },
-      random: seededRandom(COMPANION_SEED + number)
+      pending: void 0,
+      reactionTicks: Math.round(reaction / TICK_SECONDS),
+      random
     };
     this.companions.push(companion);
     return companion;
+  }
+  /** The orders a companion will follow: an order on its way, else its current ones. */
+  ordersFor(companion) {
+    return companion.pending?.orders ?? companion.orders;
+  }
+  /**
+   * Gives a companion new orders. They arrive after its reaction time plus a
+   * fresh jitter, so a wing doesn't react as one.
+   */
+  order(companion, orders) {
+    const delay = companion.reactionTicks + Math.round(companion.random() * BRAIN_ORDER_JITTER / TICK_SECONDS);
+    companion.pending = { orders, ticksLeft: delay };
   }
   /** Removes a companion, and its shots still in flight, which could no longer be reported. */
   removeCompanion(number) {
@@ -1199,6 +1220,10 @@ var Sandbox = class {
     return events;
   }
   tick(screenCmd, enemies, events) {
+    this.ownerTrail.push({ x: this.ship.x, y: this.ship.y, vx: this.ship.vx, vy: this.ship.vy, angle: this.ship.angle });
+    if (this.ownerTrail.length > OWNER_TRAIL_TICKS) {
+      this.ownerTrail.shift();
+    }
     this.previous.x = this.ship.x;
     this.previous.y = this.ship.y;
     const cmd = this.controlMode === "ship" ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
@@ -1224,7 +1249,12 @@ var Sandbox = class {
     const { ship, previous } = companion;
     previous.x = ship.x;
     previous.y = ship.y;
-    const step = think({ self: ship, owner: this.ship, slot, enemies }, companion.orders, companion.random);
+    if (companion.pending !== void 0 && --companion.pending.ticksLeft <= 0) {
+      companion.orders = companion.pending.orders;
+      companion.pending = void 0;
+    }
+    const seen = this.ownerTrail[Math.max(0, this.ownerTrail.length - 1 - companion.reactionTicks)] ?? this.ship;
+    const step = think({ self: ship, owner: seen, slot, enemies }, companion.orders, companion.random);
     if (step.done) {
       companion.orders = { ...companion.orders, oneShot: void 0 };
     }
@@ -2908,13 +2938,16 @@ var SandboxScene = class extends Phaser5.Scene {
     }
     const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
     const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
-    const next = targets.map((c) => applyOrder(item, c.orders, context));
+    const next = targets.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
     if (next.includes(void 0)) {
       this.net?.say("no enemy under the cursor to focus");
       return;
     }
     targets.forEach((c, i) => {
-      c.orders = next[i] ?? c.orders;
+      const orders = next[i];
+      if (orders !== void 0) {
+        this.sim.order(c, orders);
+      }
     });
     this.lastOrder = item;
     this.net?.say(press.companion === void 0 ? item.label : `${item.label} (companion ${String(press.companion)})`);

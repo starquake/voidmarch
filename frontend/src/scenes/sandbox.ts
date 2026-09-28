@@ -511,14 +511,17 @@ export class SandboxScene extends Phaser.Scene {
     }
     const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
     const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
-    const next = targets.map((c) => applyOrder(item, c.orders, context));
+    const next = targets.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
     if (next.includes(undefined)) {
       this.net?.say('no enemy under the cursor to focus');
 
       return;
     }
     targets.forEach((c, i) => {
-      c.orders = next[i] ?? c.orders;
+      const orders = next[i];
+      if (orders !== undefined) {
+        this.sim.order(c, orders);
+      }
     });
     this.lastOrder = item;
     this.net?.say(press.companion === undefined ? item.label : `${item.label} (companion ${String(press.companion)})`);

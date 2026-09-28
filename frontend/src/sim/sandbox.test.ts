@@ -3,7 +3,14 @@ import { test } from 'node:test';
 
 import type { InputSnapshot } from './input.ts';
 import { Sandbox } from './sandbox.ts';
-import { MAX_TICKS_PER_FRAME, TICK_SECONDS, WEAPON_STATS } from './tuning.ts';
+import {
+  BRAIN_ORDER_JITTER,
+  BRAIN_REACTION_MAX,
+  BRAIN_REACTION_MIN,
+  MAX_TICKS_PER_FRAME,
+  TICK_SECONDS,
+  WEAPON_STATS,
+} from './tuning.ts';
 
 const input = (overrides: Partial<InputSnapshot> = {}): InputSnapshot => ({
   up: false,
@@ -143,4 +150,54 @@ test("removing a companion ends its shots in flight, and only its", () => {
     sandbox.projectiles.items.filter((p) => p.active).map((p) => p.owner),
     ['1', ''],
   );
+});
+
+test('companions react late, each at its own pace', () => {
+  const sandbox = new Sandbox();
+  const companions = [1, 2, 3].map((n) => sandbox.addCompanion(n, 0, 200));
+  const min = Math.round(BRAIN_REACTION_MIN / TICK_SECONDS);
+  const max = Math.round(BRAIN_REACTION_MAX / TICK_SECONDS);
+  for (const c of companions) {
+    assert.ok(c.reactionTicks >= min && c.reactionTicks <= max, String(c.reactionTicks));
+  }
+  assert.ok(new Set(companions.map((c) => c.reactionTicks)).size > 1, 'not all the same');
+});
+
+test('an order arrives after the reaction time, not at once, and not for all at once', () => {
+  const sandbox = new Sandbox();
+  const companions = [1, 2, 3].map((n) => sandbox.addCompanion(n, 0, 200));
+  for (const c of companions) {
+    sandbox.order(c, { ...c.orders, stance: 'aggressive' });
+    assert.equal(c.orders.stance, 'escort', 'not yet');
+    assert.equal(sandbox.ordersFor(c).stance, 'aggressive', 'but on its way');
+  }
+  const arrived: number[] = [];
+  for (let tick = 1; arrived.length < 3 && tick < 200; tick++) {
+    sandbox.advance(TICK_SECONDS, input());
+    for (const c of companions) {
+      if (c.orders.stance === 'aggressive' && !arrived.includes(c.number)) {
+        arrived.push(c.number);
+        assert.ok(tick * TICK_SECONDS >= BRAIN_REACTION_MIN - 1e-9, 'no sooner than the fastest reaction');
+        assert.ok(tick * TICK_SECONDS <= BRAIN_REACTION_MAX + BRAIN_ORDER_JITTER + TICK_SECONDS, 'no later than the slowest');
+      }
+    }
+  }
+  assert.equal(arrived.length, 3);
+});
+
+test('a companion follows where its owner was, a moment ago', () => {
+  const sandbox = new Sandbox();
+  const c = sandbox.addCompanion(1, sandbox.ship.x, sandbox.ship.y + 60);
+  for (let t = 0; t < 1; t += TICK_SECONDS) {
+    sandbox.advance(TICK_SECONDS, input());
+  }
+  // The owner jumps; for a few ticks the companion still steers for the old spot.
+  const before = { vx: c.ship.vx, vy: c.ship.vy };
+  sandbox.ship.x += 300;
+  sandbox.advance(TICK_SECONDS, input());
+  assert.ok(Math.abs(c.ship.vx - before.vx) < 20, 'no reaction on the next tick');
+  for (let t = 0; t < BRAIN_REACTION_MAX + 0.1; t += TICK_SECONDS) {
+    sandbox.advance(TICK_SECONDS, input());
+  }
+  assert.ok(c.ship.vx > 50, 'but heads after it once it has seen the move');
 });
