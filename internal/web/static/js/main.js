@@ -260,6 +260,7 @@ var KLAED_FILES = {
   scout: { engine: 10, weapons: 6, destruction: 10 },
   fighter: { engine: 10, weapons: 6, destruction: 9 }
 };
+var BULLET_VARIANT = "blue";
 var BULLET_FRAMES = {
   bullet: { width: 4, frames: 4 },
   "big-bullet": { width: 8, frames: 4 }
@@ -395,7 +396,7 @@ function sheets() {
     }),
     ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
       key: `klaed-${name}`,
-      url: `${klaed}/${name}.png`,
+      url: `${klaed}/${name}-${BULLET_VARIANT}.png`,
       frameWidth: f.width,
       frameHeight: 16,
       frames: f.frames,

@@ -34,6 +34,9 @@ const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruct
 };
 
 /** Enemy bullet strips: frames are narrower than they are tall. */
+/** Enemy bullets are drawn in the blue recolour, apart from the players' orange shots (#36). */
+const BULLET_VARIANT = 'blue';
+
 const BULLET_FRAMES: Record<string, { width: number; frames: number }> = {
   bullet: { width: 4, frames: 4 },
   'big-bullet': { width: 8, frames: 4 },
@@ -194,7 +197,7 @@ export function sheets(): Sheet[] {
     }),
     ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
       key: `klaed-${name}`,
-      url: `${klaed}/${name}.png`,
+      url: `${klaed}/${name}-${BULLET_VARIANT}.png`,
       frameWidth: f.width,
       frameHeight: 16,
       frames: f.frames,
