@@ -559,3 +559,30 @@ func TestHangar_ShipsComeBack(t *testing.T) {
 		})
 	}
 }
+
+func TestHangar_NeverOverItsShips(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t, WithPoolStart(1))
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
+	a.Send(state(0, 180))
+	grant(t, a)
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: 1}}})
+	// A second dismissal of the same companion, as a stale client might send.
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: 1}}})
+	a.Leave()
+
+	// The list after a left has only b's squadron.
+	for {
+		sq := next(t, b).GetSquadrons()
+		if sq == nil || len(sq.GetSquadrons()) != 1 {
+			continue
+		}
+		if got, want := sq.GetHangar(), uint32(1); got != want {
+			t.Errorf("hangar after a dismissal and a drop = %d, want %d", got, want)
+		}
+
+		break
+	}
+}
