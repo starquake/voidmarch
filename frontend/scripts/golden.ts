@@ -1,7 +1,8 @@
 /**
  * Writes internal/sim/testdata/golden.json: the TypeScript rules run over
  * fixed scenarios, which the Go port (internal/sim) replays and must match.
- * Run with `make golden`.
+ * Run with `make golden`; `make golden-check` compares a fresh run with the
+ * committed file. An optional argument writes elsewhere.
  */
 import { writeFileSync } from 'node:fs';
 
@@ -19,7 +20,7 @@ import { ENEMY_BULLET_STATS, TICK_SECONDS, WEAPON_STATS } from '../src/sim/tunin
 import { stepWeapon } from '../src/sim/weapons.ts';
 import { applyWorldEdge } from '../src/sim/world.ts';
 
-const out = new URL('../../internal/sim/testdata/golden.json', import.meta.url);
+const out = process.argv[2] ?? new URL('../../internal/sim/testdata/golden.json', import.meta.url);
 
 const random = seededRandom(20260928);
 const between = (min: number, max: number): number => min + random() * (max - min);

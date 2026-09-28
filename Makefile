@@ -7,6 +7,7 @@ COV_DIR := $(BUILD_DIR)/coverage
 FRONTEND := frontend
 JS_OUT := internal/web/static/js
 JS_DEPS := $(FRONTEND)/node_modules/.package-lock.json
+GOLDEN := internal/sim/testdata/golden.json
 
 GOLANGCI_VERSION := v2.14.0
 GOLANGCI_BIN := $(BIN_DIR)/golangci-lint
@@ -49,7 +50,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check build test-coverage test-tinygo ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check golden-check build test-coverage test-tinygo ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -140,7 +141,7 @@ proto-check: $(PROTO_TOOLS) ## Fail when the committed generated code is stale
 		|| { echo "generated code is stale: run make proto"; rm -rf "$$tmp"; exit 1; }; \
 	rm -rf "$$tmp"
 
-# --- Game rules -----------------------------------------------------------------
+# --- Game rules ---------------------------------------------------------------
 
 $(TINYGO_BIN):
 	@rm -rf $(TOOLCHAINS)/tinygo && mkdir -p $(TOOLCHAINS)
@@ -191,7 +192,14 @@ js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh buil
 
 .PHONY: golden
 golden: $(JS_DEPS) ## Record the TypeScript sim's results for internal/sim's parity tests
-	cd $(FRONTEND) && node scripts/golden.ts
+	cd $(FRONTEND) && node scripts/golden.ts ../$(GOLDEN)
+
+.PHONY: golden-check
+golden-check: $(JS_DEPS) ## Fail when the TypeScript sim no longer matches the recorded golden cases
+	@tmp=$$(mktemp -d); \
+	(cd $(FRONTEND) && node scripts/golden.ts "$$tmp/golden.json") && \
+	cmp -s "$$tmp/golden.json" $(GOLDEN) || { echo "the golden cases are stale: change internal/sim to match, then run make golden"; rm -rf "$$tmp"; exit 1; }; \
+	rm -rf "$$tmp"
 
 .PHONY: ts-check
 ts-check: $(JS_DEPS) ## Type-check the TypeScript
