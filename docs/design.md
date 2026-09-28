@@ -101,6 +101,7 @@ As built in milestone 3 (#4), Kla'ed fodder only:
 - **Scout**: 2 HP, fast (150 px/s), wanders erratically and closes to about 90 px; fires one small bullet.
 - **Fighter**: 6 HP, slower (95 px/s), strafes around its target at about 170 px; fires one big bullet.
 - **Firing**: enemies come for the nearest player within 500 px, the whole spawn ring, and fire once within 340 px, where their bullets still reach, every so many ticks with jitter; every volley is telegraphed by the weapon animating for 300 ms before the bullets leave; bullets are slow enough to dodge (110–130 px/s), aimed with a small seeded spread. Enemy shots have their own soft laser (Kenney `laserSmall_004`).
+- **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they fly on a layer with one blue glow. Players' shots stay orange. The glow follows the F effects toggle.
 - **Death**: the pack's destruction animation, and an explosion sound when it happens in view. No drops yet (pickups are milestone 5).
 
 ## 7. Bosses and scaling for 1–16 players
