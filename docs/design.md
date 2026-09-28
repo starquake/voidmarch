@@ -249,14 +249,23 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 
 Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last order. Every order goes to the whole wing, and a companion summoned later joins the wing's standing orders (#39; this replaced ordering one companion under the cursor). There is no ammo or consumable in the game, so the "use it or save it" choices are about shields, health, big shots and enemy attention.
 
-| Group | Orders |
+The orders are **five modes and three one-shots** (@starquake, 2026-09-28, #39). Separate switches for stance, fire, resources and targets could contradict each other, for example Aggressive with Hold fire. A mode is one coherent set, and a one-shot runs until done, then the wing returns to its mode.
+
+| Mode | The wing |
 |---|---|
-| Stance | **Escort** (default: formation on the owner), **Aggressive** (hunt within a leash), **Defensive** (stay tight, front shields toward fire, back off at 1 health), **Hold position** (under the cursor) |
-| Fire | **Weapons free**, **Return fire**, **Hold fire** (sneak past, don't pull a boss) |
-| Resources | **Spend** (volleys at will, soak hits), **Conserve** (save big shots for bosses and Support Ships, retreat to recharge) |
-| Targets | **Focus my target** (one-shot), **Support Ships first** (toggle) |
-| Team | **Revive** (one-shot), **Shield me** (one-shot), **Collect** pickups (toggle) |
-| Movement | **Regroup** (one-shot), **Go home** (one-shot) |
+| **Escort** (default) | flies formation on you and shoots anything near you |
+| **Attack** | hunts enemies around you (within a leash), the weakest first, Support Ships first, big shots at will |
+| **Guard** | stays tight, puts itself between you and whatever attacks the wing, answers attackers only, and falls back when hurt |
+| **Hold here** | stays at the point under the cursor and shoots what comes in range |
+| **Stealth** | follows you and never fires: sneak past a patrol, don't wake a boss |
+
+| One-shot | The wing |
+|---|---|
+| **Focus** | all attacks the enemy you point at, or else the one you last hit |
+| **Regroup** | disengages and comes back to formation now |
+| **Go home** | flies back to the home planet |
+
+With health (milestone 4), a **Support** mode fits in: stay close, revive downed friends, shield whoever is hit. Collect (milestone 5) becomes a mode or a one-shot then.
 
 As built so far (#26): the brain is `think` in `frontend/src/sim/brain.ts`, a pure function from what a companion sees (its own ship, its owner, its formation slot, the enemies as drawn and whether each has attacked the wing) and its orders to a move, aim and fire command, plus whether a one-shot order is done. It is seeded, so every scenario is reproducible, and its distances live in `frontend/src/sim/tuning.ts`.
 
