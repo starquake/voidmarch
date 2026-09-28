@@ -403,7 +403,8 @@ export class NetPlay {
     this.companionDrawings.delete(number);
   }
 
-  private say(text: string): void {
+  /** Shows a notice in the HUD for a few seconds. */
+  say(text: string): void {
     this.notice = { text, untilMs: now() + NOTICE_MS };
   }
 

@@ -539,6 +539,81 @@ function seededRandom(seed) {
   };
 }
 
+// src/ordermenu.ts
+var ORDER_ITEMS = [
+  { kind: "stance", stance: "escort", label: "Escort" },
+  { kind: "stance", stance: "aggressive", label: "Aggressive" },
+  { kind: "stance", stance: "defensive", label: "Defensive" },
+  { kind: "stance", stance: "hold", label: "Hold here" },
+  { kind: "oneShot", oneShot: "focus", label: "Focus target" },
+  { kind: "oneShot", oneShot: "shieldMe", label: "Shield me" },
+  { kind: "oneShot", oneShot: "regroup", label: "Regroup" },
+  { kind: "oneShot", oneShot: "goHome", label: "Go home" },
+  { kind: "fire", fire: "free", label: "Weapons free" },
+  { kind: "fire", fire: "return", label: "Return fire" },
+  { kind: "fire", fire: "hold", label: "Hold fire" },
+  { kind: "resources", resources: "spend", label: "Spend" },
+  { kind: "resources", resources: "conserve", label: "Conserve" },
+  { kind: "supportFirst", label: "Support first" }
+];
+var RING_ASPECT = 1.7;
+function itemPosition(index, radius, count = ORDER_ITEMS.length) {
+  const angle = -Math.PI / 2 + index * TAU / count;
+  return { x: Math.cos(angle) * radius * RING_ASPECT, y: Math.sin(angle) * radius };
+}
+function pickItem(dx, dy, deadZone, count = ORDER_ITEMS.length) {
+  const x = dx / RING_ASPECT;
+  if (Math.hypot(x, dy) < deadZone) {
+    return void 0;
+  }
+  const fromTop = Math.atan2(dy, x) + Math.PI / 2;
+  return (Math.round(fromTop * count / TAU) % count + count) % count;
+}
+function applyOrder(item, orders, context) {
+  switch (item.kind) {
+    case "stance":
+      return item.stance === "hold" ? { ...orders, stance: "hold", holdX: context.pointX, holdY: context.pointY, oneShot: void 0 } : { ...orders, stance: item.stance, oneShot: void 0 };
+    case "fire":
+      return { ...orders, fire: item.fire };
+    case "resources":
+      return { ...orders, resources: item.resources };
+    case "supportFirst":
+      return { ...orders, supportFirst: !orders.supportFirst };
+    case "oneShot":
+      if (item.oneShot === "focus") {
+        return context.focusEnemyId === void 0 ? void 0 : { ...orders, oneShot: { kind: "focus", enemyId: context.focusEnemyId } };
+      }
+      return { ...orders, oneShot: { kind: item.oneShot } };
+  }
+}
+var STANCE_LABELS = {
+  escort: "escort",
+  aggressive: "aggressive",
+  defensive: "defensive",
+  hold: "holding"
+};
+var FIRE_LABELS = {
+  free: "weapons free",
+  return: "return fire",
+  hold: "hold fire"
+};
+var ONE_SHOT_LABELS = {
+  focus: "focusing",
+  regroup: "regrouping",
+  goHome: "going home",
+  shieldMe: "shielding you"
+};
+function describeOrders(orders) {
+  const parts = [STANCE_LABELS[orders.stance], FIRE_LABELS[orders.fire], orders.resources];
+  if (orders.supportFirst) {
+    parts.push("support first");
+  }
+  if (orders.oneShot !== void 0) {
+    parts.push(ONE_SHOT_LABELS[orders.oneShot.kind]);
+  }
+  return parts.join(" \xB7 ");
+}
+
 // src/sim/input.ts
 var CONTROL_MODES = ["ship", "screen"];
 function toCommand(input) {
@@ -2182,6 +2257,7 @@ var NetPlay = class {
     this.companionDrawings.get(number)?.view.destroy();
     this.companionDrawings.delete(number);
   }
+  /** Shows a notice in the HUD for a few seconds. */
   say(text) {
     this.notice = { text, untilMs: now() + NOTICE_MS };
   }
@@ -2408,6 +2484,12 @@ var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
+var ORDER_HOLD_MS = 200;
+var ORDER_RING_PX = 110;
+var ORDER_DEAD_ZONE_PX = 24;
+var ORDER_PICK_RADIUS = 30;
+var ORDER_TEXT = "#d8f8ff";
+var ORDER_PICKED_TEXT = "#ffe08a";
 var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
@@ -2436,6 +2518,8 @@ var SandboxScene = class extends Phaser5.Scene {
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
   audio;
+  orderPress;
+  lastOrder;
   constructor() {
     super("sandbox");
   }
@@ -2482,7 +2566,8 @@ var SandboxScene = class extends Phaser5.Scene {
       hitsTaken: 0,
       companions: [],
       companionKills: 0,
-      notice: void 0
+      notice: void 0,
+      orderMenuOpen: false
     };
     this.publish();
   }
@@ -2494,6 +2579,7 @@ var SandboxScene = class extends Phaser5.Scene {
       this.showHits(net);
     }
     this.drawProjectiles();
+    this.updateOrderMenu(time);
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
@@ -2608,13 +2694,25 @@ var SandboxScene = class extends Phaser5.Scene {
     };
     this.input.mouse?.disableContextMenu();
     const onKeyDown = (event) => {
-      if (!event.repeat) {
+      if (event.repeat) {
+        return;
+      }
+      if (event.code === "KeyQ") {
+        this.pressOrders();
+      } else {
         this.handleDebugKey(event.code);
       }
     };
+    const onKeyUp = (event) => {
+      if (event.code === "KeyQ") {
+        this.releaseOrders();
+      }
+    };
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
     this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
     });
   }
   handleDebugKey(code) {
@@ -2681,6 +2779,98 @@ var SandboxScene = class extends Phaser5.Scene {
       default:
     }
   }
+  /** Q down: remember where the pointer is, and the companion under it, if any. */
+  pressOrders() {
+    const pointer = this.input.activePointer;
+    const world = pointer.positionToCamera(this.cameras.main);
+    const under = this.sim.companions.find(
+      (c) => Math.hypot(c.ship.x - world.x, c.ship.y - world.y) <= ORDER_PICK_RADIUS
+    );
+    this.orderPress = {
+      downAt: this.time.now,
+      screenX: pointer.x,
+      screenY: pointer.y,
+      worldX: world.x,
+      worldY: world.y,
+      companion: under?.number,
+      labels: void 0
+    };
+  }
+  /** While Q is held: open the ring once held long enough, and light the item pointed at. */
+  updateOrderMenu(time) {
+    const press = this.orderPress;
+    if (press === void 0 || time - press.downAt < ORDER_HOLD_MS) {
+      return;
+    }
+    const dpr = this.dpr();
+    press.labels ??= ORDER_ITEMS.map((item, i) => {
+      const at = itemPosition(i, ORDER_RING_PX * dpr);
+      const label = this.add.text(press.screenX + at.x, press.screenY + at.y, item.label, {
+        fontFamily: "monospace",
+        fontSize: `${String(HUD_FONT_PX * dpr)}px`,
+        color: ORDER_TEXT
+      }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+      this.cameras.main.ignore(label);
+      return label;
+    });
+    const picked = this.pickedOrder(press);
+    press.labels.forEach((label, i) => label.setColor(i === picked ? ORDER_PICKED_TEXT : ORDER_TEXT));
+  }
+  pickedOrder(press) {
+    const pointer = this.input.activePointer;
+    return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
+  }
+  /** Q up: give the item pointed at, or repeat the last order after a tap. */
+  releaseOrders() {
+    const press = this.orderPress;
+    this.orderPress = void 0;
+    if (press === void 0) {
+      return;
+    }
+    if (press.labels === void 0) {
+      const world = this.input.activePointer.positionToCamera(this.cameras.main);
+      if (this.lastOrder === void 0) {
+        this.net?.say("no order to repeat yet: hold Q");
+      } else {
+        this.giveOrder(this.lastOrder, { ...press, worldX: world.x, worldY: world.y });
+      }
+      return;
+    }
+    const picked = this.pickedOrder(press);
+    for (const label of press.labels) {
+      label.destroy();
+    }
+    const item = picked === void 0 ? void 0 : ORDER_ITEMS[picked];
+    if (item !== void 0) {
+      this.giveOrder(item, press);
+    }
+  }
+  /** Gives an order to the companion the pointer was on, or to all of them. */
+  giveOrder(item, press) {
+    const targets = press.companion === void 0 ? this.sim.companions : this.sim.companions.filter((c) => c.number === press.companion);
+    if (targets.length === 0) {
+      this.net?.say("no companions: press G at the home planet");
+      return;
+    }
+    const focus = (this.net?.brainEnemies ?? []).find(
+      (e) => Math.hypot(e.x - press.worldX, e.y - press.worldY) <= ORDER_PICK_RADIUS
+    );
+    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
+    const next = targets.map((c) => applyOrder(item, c.orders, context));
+    if (next.includes(void 0)) {
+      this.net?.say("no enemy under the cursor to focus");
+      return;
+    }
+    targets.forEach((c, i) => {
+      c.orders = next[i] ?? c.orders;
+    });
+    this.lastOrder = item;
+    this.net?.say(press.companion === void 0 ? item.label : `${item.label} (companion ${String(press.companion)})`);
+    this.updateHud();
+  }
+  dpr() {
+    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+  }
   applyLoadout() {
     const { weapon, engine } = this.sim.ship.loadout;
     this.ship.setLoadout(this.sim.ship.loadout);
@@ -2701,7 +2891,7 @@ var SandboxScene = class extends Phaser5.Scene {
       this.enemyFireGlow.scale = effectScale;
     }
     this.hudCamera.setSize(width, height);
-    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
@@ -2807,7 +2997,7 @@ var SandboxScene = class extends Phaser5.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
       this.netStatus(),
       this.wingStatus()
     ]);
@@ -2818,8 +3008,10 @@ var SandboxScene = class extends Phaser5.Scene {
     if (net === void 0) {
       return "";
     }
-    const out = this.sim.companions.length;
-    const wing = out === 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"}`;
+    const { companions } = this.sim;
+    const out = companions.length;
+    const orders = [...new Set(companions.map((c) => describeOrders(c.orders)))];
+    const wing = out === 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"} \xB7 ${orders.length === 1 ? orders[0] ?? "" : "mixed orders"}`;
     const notice = net.noticeText;
     return notice === void 0 ? wing : `${wing} \xB7 ${notice}`;
   }
@@ -2881,6 +3073,7 @@ var SandboxScene = class extends Phaser5.Scene {
     }));
     this.debug.companionKills = this.net?.companionKills ?? 0;
     this.debug.notice = this.net?.noticeText;
+    this.debug.orderMenuOpen = this.orderPress?.labels !== void 0;
     publishDebugState(this.debug);
   }
 };

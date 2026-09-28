@@ -43,6 +43,8 @@ export interface DebugState {
   companionKills: number;
   /** The HUD's current notice, if any. */
   notice: string | undefined;
+  /** Whether the Q order ring is showing. */
+  orderMenuOpen: boolean;
   audio: {
     muted: boolean;
     music: boolean;
