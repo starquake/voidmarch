@@ -242,8 +242,30 @@ var ENEMY_AIM_JITTER = 0.08;
 var ENEMY_MUZZLE = 14;
 var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
+var SAFE_ZONE_RADIUS = 300;
+var BRAIN_ATTACKER_RANGE = 500;
 var SHIP_RADIUS = 12;
 var SHOT_RADIUS = 3;
+var FORMATION_SLOTS = [
+  { forward: -45, right: -40 },
+  { forward: -45, right: 40 },
+  { forward: -85, right: 0 }
+];
+var BRAIN_ARRIVE_SECONDS = 0.35;
+var BRAIN_TIGHT_FORMATION = 0.6;
+var BRAIN_IN_FORMATION = 16;
+var BRAIN_LOOK_AHEAD = 200;
+var BRAIN_ESCORT_RANGE = 300;
+var BRAIN_LEASH = 450;
+var BRAIN_ATTACK_DISTANCE = 130;
+var BRAIN_FIRE_CONE = 0.2;
+var BRAIN_AIM_JITTER = 0.04;
+var BRAIN_BADLY_DAMAGED = 3;
+var BRAIN_HOME_RADIUS = 250;
+var BRAIN_SHIELD_DISTANCE = 45;
+var BRAIN_REACTION_MIN = 0.15;
+var BRAIN_REACTION_MAX = 0.5;
+var BRAIN_ORDER_JITTER = 0.25;
 var ENEMY_FIRE_GLOW_COLOUR = 4172031;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
 var ENEMY_FIRE_GLOW_QUALITY = 3;
@@ -454,10 +476,10 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIgYKBEZ1bGwi/gIKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJLCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SEQoJY29tcGFuaW9uGAQgASgNIggKBlN1bW1vbiJLCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIrcCCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjEKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUgAEigKB2Rpc21pc3MYByABKAsyFS52b2lkbWFyY2gudjEuRGlzbWlzc0gAQgYKBGtpbmQiwQEKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg4KBmNvbG91chgCIAEoDRIPCgdzcGF3bl94GAMgASgCEg8KB3NwYXduX3kYBCABKAISDAoEdGljaxgFIAEoDRIRCgl0aWNrX3JhdGUYBiABKA0SFwoPY29tcGFuaW9uX2xpbWl0GAcgASgNEgwKBG5hbWUYCSABKAkSEgoKY29tcGFuaW9ucxgKIAMoDUoECAgQCVIPc3VtbW9uX2FueXdoZXJlInsKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSInChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNIgYKBEZ1bGwiuQQKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
-var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 5);
-var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 16);
+var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 8);
+var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 22);
 var WeaponSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 0);
 var Weapon = /* @__PURE__ */ tsEnum(WeaponSchema);
 var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
@@ -518,6 +540,81 @@ function seededRandom(seed) {
     t ^= t + Math.imul(t ^ t >>> 7, t | 61);
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
+}
+
+// src/ordermenu.ts
+var ORDER_ITEMS = [
+  { kind: "stance", stance: "escort", label: "Escort" },
+  { kind: "stance", stance: "aggressive", label: "Aggressive" },
+  { kind: "stance", stance: "defensive", label: "Defensive" },
+  { kind: "stance", stance: "hold", label: "Hold here" },
+  { kind: "oneShot", oneShot: "focus", label: "Focus target" },
+  { kind: "oneShot", oneShot: "shieldMe", label: "Shield me" },
+  { kind: "oneShot", oneShot: "regroup", label: "Regroup" },
+  { kind: "oneShot", oneShot: "goHome", label: "Go home" },
+  { kind: "fire", fire: "free", label: "Weapons free" },
+  { kind: "fire", fire: "return", label: "Return fire" },
+  { kind: "fire", fire: "hold", label: "Hold fire" },
+  { kind: "resources", resources: "spend", label: "Spend" },
+  { kind: "resources", resources: "conserve", label: "Conserve" },
+  { kind: "supportFirst", label: "Support first" }
+];
+var RING_ASPECT = 1.7;
+function itemPosition(index, radius, count = ORDER_ITEMS.length) {
+  const angle = -Math.PI / 2 + index * TAU / count;
+  return { x: Math.cos(angle) * radius * RING_ASPECT, y: Math.sin(angle) * radius };
+}
+function pickItem(dx, dy, deadZone, count = ORDER_ITEMS.length) {
+  const x = dx / RING_ASPECT;
+  if (Math.hypot(x, dy) < deadZone) {
+    return void 0;
+  }
+  const fromTop = Math.atan2(dy, x) + Math.PI / 2;
+  return (Math.round(fromTop * count / TAU) % count + count) % count;
+}
+function applyOrder(item, orders, context) {
+  switch (item.kind) {
+    case "stance":
+      return item.stance === "hold" ? { ...orders, stance: "hold", holdX: context.pointX, holdY: context.pointY, oneShot: void 0 } : { ...orders, stance: item.stance, oneShot: void 0 };
+    case "fire":
+      return { ...orders, fire: item.fire };
+    case "resources":
+      return { ...orders, resources: item.resources };
+    case "supportFirst":
+      return { ...orders, supportFirst: !orders.supportFirst };
+    case "oneShot":
+      if (item.oneShot === "focus") {
+        return context.focusEnemyId === void 0 ? void 0 : { ...orders, oneShot: { kind: "focus", enemyId: context.focusEnemyId } };
+      }
+      return { ...orders, oneShot: { kind: item.oneShot } };
+  }
+}
+var STANCE_LABELS = {
+  escort: "escort",
+  aggressive: "aggressive",
+  defensive: "defensive",
+  hold: "holding"
+};
+var FIRE_LABELS = {
+  free: "weapons free",
+  return: "return fire",
+  hold: "hold fire"
+};
+var ONE_SHOT_LABELS = {
+  focus: "focusing",
+  regroup: "regrouping",
+  goHome: "going home",
+  shieldMe: "shielding you"
+};
+function describeOrders(orders) {
+  const parts = [STANCE_LABELS[orders.stance], FIRE_LABELS[orders.fire], orders.resources];
+  if (orders.supportFirst) {
+    parts.push("support first");
+  }
+  if (orders.oneShot !== void 0) {
+    parts.push(ONE_SHOT_LABELS[orders.oneShot.kind]);
+  }
+  return parts.join(" \xB7 ");
 }
 
 // src/sim/input.ts
@@ -597,6 +694,21 @@ function clearToken(store = browserStorage()) {
   } catch {
   }
 }
+
+// src/sim/enemies.ts
+var ENEMY_BULLET = {
+  scout: "klaedBullet",
+  fighter: "klaedBigBullet"
+};
+var ENEMY_RADIUS = {
+  scout: 11,
+  fighter: 12
+};
+var ENEMY_HP = {
+  scout: 2,
+  fighter: 6
+};
+var SUPPORT_KINDS = [];
 
 // src/sim/projectiles.ts
 function isWeapon(kind) {
@@ -717,6 +829,197 @@ var ProjectilePool = class {
   }
 };
 
+// src/sim/brain.ts
+var DEFAULT_ORDERS = {
+  stance: "escort",
+  fire: "free",
+  resources: "spend",
+  supportFirst: false,
+  holdX: 0,
+  holdY: 0,
+  oneShot: void 0
+};
+function formationPoint(owner, slot, scale = 1) {
+  const offset = FORMATION_SLOTS[slot % FORMATION_SLOTS.length] ?? { forward: 0, right: 0 };
+  const ring = 1 + Math.floor(slot / FORMATION_SLOTS.length);
+  const world = rotateOffset(offset.forward * scale * ring, offset.right * scale * ring, owner.angle);
+  return { x: owner.x + world.x, y: owner.y + world.y };
+}
+function arrive(self, goal, goalVelocity = { x: 0, y: 0 }) {
+  const engine = ENGINE_STATS[self.loadout.engine];
+  const maxSpeed = engine.maxSpeed;
+  let wantX = goalVelocity.x + (goal.x - self.x) / BRAIN_ARRIVE_SECONDS;
+  let wantY = goalVelocity.y + (goal.y - self.y) / BRAIN_ARRIVE_SECONDS;
+  const wantSpeed = Math.hypot(wantX, wantY);
+  if (wantSpeed > maxSpeed) {
+    wantX *= maxSpeed / wantSpeed;
+    wantY *= maxSpeed / wantSpeed;
+  }
+  const coast = Math.exp(-engine.drag * TICK_SECONDS);
+  const errorX = wantX - self.vx * coast;
+  const errorY = wantY - self.vy * coast;
+  const error = Math.hypot(errorX, errorY);
+  if (error <= engine.acceleration * TICK_SECONDS / 2) {
+    return { x: 0, y: 0 };
+  }
+  return { x: errorX / error, y: errorY / error };
+}
+var STILL = { x: 0, y: 0 };
+var distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function weaponRange(self) {
+  const stats = WEAPON_STATS[self.loadout.weapon];
+  return travelled(stats, stats.lifetime);
+}
+function stanceGoal(view, orders) {
+  const { owner } = view;
+  const moving = { x: owner.vx, y: owner.vy };
+  switch (orders.stance) {
+    case "hold":
+      return { point: { x: orders.holdX, y: orders.holdY }, velocity: STILL };
+    case "defensive":
+      return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
+    case "escort":
+    case "aggressive":
+      return { point: formationPoint(owner, view.slot), velocity: moving };
+  }
+}
+function candidates(view, orders) {
+  const { self, owner, enemies } = view;
+  const attackersOnly = orders.fire === "return" || orders.stance === "defensive";
+  const inReach = (e) => {
+    switch (orders.stance) {
+      case "aggressive":
+        return distance(e, owner) <= BRAIN_LEASH;
+      case "hold":
+        return distance(e, self) <= weaponRange(self);
+      case "escort":
+      case "defensive":
+        return distance(e, owner) <= BRAIN_ESCORT_RANGE;
+    }
+  };
+  return enemies.filter((e) => inReach(e) && (!attackersOnly || e.attackedWing));
+}
+function chooseTarget(view, orders) {
+  const focus = orders.oneShot;
+  if (focus?.kind === "focus") {
+    return view.enemies.find((e) => e.id === focus.enemyId);
+  }
+  if (orders.fire === "hold") {
+    return void 0;
+  }
+  const { self } = view;
+  const rank = (e) => [
+    orders.supportFirst && SUPPORT_KINDS.includes(e.kind) ? 0 : 1,
+    orders.stance === "aggressive" ? ENEMY_HP[e.kind] : 0,
+    distance(e, self)
+  ];
+  const before = (a, b) => {
+    const i = a.findIndex((value, k) => value !== b[k]);
+    return i >= 0 && (a[i] ?? 0) < (b[i] ?? 0);
+  };
+  return candidates(view, orders).reduce(
+    (best, e) => best === void 0 || before(rank(e), rank(best)) ? e : best,
+    void 0
+  );
+}
+function attackGoal(self, target) {
+  const away = Math.atan2(self.y - target.y, self.x - target.x);
+  return {
+    point: {
+      x: target.x + BRAIN_ATTACK_DISTANCE * Math.cos(away),
+      y: target.y + BRAIN_ATTACK_DISTANCE * Math.sin(away)
+    },
+    velocity: STILL
+  };
+}
+function attackersNearOwner(view) {
+  return view.enemies.filter((e) => e.attackedWing && distance(e, view.owner) <= BRAIN_ESCORT_RANGE);
+}
+function shieldGoal(view, attackers) {
+  const { owner } = view;
+  const cx = attackers.reduce((sum, e) => sum + e.x, 0) / attackers.length;
+  const cy = attackers.reduce((sum, e) => sum + e.y, 0) / attackers.length;
+  const toward = Math.atan2(cy - owner.y, cx - owner.x);
+  return {
+    point: {
+      x: owner.x + BRAIN_SHIELD_DISTANCE * Math.cos(toward),
+      y: owner.y + BRAIN_SHIELD_DISTANCE * Math.sin(toward)
+    },
+    velocity: { x: owner.vx, y: owner.vy }
+  };
+}
+function chooseGoal(view, orders, target) {
+  const { self, owner } = view;
+  const oneShot = orders.oneShot;
+  switch (oneShot?.kind) {
+    case "regroup":
+      return { point: formationPoint(owner, view.slot), velocity: { x: owner.vx, y: owner.vy } };
+    case "goHome":
+      return { point: { x: 0, y: 0 }, velocity: STILL };
+    case "shieldMe": {
+      const attackers = attackersNearOwner(view);
+      if (attackers.length > 0) {
+        return shieldGoal(view, attackers);
+      }
+      break;
+    }
+    case "focus":
+      if (target !== void 0) {
+        return attackGoal(self, target);
+      }
+      break;
+    case void 0:
+      break;
+  }
+  const fallingBack = self.damage >= BRAIN_BADLY_DAMAGED && (orders.stance === "defensive" || orders.resources === "conserve");
+  if (fallingBack) {
+    return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: { x: owner.vx, y: owner.vy } };
+  }
+  if (target !== void 0 && orders.stance === "aggressive") {
+    return attackGoal(self, target);
+  }
+  return stanceGoal(view, orders);
+}
+function oneShotDone(view, orders, target) {
+  switch (orders.oneShot?.kind) {
+    case "focus":
+      return target === void 0;
+    case "regroup":
+      return distance(view.self, formationPoint(view.owner, view.slot)) <= BRAIN_IN_FORMATION;
+    case "goHome":
+      return Math.hypot(view.self.x, view.self.y) <= BRAIN_HOME_RADIUS;
+    case "shieldMe":
+      return attackersNearOwner(view).length === 0;
+    case void 0:
+      return false;
+  }
+}
+function holdsVolley(self, orders, target) {
+  return orders.resources === "conserve" && self.loadout.weapon === "bigSpaceGun" && orders.oneShot?.kind !== "focus" && !SUPPORT_KINDS.includes(target.kind);
+}
+function think(view, orders, random) {
+  const { self, owner } = view;
+  const target = orders.oneShot?.kind === "regroup" ? void 0 : chooseTarget(view, orders);
+  const goal = chooseGoal(view, orders, target);
+  const move = arrive(self, goal.point, goal.velocity);
+  let aim;
+  let fire = false;
+  if (target === void 0) {
+    const look = rotateOffset(BRAIN_LOOK_AHEAD, 0, owner.angle);
+    aim = { x: self.x + look.x, y: self.y + look.y };
+  } else {
+    const toTarget = Math.atan2(target.y - self.y, target.x - self.x);
+    const wobble = (random() * 2 - 1) * BRAIN_AIM_JITTER;
+    const reach = distance(self, target);
+    aim = { x: self.x + reach * Math.cos(toTarget + wobble), y: self.y + reach * Math.sin(toTarget + wobble) };
+    fire = reach <= weaponRange(self) && Math.abs(wrapAngle(self.angle - toTarget)) <= BRAIN_FIRE_CONE && !holdsVolley(self, orders, target);
+  }
+  return {
+    command: { moveX: move.x, moveY: move.y, aimX: aim.x, aimY: aim.y, fire },
+    done: oneShotDone(view, orders, target)
+  };
+}
+
 // src/sim/ship.ts
 function createShip(x, y, loadout = DEFAULT_LOADOUT) {
   return {
@@ -809,12 +1112,12 @@ function applyWorldEdge(ship, dt) {
   const inner = WORLD_HALF_SIZE - WORLD_EDGE_BAND;
   for (const axis of ["x", "y"]) {
     const v = axis === "x" ? "vx" : "vy";
-    const distance = Math.abs(ship[axis]);
-    if (distance > inner) {
-      const depth = Math.min(1, (distance - inner) / WORLD_EDGE_BAND);
+    const distance2 = Math.abs(ship[axis]);
+    if (distance2 > inner) {
+      const depth = Math.min(1, (distance2 - inner) / WORLD_EDGE_BAND);
       ship[v] -= Math.sign(ship[axis]) * depth * WORLD_EDGE_PUSH * dt;
     }
-    if (distance > WORLD_HALF_SIZE) {
+    if (distance2 > WORLD_HALF_SIZE) {
       ship[axis] = Math.sign(ship[axis]) * WORLD_HALF_SIZE;
       if (Math.sign(ship[v]) === Math.sign(ship[axis])) {
         ship[v] = 0;
@@ -844,6 +1147,8 @@ function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
 
 // src/sim/sandbox.ts
 var PROJECTILE_CAPACITY = 256;
+var OWNER_TRAIL_TICKS = Math.ceil(BRAIN_REACTION_MAX / TICK_SECONDS) + 1;
+var COMPANION_SEED = 24301;
 var Sandbox = class {
   ship = createShip(0, 160);
   projectiles = new ProjectilePool(PROJECTILE_CAPACITY);
@@ -851,23 +1156,74 @@ var Sandbox = class {
   previous = { x: this.ship.x, y: this.ship.y };
   /** How WASD maps to movement; ship-relative unless the player switched. */
   controlMode = "ship";
+  /** In formation-slot order. */
+  companions = [];
+  ownerTrail = [];
   accumulator = 0;
   /** How far the display is between the last two ticks, from 0 to 1. */
   get alpha() {
     return this.accumulator / TICK_SECONDS;
   }
-  /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
-  advance(frameSeconds, input) {
+  /** Adds a companion the server granted, at (x, y), with the default parts until unlocks exist. */
+  addCompanion(number, x, y) {
+    this.removeCompanion(number);
+    const random = seededRandom(COMPANION_SEED + number);
+    const reaction = BRAIN_REACTION_MIN + random() * (BRAIN_REACTION_MAX - BRAIN_REACTION_MIN);
+    const companion = {
+      number,
+      ship: createShip(x, y),
+      previous: { x, y },
+      orders: { ...DEFAULT_ORDERS },
+      pending: void 0,
+      reactionTicks: Math.round(reaction / TICK_SECONDS),
+      random
+    };
+    this.companions.push(companion);
+    return companion;
+  }
+  /** The orders a companion will follow: an order on its way, else its current ones. */
+  ordersFor(companion) {
+    return companion.pending?.orders ?? companion.orders;
+  }
+  /**
+   * Gives a companion new orders. They arrive after its reaction time plus a
+   * fresh jitter, so a wing doesn't react as one.
+   */
+  order(companion, orders) {
+    const delay = companion.reactionTicks + Math.round(companion.random() * BRAIN_ORDER_JITTER / TICK_SECONDS);
+    companion.pending = { orders, ticksLeft: delay };
+  }
+  /** Removes a companion, and its shots still in flight, which could no longer be reported. */
+  removeCompanion(number) {
+    const i = this.companions.findIndex((c) => c.number === number);
+    if (i >= 0) {
+      this.companions.splice(i, 1);
+    }
+    for (const p of this.projectiles.items) {
+      if (p.faction === "own" && p.owner === String(number)) {
+        p.active = false;
+      }
+    }
+  }
+  /**
+   * Runs as many fixed ticks as frameSeconds covers, using the same input for
+   * each. Companions decide from the enemies as drawn.
+   */
+  advance(frameSeconds, input, enemies = []) {
     const events = { ticks: 0, charges: [], shots: [], expired: [] };
     this.accumulator = Math.min(this.accumulator + frameSeconds, TICK_SECONDS * MAX_TICKS_PER_FRAME);
     const cmd = toCommand(input);
     while (this.accumulator >= TICK_SECONDS) {
       this.accumulator -= TICK_SECONDS;
-      this.tick(cmd, events);
+      this.tick(cmd, enemies, events);
     }
     return events;
   }
-  tick(screenCmd, events) {
+  tick(screenCmd, enemies, events) {
+    this.ownerTrail.push({ x: this.ship.x, y: this.ship.y, vx: this.ship.vx, vy: this.ship.vy, angle: this.ship.angle });
+    if (this.ownerTrail.length > OWNER_TRAIL_TICKS) {
+      this.ownerTrail.shift();
+    }
     this.previous.x = this.ship.x;
     this.previous.y = this.ship.y;
     const cmd = this.controlMode === "ship" ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
@@ -879,12 +1235,38 @@ var Sandbox = class {
     }
     for (const shot of weapon.shots) {
       const p = this.projectiles.spawn({ kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle });
-      events.shots.push({ ...shot, id: p.shotId });
+      events.shots.push({ ...shot, id: p.shotId, companion: 0 });
     }
+    this.companions.forEach((companion, slot) => {
+      this.tickCompanion(companion, slot, enemies, events);
+    });
     for (const p of this.projectiles.step(TICK_SECONDS, projectileInBounds)) {
       events.expired.push({ kind: p.kind, faction: p.faction, x: p.x, y: p.y });
     }
     events.ticks++;
+  }
+  tickCompanion(companion, slot, enemies, events) {
+    const { ship, previous } = companion;
+    previous.x = ship.x;
+    previous.y = ship.y;
+    if (companion.pending !== void 0 && --companion.pending.ticksLeft <= 0) {
+      companion.orders = companion.pending.orders;
+      companion.pending = void 0;
+    }
+    const seen = this.ownerTrail[Math.max(0, this.ownerTrail.length - 1 - companion.reactionTicks)] ?? this.ship;
+    const step = think({ self: ship, owner: seen, slot, enemies }, companion.orders, companion.random);
+    if (step.done) {
+      companion.orders = { ...companion.orders, oneShot: void 0 };
+    }
+    stepShip(ship, step.command, TICK_SECONDS);
+    applyWorldEdge(ship, TICK_SECONDS);
+    for (const shot of stepWeapon(ship, step.command.fire, TICK_SECONDS).shots) {
+      const p = this.projectiles.spawn(
+        { kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle },
+        { owner: String(companion.number) }
+      );
+      events.shots.push({ ...shot, id: p.shotId, companion: companion.number });
+    }
   }
 };
 
@@ -1046,7 +1428,16 @@ var ShipAudio = class {
       }
     }
     const volleys = /* @__PURE__ */ new Set();
+    const companionVolleys = /* @__PURE__ */ new Set();
     for (const shot of events.shots) {
+      if (shot.companion !== 0) {
+        const volley2 = `${String(shot.companion)}:${shot.weapon}`;
+        if (!companionVolleys.has(volley2)) {
+          companionVolleys.add(volley2);
+          this.remoteShot(shot.weapon);
+        }
+        continue;
+      }
       const volley = WEAPON_STATS[shot.weapon].alternate ? `${shot.weapon}-${shot.muzzle}-${volleys.size}` : shot.weapon;
       if (volleys.has(volley)) {
         continue;
@@ -1256,13 +1647,32 @@ var Connection = class {
     this.socket = void 0;
     this.welcomed = false;
   }
-  /** Sends the ship's state, at most at the server's tick rate. */
-  sendState(ship, nowMs) {
+  /** Sends the ship's state, and its companions', at most at the server's tick rate. */
+  sendState(ship, nowMs, companions = []) {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
     this.lastStateAt = nowMs;
     this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
+    for (const c of companions) {
+      this.send(
+        create2(ClientMessageSchema, {
+          kind: { case: "companion", value: { companion: c.number, state: toShipState(c.ship) } }
+        })
+      );
+    }
+  }
+  /** Asks the server for a companion. */
+  sendSummon() {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "summon", value: {} } }));
+    }
+  }
+  /** Gives a companion's seat back. */
+  sendDismiss(companion) {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "dismiss", value: { companion } } }));
+    }
   }
   /** Sends a shot under its projectile-pool id, which a hit later reports. */
   sendShot(shot) {
@@ -1273,17 +1683,27 @@ var Connection = class {
       create2(ClientMessageSchema, {
         kind: {
           case: "shot",
-          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
+          value: {
+            id: shot.id,
+            weapon: toWeapon(shot.weapon),
+            muzzle: shot.muzzle,
+            x: shot.x,
+            y: shot.y,
+            angle: shot.angle,
+            companion: shot.companion
+          }
         }
       })
     );
   }
-  /** Reports that one of our shots hit an enemy; the server trusts it. */
-  sendHit(enemyId, shotId, damage) {
+  /** Reports that one of our shots, or a companion's, hit an enemy; the server trusts it. */
+  sendHit(enemyId, shotId, damage, companion = 0) {
     if (!this.welcomed) {
       return;
     }
-    this.send(create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage } } }));
+    this.send(
+      create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage, companion } } })
+    );
   }
   open() {
     const socket = this.makeSocket(this.options.url);
@@ -1331,6 +1751,15 @@ var Connection = class {
         break;
       case "shotEnded":
         events.shotEnded(message.kind.value);
+        break;
+      case "companionGranted":
+        events.companionGranted(message.kind.value);
+        break;
+      case "companionRefused":
+        events.companionRefused(message.kind.value.reason);
+        break;
+      case "companionDismissed":
+        events.companionDismissed(message.kind.value.companion);
         break;
       default:
     }
@@ -1435,16 +1864,6 @@ var TimedQueue = class {
   }
 };
 
-// src/sim/enemies.ts
-var ENEMY_BULLET = {
-  scout: "klaedBullet",
-  fighter: "klaedBigBullet"
-};
-var ENEMY_RADIUS = {
-  scout: 11,
-  fighter: 12
-};
-
 // src/sim/hits.ts
 function hitTargetAlong(x0, y0, x1, y1, targets) {
   const dx = x1 - x0;
@@ -1487,6 +1906,7 @@ var ShipView = class {
   shield;
   label;
   loadout;
+  tint;
   thrusting = false;
   constructor(scene, layer, x, y) {
     this.engine = scene.add.image(0, 0, keys.engine("base"));
@@ -1507,6 +1927,13 @@ var ShipView = class {
       resolution
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     layer.add(this.label);
+  }
+  /** Tints every part, for a companion in its owner's colour (0xRRGGBB). */
+  setTint(colour) {
+    this.tint = colour;
+    for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
+      part.setTint(colour).setTintMode(Phaser3.TintModes.MULTIPLY);
+    }
   }
   /** Fits the parts; unchanged parts keep their animation running. */
   setLoadout(loadout) {
@@ -1541,7 +1968,12 @@ var ShipView = class {
   flash(scene) {
     this.hull.setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
     scene.time.delayedCall(HIT_FLASH_MS, () => {
-      this.hull.clearTint().setTintMode(Phaser3.TintModes.MULTIPLY);
+      this.hull.setTintMode(Phaser3.TintModes.MULTIPLY);
+      if (this.tint === void 0) {
+        this.hull.clearTint();
+      } else {
+        this.hull.setTint(this.tint);
+      }
     });
   }
   destroy() {
@@ -1607,6 +2039,7 @@ var EnemyView = class {
 };
 
 // src/scenes/netplay.ts
+var NOTICE_MS = 4e3;
 var now = () => performance.now();
 var NetPlay = class {
   status = "connecting";
@@ -1625,6 +2058,16 @@ var NetPlay = class {
   enemiesDestroyed = 0;
   lastEnemyDestroyed;
   hitsTaken = 0;
+  /** Enemies this player's companions shot down. */
+  companionKills = 0;
+  /** How many companions the server allows each player. */
+  companionLimit = 0;
+  name = "";
+  colour = 16777215;
+  companionDrawings = /* @__PURE__ */ new Map();
+  /** Enemies that fired near the wing, which defensive orders and return fire answer. */
+  attackers = /* @__PURE__ */ new Set();
+  notice;
   clock = new ServerClock(20);
   shots = new TimedQueue(20);
   spawned = false;
@@ -1643,7 +2086,8 @@ var NetPlay = class {
         },
         shot: (remote) => {
           const shot = remote.shot;
-          if (shot === void 0 || !this.remotes.has(remote.playerId)) {
+          const owner = remote.playerId.split("/")[0] ?? "";
+          if (shot === void 0 || !this.remotes.has(remote.playerId) && !this.remotes.has(owner)) {
             return;
           }
           this.shots.add(remote.tick, {
@@ -1688,6 +2132,18 @@ var NetPlay = class {
         },
         shotEnded: (ended) => {
           this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
+        },
+        companionGranted: (granted) => {
+          this.companionGranted(granted);
+        },
+        companionRefused: (reason) => {
+          this.say(reason);
+        },
+        companionDismissed: (number) => {
+          if (this.options.sim.companions.some((c) => c.number === number)) {
+            this.dismissCompanion(number);
+            this.say(`companion ${String(number)} went home`);
+          }
         }
       }
     });
@@ -1698,15 +2154,43 @@ var NetPlay = class {
   stop() {
     this.connection.stop();
   }
-  /** Other players, for the HUD and the E2E tests. */
+  /** Other players and their companions, for the HUD and the E2E tests. */
   get others() {
     return [...this.remotes.entries()].map(([id, r]) => ({
       id,
       name: r.name,
       colour: r.colour,
       x: r.view.root.x,
-      y: r.view.root.y
+      y: r.view.root.y,
+      ownerId: r.ownerId
     }));
+  }
+  /** Enemies as drawn, as companion brains see them. */
+  get brainEnemies() {
+    return [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      kind: e.view.kind,
+      x: e.view.x,
+      y: e.view.y,
+      attackedWing: this.attackers.has(id)
+    }));
+  }
+  /** The latest notice for the HUD, while it lasts. */
+  get noticeText() {
+    return this.notice !== void 0 && now() < this.notice.untilMs ? this.notice.text : void 0;
+  }
+  /** Asks the server for a companion, or says why there can't be one. */
+  summon() {
+    const { ship, companions } = this.options.sim;
+    if (this.status !== "online") {
+      this.say("companions need the server");
+    } else if (companions.length >= this.companionLimit) {
+      this.say("all your companions are already out");
+    } else if (Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      this.say("summon companions at the home planet");
+    } else {
+      this.connection.sendSummon();
+    }
   }
   /** Enemies as drawn, for the E2E tests. */
   get enemyList() {
@@ -1719,16 +2203,17 @@ var NetPlay = class {
   update(events) {
     const frame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
-    this.connection.sendState(this.options.sim.ship, nowMs);
+    const seconds = nowMs / 1e3;
+    this.connection.sendState(this.options.sim.ship, nowMs, this.options.sim.companions);
     for (const shot of events.shots) {
       this.connection.sendShot(shot);
     }
+    this.drawCompanions(events, seconds);
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === void 0) {
       return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
-    const seconds = nowMs / 1e3;
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
       if (ship === void 0) {
@@ -1770,6 +2255,67 @@ var NetPlay = class {
     this.testHits(frame, events.ticks * TICK_SECONDS);
     return frame;
   }
+  /** Places this player's companions between their last two ticks, like the player's ship. */
+  drawCompanions(events, seconds) {
+    const { companions, alpha } = this.options.sim;
+    for (const shot of events.shots) {
+      const drawing = this.companionDrawings.get(shot.companion);
+      if (drawing !== void 0) {
+        const stats = WEAPON_STATS[shot.weapon];
+        drawing.animator.release(seconds, stats.alternate ? shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
+      }
+    }
+    for (const { number, ship, previous } of companions) {
+      const drawing = this.companionDrawings.get(number);
+      if (drawing === void 0) {
+        continue;
+      }
+      drawing.view.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
+      drawing.view.setThrusting(ship.thrusting);
+      drawing.view.setDamage(ship.damage);
+      drawing.view.weapon.setFrame(drawing.animator.frame(seconds));
+    }
+  }
+  companionGranted(granted) {
+    const { scene, ships, sim } = this.options;
+    const companion = sim.addCompanion(granted.companion, granted.x, granted.y);
+    this.companionDrawings.get(granted.companion)?.view.destroy();
+    const view = new ShipView(scene, ships, granted.x, granted.y);
+    view.setLoadout(companion.ship.loadout);
+    view.setTint(this.colour);
+    view.setLabel(scene, ships, `${this.name} ${String(granted.companion)}`, this.colour, this.options.labelResolution());
+    this.companionDrawings.set(granted.companion, {
+      view,
+      animator: new WeaponAnimator(weaponTiming(companion.ship.loadout.weapon))
+    });
+  }
+  /**
+   * After a (re)connect, keeps the companions the server kept. Ones it
+   * dropped (the player went silent) go; ones this client doesn't fly (another
+   * tab's) are given back.
+   */
+  reconcileCompanions(kept) {
+    const flying = this.options.sim.companions.map((c) => c.number);
+    const gone = flying.filter((n) => !kept.includes(n));
+    for (const number of gone) {
+      this.dismissCompanion(number);
+    }
+    if (gone.length > 0) {
+      this.say("your companions went home while you were away");
+    }
+    for (const number of kept.filter((n) => !flying.includes(n))) {
+      this.connection.sendDismiss(number);
+    }
+  }
+  dismissCompanion(number) {
+    this.options.sim.removeCompanion(number);
+    this.companionDrawings.get(number)?.view.destroy();
+    this.companionDrawings.delete(number);
+  }
+  /** Shows a notice in the HUD for a few seconds. */
+  say(text) {
+    this.notice = { text, untilMs: now() + NOTICE_MS };
+  }
   drawEnemies(renderTick) {
     for (const enemy of this.enemies.values()) {
       const pose = enemy.buffer.sample(renderTick);
@@ -1790,14 +2336,16 @@ var NetPlay = class {
       if (enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
         enemy.view.destroy(false);
         this.enemies.delete(id);
+        this.attackers.delete(id);
       }
     }
   }
   /**
-   * Own shots against enemies as drawn, reported to the server (the design's
-   * trust model); enemy bullets against the local ship, which only flash it
-   * until health exists (#5). Each projectile is tested along the path it
-   * flew during the frame's stepSeconds, so low frame rates don't skip hits.
+   * Own and companion shots against enemies as drawn, reported to the server
+   * (the design's trust model); enemy bullets against the local ship and its
+   * companions, which only flash them until health exists (#5). Each
+   * projectile is tested along the path it flew during the frame's
+   * stepSeconds, so low frame rates don't skip hits.
    */
   testHits(frame, stepSeconds) {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
@@ -1806,8 +2354,11 @@ var NetPlay = class {
       y: e.view.y,
       radius: ENEMY_RADIUS[e.view.kind]
     }));
-    const ship = this.options.sim.ship;
-    const me = [{ id: "me", x: ship.x, y: ship.y, radius: SHIP_RADIUS }];
+    const { ship, companions } = this.options.sim;
+    const wing = [
+      { id: 0, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
+      ...companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y, radius: SHIP_RADIUS }))
+    ];
     for (const p of this.options.sim.projectiles.items) {
       if (!p.active || p.faction === "remote") {
         continue;
@@ -1817,16 +2368,31 @@ var NetPlay = class {
         const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
         if (target !== void 0) {
           p.active = false;
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+          const companion = p.owner === "" ? 0 : Number(p.owner);
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage, companion);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
-      } else if (p.faction === "enemy" && hitTargetAlong(from.x, from.y, p.x, p.y, me) !== void 0) {
+      } else if (p.faction === "enemy") {
+        const hit = hitTargetAlong(from.x, from.y, p.x, p.y, wing);
+        if (hit === void 0) {
+          continue;
+        }
         p.active = false;
-        this.hitsTaken++;
-        frame.hitsOnMe.push({ x: p.x, y: p.y });
+        if (hit.id === 0) {
+          this.hitsTaken++;
+          frame.hitsOnMe.push({ x: p.x, y: p.y });
+        } else {
+          this.companionDrawings.get(hit.id)?.view.flash(this.options.scene);
+          frame.enemyHits.push({ x: p.x, y: p.y });
+        }
       }
     }
+  }
+  /** Whether a point is within range of the player or one of their companions. */
+  nearWing(x, y, range) {
+    const { ship, companions } = this.options.sim;
+    return [ship, ...companions.map((c) => c.ship)].some((s) => Math.hypot(s.x - x, s.y - y) <= range);
   }
   /**
    * Spawns a volley's bullets from where the enemy is at its tick, unless it
@@ -1838,14 +2404,19 @@ var NetPlay = class {
       return;
     }
     const origin = enemy.buffer.sample(volley.tick) ?? volley;
-    const ship = this.options.sim.ship;
-    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
+    if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
+    }
+    if (this.nearWing(origin.x, origin.y, BRAIN_ATTACKER_RANGE)) {
+      this.attackers.add(volley.enemyId);
     }
     for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
     }
-    this.options.audio.enemyShot();
+    const ship = this.options.sim.ship;
+    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) <= ENEMY_VOLLEY_RANGE) {
+      this.options.audio.enemyShot();
+    }
   }
   enemyFired(fired) {
     this.enemyWarnings.add(fired.tick - fired.warnTicks, fired.enemyId);
@@ -1865,6 +2436,7 @@ var NetPlay = class {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    this.attackers.delete(destroyed.enemyId);
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
@@ -1873,11 +2445,17 @@ var NetPlay = class {
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
       this.lastEnemyDestroyed = destroyed.enemyId;
+    } else if (this.playerId !== void 0 && destroyed.byPlayerId.startsWith(`${this.playerId}/`)) {
+      this.companionKills++;
     }
   }
   welcome(welcome) {
     this.status = "online";
     this.playerId = welcome.playerId;
+    this.name = welcome.name;
+    this.colour = welcome.colour;
+    this.companionLimit = welcome.companionLimit;
+    this.reconcileCompanions(welcome.companions);
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
@@ -1906,7 +2484,7 @@ var NetPlay = class {
       if (player.state === void 0) {
         continue;
       }
-      const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
+      const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour, player.ownerId);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
     for (const state of snapshot.enemies) {
@@ -1924,17 +2502,23 @@ var NetPlay = class {
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
     }
   }
-  add(id, name, colour) {
+  /** A remote ship: another player, or (with an owner) one of their companions. */
+  add(id, name, colour, ownerId) {
     const { scene, ships } = this.options;
     const view = new ShipView(scene, ships, 0, 0);
-    view.setLabel(scene, ships, name, colour, this.options.labelResolution());
+    const label = ownerId === "" ? name : `${name} ${id.slice(ownerId.length + 1)}`;
+    if (ownerId !== "") {
+      view.setTint(colour);
+    }
+    view.setLabel(scene, ships, label, colour, this.options.labelResolution());
     const remote = {
       view,
       buffer: new StateBuffer(),
       animator: new WeaponAnimator(weaponTiming("autoCannon")),
       weapon: "autoCannon",
       name,
-      colour
+      colour,
+      ownerId
     };
     this.remotes.set(id, remote);
     return remote;
@@ -1956,6 +2540,24 @@ var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
+var ORDER_HOLD_MS = 200;
+var ORDER_RING_PX = 110;
+var ORDER_DEAD_ZONE_PX = 24;
+var ORDER_PICK_RADIUS = 30;
+var ORDER_TEXT = "#d8f8ff";
+var ORDER_PICKED_TEXT = "#ffe08a";
+function nearestWithin(items, x, y, radius) {
+  let best;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+  return best;
+}
 var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
@@ -1984,6 +2586,8 @@ var SandboxScene = class extends Phaser5.Scene {
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
   audio;
+  orderPress;
+  lastOrder;
   constructor() {
     super("sandbox");
   }
@@ -2027,18 +2631,23 @@ var SandboxScene = class extends Phaser5.Scene {
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
       enemyFireGlow: false,
-      hitsTaken: 0
+      hitsTaken: 0,
+      companions: [],
+      companionKills: 0,
+      notice: void 0,
+      orderMenuOpen: false
     };
     this.publish();
   }
   update(time, deltaMs) {
-    const events = this.sim.advance(deltaMs / 1e3, this.readInput());
+    const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.brainEnemies ?? []);
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== void 0) {
       this.showHits(net);
     }
     this.drawProjectiles();
+    this.updateOrderMenu(time);
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
@@ -2153,13 +2762,30 @@ var SandboxScene = class extends Phaser5.Scene {
     };
     this.input.mouse?.disableContextMenu();
     const onKeyDown = (event) => {
-      if (!event.repeat) {
+      if (event.repeat) {
+        return;
+      }
+      if (event.code === "KeyQ") {
+        this.pressOrders();
+      } else {
         this.handleDebugKey(event.code);
       }
     };
+    const onKeyUp = (event) => {
+      if (event.code === "KeyQ") {
+        this.releaseOrders();
+      }
+    };
+    const onBlur = () => {
+      this.closeOrderRing();
+    };
     window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
     });
   }
   handleDebugKey(code) {
@@ -2181,6 +2807,10 @@ var SandboxScene = class extends Phaser5.Scene {
         ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
         this.applyLoadout();
         this.audio.shieldSwitched();
+        break;
+      case "KeyG":
+        this.net?.summon();
+        this.updateHud();
         break;
       case "KeyM":
         this.audio.toggleMute();
@@ -2222,6 +2852,110 @@ var SandboxScene = class extends Phaser5.Scene {
       default:
     }
   }
+  /** Q down: remember where the pointer is, and the companion under it, if any. */
+  pressOrders() {
+    this.closeOrderRing();
+    const pointer = this.input.activePointer;
+    const world = pointer.positionToCamera(this.cameras.main);
+    const under = nearestWithin(
+      this.sim.companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y })),
+      world.x,
+      world.y,
+      ORDER_PICK_RADIUS
+    );
+    this.orderPress = {
+      downAt: this.time.now,
+      screenX: pointer.x,
+      screenY: pointer.y,
+      worldX: world.x,
+      worldY: world.y,
+      companion: under?.id,
+      labels: void 0
+    };
+  }
+  /** While Q is held: open the ring once held long enough, and light the item pointed at. */
+  updateOrderMenu(time) {
+    const press = this.orderPress;
+    if (press === void 0 || time - press.downAt < ORDER_HOLD_MS) {
+      return;
+    }
+    const dpr = this.dpr();
+    press.labels ??= ORDER_ITEMS.map((item, i) => {
+      const at = itemPosition(i, ORDER_RING_PX * dpr);
+      const label = this.add.text(press.screenX + at.x, press.screenY + at.y, item.label, {
+        fontFamily: "monospace",
+        fontSize: `${String(HUD_FONT_PX * dpr)}px`,
+        color: ORDER_TEXT
+      }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+      this.cameras.main.ignore(label);
+      return label;
+    });
+    const picked = this.pickedOrder(press);
+    press.labels.forEach((label, i) => label.setColor(i === picked ? ORDER_PICKED_TEXT : ORDER_TEXT));
+  }
+  pickedOrder(press) {
+    const pointer = this.input.activePointer;
+    return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
+  }
+  /** Drops a Q press and its ring without giving an order. */
+  closeOrderRing() {
+    for (const label of this.orderPress?.labels ?? []) {
+      label.destroy();
+    }
+    this.orderPress = void 0;
+  }
+  /** Q up: give the item pointed at, or repeat the last order after a tap. */
+  releaseOrders() {
+    const press = this.orderPress;
+    this.orderPress = void 0;
+    if (press === void 0) {
+      return;
+    }
+    if (press.labels === void 0) {
+      const world = this.input.activePointer.positionToCamera(this.cameras.main);
+      if (this.lastOrder === void 0) {
+        this.net?.say("no order to repeat yet: hold Q");
+      } else {
+        this.giveOrder(this.lastOrder, { ...press, worldX: world.x, worldY: world.y });
+      }
+      return;
+    }
+    const picked = this.pickedOrder(press);
+    for (const label of press.labels) {
+      label.destroy();
+    }
+    const item = picked === void 0 ? void 0 : ORDER_ITEMS[picked];
+    if (item !== void 0) {
+      this.giveOrder(item, press);
+    }
+  }
+  /** Gives an order to the companion the pointer was on, or to all of them. */
+  giveOrder(item, press) {
+    const targets = press.companion === void 0 ? this.sim.companions : this.sim.companions.filter((c) => c.number === press.companion);
+    if (targets.length === 0) {
+      this.net?.say("no companions: press G at the home planet");
+      return;
+    }
+    const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
+    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
+    const next = targets.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
+    if (next.includes(void 0)) {
+      this.net?.say("no enemy under the cursor to focus");
+      return;
+    }
+    targets.forEach((c, i) => {
+      const orders = next[i];
+      if (orders !== void 0) {
+        this.sim.order(c, orders);
+      }
+    });
+    this.lastOrder = item;
+    this.net?.say(press.companion === void 0 ? item.label : `${item.label} (companion ${String(press.companion)})`);
+    this.updateHud();
+  }
+  dpr() {
+    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+  }
   applyLoadout() {
     const { weapon, engine } = this.sim.ship.loadout;
     this.ship.setLoadout(this.sim.ship.loadout);
@@ -2242,7 +2976,7 @@ var SandboxScene = class extends Phaser5.Scene {
       this.enemyFireGlow.scale = effectScale;
     }
     this.hudCamera.setSize(width, height);
-    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
@@ -2270,14 +3004,15 @@ var SandboxScene = class extends Phaser5.Scene {
   animateWeapon(events) {
     const now2 = this.time.now / 1e3;
     const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
+    const own = events.shots.filter((shot) => shot.companion === 0);
     if (events.charges.length > 0) {
       this.weaponFrames.charge(now2, stats.charge);
     }
     if (stats.alternate) {
-      for (const shot of events.shots) {
+      for (const shot of own) {
         this.weaponFrames.release(now2, shot.muzzle, stats.muzzles.length);
       }
-    } else if (events.shots.length > 0) {
+    } else if (own.length > 0) {
       this.weaponFrames.release(now2, 0, 1);
     }
     this.ship.weapon.setFrame(this.weaponFrames.frame(now2));
@@ -2302,13 +3037,13 @@ var SandboxScene = class extends Phaser5.Scene {
     });
   }
   playEffects(events) {
-    this.shotsFired += events.shots.length;
+    this.shotsFired += events.shots.filter((shot) => shot.companion === 0).length;
     if (!this.effects) {
       return;
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      const shake = WEAPON_STATS[shot.weapon].shake;
+      const shake = shot.companion === 0 ? WEAPON_STATS[shot.weapon].shake : 0;
       if (shake > 0) {
         this.cameras.main.shake(120, shake);
       }
@@ -2347,9 +3082,23 @@ var SandboxScene = class extends Phaser5.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
-      this.netStatus()
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
+      this.netStatus(),
+      this.wingStatus()
     ]);
+  }
+  /** The companions out, and the latest notice (a refused summon, a companion sent home). */
+  wingStatus() {
+    const net = this.net;
+    if (net === void 0) {
+      return "";
+    }
+    const { companions } = this.sim;
+    const out = companions.length;
+    const orders = [...new Set(companions.map((c) => describeOrders(c.orders)))];
+    const wing = out === 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"} \xB7 ${orders.length === 1 ? orders[0] ?? "" : "mixed orders"}`;
+    const notice = net.noticeText;
+    return notice === void 0 ? wing : `${wing} \xB7 ${notice}`;
   }
   netStatus() {
     const net = this.net;
@@ -2358,7 +3107,7 @@ var SandboxScene = class extends Phaser5.Scene {
     }
     switch (net.status) {
       case "online": {
-        const count = net.others.length;
+        const count = net.others.filter((o) => o.ownerId === "").length;
         return `online \xB7 ${count === 0 ? "nobody else here yet" : `${count} other${count === 1 ? "" : "s"} here`}`;
       }
       case "full":
@@ -2398,6 +3147,18 @@ var SandboxScene = class extends Phaser5.Scene {
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
+    this.debug.companions = this.sim.companions.map((c) => ({
+      number: c.number,
+      x: c.ship.x,
+      y: c.ship.y,
+      stance: c.orders.stance,
+      fire: c.orders.fire,
+      resources: c.orders.resources,
+      oneShot: c.orders.oneShot?.kind
+    }));
+    this.debug.companionKills = this.net?.companionKills ?? 0;
+    this.debug.notice = this.net?.noticeText;
+    this.debug.orderMenuOpen = this.orderPress?.labels !== void 0;
     publishDebugState(this.debug);
   }
 };

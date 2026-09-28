@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { wireFormatFrom } from '../net/codec.ts';
+import { ORDER_ITEMS, applyOrder, describeOrders, itemPosition, pickItem, type OrderItem } from '../ordermenu.ts';
 import {
   clearToken,
   loadAudioSettings,
@@ -52,6 +53,41 @@ const HIT_SPARKS = 5;
 /** HUD text size and margin in CSS pixels; scaled to device pixels on resize. */
 const HUD_FONT_PX = 12;
 const HUD_MARGIN_PX = 8;
+/** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
+const ORDER_HOLD_MS = 200;
+/** The order ring's height radius and its dead centre, in CSS pixels. */
+const ORDER_RING_PX = 110;
+const ORDER_DEAD_ZONE_PX = 24;
+/** A companion or enemy this close to the pointer, in art pixels, is the one under it. */
+const ORDER_PICK_RADIUS = 30;
+const ORDER_TEXT = '#d8f8ff';
+const ORDER_PICKED_TEXT = '#ffe08a';
+
+/** Q held down: where the pointer was, and which companion it was on, if any. */
+interface OrderPress {
+  downAt: number;
+  screenX: number;
+  screenY: number;
+  worldX: number;
+  worldY: number;
+  companion: number | undefined;
+  labels: Phaser.GameObjects.Text[] | undefined;
+}
+
+/** The item nearest (x, y), if any is within radius. */
+function nearestWithin<T extends { x: number; y: number }>(items: readonly T[], x: number, y: number, radius: number): T | undefined {
+  let best: T | undefined;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+
+  return best;
+}
 
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
@@ -87,6 +123,8 @@ export class SandboxScene extends Phaser.Scene {
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
   private audioSettings!: AudioSettings;
   private audio!: ShipAudio;
+  private orderPress: OrderPress | undefined;
+  private lastOrder: OrderItem | undefined;
 
   constructor() {
     super('sandbox');
@@ -134,18 +172,23 @@ export class SandboxScene extends Phaser.Scene {
       lastEnemyDestroyed: undefined,
       enemyFireGlow: false,
       hitsTaken: 0,
+      companions: [],
+      companionKills: 0,
+      notice: undefined,
+      orderMenuOpen: false,
     };
     this.publish();
   }
 
   override update(time: number, deltaMs: number): void {
-    const events = this.sim.advance(deltaMs / 1000, this.readInput());
+    const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.brainEnemies ?? []);
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== undefined) {
       this.showHits(net);
     }
     this.drawProjectiles();
+    this.updateOrderMenu(time);
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
@@ -275,13 +318,31 @@ export class SandboxScene extends Phaser.Scene {
     // Toggles listen to the DOM directly: Phaser's keyboard plugin can replay
     // its queued events more than once per step, cycling a part twice.
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (!event.repeat) {
+      if (event.repeat) {
+        return;
+      }
+      if (event.code === 'KeyQ') {
+        this.pressOrders();
+      } else {
         this.handleDebugKey(event.code);
       }
     };
+    const onKeyUp = (event: KeyboardEvent): void => {
+      if (event.code === 'KeyQ') {
+        this.releaseOrders();
+      }
+    };
+    // Letting go of Q in another window never reaches us: close the ring unused.
+    const onBlur = (): void => {
+      this.closeOrderRing();
+    };
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
     });
   }
 
@@ -304,6 +365,10 @@ export class SandboxScene extends Phaser.Scene {
         ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
         this.applyLoadout();
         this.audio.shieldSwitched();
+        break;
+      case 'KeyG':
+        this.net?.summon();
+        this.updateHud();
         break;
       case 'KeyM':
         this.audio.toggleMute();
@@ -346,6 +411,127 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Q down: remember where the pointer is, and the companion under it, if any. */
+  private pressOrders(): void {
+    this.closeOrderRing();
+    const pointer = this.input.activePointer;
+    const world = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    // Formation slots sit close together: the nearest one is the one meant.
+    const under = nearestWithin(
+      this.sim.companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y })),
+      world.x,
+      world.y,
+      ORDER_PICK_RADIUS,
+    );
+    this.orderPress = {
+      downAt: this.time.now,
+      screenX: pointer.x,
+      screenY: pointer.y,
+      worldX: world.x,
+      worldY: world.y,
+      companion: under?.id,
+      labels: undefined,
+    };
+  }
+
+  /** While Q is held: open the ring once held long enough, and light the item pointed at. */
+  private updateOrderMenu(time: number): void {
+    const press = this.orderPress;
+    if (press === undefined || time - press.downAt < ORDER_HOLD_MS) {
+      return;
+    }
+    const dpr = this.dpr();
+    press.labels ??= ORDER_ITEMS.map((item, i) => {
+      const at = itemPosition(i, ORDER_RING_PX * dpr);
+      const label = this.add
+        .text(press.screenX + at.x, press.screenY + at.y, item.label, {
+          fontFamily: 'monospace',
+          fontSize: `${String(HUD_FONT_PX * dpr)}px`,
+          color: ORDER_TEXT,
+        })
+        .setOrigin(0.5)
+        .setShadow(1, 1, '#000000', 0);
+      this.cameras.main.ignore(label);
+
+      return label;
+    });
+    const picked = this.pickedOrder(press);
+    press.labels.forEach((label, i) => label.setColor(i === picked ? ORDER_PICKED_TEXT : ORDER_TEXT));
+  }
+
+  private pickedOrder(press: OrderPress): number | undefined {
+    const pointer = this.input.activePointer;
+
+    return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
+  }
+
+  /** Drops a Q press and its ring without giving an order. */
+  private closeOrderRing(): void {
+    for (const label of this.orderPress?.labels ?? []) {
+      label.destroy();
+    }
+    this.orderPress = undefined;
+  }
+
+  /** Q up: give the item pointed at, or repeat the last order after a tap. */
+  private releaseOrders(): void {
+    const press = this.orderPress;
+    this.orderPress = undefined;
+    if (press === undefined) {
+      return;
+    }
+    if (press.labels === undefined) {
+      const world = this.input.activePointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+      if (this.lastOrder === undefined) {
+        this.net?.say('no order to repeat yet: hold Q');
+      } else {
+        this.giveOrder(this.lastOrder, { ...press, worldX: world.x, worldY: world.y });
+      }
+
+      return;
+    }
+    const picked = this.pickedOrder(press);
+    for (const label of press.labels) {
+      label.destroy();
+    }
+    const item = picked === undefined ? undefined : ORDER_ITEMS[picked];
+    if (item !== undefined) {
+      this.giveOrder(item, press);
+    }
+  }
+
+  /** Gives an order to the companion the pointer was on, or to all of them. */
+  private giveOrder(item: OrderItem, press: Pick<OrderPress, 'worldX' | 'worldY' | 'companion'>): void {
+    const targets =
+      press.companion === undefined ? this.sim.companions : this.sim.companions.filter((c) => c.number === press.companion);
+    if (targets.length === 0) {
+      this.net?.say('no companions: press G at the home planet');
+
+      return;
+    }
+    const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
+    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
+    const next = targets.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
+    if (next.includes(undefined)) {
+      this.net?.say('no enemy under the cursor to focus');
+
+      return;
+    }
+    targets.forEach((c, i) => {
+      const orders = next[i];
+      if (orders !== undefined) {
+        this.sim.order(c, orders);
+      }
+    });
+    this.lastOrder = item;
+    this.net?.say(press.companion === undefined ? item.label : `${item.label} (companion ${String(press.companion)})`);
+    this.updateHud();
+  }
+
+  private dpr(): number {
+    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+  }
+
   private applyLoadout(): void {
     const { weapon, engine } = this.sim.ship.loadout;
     this.ship.setLoadout(this.sim.ship.loadout);
@@ -369,7 +555,7 @@ export class SandboxScene extends Phaser.Scene {
       this.enemyFireGlow.scale = effectScale;
     }
     this.hudCamera.setSize(width, height);
-    const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
@@ -401,14 +587,15 @@ export class SandboxScene extends Phaser.Scene {
   private animateWeapon(events: FrameEvents): void {
     const now = this.time.now / 1000;
     const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
+    const own = events.shots.filter((shot) => shot.companion === 0);
     if (events.charges.length > 0) {
       this.weaponFrames.charge(now, stats.charge);
     }
     if (stats.alternate) {
-      for (const shot of events.shots) {
+      for (const shot of own) {
         this.weaponFrames.release(now, shot.muzzle, stats.muzzles.length);
       }
-    } else if (events.shots.length > 0) {
+    } else if (own.length > 0) {
       this.weaponFrames.release(now, 0, 1);
     }
     this.ship.weapon.setFrame(this.weaponFrames.frame(now));
@@ -436,13 +623,14 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private playEffects(events: FrameEvents): void {
-    this.shotsFired += events.shots.length;
+    this.shotsFired += events.shots.filter((shot) => shot.companion === 0).length;
     if (!this.effects) {
       return;
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      const shake = WEAPON_STATS[shot.weapon].shake;
+      // Only the player's own big gun shakes the camera.
+      const shake = shot.companion === 0 ? WEAPON_STATS[shot.weapon].shake : 0;
       if (shake > 0) {
         this.cameras.main.shake(120, shake);
       }
@@ -484,9 +672,28 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
+      'WASD move · mouse aim · hold left button to fire · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
       this.netStatus(),
+      this.wingStatus(),
     ]);
+  }
+
+  /** The companions out, and the latest notice (a refused summon, a companion sent home). */
+  private wingStatus(): string {
+    const net = this.net;
+    if (net === undefined) {
+      return '';
+    }
+    const { companions } = this.sim;
+    const out = companions.length;
+    const orders = [...new Set(companions.map((c) => describeOrders(c.orders)))];
+    const wing =
+      out === 0
+        ? 'no companions'
+        : `${String(out)} companion${out === 1 ? '' : 's'} · ${orders.length === 1 ? (orders[0] ?? '') : 'mixed orders'}`;
+    const notice = net.noticeText;
+
+    return notice === undefined ? wing : `${wing} · ${notice}`;
   }
 
   private netStatus(): string {
@@ -496,7 +703,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     switch (net.status) {
       case 'online': {
-        const count = net.others.length;
+        const count = net.others.filter((o) => o.ownerId === '').length;
 
         return `online · ${count === 0 ? 'nobody else here yet' : `${count} other${count === 1 ? '' : 's'} here`}`;
       }
@@ -538,6 +745,18 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
+    this.debug.companions = this.sim.companions.map((c) => ({
+      number: c.number,
+      x: c.ship.x,
+      y: c.ship.y,
+      stance: c.orders.stance,
+      fire: c.orders.fire,
+      resources: c.orders.resources,
+      oneShot: c.orders.oneShot?.kind,
+    }));
+    this.debug.companionKills = this.net?.companionKills ?? 0;
+    this.debug.notice = this.net?.noticeText;
+    this.debug.orderMenuOpen = this.orderPress?.labels !== undefined;
     publishDebugState(this.debug);
   }
 }

@@ -28,6 +28,7 @@ export class ShipView {
   private readonly shield: Phaser.GameObjects.Sprite;
   private label: Phaser.GameObjects.Text | undefined;
   private loadout: Loadout | undefined;
+  private tint: number | undefined;
   private thrusting = false;
 
   constructor(scene: Phaser.Scene, layer: ShipParent, x: number, y: number) {
@@ -53,6 +54,14 @@ export class ShipView {
       .setOrigin(0.5, 0)
       .setShadow(1, 1, '#000000', 0);
     layer.add(this.label);
+  }
+
+  /** Tints every part, for a companion in its owner's colour (0xRRGGBB). */
+  setTint(colour: number): void {
+    this.tint = colour;
+    for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
+      part.setTint(colour).setTintMode(Phaser.TintModes.MULTIPLY);
+    }
   }
 
   /** Fits the parts; unchanged parts keep their animation running. */
@@ -92,7 +101,12 @@ export class ShipView {
   flash(scene: Phaser.Scene): void {
     this.hull.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     scene.time.delayedCall(HIT_FLASH_MS, () => {
-      this.hull.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+      this.hull.setTintMode(Phaser.TintModes.MULTIPLY);
+      if (this.tint === undefined) {
+        this.hull.clearTint();
+      } else {
+        this.hull.setTint(this.tint);
+      }
     });
   }
 

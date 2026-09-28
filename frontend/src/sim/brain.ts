@@ -100,7 +100,7 @@ export interface BrainStep {
 
 /**
  * Where a formation slot is now, scaled toward the owner by scale. Slots past
- * the first few (development allows up to 15 companions) repeat the pattern on
+ * the first few (more companions than slots) repeat the pattern on
  * wider rings, so no two companions share a point.
  */
 export function formationPoint(owner: Mover, slot: number, scale = 1): Vec {

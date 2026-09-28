@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-import type { EnemyDestroyed, EnemyFired, Snapshot, Welcome } from '../gen/voidmarch/v1/messages_pb.js';
+import type { CompanionGranted, EnemyDestroyed, EnemyFired, Snapshot, Welcome } from '../gen/voidmarch/v1/messages_pb.js';
 import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
@@ -8,6 +8,7 @@ import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interp
 import { fromEnemyKind, fromShipState, fromWeapon, type RemoteShip } from '../net/mapping.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
+import type { BrainEnemy } from '../sim/brain.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
 import { hitTargetAlong } from '../sim/hits.ts';
 import type { WeaponId } from '../sim/loadout.ts';
@@ -15,7 +16,15 @@ import { enemyPattern } from '../sim/patterns.ts';
 import { isWeapon, positionAt } from '../sim/projectiles.ts';
 import type { ShotSpawn } from '../sim/weapons.ts';
 import type { FrameEvents, Sandbox } from '../sim/sandbox.ts';
-import { ENEMY_SOUND_RANGE, ENEMY_VOLLEY_RANGE, SHIP_RADIUS, TICK_SECONDS, WEAPON_STATS } from '../sim/tuning.ts';
+import {
+  BRAIN_ATTACKER_RANGE,
+  ENEMY_SOUND_RANGE,
+  ENEMY_VOLLEY_RANGE,
+  SAFE_ZONE_RADIUS,
+  SHIP_RADIUS,
+  TICK_SECONDS,
+  WEAPON_STATS,
+} from '../sim/tuning.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
@@ -38,7 +47,18 @@ interface Remote {
   weapon: WeaponId;
   name: string;
   colour: number;
+  /** Set for another player's companion: its owner's id. */
+  ownerId: string;
 }
+
+/** One of this player's companions, as drawn. */
+interface CompanionDrawing {
+  view: ShipView;
+  animator: WeaponAnimator;
+}
+
+/** How long a notice (a refused summon, a companion sent home) stays in the HUD. */
+const NOTICE_MS = 4000;
 
 export interface NetPlayOptions {
   scene: Phaser.Scene;
@@ -102,6 +122,8 @@ export interface RemoteDebug {
   colour: number;
   x: number;
   y: number;
+  /** Set for a companion: its owner's player id. */
+  ownerId: string;
 }
 
 const now = (): number => performance.now();
@@ -127,6 +149,16 @@ export class NetPlay {
   enemiesDestroyed = 0;
   lastEnemyDestroyed: number | undefined;
   hitsTaken = 0;
+  /** Enemies this player's companions shot down. */
+  companionKills = 0;
+  /** How many companions the server allows each player. */
+  companionLimit = 0;
+  private name = '';
+  private colour = 0xffffff;
+  private readonly companionDrawings = new Map<number, CompanionDrawing>();
+  /** Enemies that fired near the wing, which defensive orders and return fire answer. */
+  private readonly attackers = new Set<number>();
+  private notice: { text: string; untilMs: number } | undefined;
   private clock = new ServerClock(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
   private spawned = false;
@@ -146,7 +178,9 @@ export class NetPlay {
         },
         shot: (remote) => {
           const shot = remote.shot;
-          if (shot === undefined || !this.remotes.has(remote.playerId)) {
+          // A companion can fire before its first snapshot arrives; its owner is known by then.
+          const owner = remote.playerId.split('/')[0] ?? '';
+          if (shot === undefined || (!this.remotes.has(remote.playerId) && !this.remotes.has(owner))) {
             return;
           }
           this.shots.add(remote.tick, {
@@ -192,6 +226,19 @@ export class NetPlay {
         shotEnded: (ended) => {
           this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
         },
+        companionGranted: (granted) => {
+          this.companionGranted(granted);
+        },
+        companionRefused: (reason) => {
+          this.say(reason);
+        },
+        companionDismissed: (number) => {
+          // Stale states in flight can bring back a dismissal for one already gone.
+          if (this.options.sim.companions.some((c) => c.number === number)) {
+            this.dismissCompanion(number);
+            this.say(`companion ${String(number)} went home`);
+          }
+        },
       },
     });
   }
@@ -204,7 +251,7 @@ export class NetPlay {
     this.connection.stop();
   }
 
-  /** Other players, for the HUD and the E2E tests. */
+  /** Other players and their companions, for the HUD and the E2E tests. */
   get others(): RemoteDebug[] {
     return [...this.remotes.entries()].map(([id, r]) => ({
       id,
@@ -212,7 +259,38 @@ export class NetPlay {
       colour: r.colour,
       x: r.view.root.x,
       y: r.view.root.y,
+      ownerId: r.ownerId,
     }));
+  }
+
+  /** Enemies as drawn, as companion brains see them. */
+  get brainEnemies(): BrainEnemy[] {
+    return [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      kind: e.view.kind,
+      x: e.view.x,
+      y: e.view.y,
+      attackedWing: this.attackers.has(id),
+    }));
+  }
+
+  /** The latest notice for the HUD, while it lasts. */
+  get noticeText(): string | undefined {
+    return this.notice !== undefined && now() < this.notice.untilMs ? this.notice.text : undefined;
+  }
+
+  /** Asks the server for a companion, or says why there can't be one. */
+  summon(): void {
+    const { ship, companions } = this.options.sim;
+    if (this.status !== 'online') {
+      this.say('companions need the server');
+    } else if (companions.length >= this.companionLimit) {
+      this.say('all your companions are already out');
+    } else if (Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      this.say('summon companions at the home planet');
+    } else {
+      this.connection.sendSummon();
+    }
   }
 
   /** Enemies as drawn, for the E2E tests. */
@@ -227,17 +305,18 @@ export class NetPlay {
   update(events: FrameEvents): NetFrame {
     const frame: NetFrame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
-    this.connection.sendState(this.options.sim.ship, nowMs);
+    const seconds = nowMs / 1000;
+    this.connection.sendState(this.options.sim.ship, nowMs, this.options.sim.companions);
     for (const shot of events.shots) {
       this.connection.sendShot(shot);
     }
+    this.drawCompanions(events, seconds);
 
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === undefined) {
       return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
-    const seconds = nowMs / 1000;
 
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
@@ -285,6 +364,72 @@ export class NetPlay {
     return frame;
   }
 
+  /** Places this player's companions between their last two ticks, like the player's ship. */
+  private drawCompanions(events: FrameEvents, seconds: number): void {
+    const { companions, alpha } = this.options.sim;
+    for (const shot of events.shots) {
+      const drawing = this.companionDrawings.get(shot.companion);
+      if (drawing !== undefined) {
+        const stats = WEAPON_STATS[shot.weapon];
+        drawing.animator.release(seconds, stats.alternate ? shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
+      }
+    }
+    for (const { number, ship, previous } of companions) {
+      const drawing = this.companionDrawings.get(number);
+      if (drawing === undefined) {
+        continue;
+      }
+      drawing.view.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
+      drawing.view.setThrusting(ship.thrusting);
+      drawing.view.setDamage(ship.damage);
+      drawing.view.weapon.setFrame(drawing.animator.frame(seconds));
+    }
+  }
+
+  private companionGranted(granted: CompanionGranted): void {
+    const { scene, ships, sim } = this.options;
+    const companion = sim.addCompanion(granted.companion, granted.x, granted.y);
+    this.companionDrawings.get(granted.companion)?.view.destroy();
+    const view = new ShipView(scene, ships, granted.x, granted.y);
+    view.setLoadout(companion.ship.loadout);
+    view.setTint(this.colour);
+    view.setLabel(scene, ships, `${this.name} ${String(granted.companion)}`, this.colour, this.options.labelResolution());
+    this.companionDrawings.set(granted.companion, {
+      view,
+      animator: new WeaponAnimator(weaponTiming(companion.ship.loadout.weapon)),
+    });
+  }
+
+  /**
+   * After a (re)connect, keeps the companions the server kept. Ones it
+   * dropped (the player went silent) go; ones this client doesn't fly (another
+   * tab's) are given back.
+   */
+  private reconcileCompanions(kept: readonly number[]): void {
+    const flying = this.options.sim.companions.map((c) => c.number);
+    const gone = flying.filter((n) => !kept.includes(n));
+    for (const number of gone) {
+      this.dismissCompanion(number);
+    }
+    if (gone.length > 0) {
+      this.say('your companions went home while you were away');
+    }
+    for (const number of kept.filter((n) => !flying.includes(n))) {
+      this.connection.sendDismiss(number);
+    }
+  }
+
+  private dismissCompanion(number: number): void {
+    this.options.sim.removeCompanion(number);
+    this.companionDrawings.get(number)?.view.destroy();
+    this.companionDrawings.delete(number);
+  }
+
+  /** Shows a notice in the HUD for a few seconds. */
+  say(text: string): void {
+    this.notice = { text, untilMs: now() + NOTICE_MS };
+  }
+
   private drawEnemies(renderTick: number): void {
     for (const enemy of this.enemies.values()) {
       const pose = enemy.buffer.sample(renderTick);
@@ -306,15 +451,17 @@ export class NetPlay {
       if (enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
         enemy.view.destroy(false);
         this.enemies.delete(id);
+        this.attackers.delete(id);
       }
     }
   }
 
   /**
-   * Own shots against enemies as drawn, reported to the server (the design's
-   * trust model); enemy bullets against the local ship, which only flash it
-   * until health exists (#5). Each projectile is tested along the path it
-   * flew during the frame's stepSeconds, so low frame rates don't skip hits.
+   * Own and companion shots against enemies as drawn, reported to the server
+   * (the design's trust model); enemy bullets against the local ship and its
+   * companions, which only flash them until health exists (#5). Each
+   * projectile is tested along the path it flew during the frame's
+   * stepSeconds, so low frame rates don't skip hits.
    */
   private testHits(frame: NetFrame, stepSeconds: number): void {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
@@ -323,8 +470,12 @@ export class NetPlay {
       y: e.view.y,
       radius: ENEMY_RADIUS[e.view.kind],
     }));
-    const ship = this.options.sim.ship;
-    const me = [{ id: 'me', x: ship.x, y: ship.y, radius: SHIP_RADIUS }];
+    const { ship, companions } = this.options.sim;
+    // Companion number 0 is the player's own ship.
+    const wing = [
+      { id: 0, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
+      ...companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y, radius: SHIP_RADIUS })),
+    ];
     for (const p of this.options.sim.projectiles.items) {
       if (!p.active || p.faction === 'remote') {
         continue;
@@ -334,16 +485,33 @@ export class NetPlay {
         const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
         if (target !== undefined) {
           p.active = false;
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+          const companion = p.owner === '' ? 0 : Number(p.owner);
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage, companion);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
-      } else if (p.faction === 'enemy' && hitTargetAlong(from.x, from.y, p.x, p.y, me) !== undefined) {
+      } else if (p.faction === 'enemy') {
+        const hit = hitTargetAlong(from.x, from.y, p.x, p.y, wing);
+        if (hit === undefined) {
+          continue;
+        }
         p.active = false;
-        this.hitsTaken++;
-        frame.hitsOnMe.push({ x: p.x, y: p.y });
+        if (hit.id === 0) {
+          this.hitsTaken++;
+          frame.hitsOnMe.push({ x: p.x, y: p.y });
+        } else {
+          this.companionDrawings.get(hit.id)?.view.flash(this.options.scene);
+          frame.enemyHits.push({ x: p.x, y: p.y });
+        }
       }
     }
+  }
+
+  /** Whether a point is within range of the player or one of their companions. */
+  private nearWing(x: number, y: number, range: number): boolean {
+    const { ship, companions } = this.options.sim;
+
+    return [ship, ...companions.map((c) => c.ship)].some((s) => Math.hypot(s.x - x, s.y - y) <= range);
   }
 
   /**
@@ -356,14 +524,20 @@ export class NetPlay {
       return;
     }
     const origin = enemy.buffer.sample(volley.tick) ?? volley;
-    const ship = this.options.sim.ship;
-    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
+    // Companions can be far from the player (holding a point), and enemies fire at them too.
+    if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
+    }
+    if (this.nearWing(origin.x, origin.y, BRAIN_ATTACKER_RANGE)) {
+      this.attackers.add(volley.enemyId);
     }
     for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
     }
-    this.options.audio.enemyShot();
+    const ship = this.options.sim.ship;
+    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) <= ENEMY_VOLLEY_RANGE) {
+      this.options.audio.enemyShot();
+    }
   }
 
   private enemyFired(fired: EnemyFired): void {
@@ -385,6 +559,7 @@ export class NetPlay {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    this.attackers.delete(destroyed.enemyId);
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
@@ -393,12 +568,18 @@ export class NetPlay {
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
       this.lastEnemyDestroyed = destroyed.enemyId;
+    } else if (this.playerId !== undefined && destroyed.byPlayerId.startsWith(`${this.playerId}/`)) {
+      this.companionKills++;
     }
   }
 
   private welcome(welcome: Welcome): void {
     this.status = 'online';
     this.playerId = welcome.playerId;
+    this.name = welcome.name;
+    this.colour = welcome.colour;
+    this.companionLimit = welcome.companionLimit;
+    this.reconcileCompanions(welcome.companions);
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
@@ -430,7 +611,8 @@ export class NetPlay {
       if (player.state === undefined) {
         continue;
       }
-      const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
+      const remote =
+        this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour, player.ownerId);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
 
@@ -450,10 +632,16 @@ export class NetPlay {
     }
   }
 
-  private add(id: string, name: string, colour: number): Remote {
+  /** A remote ship: another player, or (with an owner) one of their companions. */
+  private add(id: string, name: string, colour: number, ownerId: string): Remote {
     const { scene, ships } = this.options;
     const view = new ShipView(scene, ships, 0, 0);
-    view.setLabel(scene, ships, name, colour, this.options.labelResolution());
+    // A companion's seat is "<owner>/<n>": tinted in its owner's colour, labelled "name n".
+    const label = ownerId === '' ? name : `${name} ${id.slice(ownerId.length + 1)}`;
+    if (ownerId !== '') {
+      view.setTint(colour);
+    }
+    view.setLabel(scene, ships, label, colour, this.options.labelResolution());
     const remote: Remote = {
       view,
       buffer: new StateBuffer<RemoteShip>(),
@@ -461,6 +649,7 @@ export class NetPlay {
       weapon: 'autoCannon',
       name,
       colour,
+      ownerId,
     };
     this.remotes.set(id, remote);
 

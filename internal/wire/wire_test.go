@@ -86,6 +86,24 @@ func messages() []proto.Message {
 		&pb.ServerMessage{
 			Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{PlayerId: "p1", ShotId: 9}},
 		},
+		&pb.ClientMessage{Kind: &pb.ClientMessage_Summon{Summon: &pb.Summon{}}},
+		&pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
+			Companion: 2, State: &pb.ShipState{X: 1, Y: 2},
+		}}},
+		&pb.ClientMessage{Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: 2}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
+			CompanionGranted: &pb.CompanionGranted{Companion: 1, X: 3, Y: 4},
+		}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_CompanionRefused{
+			CompanionRefused: &pb.CompanionRefused{Reason: "your wing is full"},
+		}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_CompanionDismissed{
+			CompanionDismissed: &pb.CompanionDismissed{Companion: 3},
+		}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_Snapshot{Snapshot: &pb.Snapshot{
+			Tick:    8,
+			Players: []*pb.PlayerSnapshot{{PlayerId: "p1/1", Name: "Sanne", OwnerId: "p1"}},
+		}}},
 	}
 }
 

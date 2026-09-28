@@ -12,7 +12,7 @@ import { enumDesc, fileDesc, messageDesc, tsEnum } from "@bufbuild/protobuf/code
  * Describes the file voidmarch/v1/messages.proto.
  */
 export const file_voidmarch_v1_messages = /*@__PURE__*/
-  fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIgYKBEZ1bGwi/gIKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
+  fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJLCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SEQoJY29tcGFuaW9uGAQgASgNIggKBlN1bW1vbiJLCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIrcCCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjEKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUgAEigKB2Rpc21pc3MYByABKAsyFS52b2lkbWFyY2gudjEuRGlzbWlzc0gAQgYKBGtpbmQiwQEKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg4KBmNvbG91chgCIAEoDRIPCgdzcGF3bl94GAMgASgCEg8KB3NwYXduX3kYBCABKAISDAoEdGljaxgFIAEoDRIRCgl0aWNrX3JhdGUYBiABKA0SFwoPY29tcGFuaW9uX2xpbWl0GAcgASgNEgwKBG5hbWUYCSABKAkSEgoKY29tcGFuaW9ucxgKIAMoDUoECAgQCVIPc3VtbW9uX2FueXdoZXJlInsKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSInChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNIgYKBEZ1bGwiuQQKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 
 /**
  * Describes the message voidmarch.v1.Loadout.
@@ -50,88 +50,130 @@ export const HitSchema = /*@__PURE__*/
   messageDesc(file_voidmarch_v1_messages, 4);
 
 /**
+ * Describes the message voidmarch.v1.Summon.
+ * Use `create(SummonSchema)` to create a new message.
+ */
+export const SummonSchema = /*@__PURE__*/
+  messageDesc(file_voidmarch_v1_messages, 5);
+
+/**
+ * Describes the message voidmarch.v1.CompanionState.
+ * Use `create(CompanionStateSchema)` to create a new message.
+ */
+export const CompanionStateSchema = /*@__PURE__*/
+  messageDesc(file_voidmarch_v1_messages, 6);
+
+/**
+ * Describes the message voidmarch.v1.Dismiss.
+ * Use `create(DismissSchema)` to create a new message.
+ */
+export const DismissSchema = /*@__PURE__*/
+  messageDesc(file_voidmarch_v1_messages, 7);
+
+/**
  * Describes the message voidmarch.v1.ClientMessage.
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export const ClientMessageSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 5);
+  messageDesc(file_voidmarch_v1_messages, 8);
 
 /**
  * Describes the message voidmarch.v1.Welcome.
  * Use `create(WelcomeSchema)` to create a new message.
  */
 export const WelcomeSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 6);
+  messageDesc(file_voidmarch_v1_messages, 9);
 
 /**
  * Describes the message voidmarch.v1.PlayerSnapshot.
  * Use `create(PlayerSnapshotSchema)` to create a new message.
  */
 export const PlayerSnapshotSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 7);
+  messageDesc(file_voidmarch_v1_messages, 10);
 
 /**
  * Describes the message voidmarch.v1.EnemyState.
  * Use `create(EnemyStateSchema)` to create a new message.
  */
 export const EnemyStateSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 8);
+  messageDesc(file_voidmarch_v1_messages, 11);
 
 /**
  * Describes the message voidmarch.v1.Snapshot.
  * Use `create(SnapshotSchema)` to create a new message.
  */
 export const SnapshotSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 9);
+  messageDesc(file_voidmarch_v1_messages, 12);
 
 /**
  * Describes the message voidmarch.v1.EnemyFired.
  * Use `create(EnemyFiredSchema)` to create a new message.
  */
 export const EnemyFiredSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 10);
+  messageDesc(file_voidmarch_v1_messages, 13);
 
 /**
  * Describes the message voidmarch.v1.EnemyDestroyed.
  * Use `create(EnemyDestroyedSchema)` to create a new message.
  */
 export const EnemyDestroyedSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 11);
+  messageDesc(file_voidmarch_v1_messages, 14);
 
 /**
  * Describes the message voidmarch.v1.ShotEnded.
  * Use `create(ShotEndedSchema)` to create a new message.
  */
 export const ShotEndedSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 12);
+  messageDesc(file_voidmarch_v1_messages, 15);
 
 /**
  * Describes the message voidmarch.v1.RemoteShot.
  * Use `create(RemoteShotSchema)` to create a new message.
  */
 export const RemoteShotSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 13);
+  messageDesc(file_voidmarch_v1_messages, 16);
 
 /**
  * Describes the message voidmarch.v1.PlayerLeft.
  * Use `create(PlayerLeftSchema)` to create a new message.
  */
 export const PlayerLeftSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 14);
+  messageDesc(file_voidmarch_v1_messages, 17);
+
+/**
+ * Describes the message voidmarch.v1.CompanionGranted.
+ * Use `create(CompanionGrantedSchema)` to create a new message.
+ */
+export const CompanionGrantedSchema = /*@__PURE__*/
+  messageDesc(file_voidmarch_v1_messages, 18);
+
+/**
+ * Describes the message voidmarch.v1.CompanionRefused.
+ * Use `create(CompanionRefusedSchema)` to create a new message.
+ */
+export const CompanionRefusedSchema = /*@__PURE__*/
+  messageDesc(file_voidmarch_v1_messages, 19);
+
+/**
+ * Describes the message voidmarch.v1.CompanionDismissed.
+ * Use `create(CompanionDismissedSchema)` to create a new message.
+ */
+export const CompanionDismissedSchema = /*@__PURE__*/
+  messageDesc(file_voidmarch_v1_messages, 20);
 
 /**
  * Describes the message voidmarch.v1.Full.
  * Use `create(FullSchema)` to create a new message.
  */
 export const FullSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 15);
+  messageDesc(file_voidmarch_v1_messages, 21);
 
 /**
  * Describes the message voidmarch.v1.ServerMessage.
  * Use `create(ServerMessageSchema)` to create a new message.
  */
 export const ServerMessageSchema = /*@__PURE__*/
-  messageDesc(file_voidmarch_v1_messages, 16);
+  messageDesc(file_voidmarch_v1_messages, 22);
 
 /**
  * Describes the enum voidmarch.v1.Weapon.

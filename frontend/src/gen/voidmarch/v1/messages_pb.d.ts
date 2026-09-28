@@ -154,6 +154,13 @@ export declare type ShotFired = Message<"voidmarch.v1.ShotFired"> & {
    * @generated from field: float angle = 6;
    */
   angle: number;
+
+  /**
+   * 0 for the player's own ship, n for their companion n.
+   *
+   * @generated from field: uint32 companion = 7;
+   */
+  companion: number;
 };
 
 /**
@@ -183,6 +190,13 @@ export declare type Hit = Message<"voidmarch.v1.Hit"> & {
    * @generated from field: uint32 damage = 3;
    */
   damage: number;
+
+  /**
+   * 0 for the player's own ship, n for their companion n.
+   *
+   * @generated from field: uint32 companion = 4;
+   */
+  companion: number;
 };
 
 /**
@@ -190,6 +204,62 @@ export declare type Hit = Message<"voidmarch.v1.Hit"> & {
  * Use `create(HitSchema)` to create a new message.
  */
 export declare const HitSchema: GenMessage<Hit>;
+
+/**
+ * Summon asks for a companion seat (docs/design.md, section 13).
+ *
+ * @generated from message voidmarch.v1.Summon
+ */
+export declare type Summon = Message<"voidmarch.v1.Summon"> & {
+};
+
+/**
+ * Describes the message voidmarch.v1.Summon.
+ * Use `create(SummonSchema)` to create a new message.
+ */
+export declare const SummonSchema: GenMessage<Summon>;
+
+/**
+ * CompanionState is one of the player's companions, simulated by their client
+ * like their own ship.
+ *
+ * @generated from message voidmarch.v1.CompanionState
+ */
+export declare type CompanionState = Message<"voidmarch.v1.CompanionState"> & {
+  /**
+   * @generated from field: uint32 companion = 1;
+   */
+  companion: number;
+
+  /**
+   * @generated from field: voidmarch.v1.ShipState state = 2;
+   */
+  state?: ShipState | undefined;
+};
+
+/**
+ * Describes the message voidmarch.v1.CompanionState.
+ * Use `create(CompanionStateSchema)` to create a new message.
+ */
+export declare const CompanionStateSchema: GenMessage<CompanionState>;
+
+/**
+ * Dismiss gives a companion's seat back.
+ *
+ * @generated from message voidmarch.v1.Dismiss
+ */
+export declare type Dismiss = Message<"voidmarch.v1.Dismiss"> & {
+  /**
+   * @generated from field: uint32 companion = 1;
+   */
+  companion: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.Dismiss.
+ * Use `create(DismissSchema)` to create a new message.
+ */
+export declare const DismissSchema: GenMessage<Dismiss>;
 
 /**
  * ClientMessage is everything a browser sends.
@@ -224,6 +294,24 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: Hit;
     case: "hit";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Summon summon = 5;
+     */
+    value: Summon;
+    case: "summon";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.CompanionState companion = 6;
+     */
+    value: CompanionState;
+    case: "companion";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Dismiss dismiss = 7;
+     */
+    value: Dismiss;
+    case: "dismiss";
   } | { case: undefined; value?: undefined };
 };
 
@@ -270,6 +358,28 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: uint32 tick_rate = 6;
    */
   tickRate: number;
+
+  /**
+   * How many companions the player may have at once.
+   *
+   * @generated from field: uint32 companion_limit = 7;
+   */
+  companionLimit: number;
+
+  /**
+   * The player's name, for labelling their own companions.
+   *
+   * @generated from field: string name = 9;
+   */
+  name: string;
+
+  /**
+   * The player's companions the server kept (a reconnect), so the client can
+   * fly on with them and give back any it doesn't know.
+   *
+   * @generated from field: repeated uint32 companions = 10;
+   */
+  companions: number[];
 };
 
 /**
@@ -303,6 +413,14 @@ export declare type PlayerSnapshot = Message<"voidmarch.v1.PlayerSnapshot"> & {
    * @generated from field: voidmarch.v1.ShipState state = 4;
    */
   state?: ShipState | undefined;
+
+  /**
+   * Set for a companion: the player who owns it. Its player_id is the seat,
+   * "<owner_id>/<n>", and name and colour are its owner's.
+   *
+   * @generated from field: string owner_id = 5;
+   */
+  ownerId: string;
 };
 
 /**
@@ -554,6 +672,71 @@ export declare type PlayerLeft = Message<"voidmarch.v1.PlayerLeft"> & {
 export declare const PlayerLeftSchema: GenMessage<PlayerLeft>;
 
 /**
+ * CompanionGranted answers Summon: the companion's number and where to put it.
+ *
+ * @generated from message voidmarch.v1.CompanionGranted
+ */
+export declare type CompanionGranted = Message<"voidmarch.v1.CompanionGranted"> & {
+  /**
+   * @generated from field: uint32 companion = 1;
+   */
+  companion: number;
+
+  /**
+   * @generated from field: float x = 2;
+   */
+  x: number;
+
+  /**
+   * @generated from field: float y = 3;
+   */
+  y: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.CompanionGranted.
+ * Use `create(CompanionGrantedSchema)` to create a new message.
+ */
+export declare const CompanionGrantedSchema: GenMessage<CompanionGranted>;
+
+/**
+ * CompanionRefused answers Summon when no companion can come.
+ *
+ * @generated from message voidmarch.v1.CompanionRefused
+ */
+export declare type CompanionRefused = Message<"voidmarch.v1.CompanionRefused"> & {
+  /**
+   * @generated from field: string reason = 1;
+   */
+  reason: string;
+};
+
+/**
+ * Describes the message voidmarch.v1.CompanionRefused.
+ * Use `create(CompanionRefusedSchema)` to create a new message.
+ */
+export declare const CompanionRefusedSchema: GenMessage<CompanionRefused>;
+
+/**
+ * CompanionDismissed says the server took a companion's seat back: for a
+ * human joining a full world, or because its states stopped or never came.
+ *
+ * @generated from message voidmarch.v1.CompanionDismissed
+ */
+export declare type CompanionDismissed = Message<"voidmarch.v1.CompanionDismissed"> & {
+  /**
+   * @generated from field: uint32 companion = 1;
+   */
+  companion: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.CompanionDismissed.
+ * Use `create(CompanionDismissedSchema)` to create a new message.
+ */
+export declare const CompanionDismissedSchema: GenMessage<CompanionDismissed>;
+
+/**
  * Full says the frontier has no room; the server closes the connection after it.
  *
  * @generated from message voidmarch.v1.Full
@@ -624,6 +807,24 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: ShotEnded;
     case: "shotEnded";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.CompanionGranted companion_granted = 9;
+     */
+    value: CompanionGranted;
+    case: "companionGranted";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.CompanionRefused companion_refused = 10;
+     */
+    value: CompanionRefused;
+    case: "companionRefused";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.CompanionDismissed companion_dismissed = 11;
+     */
+    value: CompanionDismissed;
+    case: "companionDismissed";
   } | { case: undefined; value?: undefined };
 };
 

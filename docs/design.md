@@ -229,7 +229,6 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 - **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The owner's client simulates its companions (the trust model, §9), and on the wire they are players with an owner.
 - **How many:** up to 3 per player, and at most 4 ships per wing (players within one screen of each other), companions included. Companions are full seats: they count toward the 16-player cap, and a human joining a full world takes one over or displaces one, so the group, and its difficulty, stays the same whoever flies each ship.
 - **Summoning** happens at the home planet, alongside the loadout change. The owner picks each companion's loadout from their own unlocked parts. Until the loadout change exists (milestone 5), G summons one inside the safe zone.
-- **For testing**, development servers lift the limits: one player can summon up to the free seats, anywhere, with no wing cap.
 - **Looks:** the Main Ship sprites, tinted per owner. Orders and names are HUD text; no new art.
 
 ### Joining and leaving
@@ -267,3 +266,11 @@ As built so far (#26): the brain is `think` in `frontend/src/sim/brain.ts`, a pu
 - **Falling back:** badly damaged, a defensive or conserving companion falls back into a tight formation. Until health exists (milestone 4), the damage state stands in for it.
 - **Conserve:** the big space gun holds its volleys for Support Ships and focus targets.
 - **Not yet built:** Revive and Collect come with milestones 4 and 5. Support Ship priority ranks targets, but has no effect until Support Ships exist.
+
+As built (#27), single-player companions:
+
+- **Seats:** G asks the server for a companion. The server grants the lowest free number up to 3, only at the home planet and with fewer than 4 ships in the wing, or refuses with a reason shown in the HUD. Development servers keep the same rules, so what's tested is what's played (@starquake, 2026-09-28; this reversed an earlier exception that lifted the limits there).
+- **On the wire:** the owner's client flies each companion with its brain in the sim, and sends its state with the owner's, as the seat `<playerId>/<n>`. Others get it in their snapshots as a player with an `owner_id`. Its shots and hits carry its number, so a kill is credited to the seat. A dismissed companion leaves like a player. A companion whose states stop for 3 s (a closed tab, a lost grant) is dismissed, like a silent player. A reconnect keeps them: `Welcome` lists the ones the server kept, and the client drops the rest (it was dropped for silence meanwhile) and gives back any it doesn't fly (another tab's).
+- **The world counts them:** enemies target companions and spawn around them like players, and they count toward the 16 seats. A human joining a full world displaces the newest companion.
+- **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; enemy bullets flash them. Their shots sound like other players'.
+- **Orders:** hold Q for a ring of the orders around the cursor, stretched wide so the labels don't collide; tap Q to repeat the last. Hold here takes the point under the cursor, and focus the enemy under it.

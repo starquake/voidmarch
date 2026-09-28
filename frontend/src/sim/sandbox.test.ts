@@ -3,7 +3,14 @@ import { test } from 'node:test';
 
 import type { InputSnapshot } from './input.ts';
 import { Sandbox } from './sandbox.ts';
-import { MAX_TICKS_PER_FRAME, TICK_SECONDS, WEAPON_STATS } from './tuning.ts';
+import {
+  BRAIN_ORDER_JITTER,
+  BRAIN_REACTION_MAX,
+  BRAIN_REACTION_MIN,
+  MAX_TICKS_PER_FRAME,
+  TICK_SECONDS,
+  WEAPON_STATS,
+} from './tuning.ts';
 
 const input = (overrides: Partial<InputSnapshot> = {}): InputSnapshot => ({
   up: false,
@@ -84,4 +91,113 @@ test('screen-relative control: W flies up whatever the aim', () => {
   }
   assert.ok(sandbox.ship.y < start.y - 20);
   assert.ok(Math.abs(sandbox.ship.x - start.x) < 1e-9);
+});
+
+test('a companion flies with its owner and forgets a finished one-shot', () => {
+  const sandbox = new Sandbox();
+  const companion = sandbox.addCompanion(1, sandbox.ship.x + 150, sandbox.ship.y + 150);
+  companion.orders = { ...companion.orders, oneShot: { kind: 'regroup' } };
+  for (let t = 0; t < 3; t += TICK_SECONDS) {
+    sandbox.advance(TICK_SECONDS, input());
+  }
+  assert.ok(Math.hypot(companion.ship.x - sandbox.ship.x, companion.ship.y - sandbox.ship.y) < 100, 'back in formation');
+  assert.equal(companion.orders.oneShot, undefined);
+});
+
+test("a companion's shots carry its number, in the pool and the frame's shots", () => {
+  const sandbox = new Sandbox();
+  const companion = sandbox.addCompanion(2, sandbox.ship.x - 40, sandbox.ship.y + 40);
+  companion.orders = { ...companion.orders, stance: 'aggressive' };
+  const enemies = [{ id: 1, kind: 'scout' as const, x: sandbox.ship.x, y: sandbox.ship.y - 200, attackedWing: true }];
+  const shots = [];
+  for (let t = 0; t < 2; t += TICK_SECONDS) {
+    shots.push(...sandbox.advance(TICK_SECONDS, input(), enemies).shots);
+  }
+  assert.ok(shots.length > 0, 'it fired');
+  assert.ok(shots.every((s) => s.companion === 2), 'only the companion fired');
+  const fired = sandbox.projectiles.items.filter((p) => p.active);
+  assert.ok(fired.every((p) => p.owner === '2' && p.faction === 'own'));
+});
+
+test('the player keeps their own shots, numbered 0', () => {
+  const sandbox = new Sandbox();
+  assert.equal(sandbox.advance(TICK_SECONDS, input({ fire: true })).shots[0]?.companion, 0);
+});
+
+test('companions can be removed, and adding a number again replaces it', () => {
+  const sandbox = new Sandbox();
+  sandbox.addCompanion(1, 0, 0);
+  sandbox.addCompanion(2, 0, 0);
+  sandbox.addCompanion(1, 5, 5);
+  assert.deepEqual(
+    sandbox.companions.map((c) => c.number),
+    [2, 1],
+  );
+  sandbox.removeCompanion(2);
+  assert.deepEqual(
+    sandbox.companions.map((c) => c.number),
+    [1],
+  );
+});
+
+test("removing a companion ends its shots in flight, and only its", () => {
+  const sandbox = new Sandbox();
+  sandbox.projectiles.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 }, { owner: '2' });
+  sandbox.projectiles.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 }, { owner: '1' });
+  sandbox.projectiles.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
+  sandbox.removeCompanion(2);
+  assert.deepEqual(
+    sandbox.projectiles.items.filter((p) => p.active).map((p) => p.owner),
+    ['1', ''],
+  );
+});
+
+test('companions react late, each at its own pace', () => {
+  const sandbox = new Sandbox();
+  const companions = [1, 2, 3].map((n) => sandbox.addCompanion(n, 0, 200));
+  const min = Math.round(BRAIN_REACTION_MIN / TICK_SECONDS);
+  const max = Math.round(BRAIN_REACTION_MAX / TICK_SECONDS);
+  for (const c of companions) {
+    assert.ok(c.reactionTicks >= min && c.reactionTicks <= max, String(c.reactionTicks));
+  }
+  assert.ok(new Set(companions.map((c) => c.reactionTicks)).size > 1, 'not all the same');
+});
+
+test('an order arrives after the reaction time, not at once, and not for all at once', () => {
+  const sandbox = new Sandbox();
+  const companions = [1, 2, 3].map((n) => sandbox.addCompanion(n, 0, 200));
+  for (const c of companions) {
+    sandbox.order(c, { ...c.orders, stance: 'aggressive' });
+    assert.equal(c.orders.stance, 'escort', 'not yet');
+    assert.equal(sandbox.ordersFor(c).stance, 'aggressive', 'but on its way');
+  }
+  const arrived: number[] = [];
+  for (let tick = 1; arrived.length < 3 && tick < 200; tick++) {
+    sandbox.advance(TICK_SECONDS, input());
+    for (const c of companions) {
+      if (c.orders.stance === 'aggressive' && !arrived.includes(c.number)) {
+        arrived.push(c.number);
+        assert.ok(tick * TICK_SECONDS >= BRAIN_REACTION_MIN - 1e-9, 'no sooner than the fastest reaction');
+        assert.ok(tick * TICK_SECONDS <= BRAIN_REACTION_MAX + BRAIN_ORDER_JITTER + TICK_SECONDS, 'no later than the slowest');
+      }
+    }
+  }
+  assert.equal(arrived.length, 3);
+});
+
+test('a companion follows where its owner was, a moment ago', () => {
+  const sandbox = new Sandbox();
+  const c = sandbox.addCompanion(1, sandbox.ship.x, sandbox.ship.y + 60);
+  for (let t = 0; t < 1; t += TICK_SECONDS) {
+    sandbox.advance(TICK_SECONDS, input());
+  }
+  // The owner jumps; for a few ticks the companion still steers for the old spot.
+  const before = { vx: c.ship.vx, vy: c.ship.vy };
+  sandbox.ship.x += 300;
+  sandbox.advance(TICK_SECONDS, input());
+  assert.ok(Math.abs(c.ship.vx - before.vx) < 20, 'no reaction on the next tick');
+  for (let t = 0; t < BRAIN_REACTION_MAX + 0.1; t += TICK_SECONDS) {
+    sandbox.advance(TICK_SECONDS, input());
+  }
+  assert.ok(c.ship.vx > 50, 'but heads after it once it has seen the move');
 });

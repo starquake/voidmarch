@@ -188,6 +188,11 @@ export const ENEMY_VOLLEY_RANGE = 800;
 /** Enemies explode audibly only this close to the ship, about the view. */
 export const ENEMY_SOUND_RANGE = 400;
 
+/** The home planet's safe zone, where enemies never go and companions are summoned (the server's too). */
+export const SAFE_ZONE_RADIUS = 300;
+/** An enemy that fires this close to the player or a companion has attacked the wing. */
+export const BRAIN_ATTACKER_RANGE = 500;
+
 /** The player ship's hit circle, in art pixels. */
 export const SHIP_RADIUS = 12;
 /** A projectile's own size when testing hits, in art pixels. */
@@ -229,6 +234,15 @@ export const BRAIN_BADLY_DAMAGED = 3;
 export const BRAIN_HOME_RADIUS = 250;
 /** Shielding the owner, a companion keeps this far out toward the attackers. */
 export const BRAIN_SHIELD_DISTANCE = 45;
+/**
+ * Each companion reacts this many seconds late, picked per companion from its
+ * seed: it sees its owner that long ago and takes orders that much later, so a
+ * wing doesn't move in lockstep.
+ */
+export const BRAIN_REACTION_MIN = 0.15;
+export const BRAIN_REACTION_MAX = 0.5;
+/** An order also waits up to this much longer, fresh for every order. */
+export const BRAIN_ORDER_JITTER = 0.25;
 
 /**
  * Enemy bullets fly on a layer with one glow in this colour (0xRRGGBB), so
