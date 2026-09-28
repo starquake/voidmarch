@@ -36,7 +36,8 @@ export default defineConfig({
     command: 'go run ./cmd/voidmarch',
     cwd: '..',
     url: `http://127.0.0.1:${port}/healthz`,
-    env: { APP_ENV: 'development', HOST: '127.0.0.1', PORT: port },
+    // The specs share one hangar, so it holds a ship for every seat but one.
+    env: { APP_ENV: 'development', HOST: '127.0.0.1', PORT: port, POOL_START: '15' },
     reuseExistingServer: !ci,
     timeout: 120_000,
   },
