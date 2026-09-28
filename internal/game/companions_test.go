@@ -492,13 +492,13 @@ func TestHangar_EveryoneSeesItsShips(t *testing.T) {
 func TestHangar_SummonDrawsFromIt(t *testing.T) {
 	t.Parallel()
 
-	hub, _ := testHub(t, WithPoolStart(2))
+	hub, _ := testHub(t, WithPoolStart(3))
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	a.Send(summon)
 
-	// The list after the join says 2; the one after the grant must say 1.
-	waitHangar(t, a, 1)
+	// The list after the join says 3; the one after the grant must say 2.
+	waitHangar(t, a, 2)
 }
 
 func TestHangar_EmptyRefuses(t *testing.T) {
@@ -585,4 +585,65 @@ func TestHangar_NeverOverItsShips(t *testing.T) {
 
 		break
 	}
+}
+
+// squadronsWhere reads s's squadron lists until one satisfies ok, and returns it.
+func squadronsWhere(t *testing.T, s *Session, ok func(*pb.Squadrons) bool) *pb.Squadrons {
+	t.Helper()
+
+	for {
+		if sq := next(t, s).GetSquadrons(); sq != nil && ok(sq) {
+			return sq
+		}
+	}
+}
+
+// Players and companions come from different pools: a joiner who takes a
+// companion's place holds that ship until they leave, so joining never adds
+// ships to the hangar.
+func TestHangar_JoiningNeverAddsShips(t *testing.T) {
+	t.Parallel()
+
+	t.Run("taking over a companion", func(t *testing.T) {
+		t.Parallel()
+
+		hub, _ := testHub(t, WithPoolStart(3))
+		a, _ := pilot(t, hub, "a")
+		a.Send(state(0, 180))
+		for range 3 {
+			grant(t, a)
+		}
+		b, _ := join(t, hub, "b")
+		if j := chooseAndWait(t, b, "Alpha"); !j.GetTookOver() {
+			t.Fatal("joining a full Alpha, want a takeover")
+		}
+
+		joined := squadronsWhere(t, b, func(sq *pb.Squadrons) bool {
+			return len(sq.GetSquadrons()) == 1 && len(sq.GetSquadrons()[0].GetMembers()) == 2
+		})
+		if got, want := joined.GetHangar(), uint32(0); got != want {
+			t.Errorf("hangar after the takeover = %d, want %d", got, want)
+		}
+		b.Leave()
+		waitHangar(t, a, 1)
+	})
+
+	t.Run("displacing one from a full world", func(t *testing.T) {
+		t.Parallel()
+
+		hub, _ := testHub(t, WithPoolStart(12))
+		owners := fillSeats(t, hub)
+		e, _ := pilot(t, hub, "e")
+
+		joined := squadronsWhere(
+			t,
+			e,
+			func(sq *pb.Squadrons) bool { return len(sq.GetSquadrons()) == 5 },
+		)
+		if got, want := joined.GetHangar(), uint32(0); got != want {
+			t.Errorf("hangar after a joiner displaced a companion = %d, want %d", got, want)
+		}
+		e.Leave()
+		waitHangar(t, owners[0], 1)
+	})
 }

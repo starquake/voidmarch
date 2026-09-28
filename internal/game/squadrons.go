@@ -138,7 +138,8 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 			if owner, c := h.newestCompanionIn(sq); c != nil {
 				joined.TookOver = true
 				joined.X, joined.Y = c.state.GetX(), c.state.GetY()
-				h.dismiss(owner, h.members[owner], c.number)
+				h.takeCompanion(owner, h.members[owner], c.number)
+				m.held++
 				takenOver := dismissed(c.number)
 				takenOver.GetCompanionDismissed().TakenBy = m.session.Player.Name
 				h.send(owner, takenOver)

@@ -105,6 +105,10 @@ type member struct {
 	companions map[uint32]*companion
 	// squadron is the name of the player's squadron, "" until they choose.
 	squadron string
+	// held counts the companion ships this player took the place of on
+	// joining; they go back to the hangar when the player leaves, so joining
+	// never adds ships to it.
+	held int
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -235,13 +239,18 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	// and their squadron.
 	companions := make(map[uint32]*companion)
 	var squadron string
+	var held int
 	if old, ok := h.members[player.ID]; ok {
 		companions = old.companions
 		squadron = old.squadron
+		held = old.held
 		close(old.session.queue)
 		delete(h.members, player.ID)
-	} else if h.seats() >= MaxPlayers && !h.displaceNewestCompanion() {
-		return joinResult{err: ErrFull}
+	} else if h.seats() >= MaxPlayers {
+		if !h.displaceNewestCompanion() {
+			return joinResult{err: ErrFull}
+		}
+		held = 1
 	}
 
 	out := make(chan *pb.ServerMessage, sendQueue)
@@ -254,6 +263,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		lastSeen:   h.tick,
 		companions: companions,
 		squadron:   squadron,
+		held:       held,
 	}
 	h.logger.Info(
 		"player joined",
@@ -387,6 +397,7 @@ func (h *Hub) drop(id, reason string) {
 		h.broadcast(left(seatID(id, number)), "")
 		h.hangar++
 	}
+	h.hangar += m.held
 	h.broadcast(left(id), "")
 	h.leaveSquadron(id, m)
 	h.broadcastSquadrons()
