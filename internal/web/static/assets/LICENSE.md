@@ -13,4 +13,10 @@ required; it is given here anyway.
 - `klaed/`: [Void - Fleet Pack 1 (Kla'ed)](https://foozlecc.itch.io/void-fleet-pack-1),
   distributed by Foozle.
 
-Files are renamed to kebab-case and otherwise unchanged.
+Files are renamed to kebab-case and otherwise unchanged, except these
+recolours: palette swaps made with `tools/recolor.py`, which turns every
+pixel's hue and keeps its brightness and shading.
+
+- `klaed/bullet.png` and `klaed/big-bullet.png`: the pack's `Kla'ed - Bullet`
+  and `Kla'ed - Big Bullet`, turned 190 degrees, from orange to blue, so enemy
+  fire stands apart from the players' orange shots (#36).
