@@ -132,6 +132,8 @@ message Welcome {
   // Companions may be summoned anywhere, not only at the home planet
   // (development servers, for testing).
   bool summon_anywhere = 8;
+  // The player's name, for labelling their own companions.
+  string name = 9;
 }
 
 // PlayerSnapshot is one other player at a tick.

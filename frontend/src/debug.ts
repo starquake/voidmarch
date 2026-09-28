@@ -1,6 +1,18 @@
 import type { EnemyDebug, NetStatus, RemoteDebug } from './scenes/netplay.ts';
+import type { FireOrder, OneShot, ResourceOrder, Stance } from './sim/brain.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
+
+/** One of the player's companions, as the E2E tests see it. */
+export interface CompanionDebug {
+  number: number;
+  x: number;
+  y: number;
+  stance: Stance;
+  fire: FireOrder;
+  resources: ResourceOrder;
+  oneShot: OneShot['kind'] | undefined;
+}
 
 /** Read-only state the E2E tests inspect through window.voidmarch. */
 export interface DebugState {
@@ -26,6 +38,11 @@ export interface DebugState {
   /** The id of the last enemy this player shot down. */
   lastEnemyDestroyed: number | undefined;
   hitsTaken: number;
+  companions: CompanionDebug[];
+  /** Enemies the player's companions shot down. */
+  companionKills: number;
+  /** The HUD's current notice, if any. */
+  notice: string | undefined;
   audio: {
     muted: boolean;
     music: boolean;

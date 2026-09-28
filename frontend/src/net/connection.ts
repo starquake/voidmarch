@@ -2,6 +2,7 @@ import { create } from '@bufbuild/protobuf';
 
 import {
   ClientMessageSchema,
+  type CompanionGranted,
   type EnemyDestroyed,
   type EnemyFired,
   type RemoteShot,
@@ -48,6 +49,18 @@ export interface ConnectionEvents {
   enemyDestroyed(destroyed: EnemyDestroyed): void;
   /** Another player's shot hit something; remove it. */
   shotEnded(ended: ShotEnded): void;
+  /** A summon was granted: a companion's number and where to put it. */
+  companionGranted(granted: CompanionGranted): void;
+  /** A summon was refused, with the reason to show. */
+  companionRefused(reason: string): void;
+  /** The server took a companion's seat back. */
+  companionDismissed(companion: number): void;
+}
+
+/** A companion as its states are sent: its number and its ship. */
+export interface CompanionShip {
+  number: number;
+  ship: Ship;
 }
 
 export interface Timers {
@@ -112,13 +125,34 @@ export class Connection {
     this.welcomed = false;
   }
 
-  /** Sends the ship's state, at most at the server's tick rate. */
-  sendState(ship: Ship, nowMs: number): void {
+  /** Sends the ship's state, and its companions', at most at the server's tick rate. */
+  sendState(ship: Ship, nowMs: number, companions: readonly CompanionShip[] = []): void {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
     this.lastStateAt = nowMs;
     this.send(create(ClientMessageSchema, { kind: { case: 'state', value: toShipState(ship) } }));
+    for (const c of companions) {
+      this.send(
+        create(ClientMessageSchema, {
+          kind: { case: 'companion', value: { companion: c.number, state: toShipState(c.ship) } },
+        }),
+      );
+    }
+  }
+
+  /** Asks the server for a companion. */
+  sendSummon(): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'summon', value: {} } }));
+    }
+  }
+
+  /** Gives a companion's seat back. */
+  sendDismiss(companion: number): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'dismiss', value: { companion } } }));
+    }
   }
 
   /** Sends a shot under its projectile-pool id, which a hit later reports. */
@@ -130,18 +164,28 @@ export class Connection {
       create(ClientMessageSchema, {
         kind: {
           case: 'shot',
-          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle },
+          value: {
+            id: shot.id,
+            weapon: toWeapon(shot.weapon),
+            muzzle: shot.muzzle,
+            x: shot.x,
+            y: shot.y,
+            angle: shot.angle,
+            companion: shot.companion,
+          },
         },
       }),
     );
   }
 
-  /** Reports that one of our shots hit an enemy; the server trusts it. */
-  sendHit(enemyId: number, shotId: number, damage: number): void {
+  /** Reports that one of our shots, or a companion's, hit an enemy; the server trusts it. */
+  sendHit(enemyId: number, shotId: number, damage: number, companion = 0): void {
     if (!this.welcomed) {
       return;
     }
-    this.send(create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage } } }));
+    this.send(
+      create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage, companion } } }),
+    );
   }
 
   private open(): void {
@@ -191,6 +235,15 @@ export class Connection {
         break;
       case 'shotEnded':
         events.shotEnded(message.kind.value);
+        break;
+      case 'companionGranted':
+        events.companionGranted(message.kind.value);
+        break;
+      case 'companionRefused':
+        events.companionRefused(message.kind.value.reason);
+        break;
+      case 'companionDismissed':
+        events.companionDismissed(message.kind.value.companion);
         break;
       default:
     }

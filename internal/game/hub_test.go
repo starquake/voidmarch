@@ -125,6 +125,9 @@ func TestHub_JoinWelcomes(t *testing.T) {
 	if got, want := first.GetPlayerId(), "a"; got != want {
 		t.Errorf("PlayerId = %q, want %q", got, want)
 	}
+	if got, want := first.GetName(), "name-a"; got != want {
+		t.Errorf("Name = %q, want %q", got, want)
+	}
 }
 
 func TestHub_SpawnsApart(t *testing.T) {

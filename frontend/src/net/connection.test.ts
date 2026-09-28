@@ -96,6 +96,9 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     enemyFired: (f) => log.events.push(`enemy fired ${f.enemyId}`),
     enemyDestroyed: (d) => log.events.push(`enemy destroyed ${d.enemyId}`),
     shotEnded: (e) => log.events.push(`shot ended ${e.playerId}:${e.shotId}`),
+    companionGranted: (g) => log.events.push(`granted ${g.companion}`),
+    companionRefused: (reason) => log.events.push(`refused ${reason}`),
+    companionDismissed: (n) => log.events.push(`dismissed ${n}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -154,6 +157,9 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'enemyFired', value: { enemyId: 3 } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'enemyDestroyed', value: { enemyId: 3 } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'shotEnded', value: { playerId: 'mo', shotId: 9 } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionGranted', value: { companion: 2 } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionRefused', value: { reason: 'your wing is full' } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionDismissed', value: { companion: 3 } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -162,6 +168,9 @@ test('server messages reach their events', () => {
     'enemy fired 3',
     'enemy destroyed 3',
     'shot ended mo:9',
+    'granted 2',
+    'refused your wing is full',
+    'dismissed 3',
   ]);
   assert.equal(conn.connected, true);
 });
@@ -270,4 +279,42 @@ test('hits before the welcome are not sent', () => {
   conn.start();
   conn.sendHit(3, 9, 4);
   assert.deepEqual(sockets[0]?.sent, []);
+});
+
+test('companion states go out with the ship state, each under its number', () => {
+  const { conn, socket } = welcomed();
+  conn.sendState(createShip(1, 2), 1000, [
+    { number: 1, ship: createShip(10, 20) },
+    { number: 3, ship: createShip(30, 40) },
+  ]);
+  const companions = socket.messages().flatMap((m) => (m.kind.case === 'companion' ? [m.kind.value] : []));
+  assert.deepEqual(
+    companions.map((c) => [c.companion, c.state?.x, c.state?.y]),
+    [
+      [1, 10, 20],
+      [3, 30, 40],
+    ],
+  );
+});
+
+test('summon, dismiss, and a companion shot and hit carry what the server needs', () => {
+  const { conn, socket } = welcomed();
+  conn.sendSummon();
+  conn.sendDismiss(2);
+  conn.sendShot({ id: 5, weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0, companion: 2 });
+  conn.sendHit(7, 5, 1, 2);
+  const kinds = socket.messages().map((m) => m.kind);
+  assert.ok(kinds.some((k) => k.case === 'summon'));
+  assert.ok(kinds.some((k) => k.case === 'dismiss' && k.value.companion === 2));
+  assert.ok(kinds.some((k) => k.case === 'shot' && k.value.companion === 2));
+  assert.ok(kinds.some((k) => k.case === 'hit' && k.value.companion === 2 && k.value.enemyId === 7));
+});
+
+test('nothing about companions is sent before the welcome', () => {
+  const { conn, sockets } = setup();
+  conn.start();
+  sockets[0]?.open();
+  conn.sendSummon();
+  conn.sendDismiss(1);
+  assert.equal(sockets[0]?.messages().length, 1, 'only the hello');
 });

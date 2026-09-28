@@ -932,8 +932,10 @@ type Welcome struct {
 	// Companions may be summoned anywhere, not only at the home planet
 	// (development servers, for testing).
 	SummonAnywhere bool `protobuf:"varint,8,opt,name=summon_anywhere,json=summonAnywhere,proto3" json:"summon_anywhere,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The player's name, for labelling their own companions.
+	Name          string `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Welcome) Reset() {
@@ -1020,6 +1022,13 @@ func (x *Welcome) GetSummonAnywhere() bool {
 		return x.SummonAnywhere
 	}
 	return false
+}
+
+func (x *Welcome) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -2060,7 +2069,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x06summon\x18\x05 \x01(\v2\x14.voidmarch.v1.SummonH\x00R\x06summon\x12<\n" +
 	"\tcompanion\x18\x06 \x01(\v2\x1c.voidmarch.v1.CompanionStateH\x00R\tcompanion\x121\n" +
 	"\adismiss\x18\a \x01(\v2\x15.voidmarch.v1.DismissH\x00R\adismissB\x06\n" +
-	"\x04kind\"\xf3\x01\n" +
+	"\x04kind\"\x87\x02\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x16\n" +
 	"\x06colour\x18\x02 \x01(\rR\x06colour\x12\x17\n" +
@@ -2069,7 +2078,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x04tick\x18\x05 \x01(\rR\x04tick\x12\x1b\n" +
 	"\ttick_rate\x18\x06 \x01(\rR\btickRate\x12'\n" +
 	"\x0fcompanion_limit\x18\a \x01(\rR\x0ecompanionLimit\x12'\n" +
-	"\x0fsummon_anywhere\x18\b \x01(\bR\x0esummonAnywhere\"\xa3\x01\n" +
+	"\x0fsummon_anywhere\x18\b \x01(\bR\x0esummonAnywhere\x12\x12\n" +
+	"\x04name\x18\t \x01(\tR\x04name\"\xa3\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +

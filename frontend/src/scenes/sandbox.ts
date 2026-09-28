@@ -134,12 +134,15 @@ export class SandboxScene extends Phaser.Scene {
       lastEnemyDestroyed: undefined,
       enemyFireGlow: false,
       hitsTaken: 0,
+      companions: [],
+      companionKills: 0,
+      notice: undefined,
     };
     this.publish();
   }
 
   override update(time: number, deltaMs: number): void {
-    const events = this.sim.advance(deltaMs / 1000, this.readInput());
+    const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.brainEnemies ?? []);
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== undefined) {
@@ -305,6 +308,10 @@ export class SandboxScene extends Phaser.Scene {
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
+      case 'KeyG':
+        this.net?.summon();
+        this.updateHud();
+        break;
       case 'KeyM':
         this.audio.toggleMute();
         saveAudioSettings(this.audioSettings);
@@ -401,14 +408,15 @@ export class SandboxScene extends Phaser.Scene {
   private animateWeapon(events: FrameEvents): void {
     const now = this.time.now / 1000;
     const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
+    const own = events.shots.filter((shot) => shot.companion === 0);
     if (events.charges.length > 0) {
       this.weaponFrames.charge(now, stats.charge);
     }
     if (stats.alternate) {
-      for (const shot of events.shots) {
+      for (const shot of own) {
         this.weaponFrames.release(now, shot.muzzle, stats.muzzles.length);
       }
-    } else if (events.shots.length > 0) {
+    } else if (own.length > 0) {
       this.weaponFrames.release(now, 0, 1);
     }
     this.ship.weapon.setFrame(this.weaponFrames.frame(now));
@@ -436,13 +444,14 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private playEffects(events: FrameEvents): void {
-    this.shotsFired += events.shots.length;
+    this.shotsFired += events.shots.filter((shot) => shot.companion === 0).length;
     if (!this.effects) {
       return;
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      const shake = WEAPON_STATS[shot.weapon].shake;
+      // Only the player's own big gun shakes the camera.
+      const shake = shot.companion === 0 ? WEAPON_STATS[shot.weapon].shake : 0;
       if (shake > 0) {
         this.cameras.main.shake(120, shake);
       }
@@ -484,9 +493,23 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
+      'WASD move · mouse aim · hold left button to fire · G companion · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
       this.netStatus(),
+      this.wingStatus(),
     ]);
+  }
+
+  /** The companions out, and the latest notice (a refused summon, a companion sent home). */
+  private wingStatus(): string {
+    const net = this.net;
+    if (net === undefined) {
+      return '';
+    }
+    const out = this.sim.companions.length;
+    const wing = out === 0 ? 'no companions' : `${String(out)} companion${out === 1 ? '' : 's'}`;
+    const notice = net.noticeText;
+
+    return notice === undefined ? wing : `${wing} · ${notice}`;
   }
 
   private netStatus(): string {
@@ -538,6 +561,17 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
+    this.debug.companions = this.sim.companions.map((c) => ({
+      number: c.number,
+      x: c.ship.x,
+      y: c.ship.y,
+      stance: c.orders.stance,
+      fire: c.orders.fire,
+      resources: c.orders.resources,
+      oneShot: c.orders.oneShot?.kind,
+    }));
+    this.debug.companionKills = this.net?.companionKills ?? 0;
+    this.debug.notice = this.net?.noticeText;
     publishDebugState(this.debug);
   }
 }

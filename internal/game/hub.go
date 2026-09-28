@@ -255,6 +255,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 
 	welcome := &pb.Welcome{
 		PlayerId: player.ID,
+		Name:     player.Name,
 		Colour:   colour,
 		SpawnX:   spawnX,
 		SpawnY:   spawnY,

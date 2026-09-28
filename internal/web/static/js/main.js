@@ -242,6 +242,8 @@ var ENEMY_AIM_JITTER = 0.08;
 var ENEMY_MUZZLE = 14;
 var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
+var SAFE_ZONE_RADIUS = 300;
+var BRAIN_ATTACKER_RANGE = 500;
 var SHIP_RADIUS = 12;
 var SHOT_RADIUS = 3;
 var FORMATION_SLOTS = [
@@ -471,7 +473,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJLCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SEQoJY29tcGFuaW9uGAQgASgNIggKBlN1bW1vbiJLCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIrcCCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjEKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUgAEigKB2Rpc21pc3MYByABKAsyFS52b2lkbWFyY2gudjEuRGlzbWlzc0gAQgYKBGtpbmQioQEKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg4KBmNvbG91chgCIAEoDRIPCgdzcGF3bl94GAMgASgCEg8KB3NwYXduX3kYBCABKAISDAoEdGljaxgFIAEoDRIRCgl0aWNrX3JhdGUYBiABKA0SFwoPY29tcGFuaW9uX2xpbWl0GAcgASgNEhcKD3N1bW1vbl9hbnl3aGVyZRgIIAEoCCJ7Cg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZjb2xvdXIYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlEhAKCG93bmVyX2lkGAUgASgJImoKCkVuZW15U3RhdGUSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEg0KBWFuZ2xlGAUgASgCInIKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUimgEKCkVuZW15RmlyZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSDAoEdGljaxgDIAEoDRIMCgRzZWVkGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAhINCgVhbmdsZRgHIAEoAhISCgp3YXJuX3RpY2tzGAggASgNIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiPQoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSI7ChBDb21wYW5pb25HcmFudGVkEhEKCWNvbXBhbmlvbhgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAIiIgoQQ29tcGFuaW9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiJwoSQ29tcGFuaW9uRGlzbWlzc2VkEhEKCWNvbXBhbmlvbhgBIAEoDSIGCgRGdWxsIrkECg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSAASOwoRY29tcGFuaW9uX2dyYW50ZWQYCSABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uR3JhbnRlZEgAEjsKEWNvbXBhbmlvbl9yZWZ1c2VkGAogASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvblJlZnVzZWRIABI/ChNjb21wYW5pb25fZGlzbWlzc2VkGAsgASgLMiAudm9pZG1hcmNoLnYxLkNvbXBhbmlvbkRpc21pc3NlZEgAQgYKBGtpbmQqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCpVCglFbmVteUtpbmQSGgoWRU5FTVlfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVORU1ZX0tJTkRfU0NPVVQQARIWChJFTkVNWV9LSU5EX0ZJR0hURVIQAkJGWkRnaXRodWIuY29tL3N0YXJxdWFrZS92b2lkbWFyY2gvaW50ZXJuYWwvZ2VuL3ZvaWRtYXJjaC92MTt2b2lkbWFyY2h2MWIGcHJvdG8z");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJLCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SEQoJY29tcGFuaW9uGAQgASgNIggKBlN1bW1vbiJLCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIrcCCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjEKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUgAEigKB2Rpc21pc3MYByABKAsyFS52b2lkbWFyY2gudjEuRGlzbWlzc0gAQgYKBGtpbmQirwEKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg4KBmNvbG91chgCIAEoDRIPCgdzcGF3bl94GAMgASgCEg8KB3NwYXduX3kYBCABKAISDAoEdGljaxgFIAEoDRIRCgl0aWNrX3JhdGUYBiABKA0SFwoPY29tcGFuaW9uX2xpbWl0GAcgASgNEhcKD3N1bW1vbl9hbnl3aGVyZRgIIAEoCBIMCgRuYW1lGAkgASgJInsKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSInChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNIgYKBEZ1bGwiuQQKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 8);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 22);
@@ -1315,7 +1317,16 @@ var ShipAudio = class {
       }
     }
     const volleys = /* @__PURE__ */ new Set();
+    const companionVolleys = /* @__PURE__ */ new Set();
     for (const shot of events.shots) {
+      if (shot.companion !== 0) {
+        const volley2 = `${String(shot.companion)}:${shot.weapon}`;
+        if (!companionVolleys.has(volley2)) {
+          companionVolleys.add(volley2);
+          this.remoteShot(shot.weapon);
+        }
+        continue;
+      }
       const volley = WEAPON_STATS[shot.weapon].alternate ? `${shot.weapon}-${shot.muzzle}-${volleys.size}` : shot.weapon;
       if (volleys.has(volley)) {
         continue;
@@ -1525,13 +1536,32 @@ var Connection = class {
     this.socket = void 0;
     this.welcomed = false;
   }
-  /** Sends the ship's state, at most at the server's tick rate. */
-  sendState(ship, nowMs) {
+  /** Sends the ship's state, and its companions', at most at the server's tick rate. */
+  sendState(ship, nowMs, companions = []) {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
     this.lastStateAt = nowMs;
     this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
+    for (const c of companions) {
+      this.send(
+        create2(ClientMessageSchema, {
+          kind: { case: "companion", value: { companion: c.number, state: toShipState(c.ship) } }
+        })
+      );
+    }
+  }
+  /** Asks the server for a companion. */
+  sendSummon() {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "summon", value: {} } }));
+    }
+  }
+  /** Gives a companion's seat back. */
+  sendDismiss(companion) {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "dismiss", value: { companion } } }));
+    }
   }
   /** Sends a shot under its projectile-pool id, which a hit later reports. */
   sendShot(shot) {
@@ -1542,17 +1572,27 @@ var Connection = class {
       create2(ClientMessageSchema, {
         kind: {
           case: "shot",
-          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
+          value: {
+            id: shot.id,
+            weapon: toWeapon(shot.weapon),
+            muzzle: shot.muzzle,
+            x: shot.x,
+            y: shot.y,
+            angle: shot.angle,
+            companion: shot.companion
+          }
         }
       })
     );
   }
-  /** Reports that one of our shots hit an enemy; the server trusts it. */
-  sendHit(enemyId, shotId, damage) {
+  /** Reports that one of our shots, or a companion's, hit an enemy; the server trusts it. */
+  sendHit(enemyId, shotId, damage, companion = 0) {
     if (!this.welcomed) {
       return;
     }
-    this.send(create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage } } }));
+    this.send(
+      create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage, companion } } })
+    );
   }
   open() {
     const socket = this.makeSocket(this.options.url);
@@ -1600,6 +1640,15 @@ var Connection = class {
         break;
       case "shotEnded":
         events.shotEnded(message.kind.value);
+        break;
+      case "companionGranted":
+        events.companionGranted(message.kind.value);
+        break;
+      case "companionRefused":
+        events.companionRefused(message.kind.value.reason);
+        break;
+      case "companionDismissed":
+        events.companionDismissed(message.kind.value.companion);
         break;
       default:
     }
@@ -1746,6 +1795,7 @@ var ShipView = class {
   shield;
   label;
   loadout;
+  tint;
   thrusting = false;
   constructor(scene, layer, x, y) {
     this.engine = scene.add.image(0, 0, keys.engine("base"));
@@ -1766,6 +1816,13 @@ var ShipView = class {
       resolution
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     layer.add(this.label);
+  }
+  /** Tints every part, for a companion in its owner's colour (0xRRGGBB). */
+  setTint(colour) {
+    this.tint = colour;
+    for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
+      part.setTint(colour).setTintMode(Phaser3.TintModes.MULTIPLY);
+    }
   }
   /** Fits the parts; unchanged parts keep their animation running. */
   setLoadout(loadout) {
@@ -1800,7 +1857,12 @@ var ShipView = class {
   flash(scene) {
     this.hull.setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
     scene.time.delayedCall(HIT_FLASH_MS, () => {
-      this.hull.clearTint().setTintMode(Phaser3.TintModes.MULTIPLY);
+      this.hull.setTintMode(Phaser3.TintModes.MULTIPLY);
+      if (this.tint === void 0) {
+        this.hull.clearTint();
+      } else {
+        this.hull.setTint(this.tint);
+      }
     });
   }
   destroy() {
@@ -1866,6 +1928,7 @@ var EnemyView = class {
 };
 
 // src/scenes/netplay.ts
+var NOTICE_MS = 4e3;
 var now = () => performance.now();
 var NetPlay = class {
   status = "connecting";
@@ -1884,6 +1947,18 @@ var NetPlay = class {
   enemiesDestroyed = 0;
   lastEnemyDestroyed;
   hitsTaken = 0;
+  /** Enemies this player's companions shot down, and enemy bullets that hit them. */
+  companionKills = 0;
+  companionHitsTaken = 0;
+  /** How many companions the server allows, and whether outside the safe zone too. */
+  companionLimit = 0;
+  summonAnywhere = false;
+  name = "";
+  colour = 16777215;
+  companionDrawings = /* @__PURE__ */ new Map();
+  /** Enemies that fired near the wing, which defensive orders and return fire answer. */
+  attackers = /* @__PURE__ */ new Set();
+  notice;
   clock = new ServerClock(20);
   shots = new TimedQueue(20);
   spawned = false;
@@ -1947,6 +2022,16 @@ var NetPlay = class {
         },
         shotEnded: (ended) => {
           this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
+        },
+        companionGranted: (granted) => {
+          this.companionGranted(granted);
+        },
+        companionRefused: (reason) => {
+          this.say(reason);
+        },
+        companionDismissed: (number) => {
+          this.dismissCompanion(number);
+          this.say(`companion ${String(number)} went home`);
         }
       }
     });
@@ -1957,15 +2042,43 @@ var NetPlay = class {
   stop() {
     this.connection.stop();
   }
-  /** Other players, for the HUD and the E2E tests. */
+  /** Other players and their companions, for the HUD and the E2E tests. */
   get others() {
     return [...this.remotes.entries()].map(([id, r]) => ({
       id,
       name: r.name,
       colour: r.colour,
       x: r.view.root.x,
-      y: r.view.root.y
+      y: r.view.root.y,
+      ownerId: r.ownerId
     }));
+  }
+  /** Enemies as drawn, as companion brains see them. */
+  get brainEnemies() {
+    return [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      kind: e.view.kind,
+      x: e.view.x,
+      y: e.view.y,
+      attackedWing: this.attackers.has(id)
+    }));
+  }
+  /** The latest notice for the HUD, while it lasts. */
+  get noticeText() {
+    return this.notice !== void 0 && now() < this.notice.untilMs ? this.notice.text : void 0;
+  }
+  /** Asks the server for a companion, or says why there can't be one. */
+  summon() {
+    const { ship, companions } = this.options.sim;
+    if (this.status !== "online") {
+      this.say("companions need the server");
+    } else if (companions.length >= this.companionLimit) {
+      this.say("all your companions are already out");
+    } else if (!this.summonAnywhere && Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      this.say("summon companions at the home planet");
+    } else {
+      this.connection.sendSummon();
+    }
   }
   /** Enemies as drawn, for the E2E tests. */
   get enemyList() {
@@ -1978,16 +2091,17 @@ var NetPlay = class {
   update(events) {
     const frame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
-    this.connection.sendState(this.options.sim.ship, nowMs);
+    const seconds = nowMs / 1e3;
+    this.connection.sendState(this.options.sim.ship, nowMs, this.options.sim.companions);
     for (const shot of events.shots) {
       this.connection.sendShot(shot);
     }
+    this.drawCompanions(events, seconds);
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === void 0) {
       return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
-    const seconds = nowMs / 1e3;
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
       if (ship === void 0) {
@@ -2029,6 +2143,48 @@ var NetPlay = class {
     this.testHits(frame, events.ticks * TICK_SECONDS);
     return frame;
   }
+  /** Places this player's companions between their last two ticks, like the player's ship. */
+  drawCompanions(events, seconds) {
+    const { companions, alpha } = this.options.sim;
+    for (const shot of events.shots) {
+      const drawing = this.companionDrawings.get(shot.companion);
+      if (drawing !== void 0) {
+        const stats = WEAPON_STATS[shot.weapon];
+        drawing.animator.release(seconds, stats.alternate ? shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
+      }
+    }
+    for (const { number, ship, previous } of companions) {
+      const drawing = this.companionDrawings.get(number);
+      if (drawing === void 0) {
+        continue;
+      }
+      drawing.view.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
+      drawing.view.setThrusting(ship.thrusting);
+      drawing.view.setDamage(ship.damage);
+      drawing.view.weapon.setFrame(drawing.animator.frame(seconds));
+    }
+  }
+  companionGranted(granted) {
+    const { scene, ships, sim } = this.options;
+    const companion = sim.addCompanion(granted.companion, granted.x, granted.y);
+    this.companionDrawings.get(granted.companion)?.view.destroy();
+    const view = new ShipView(scene, ships, granted.x, granted.y);
+    view.setLoadout(companion.ship.loadout);
+    view.setTint(this.colour);
+    view.setLabel(scene, ships, `${this.name} ${String(granted.companion)}`, this.colour, this.options.labelResolution());
+    this.companionDrawings.set(granted.companion, {
+      view,
+      animator: new WeaponAnimator(weaponTiming(companion.ship.loadout.weapon))
+    });
+  }
+  dismissCompanion(number) {
+    this.options.sim.removeCompanion(number);
+    this.companionDrawings.get(number)?.view.destroy();
+    this.companionDrawings.delete(number);
+  }
+  say(text) {
+    this.notice = { text, untilMs: now() + NOTICE_MS };
+  }
   drawEnemies(renderTick) {
     for (const enemy of this.enemies.values()) {
       const pose = enemy.buffer.sample(renderTick);
@@ -2049,14 +2205,16 @@ var NetPlay = class {
       if (enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
         enemy.view.destroy(false);
         this.enemies.delete(id);
+        this.attackers.delete(id);
       }
     }
   }
   /**
-   * Own shots against enemies as drawn, reported to the server (the design's
-   * trust model); enemy bullets against the local ship, which only flash it
-   * until health exists (#5). Each projectile is tested along the path it
-   * flew during the frame's stepSeconds, so low frame rates don't skip hits.
+   * Own and companion shots against enemies as drawn, reported to the server
+   * (the design's trust model); enemy bullets against the local ship and its
+   * companions, which only flash them until health exists (#5). Each
+   * projectile is tested along the path it flew during the frame's
+   * stepSeconds, so low frame rates don't skip hits.
    */
   testHits(frame, stepSeconds) {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
@@ -2065,8 +2223,11 @@ var NetPlay = class {
       y: e.view.y,
       radius: ENEMY_RADIUS[e.view.kind]
     }));
-    const ship = this.options.sim.ship;
-    const me = [{ id: "me", x: ship.x, y: ship.y, radius: SHIP_RADIUS }];
+    const { ship, companions } = this.options.sim;
+    const wing = [
+      { id: 0, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
+      ...companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y, radius: SHIP_RADIUS }))
+    ];
     for (const p of this.options.sim.projectiles.items) {
       if (!p.active || p.faction === "remote") {
         continue;
@@ -2076,16 +2237,32 @@ var NetPlay = class {
         const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
         if (target !== void 0) {
           p.active = false;
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+          const companion = p.owner === "" ? 0 : Number(p.owner);
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage, companion);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
-      } else if (p.faction === "enemy" && hitTargetAlong(from.x, from.y, p.x, p.y, me) !== void 0) {
+      } else if (p.faction === "enemy") {
+        const hit = hitTargetAlong(from.x, from.y, p.x, p.y, wing);
+        if (hit === void 0) {
+          continue;
+        }
         p.active = false;
-        this.hitsTaken++;
-        frame.hitsOnMe.push({ x: p.x, y: p.y });
+        if (hit.id === 0) {
+          this.hitsTaken++;
+          frame.hitsOnMe.push({ x: p.x, y: p.y });
+        } else {
+          this.companionHitsTaken++;
+          this.companionDrawings.get(hit.id)?.view.flash(this.options.scene);
+          frame.enemyHits.push({ x: p.x, y: p.y });
+        }
       }
     }
+  }
+  /** Whether a point is near the player or one of their companions. */
+  nearWing(x, y) {
+    const { ship, companions } = this.options.sim;
+    return [ship, ...companions.map((c) => c.ship)].some((s) => Math.hypot(s.x - x, s.y - y) <= BRAIN_ATTACKER_RANGE);
   }
   /**
    * Spawns a volley's bullets from where the enemy is at its tick, unless it
@@ -2100,6 +2277,9 @@ var NetPlay = class {
     const ship = this.options.sim.ship;
     if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
       return;
+    }
+    if (this.nearWing(origin.x, origin.y)) {
+      this.attackers.add(volley.enemyId);
     }
     for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
@@ -2124,6 +2304,7 @@ var NetPlay = class {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    this.attackers.delete(destroyed.enemyId);
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
@@ -2132,11 +2313,17 @@ var NetPlay = class {
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
       this.lastEnemyDestroyed = destroyed.enemyId;
+    } else if (this.playerId !== void 0 && destroyed.byPlayerId.startsWith(`${this.playerId}/`)) {
+      this.companionKills++;
     }
   }
   welcome(welcome) {
     this.status = "online";
     this.playerId = welcome.playerId;
+    this.name = welcome.name;
+    this.colour = welcome.colour;
+    this.companionLimit = welcome.companionLimit;
+    this.summonAnywhere = welcome.summonAnywhere;
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
@@ -2165,7 +2352,7 @@ var NetPlay = class {
       if (player.state === void 0) {
         continue;
       }
-      const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
+      const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour, player.ownerId);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
     for (const state of snapshot.enemies) {
@@ -2183,17 +2370,23 @@ var NetPlay = class {
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
     }
   }
-  add(id, name, colour) {
+  /** A remote ship: another player, or (with an owner) one of their companions. */
+  add(id, name, colour, ownerId) {
     const { scene, ships } = this.options;
     const view = new ShipView(scene, ships, 0, 0);
-    view.setLabel(scene, ships, name, colour, this.options.labelResolution());
+    const label = ownerId === "" ? name : `${name} ${id.slice(ownerId.length + 1)}`;
+    if (ownerId !== "") {
+      view.setTint(colour);
+    }
+    view.setLabel(scene, ships, label, colour, this.options.labelResolution());
     const remote = {
       view,
       buffer: new StateBuffer(),
       animator: new WeaponAnimator(weaponTiming("autoCannon")),
       weapon: "autoCannon",
       name,
-      colour
+      colour,
+      ownerId
     };
     this.remotes.set(id, remote);
     return remote;
@@ -2286,12 +2479,15 @@ var SandboxScene = class extends Phaser5.Scene {
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
       enemyFireGlow: false,
-      hitsTaken: 0
+      hitsTaken: 0,
+      companions: [],
+      companionKills: 0,
+      notice: void 0
     };
     this.publish();
   }
   update(time, deltaMs) {
-    const events = this.sim.advance(deltaMs / 1e3, this.readInput());
+    const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.brainEnemies ?? []);
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== void 0) {
@@ -2441,6 +2637,10 @@ var SandboxScene = class extends Phaser5.Scene {
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
+      case "KeyG":
+        this.net?.summon();
+        this.updateHud();
+        break;
       case "KeyM":
         this.audio.toggleMute();
         saveAudioSettings(this.audioSettings);
@@ -2529,14 +2729,15 @@ var SandboxScene = class extends Phaser5.Scene {
   animateWeapon(events) {
     const now2 = this.time.now / 1e3;
     const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
+    const own = events.shots.filter((shot) => shot.companion === 0);
     if (events.charges.length > 0) {
       this.weaponFrames.charge(now2, stats.charge);
     }
     if (stats.alternate) {
-      for (const shot of events.shots) {
+      for (const shot of own) {
         this.weaponFrames.release(now2, shot.muzzle, stats.muzzles.length);
       }
-    } else if (events.shots.length > 0) {
+    } else if (own.length > 0) {
       this.weaponFrames.release(now2, 0, 1);
     }
     this.ship.weapon.setFrame(this.weaponFrames.frame(now2));
@@ -2561,13 +2762,13 @@ var SandboxScene = class extends Phaser5.Scene {
     });
   }
   playEffects(events) {
-    this.shotsFired += events.shots.length;
+    this.shotsFired += events.shots.filter((shot) => shot.companion === 0).length;
     if (!this.effects) {
       return;
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      const shake = WEAPON_STATS[shot.weapon].shake;
+      const shake = shot.companion === 0 ? WEAPON_STATS[shot.weapon].shake : 0;
       if (shake > 0) {
         this.cameras.main.shake(120, shake);
       }
@@ -2606,9 +2807,21 @@ var SandboxScene = class extends Phaser5.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
-      this.netStatus()
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
+      this.netStatus(),
+      this.wingStatus()
     ]);
+  }
+  /** The companions out, and the latest notice (a refused summon, a companion sent home). */
+  wingStatus() {
+    const net = this.net;
+    if (net === void 0) {
+      return "";
+    }
+    const out = this.sim.companions.length;
+    const wing = out === 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"}`;
+    const notice = net.noticeText;
+    return notice === void 0 ? wing : `${wing} \xB7 ${notice}`;
   }
   netStatus() {
     const net = this.net;
@@ -2657,6 +2870,17 @@ var SandboxScene = class extends Phaser5.Scene {
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
+    this.debug.companions = this.sim.companions.map((c) => ({
+      number: c.number,
+      x: c.ship.x,
+      y: c.ship.y,
+      stance: c.orders.stance,
+      fire: c.orders.fire,
+      resources: c.orders.resources,
+      oneShot: c.orders.oneShot?.kind
+    }));
+    this.debug.companionKills = this.net?.companionKills ?? 0;
+    this.debug.notice = this.net?.noticeText;
     publishDebugState(this.debug);
   }
 };
