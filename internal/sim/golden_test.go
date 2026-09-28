@@ -15,7 +15,8 @@ import (
 const tolerance = 1e-9
 
 // golden is internal/sim/testdata/golden.json, written by the TypeScript
-// sim (frontend/scripts/golden.ts) before the port.
+// sim before the port (#50); the TypeScript rules and that script are gone
+// since #53, so the file is a fixed record.
 type golden struct {
 	Math        goldenMath         `json:"math"`
 	Ships       []goldenShip       `json:"ships"`

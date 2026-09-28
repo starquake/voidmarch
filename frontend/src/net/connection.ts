@@ -14,8 +14,7 @@ import {
   type Squadrons,
   type Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
-import type { Ship } from '../sim/ship.ts';
-import type { FiredShot } from '../sim/sandbox.ts';
+import type { FiredShot, Ship } from '../simwasm.ts';
 import { decodeServer, encodeClient, type WireFormat } from './codec.ts';
 import { toShipState, toWeapon } from './mapping.ts';
 

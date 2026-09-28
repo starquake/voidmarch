@@ -116,8 +116,11 @@ the browser's network panel.
 | `make docker` | Build the image as `voidmarch:dev`. |
 
 The server is Go (`cmd/`, `internal/`). The client is TypeScript and Phaser in
-`frontend/`, bundled with esbuild into `internal/web/static/js`; the bundle is
-committed so `go build` needs no Node.js.
+`frontend/`, bundled with esbuild into `internal/web/static/js`. The game's
+rules are Go (`internal/sim`): the server runs them natively, and the browser
+runs its part as WebAssembly, built by TinyGo into `internal/web/static/wasm`
+(`make wasm`, which downloads the pinned TinyGo). The bundle and the module
+are committed, so `go build` needs neither Node.js nor TinyGo.
 
 ## Credits
 

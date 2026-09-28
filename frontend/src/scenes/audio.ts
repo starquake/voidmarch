@@ -3,9 +3,7 @@ import Phaser from 'phaser';
 import { engineMix, nextVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
 import type { EngineId, WeaponId } from '../sim/loadout.ts';
-import type { FrameEvents } from '../sim/sandbox.ts';
-import { isWeapon } from '../sim/projectiles.ts';
-import type { Ship } from '../sim/ship.ts';
+import { isWeapon, type FrameEvents, type Ship } from '../simwasm.ts';
 import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
 import {
   CHARGE_SOUNDS,

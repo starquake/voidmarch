@@ -31,12 +31,8 @@ import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
-import { hitTargetAlong } from '../sim/hits.ts';
 import type { WeaponId } from '../sim/loadout.ts';
-import { enemyPattern } from '../sim/patterns.ts';
-import { isWeapon, positionAt } from '../sim/projectiles.ts';
-import type { ShotSpawn } from '../sim/weapons.ts';
-import type { FrameEvents, Sandbox } from '../sim/sandbox.ts';
+import { isWeapon, type FrameEvents, type Sandbox, type ShotSpawn } from '../simwasm.ts';
 import {
   ENEMY_SOUND_RANGE,
   ENEMY_VOLLEY_RANGE,
@@ -433,11 +429,7 @@ export class NetPlay {
     this.squadron = joined.name;
     saveLastSquadron(joined.name);
     if (joined.tookOver) {
-      const { ship, previous } = this.options.sim;
-      ship.x = previous.x = joined.x;
-      ship.y = previous.y = joined.y;
-      ship.vx = 0;
-      ship.vy = 0;
+      this.options.sim.placeShip(joined.x, joined.y);
     }
   }
 
@@ -516,33 +508,23 @@ export class NetPlay {
       { id: -1, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
       ...companions.map((c, i) => ({ id: i, x: c.view.root.x, y: c.view.root.y, radius: SHIP_RADIUS })),
     ];
-    for (const p of this.options.sim.projectiles.items) {
-      if (!p.active || p.faction === 'remote') {
+    const { sim } = this.options;
+    for (const { projectile: p, target } of sim.hitScan('own', stepSeconds, targets)) {
+      if (!isWeapon(p.kind)) {
         continue;
       }
-      const from = positionAt(p, Math.max(0, p.age - stepSeconds));
-      if (p.faction === 'own' && isWeapon(p.kind)) {
-        const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
-        if (target !== undefined) {
-          p.active = false;
-          this.lastHit = { id: target.id, atMs: now() };
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
-          this.enemies.get(target.id)?.view.flash();
-          frame.enemyHits.push({ x: p.x, y: p.y });
-        }
-      } else if (p.faction === 'enemy') {
-        const hit = hitTargetAlong(from.x, from.y, p.x, p.y, wing);
-        if (hit === undefined) {
-          continue;
-        }
-        p.active = false;
-        if (hit.id === -1) {
-          this.hitsTaken++;
-          frame.hitsOnMe.push({ x: p.x, y: p.y });
-        } else {
-          companions[hit.id]?.view.flash(this.options.scene);
-          frame.enemyHits.push({ x: p.x, y: p.y });
-        }
+      this.lastHit = { id: target.id, atMs: now() };
+      this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+      this.enemies.get(target.id)?.view.flash();
+      frame.enemyHits.push({ x: p.x, y: p.y });
+    }
+    for (const { projectile: p, target } of sim.hitScan('enemy', stepSeconds, wing)) {
+      if (target.id === -1) {
+        this.hitsTaken++;
+        frame.hitsOnMe.push({ x: p.x, y: p.y });
+      } else {
+        companions[target.id]?.view.flash(this.options.scene);
+        frame.enemyHits.push({ x: p.x, y: p.y });
       }
     }
   }
@@ -569,7 +551,7 @@ export class NetPlay {
     if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
     }
-    for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+    for (const bullet of this.options.sim.enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
     }
     const ship = this.options.sim.ship;
@@ -626,11 +608,7 @@ export class NetPlay {
     // A reconnect keeps the ship where it is; only the first join places it.
     if (!this.spawned) {
       this.spawned = true;
-      const { ship, previous } = this.options.sim;
-      ship.x = previous.x = welcome.spawnX;
-      ship.y = previous.y = welcome.spawnY;
-      ship.vx = 0;
-      ship.vy = 0;
+      this.options.sim.placeShip(welcome.spawnX, welcome.spawnY);
     }
   }
 

@@ -7,9 +7,10 @@ import (
 )
 
 // contentSecurityPolicy allows data: and blob: images because Phaser builds
-// its default textures from data URIs.
+// its default textures from data URIs, and 'wasm-unsafe-eval' because the
+// rules run as WebAssembly (it allows compiling WebAssembly, not eval).
 const contentSecurityPolicy = `default-src 'self'; ` +
-	`script-src 'self'; ` +
+	`script-src 'self' 'wasm-unsafe-eval'; ` +
 	`style-src 'self'; ` +
 	`img-src 'self' data: blob:; ` +
 	`connect-src 'self'; ` +

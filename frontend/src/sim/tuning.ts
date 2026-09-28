@@ -1,22 +1,23 @@
-import type { EnemyBulletId } from './enemies.ts';
-import type { EngineId, ShieldId, WeaponId } from './loadout.ts';
-
-/** The simulation runs at a fixed rate, independent of the display. */
-export const TICK_RATE = 60;
-export const TICK_SECONDS = 1 / TICK_RATE;
-/** Caps catch-up after a stall (a background tab), so the sim never spirals. */
-export const MAX_TICKS_PER_FRAME = 5;
+/**
+ * Presentation tunables: the view, the effects and what's worth drawing or
+ * hearing. The rules' numbers are the Go sim's (internal/sim/tuning.go),
+ * generated into rules.gen.ts and passed on here.
+ */
+export {
+  ENGINE_STATS,
+  MAX_TICKS_PER_FRAME,
+  SAFE_ZONE_RADIUS,
+  SHIP_RADIUS,
+  TICK_RATE,
+  TICK_SECONDS,
+  WEAPON_STATS,
+  WORLD_EDGE_BAND,
+  WORLD_HALF_SIZE,
+} from './rules.gen.ts';
 
 /** The view is at least this many art pixels; the zoom is the largest whole number that fits. */
 export const VIEW_WIDTH = 640;
 export const VIEW_HEIGHT = 360;
-
-/** The world is a square centred on the home planet at (0, 0). */
-export const WORLD_HALF_SIZE = 2000;
-/** Inside this band along the edge the ship is pushed back. */
-export const WORLD_EDGE_BAND = 200;
-/** Push-back acceleration at the very edge, in px/s². */
-export const WORLD_EDGE_PUSH = 1400;
 
 /** 0 is free rotation; 16 snaps to 16 directions (see docs/design.md, "Controls & feel"). */
 export const ROTATION_SNAP_STEPS = 16;
@@ -26,160 +27,6 @@ export const ASTEROID_COUNT = 60;
 /** Keeps asteroids away from the home planet. */
 export const ASTEROID_CLEAR_RADIUS = 260;
 
-export interface EngineStats {
-  /** px/s² while thrusting. */
-  acceleration: number;
-  /** px/s. */
-  maxSpeed: number;
-  /** Fraction of velocity lost per second, applied continuously. */
-  drag: number;
-}
-
-/** Sidegrades: snappy and slow, drifty and fast, and between. */
-export const ENGINE_STATS: Readonly<Record<EngineId, EngineStats>> = {
-  base: { acceleration: 900, maxSpeed: 220, drag: 3.5 },
-  bigPulse: { acceleration: 520, maxSpeed: 300, drag: 1.2 },
-  burst: { acceleration: 1700, maxSpeed: 185, drag: 7 },
-  supercharged: { acceleration: 1200, maxSpeed: 270, drag: 2 },
-};
-
-/** A barrel position in sprite pixels from the ship's centre: forward is up, right is right. */
-export interface Muzzle {
-  forward: number;
-  right: number;
-}
-
-/** How a projectile flies: shared by player weapons and enemy bullets. */
-export interface ProjectileStats {
-  /** Launch speed in px/s. */
-  speed: number;
-  /** px/s², 0 for constant speed. */
-  acceleration: number;
-  /** Speed cap when accelerating. */
-  maxSpeed: number;
-  /** Seconds before the projectile expires. */
-  lifetime: number;
-  /** Sideways travel of a zigzagging projectile; amplitude 0 flies straight. */
-  zigzag: { amplitude: number; frequency: number };
-}
-
-export interface WeaponStats {
-  /** Seconds between shots. */
-  interval: number;
-  /** Seconds between pulling the trigger and the shot leaving; a started charge always fires. */
-  charge: number;
-  /** Launch speed in px/s. */
-  speed: number;
-  /** px/s², 0 for constant speed. */
-  acceleration: number;
-  /** Speed cap when accelerating. */
-  maxSpeed: number;
-  /** Seconds before the projectile expires. */
-  lifetime: number;
-  damage: number;
-  muzzles: readonly Muzzle[];
-  /** Fire one muzzle per shot in turn instead of all at once. */
-  alternate: boolean;
-  /** Sideways travel of a zigzagging projectile; amplitude 0 flies straight. */
-  zigzag: { amplitude: number; frequency: number };
-  /** Camera shake per shot, 0 for none. */
-  shake: number;
-}
-
-const STRAIGHT = { amplitude: 0, frequency: 0 };
-
-/** Sidegrades: a new player's auto cannon is useful in any fight. */
-export const WEAPON_STATS: Readonly<Record<WeaponId, WeaponStats>> = {
-  autoCannon: {
-    interval: 0.13,
-    charge: 0,
-    speed: 520,
-    acceleration: 0,
-    maxSpeed: 520,
-    lifetime: 0.9,
-    damage: 1,
-    muzzles: [
-      { forward: 9, right: -10.5 },
-      { forward: 9, right: 10.5 },
-    ],
-    alternate: true,
-    zigzag: STRAIGHT,
-    shake: 0,
-  },
-  rockets: {
-    interval: 0.32,
-    charge: 0,
-    speed: 140,
-    acceleration: 900,
-    maxSpeed: 560,
-    lifetime: 1.5,
-    damage: 4,
-    muzzles: [
-      { forward: 7, right: -12 },
-      { forward: 7, right: 12 },
-    ],
-    alternate: true,
-    zigzag: STRAIGHT,
-    shake: 0,
-  },
-  bigSpaceGun: {
-    interval: 0.9,
-    charge: 0.45,
-    speed: 300,
-    acceleration: 0,
-    maxSpeed: 300,
-    lifetime: 2,
-    damage: 12,
-    muzzles: [{ forward: 16, right: 0 }],
-    alternate: false,
-    zigzag: STRAIGHT,
-    shake: 0.006,
-  },
-  zapper: {
-    interval: 0.24,
-    charge: 0.1,
-    speed: 430,
-    acceleration: 0,
-    maxSpeed: 430,
-    lifetime: 0.75,
-    damage: 2,
-    muzzles: [
-      { forward: 15, right: -11 },
-      { forward: 15, right: 11 },
-    ],
-    alternate: false,
-    zigzag: { amplitude: 7, frequency: 5 },
-    shake: 0,
-  },
-};
-
-export interface ShieldStats {
-  /** Arc the shield blocks, centred on the aim direction, in radians. */
-  coverage: number;
-  /** Hits absorbed before it drops. */
-  strength: number;
-  /** Seconds out of combat to recharge fully. */
-  recharge: number;
-}
-
-/** Coverage against strength against recharge; used from milestone 4 (#5). */
-export const SHIELD_STATS: Readonly<Record<ShieldId, ShieldStats>> = {
-  front: { coverage: Math.PI * 0.5, strength: 3, recharge: 5 },
-  frontAndSide: { coverage: Math.PI, strength: 2, recharge: 5 },
-  round: { coverage: Math.PI * 2, strength: 1, recharge: 3 },
-  invincibility: { coverage: Math.PI * 2, strength: 3, recharge: 12 },
-};
-
-/** Enemy bullets: slow and readable, so they can be dodged (docs/design.md, section 3). */
-export const ENEMY_BULLET_STATS: Readonly<Record<EnemyBulletId, ProjectileStats>> = {
-  klaedBullet: { speed: 110, acceleration: 0, maxSpeed: 110, lifetime: 3.2, zigzag: STRAIGHT },
-  klaedBigBullet: { speed: 130, acceleration: 0, maxSpeed: 130, lifetime: 3, zigzag: STRAIGHT },
-};
-
-/** An enemy's aim wobbles by up to this much, in radians, from its seed. */
-export const ENEMY_AIM_JITTER = 0.08;
-/** Enemy bullets leave this far ahead of the enemy's centre, in art pixels. */
-export const ENEMY_MUZZLE = 14;
 /**
  * Volleys from enemies farther than this from the ship are skipped: past the
  * view plus the bullets' reach, they can neither be seen nor hit you.
@@ -187,13 +34,6 @@ export const ENEMY_MUZZLE = 14;
 export const ENEMY_VOLLEY_RANGE = 800;
 /** Enemies explode audibly only this close to the ship, about the view. */
 export const ENEMY_SOUND_RANGE = 400;
-
-/** The home planet's safe zone, where enemies never go and companions are summoned (the server's too). */
-export const SAFE_ZONE_RADIUS = 300;
-/** The player ship's hit circle, in art pixels. */
-export const SHIP_RADIUS = 12;
-/** A projectile's own size when testing hits, in art pixels. */
-export const SHOT_RADIUS = 3;
 
 /**
  * Enemy bullets fly on a layer with one glow in this colour (0xRRGGBB), so

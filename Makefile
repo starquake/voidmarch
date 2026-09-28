@@ -49,7 +49,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check golden-check build test-coverage test-tinygo ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -161,6 +161,41 @@ $(WASM_OPT):
 toolchain-versions: ## Print the pinned TinyGo and Binaryen versions (CI's cache key)
 	@echo tinygo-$(TINYGO_VERSION)-binaryen-$(BINARYEN_VERSION)
 
+WASM_OUT := internal/web/static/wasm
+# A reactor (c-shared) with no scheduler: each export is a plain call. In
+# command mode every call went through TinyGo's scheduler, about 40 µs each.
+SIM_WASM_FLAGS := -target=wasm -no-debug -buildmode=c-shared -scheduler=none
+
+.PHONY: wasm
+wasm: $(TINYGO_BIN) $(WASM_OPT) simgen ## Build the browser's sim into internal/web/static/wasm with TinyGo
+	@mkdir -p $(WASM_OUT)
+	$(TINYGO) build $(SIM_WASM_FLAGS) -o $(WASM_OUT)/sim.wasm ./cmd/simwasm
+	cp $(TOOLCHAINS)/tinygo/targets/wasm_exec.js $(WASM_OUT)/wasm_exec.js
+
+.PHONY: wasm-check
+wasm-check: $(TINYGO_BIN) $(WASM_OPT) ## Fail when the committed sim module or its generated TypeScript is stale
+	@tmp=$$(mktemp -d); \
+	go run ./cmd/simgen -o "$$tmp/sim.ts" && \
+	$(TINYGO) build $(SIM_WASM_FLAGS) -o "$$tmp/sim.wasm" ./cmd/simwasm && \
+	cmp -s "$$tmp/sim.ts" $(FRONTEND)/src/sim/rules.gen.ts && \
+	cmp -s "$$tmp/sim.wasm" $(WASM_OUT)/sim.wasm && \
+	cmp -s $(TOOLCHAINS)/tinygo/targets/wasm_exec.js $(WASM_OUT)/wasm_exec.js \
+		|| { echo "the sim module is stale: run make wasm"; rm -rf "$$tmp"; exit 1; }; \
+	rm -rf "$$tmp"
+
+.PHONY: test-wasm-fallback
+test-wasm-fallback: $(JS_DEPS) ## Run the sim module's tests on a standard Go build, the way out if TinyGo goes
+	@tmp=$$(mktemp -d); \
+	GOOS=js GOARCH=wasm go build -o "$$tmp/sim.wasm" ./cmd/simwasm && \
+	(cd $(FRONTEND) && SIM_WASM="$$tmp/sim.wasm" SIM_WASM_EXEC="$$(go env GOROOT)/lib/wasm/wasm_exec.js" \
+		node --test src/simwasm.test.ts > "$$tmp/test.log" 2>&1) \
+		|| { cat "$$tmp/test.log"; rm -rf "$$tmp"; exit 1; }; \
+	grep -E "^ℹ (pass|fail)" "$$tmp/test.log"; rm -rf "$$tmp"
+
+.PHONY: simgen
+simgen: ## Write the id lists, tunables and state layout the client needs from internal/sim
+	go run ./cmd/simgen -o $(FRONTEND)/src/sim/rules.gen.ts
+
 .PHONY: test-tinygo
 test-tinygo: $(TINYGO_BIN) $(WASM_OPT) ## Run internal/sim's tests compiled by TinyGo, as the browser will run the rules
 	@tmp=$$(mktemp -d); \
@@ -188,14 +223,6 @@ js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh buil
 	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp") >/dev/null && \
 	diff -r "$$tmp" $(JS_OUT) || { echo "the committed bundle is stale: run make js"; rm -rf "$$tmp"; exit 1; }; \
 	rm -rf "$$tmp"
-
-.PHONY: golden
-golden: $(JS_DEPS) ## Record the TypeScript sim's results for internal/sim's parity tests
-	cd $(FRONTEND) && node scripts/golden.ts
-
-.PHONY: golden-check
-golden-check: $(JS_DEPS) ## Fail when the TypeScript sim no longer matches the recorded golden cases
-	cd $(FRONTEND) && node scripts/golden.ts --check
 
 .PHONY: ts-check
 ts-check: $(JS_DEPS) ## Type-check the TypeScript

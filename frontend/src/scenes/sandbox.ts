@@ -23,7 +23,7 @@ import {
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
-import { Sandbox, type FrameEvents } from '../sim/sandbox.ts';
+import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   ENEMY_FIRE_GLOW_COLOUR,
   ENEMY_FIRE_GLOW_DISTANCE,
@@ -35,7 +35,6 @@ import {
   VIEW_WIDTH,
   WEAPON_STATS,
 } from '../sim/tuning.ts';
-import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
@@ -124,7 +123,7 @@ interface Background {
 
 /** The single-player sandbox: fly, aim and shoot around the home planet. */
 export class SandboxScene extends Phaser.Scene {
-  private readonly sim = new Sandbox();
+  private readonly sim = sandbox();
   private world!: Phaser.GameObjects.Layer;
   private backgrounds: Background[] = [];
   private backgroundFrame = 0;
@@ -383,19 +382,17 @@ export class SandboxScene extends Phaser.Scene {
     const ship = this.sim.ship;
     switch (code) {
       case 'Digit1':
-        ship.loadout.weapon = nextInCycle(WEAPONS, ship.loadout.weapon);
-        ship.cooldown = 0;
-        ship.nextMuzzle = 0;
+        this.sim.setLoadout({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case 'Digit2':
-        ship.loadout.engine = nextInCycle(ENGINES, ship.loadout.engine);
+        this.sim.setLoadout({ ...ship.loadout, engine: nextInCycle(ENGINES, ship.loadout.engine) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case 'Digit3':
-        ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
+        this.sim.setLoadout({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
@@ -415,7 +412,7 @@ export class SandboxScene extends Phaser.Scene {
         break;
       case 'KeyH':
         this.damage = nextInCycle(DAMAGE_STATES, this.damage);
-        ship.damage = DAMAGE_STATES.indexOf(this.damage);
+        this.sim.setDamage(DAMAGE_STATES.indexOf(this.damage));
         this.ship.setDamage(ship.damage);
         break;
       case 'KeyC':
@@ -424,7 +421,7 @@ export class SandboxScene extends Phaser.Scene {
         this.updateHud();
         break;
       case 'KeyR':
-        ship.rotationSnap = ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0;
+        this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
         this.updateHud();
         break;
       case 'KeyF':

@@ -12,17 +12,23 @@ board.
   into `internal/web/static/js`. The bundle is committed, so `go build` and
   the Docker image need no Node.js. Phaser is a separate vendor module
   (`js/vendor/phaser.js`), and the game bundle imports it as `./vendor/phaser.js`.
-- Game rules live in `frontend/src/sim/`, which never imports Phaser: plain
-  functions and data, unit-tested in Node. The Phaser scenes only read input,
-  step the sim and draw it.
-- **The rules are moving to Go** (#13, decision 26): `internal/sim` is the
-  port, for the server natively and, from #53, the browser through TinyGo.
-  Until #53 removes the TypeScript copy, a rule change goes in both, `make
-  golden` records the TypeScript's results in
-  `internal/sim/testdata/golden.json`, and the Go tests must match them;
-  `make golden-check` fails when the TypeScript has moved on without it.
-  `make test-tinygo` runs the Go tests compiled by TinyGo, so nothing TinyGo
-  can't build or computes differently slips in.
+- **Game rules live once, in Go** (`internal/sim`, #13 decision 26): plain
+  functions and data, unit-tested in Go. The server imports it natively. The
+  browser runs its part (its own ship and the projectiles) as WebAssembly:
+  `cmd/simwasm` exports `internal/simbridge`, TinyGo builds it into the
+  committed `internal/web/static/wasm/sim.wasm` (`make wasm`), and
+  `frontend/src/simwasm.ts` mirrors its state for the scenes. The id lists,
+  tunables and state layout the TypeScript needs are generated into
+  `frontend/src/sim/rules.gen.ts` (`make simgen`, part of `make wasm`).
+  `frontend/src/sim/` keeps only what isn't a rule: input mapping, zoom,
+  asteroid decor and presentation tunables. The Phaser scenes only read
+  input, step the sim and draw it.
+- **The way out of TinyGo** is standard Go WebAssembly: the same package
+  builds with `GOOS=js GOARCH=wasm` and no code changes, only a bigger
+  download. `make test-wasm-fallback` proves it on every check.
+  `make test-tinygo` runs the Go sim's own tests compiled by TinyGo.
+  `internal/sim/testdata/golden.json` holds the old TypeScript sim's recorded
+  results, as regression cases.
 
 ## Hard rules
 
@@ -38,7 +44,9 @@ board.
   standard library cannot meet (a WebSocket server, an SQLite driver).
 - **ASCII only in `.go` sources.** `make lint-ascii` fails on anything else.
 - **Never edit the bundle by hand.** `internal/web/static/js/` is build output
-  of `make js`; `make js-check` fails when it is stale.
+  of `make js`; `make js-check` fails when it is stale. The same goes for
+  `internal/web/static/wasm/` and `frontend/src/sim/rules.gen.ts` (`make
+  wasm`, checked by `make wasm-check`).
 - **Never `kill` a process you didn't start.** Ask first.
 
 ## Commands
@@ -48,7 +56,7 @@ make check      # lint, ascii, proto lint/drift, ts check/lint/test, bundle drif
 make test       # fast Go tests (integration tests skip under -short)
 make test-e2e   # Playwright, chromium + firefox, against the embedded client
 make js         # rebuild the committed bundle after any frontend/ change
-make golden     # record the TypeScript sim's results for internal/sim's parity tests
+make wasm       # rebuild the committed WebAssembly sim and rules.gen.ts after any internal/sim change
 make test-tinygo # internal/sim's tests compiled by TinyGo, run under Node's WASI
 make proto      # regenerate Go and TypeScript after any proto/ change
 make lint-fix   # golangci-lint --fix and eslint --fix
@@ -84,8 +92,8 @@ pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
   timeline, so both line up.
 - **Enemies are the server's** (`internal/game/enemies.go`): it spawns, steers
   and fires them, and applies the clients' `Hit` reports. Enemy bullets are
-  never streamed: `EnemyFired` carries a seed, and `frontend/src/sim/patterns.ts`
-  expands it identically on every client. Hub tests use `WithSeed` and step the
+  never streamed: `EnemyFired` carries a seed, and `internal/sim/patterns.go`,
+  run in the browser as WebAssembly, expands it identically on every client. Hub tests use `WithSeed` and step the
   hub by hand, so enemy behaviour is deterministic.
 - **Companion brains are Go sim code** (`internal/sim/brain.go`): `Think`
   turns a companion's view and orders into the same `Command` the keyboard
@@ -258,10 +266,10 @@ and the module layout for a server project
 - Imports inside `frontend/src` carry the `.ts` extension, so Node runs the
   tests without a build. Only erasable syntax: no enums, no namespaces, no
   parameter properties.
-- `sim/` is pure: no Phaser, no DOM, no `Date.now()` or `Math.random()` in
-  rules (pass time and seeds in), so the same code can later run for
-  networked, deterministic bullet patterns.
-- Tunables live in `sim/tuning.ts`, not scattered as literals.
+- The rules (`internal/sim`) are pure: no clock, no global randomness (pass
+  time and seeds in), so every client computes the same bullets.
+- Rule tunables live in `internal/sim/tuning.go`; presentation tunables in
+  `frontend/src/sim/tuning.ts`. Neither is scattered as literals.
 
 ## Testing
 
@@ -288,7 +296,8 @@ for looking, never for assuring behaviour.
   produce the case.
 - **TypeScript unit tests**, `foo.test.ts` beside `foo.ts`, with `node:test`
   and `node:assert/strict`. The coverage gate (80% lines, branches and
-  functions) covers `src/sim/`.
+  functions) covers `src/sim/`, `src/net/` and `src/simwasm.ts`, whose tests
+  drive the committed WebAssembly module in Node.
 - **E2E**, `frontend/e2e/*.spec.ts`, for what only a browser shows: the
   client boots with no console errors or failed requests, input moves the
   ship. The page publishes read-only state on `window.voidmarch` for the specs

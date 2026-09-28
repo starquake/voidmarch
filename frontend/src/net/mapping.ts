@@ -14,7 +14,7 @@ import type { Mode } from '../ordermenu.ts';
 import type { OneShotOrder } from '../ordermenu.ts';
 import type { EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
-import type { Ship } from '../sim/ship.ts';
+import type { Ship } from '../simwasm.ts';
 
 const WEAPONS: Readonly<Record<WeaponId, Weapon>> = {
   autoCannon: Weapon.AUTO_CANNON,
