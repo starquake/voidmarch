@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { SHIP_RADIUS, TICK_RATE, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
+import { RAM_SPEED, SHIP_RADIUS, TICK_RATE, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
 import type { InputSnapshot } from './sim/input.ts';
 import { Sandbox, instantiate, isWeapon, type GoRuntime } from './simwasm.ts';
 
@@ -136,6 +136,21 @@ test('a squadmate near recharges the shield faster', async () => {
   const alone = await recharged(Infinity);
   assert.ok(alone > 2 && alone < 3, `alone: ${String(alone)}`);
   assert.equal(await recharged(50), 3);
+});
+
+test('bumping pushes the ship out, and a ram hurts once per cooldown', async () => {
+  const s = await sim();
+  s.advance(TICK_SECONDS, input());
+  const { x, y } = s.ship;
+  const resting = { x: x + 20, y, vx: 0, vy: 0, radius: SHIP_RADIUS, key: 1, side: 1 };
+  assert.deepEqual(s.bump([resting]), []);
+  assert.ok(Math.abs(s.ship.x - (x - 4)) < 1e-9, `pushed to ${String(s.ship.x)}`);
+
+  // From behind, where the front shield doesn't cover.
+  const ramming = { x: s.ship.x, y: s.ship.y + 20, vx: 0, vy: -2 * RAM_SPEED, radius: SHIP_RADIUS, key: 2, side: 1 };
+  assert.deepEqual(s.bump([ramming]), [{ index: 0, absorbed: false }]);
+  assert.equal(s.ship.damage, 1);
+  assert.deepEqual(s.bump([{ ...ramming, y: s.ship.y + 20 }]), []);
 });
 
 test('remote shots keep their owner and id, and end by them', async () => {

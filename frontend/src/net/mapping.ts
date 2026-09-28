@@ -57,6 +57,8 @@ export const fromWeapon = (w: Weapon): WeaponId => WEAPON_IDS.get(w) ?? DEFAULT_
 export interface RemoteShip {
   x: number;
   y: number;
+  vx: number;
+  vy: number;
   angle: number;
   thrusting: boolean;
   loadout: Loadout;
@@ -90,6 +92,8 @@ export function fromShipState(state: ShipState): RemoteShip {
   return {
     x: state.x,
     y: state.y,
+    vx: state.vx,
+    vy: state.vy,
     angle: state.angle,
     thrusting: state.thrusting,
     loadout: {

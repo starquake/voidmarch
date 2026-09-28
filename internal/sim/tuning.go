@@ -110,6 +110,16 @@ const (
 	NoSquadmate = math.MaxFloat64
 )
 
+// Bumping (#48): ships and enemies push apart, and a fast collision hurts.
+const (
+	// RammingSpeed is the closing speed, in px/s, from which a collision is a ram.
+	RammingSpeed float64 = 120
+	// RammingCooldown is the seconds before the same two bodies can ram again.
+	RammingCooldown float64 = 1
+	// RammingDamage is what a ram does to an enemy, like a zapper hit.
+	RammingDamage = 2
+)
+
 // EngineStats is how an engine flies.
 type EngineStats struct {
 	// Acceleration is in px/s^2 while thrusting.

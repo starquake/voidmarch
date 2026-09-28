@@ -90,6 +90,25 @@ and in the browser's WebAssembly:
   companions it flies. Bullets that touch another player's ship end there on
   every screen, for the picture only.
 
+### Bumping
+
+As built (#48), in `internal/sim/bump.go`: ships and enemies don't overlap.
+
+- Every ship bumps: players, companions and enemies. Overlapping bodies push
+  apart along the line between their centers, and the one pushed loses its
+  speed into the other. Two ships on one point, as at the spawn, part along
+  x, each to its own side.
+- A collision closing at 120 px/s or more is a ram. It costs each ship a
+  shield charge, if the shield covers the side it came from, or a hull
+  step. An enemy takes 2 damage, like a zapper hit. The same two bodies ram
+  at most once a second.
+- Each client bumps its own ship against every other ship and enemy as
+  drawn, and reports a ram on an enemy as a `Hit` with `shot_id` 0. The
+  hub bumps its companions and enemies against each other and the players'
+  latest states, and applies the companions' rams, so every ship is moved
+  by whoever flies it.
+- A downed ship won't bump once going down exists (#47).
+
 ## 5. Going down (death without setbacks)
 
 - At 0 health the ship is **downed**: it stays as the "very damaged" sprite, drifting slowly, unable to shoot.

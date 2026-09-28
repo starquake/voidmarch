@@ -36,6 +36,8 @@ export interface DebugState {
   /** The id of the last enemy this player shot down. */
   lastEnemyDestroyed: number | undefined;
   hitsTaken: number;
+  /** Rams the ship made or took. */
+  rams: number;
   companions: CompanionDebug[];
   /** Enemies the player's companions shot down. */
   companionKills: number;

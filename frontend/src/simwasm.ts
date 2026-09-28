@@ -125,6 +125,19 @@ export interface ShipTarget<Id> {
   charges: number;
 }
 
+/** A ship or enemy the local ship can bump into. */
+export interface BumpBody {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  /** Names the body for the ram cooldown: the same body, the same key. */
+  key: number;
+  /** +1 or -1: which way along x the ship goes when both sit on one point. */
+  side: number;
+}
+
 /** The exports of cmd/simwasm. */
 interface Exports {
   memory?: WebAssembly.Memory;
@@ -153,6 +166,7 @@ interface Exports {
   clear(faction: number): void;
   hitsPointer(): number;
   hitScan(faction: number, stepSeconds: number, n: number): number;
+  bump(n: number): number;
   enemyPattern(kind: number, x: number, y: number, angle: number, seed: number): number;
 }
 
@@ -345,6 +359,33 @@ export class Sandbox {
     }
 
     return out;
+  }
+
+  /**
+   * Pushes the ship out of every body it overlaps and applies a hit for
+   * each ram, from the rammed body's side. Returns the rams, by index into
+   * bodies, and whether the shield took each.
+   */
+  bump(bodies: readonly BumpBody[]): { index: number; absorbed: boolean }[] {
+    const n = Math.min(bodies.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const b = bodies[i];
+      if (b !== undefined) {
+        scratch.set([b.x, b.y, b.radius, b.vx, b.vy, b.key, b.side], i * LAYOUT.bumpSize);
+      }
+    }
+    const count = this.exports.bump(n);
+    const rams: { index: number; absorbed: boolean }[] = [];
+    if (count > 0) {
+      const pairs = new Float64Array(this.memory(), this.exports.hitsPointer(), count * 2);
+      for (let i = 0; i < count; i++) {
+        rams.push({ index: pairs[i * 2] ?? -1, absorbed: pairs[i * 2 + 1] === 1 });
+      }
+    }
+    this.read();
+
+    return rams;
   }
 
   /** The bullets of an enemy's volley: pure and seeded, the same on every client. */

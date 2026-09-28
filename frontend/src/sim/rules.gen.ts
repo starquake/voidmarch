@@ -32,6 +32,8 @@ export const WORLD_EDGE_BAND = 200;
 export const SAFE_ZONE_RADIUS = 300;
 export const SHIP_RADIUS = 12;
 export const MAX_DAMAGE = 3;
+export const RAM_DAMAGE = 2;
+export const RAM_SPEED = 120;
 
 export const SHIELD_STATS = {
   front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
@@ -150,5 +152,6 @@ export const LAYOUT = {
   stateSize: 3160,
   maxTargets: 128,
   shipTargetSize: 5,
-  scratchSize: 640,
+  bumpSize: 7,
+  scratchSize: 896,
 } as const;
