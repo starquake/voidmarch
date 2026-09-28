@@ -1,14 +1,21 @@
-import type { EnemyKind } from './enemies.ts';
+import { ENEMY_HP, SUPPORT_KINDS, type EnemyKind } from './enemies.ts';
 import type { ShipCommand } from './input.ts';
-import { rotateOffset, type Vec } from './math.ts';
+import { rotateOffset, wrapAngle, type Vec } from './math.ts';
+import { travelled } from './projectiles.ts';
 import type { Ship } from './ship.ts';
 import {
+  BRAIN_AIM_JITTER,
   BRAIN_ARRIVE_SECONDS,
+  BRAIN_ATTACK_DISTANCE,
+  BRAIN_ESCORT_RANGE,
+  BRAIN_FIRE_CONE,
+  BRAIN_LEASH,
   BRAIN_LOOK_AHEAD,
   BRAIN_TIGHT_FORMATION,
   ENGINE_STATS,
   FORMATION_SLOTS,
   TICK_SECONDS,
+  WEAPON_STATS,
 } from './tuning.ts';
 
 /** How a companion positions itself (docs/design.md, section 13). */
@@ -123,13 +130,29 @@ export function arrive(self: Ship, goal: Vec, goalVelocity: Vec = { x: 0, y: 0 }
   return { x: errorX / error, y: errorY / error };
 }
 
+interface Goal {
+  point: Vec;
+  velocity: Vec;
+}
+
+const STILL: Vec = { x: 0, y: 0 };
+
+const distance = (a: Vec, b: Vec): number => Math.hypot(a.x - b.x, a.y - b.y);
+
+/** How far the ship's weapon reaches before its shots expire. */
+function weaponRange(self: Ship): number {
+  const stats = WEAPON_STATS[self.loadout.weapon];
+
+  return travelled(stats, stats.lifetime);
+}
+
 /** Where the stance puts a companion, and how fast that point moves. */
-function stanceGoal(view: BrainView, orders: Orders): { point: Vec; velocity: Vec } {
+function stanceGoal(view: BrainView, orders: Orders): Goal {
   const { owner } = view;
   const moving = { x: owner.vx, y: owner.vy };
   switch (orders.stance) {
     case 'hold':
-      return { point: { x: orders.holdX, y: orders.holdY }, velocity: { x: 0, y: 0 } };
+      return { point: { x: orders.holdX, y: orders.holdY }, velocity: STILL };
     case 'defensive':
       return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
     case 'escort':
@@ -138,15 +161,91 @@ function stanceGoal(view: BrainView, orders: Orders): { point: Vec; velocity: Ve
   }
 }
 
-/** Decides what a companion does this tick. */
-export function think(view: BrainView, orders: Orders): BrainStep {
-  const { self, owner } = view;
-  const goal = stanceGoal(view, orders);
-  const move = arrive(self, goal.point, goal.velocity);
-  const look = rotateOffset(BRAIN_LOOK_AHEAD, 0, owner.angle);
+/** The enemies the standing orders allow this companion to shoot. */
+function candidates(view: BrainView, orders: Orders): BrainEnemy[] {
+  const { self, owner, enemies } = view;
+  const attackersOnly = orders.fire === 'return' || orders.stance === 'defensive';
+  const inReach = (e: BrainEnemy): boolean => {
+    switch (orders.stance) {
+      case 'aggressive':
+        return distance(e, owner) <= BRAIN_LEASH;
+      case 'hold':
+        return distance(e, self) <= weaponRange(self);
+      case 'escort':
+      case 'defensive':
+        return distance(e, owner) <= BRAIN_ESCORT_RANGE;
+    }
+  };
+
+  return enemies.filter((e) => inReach(e) && (!attackersOnly || e.attackedWing));
+}
+
+/**
+ * The enemy to shoot, if any. A focus order names it; hold fire means none;
+ * otherwise Support Ships come first when ordered, the weakest first when
+ * aggressive, and then the nearest.
+ */
+function chooseTarget(view: BrainView, orders: Orders): BrainEnemy | undefined {
+  const focus = orders.oneShot;
+  if (focus?.kind === 'focus') {
+    return view.enemies.find((e) => e.id === focus.enemyId);
+  }
+  if (orders.fire === 'hold') {
+    return undefined;
+  }
+  const { self } = view;
+  const rank = (e: BrainEnemy): number[] => [
+    orders.supportFirst && SUPPORT_KINDS.includes(e.kind) ? 0 : 1,
+    orders.stance === 'aggressive' ? ENEMY_HP[e.kind] : 0,
+    distance(e, self),
+  ];
+  const before = (a: number[], b: number[]): boolean => {
+    const i = a.findIndex((value, k) => value !== b[k]);
+
+    return i >= 0 && (a[i] ?? 0) < (b[i] ?? 0);
+  };
+
+  return candidates(view, orders).reduce<BrainEnemy | undefined>(
+    (best, e) => (best === undefined || before(rank(e), rank(best)) ? e : best),
+    undefined,
+  );
+}
+
+/** A point at attack distance from the target, on the companion's side of it. */
+function attackGoal(self: Ship, target: BrainEnemy): Goal {
+  const away = Math.atan2(self.y - target.y, self.x - target.x);
 
   return {
-    command: { moveX: move.x, moveY: move.y, aimX: self.x + look.x, aimY: self.y + look.y, fire: false },
-    done: false,
+    point: {
+      x: target.x + BRAIN_ATTACK_DISTANCE * Math.cos(away),
+      y: target.y + BRAIN_ATTACK_DISTANCE * Math.sin(away),
+    },
+    velocity: STILL,
   };
+}
+
+/** Decides what a companion does this tick; random wobbles its aim. */
+export function think(view: BrainView, orders: Orders, random: () => number): BrainStep {
+  const { self, owner } = view;
+  const target = chooseTarget(view, orders);
+  const hunting = target !== undefined && (orders.stance === 'aggressive' || orders.oneShot?.kind === 'focus');
+  const goal = hunting ? attackGoal(self, target) : stanceGoal(view, orders);
+  const move = arrive(self, goal.point, goal.velocity);
+
+  let aim: Vec;
+  let fire = false;
+  if (target === undefined) {
+    const look = rotateOffset(BRAIN_LOOK_AHEAD, 0, owner.angle);
+    aim = { x: self.x + look.x, y: self.y + look.y };
+  } else {
+    const toTarget = Math.atan2(target.y - self.y, target.x - self.x);
+    const wobble = (random() * 2 - 1) * BRAIN_AIM_JITTER;
+    const reach = distance(self, target);
+    aim = { x: self.x + reach * Math.cos(toTarget + wobble), y: self.y + reach * Math.sin(toTarget + wobble) };
+    fire = reach <= weaponRange(self) && Math.abs(wrapAngle(self.angle - toTarget)) <= BRAIN_FIRE_CONE;
+  }
+  const focus = orders.oneShot;
+  const done = focus?.kind === 'focus' && target === undefined;
+
+  return { command: { moveX: move.x, moveY: move.y, aimX: aim.x, aimY: aim.y, fire }, done };
 }

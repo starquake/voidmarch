@@ -213,3 +213,13 @@ export const BRAIN_TIGHT_FORMATION = 0.6;
 export const BRAIN_IN_FORMATION = 16;
 /** Where a companion looks when nothing needs shooting: this far ahead along the owner's facing. */
 export const BRAIN_LOOK_AHEAD = 200;
+/** Escorting and defending companions shoot enemies this close to their owner. */
+export const BRAIN_ESCORT_RANGE = 300;
+/** Aggressive companions hunt enemies this close to their owner, and no farther. */
+export const BRAIN_LEASH = 450;
+/** A hunting companion closes to this distance from its target. */
+export const BRAIN_ATTACK_DISTANCE = 130;
+/** A companion fires only when facing within this many radians of its target. */
+export const BRAIN_FIRE_CONE = 0.2;
+/** A companion's aim wobbles by up to this many radians, from its seed. */
+export const BRAIN_AIM_JITTER = 0.04;
