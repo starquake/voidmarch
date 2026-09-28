@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { BackgroundTicker, workerTimer } from '../background.ts';
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { wireFormatFrom } from '../net/codec.ts';
 import { fromCompanionMode } from '../net/mapping.ts';
@@ -270,6 +271,32 @@ export class SandboxScene extends Phaser.Scene {
     });
     this.net.start();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+
+    // While the tab is hidden, a worker steps the game so the server keeps us (#57).
+    const background = new BackgroundTicker(
+      (deltaMs) => {
+        this.stepHidden(deltaMs);
+      },
+      document,
+      workerTimer(),
+      () => performance.now(),
+    );
+    background.start();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      background.stop();
+    });
+  }
+
+  /**
+   * One step while the tab is hidden: the ship coasts with nothing held, its
+   * state goes to the server, and nothing is drawn. The ship stays in the
+   * world, exposed (#57).
+   */
+  private stepHidden(deltaMs: number): void {
+    const { pointerX, pointerY } = this.readInput();
+    const idle = { up: false, down: false, left: false, right: false, pointerX, pointerY, fire: false };
+    this.net?.update(this.sim.advance(deltaMs / 1000, idle));
+    this.publish();
   }
 
   private createProjectiles(): void {
