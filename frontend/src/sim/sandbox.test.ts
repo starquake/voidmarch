@@ -85,3 +85,50 @@ test('screen-relative control: W flies up whatever the aim', () => {
   assert.ok(sandbox.ship.y < start.y - 20);
   assert.ok(Math.abs(sandbox.ship.x - start.x) < 1e-9);
 });
+
+test('a companion flies with its owner and forgets a finished one-shot', () => {
+  const sandbox = new Sandbox();
+  const companion = sandbox.addCompanion(1, sandbox.ship.x + 150, sandbox.ship.y + 150);
+  companion.orders = { ...companion.orders, oneShot: { kind: 'regroup' } };
+  for (let t = 0; t < 3; t += TICK_SECONDS) {
+    sandbox.advance(TICK_SECONDS, input());
+  }
+  assert.ok(Math.hypot(companion.ship.x - sandbox.ship.x, companion.ship.y - sandbox.ship.y) < 100, 'back in formation');
+  assert.equal(companion.orders.oneShot, undefined);
+});
+
+test("a companion's shots carry its number, in the pool and the frame's shots", () => {
+  const sandbox = new Sandbox();
+  const companion = sandbox.addCompanion(2, sandbox.ship.x - 40, sandbox.ship.y + 40);
+  companion.orders = { ...companion.orders, stance: 'aggressive' };
+  const enemies = [{ id: 1, kind: 'scout' as const, x: sandbox.ship.x, y: sandbox.ship.y - 200, attackedWing: true }];
+  const shots = [];
+  for (let t = 0; t < 2; t += TICK_SECONDS) {
+    shots.push(...sandbox.advance(TICK_SECONDS, input(), enemies).shots);
+  }
+  assert.ok(shots.length > 0, 'it fired');
+  assert.ok(shots.every((s) => s.companion === 2), 'only the companion fired');
+  const fired = sandbox.projectiles.items.filter((p) => p.active);
+  assert.ok(fired.every((p) => p.owner === '2' && p.faction === 'own'));
+});
+
+test('the player keeps their own shots, numbered 0', () => {
+  const sandbox = new Sandbox();
+  assert.equal(sandbox.advance(TICK_SECONDS, input({ fire: true })).shots[0]?.companion, 0);
+});
+
+test('companions can be removed, and adding a number again replaces it', () => {
+  const sandbox = new Sandbox();
+  sandbox.addCompanion(1, 0, 0);
+  sandbox.addCompanion(2, 0, 0);
+  sandbox.addCompanion(1, 5, 5);
+  assert.deepEqual(
+    sandbox.companions.map((c) => c.number),
+    [2, 1],
+  );
+  sandbox.removeCompanion(2);
+  assert.deepEqual(
+    sandbox.companions.map((c) => c.number),
+    [1],
+  );
+});

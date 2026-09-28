@@ -244,6 +244,23 @@ var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
 var SHIP_RADIUS = 12;
 var SHOT_RADIUS = 3;
+var FORMATION_SLOTS = [
+  { forward: -45, right: -40 },
+  { forward: -45, right: 40 },
+  { forward: -85, right: 0 }
+];
+var BRAIN_ARRIVE_SECONDS = 0.35;
+var BRAIN_TIGHT_FORMATION = 0.6;
+var BRAIN_IN_FORMATION = 16;
+var BRAIN_LOOK_AHEAD = 200;
+var BRAIN_ESCORT_RANGE = 300;
+var BRAIN_LEASH = 450;
+var BRAIN_ATTACK_DISTANCE = 130;
+var BRAIN_FIRE_CONE = 0.2;
+var BRAIN_AIM_JITTER = 0.04;
+var BRAIN_BADLY_DAMAGED = 3;
+var BRAIN_HOME_RADIUS = 250;
+var BRAIN_SHIELD_DISTANCE = 45;
 var ENEMY_FIRE_GLOW_COLOUR = 4172031;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
 var ENEMY_FIRE_GLOW_QUALITY = 3;
@@ -598,6 +615,21 @@ function clearToken(store = browserStorage()) {
   }
 }
 
+// src/sim/enemies.ts
+var ENEMY_BULLET = {
+  scout: "klaedBullet",
+  fighter: "klaedBigBullet"
+};
+var ENEMY_RADIUS = {
+  scout: 11,
+  fighter: 12
+};
+var ENEMY_HP = {
+  scout: 2,
+  fighter: 6
+};
+var SUPPORT_KINDS = [];
+
 // src/sim/projectiles.ts
 function isWeapon(kind) {
   return WEAPONS.includes(kind);
@@ -717,6 +749,197 @@ var ProjectilePool = class {
   }
 };
 
+// src/sim/brain.ts
+var DEFAULT_ORDERS = {
+  stance: "escort",
+  fire: "free",
+  resources: "spend",
+  supportFirst: false,
+  holdX: 0,
+  holdY: 0,
+  oneShot: void 0
+};
+function formationPoint(owner, slot, scale = 1) {
+  const offset = FORMATION_SLOTS[slot % FORMATION_SLOTS.length] ?? { forward: 0, right: 0 };
+  const ring = 1 + Math.floor(slot / FORMATION_SLOTS.length);
+  const world = rotateOffset(offset.forward * scale * ring, offset.right * scale * ring, owner.angle);
+  return { x: owner.x + world.x, y: owner.y + world.y };
+}
+function arrive(self, goal, goalVelocity = { x: 0, y: 0 }) {
+  const engine = ENGINE_STATS[self.loadout.engine];
+  const maxSpeed = engine.maxSpeed;
+  let wantX = goalVelocity.x + (goal.x - self.x) / BRAIN_ARRIVE_SECONDS;
+  let wantY = goalVelocity.y + (goal.y - self.y) / BRAIN_ARRIVE_SECONDS;
+  const wantSpeed = Math.hypot(wantX, wantY);
+  if (wantSpeed > maxSpeed) {
+    wantX *= maxSpeed / wantSpeed;
+    wantY *= maxSpeed / wantSpeed;
+  }
+  const coast = Math.exp(-engine.drag * TICK_SECONDS);
+  const errorX = wantX - self.vx * coast;
+  const errorY = wantY - self.vy * coast;
+  const error = Math.hypot(errorX, errorY);
+  if (error <= engine.acceleration * TICK_SECONDS / 2) {
+    return { x: 0, y: 0 };
+  }
+  return { x: errorX / error, y: errorY / error };
+}
+var STILL = { x: 0, y: 0 };
+var distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+function weaponRange(self) {
+  const stats = WEAPON_STATS[self.loadout.weapon];
+  return travelled(stats, stats.lifetime);
+}
+function stanceGoal(view, orders) {
+  const { owner } = view;
+  const moving = { x: owner.vx, y: owner.vy };
+  switch (orders.stance) {
+    case "hold":
+      return { point: { x: orders.holdX, y: orders.holdY }, velocity: STILL };
+    case "defensive":
+      return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
+    case "escort":
+    case "aggressive":
+      return { point: formationPoint(owner, view.slot), velocity: moving };
+  }
+}
+function candidates(view, orders) {
+  const { self, owner, enemies } = view;
+  const attackersOnly = orders.fire === "return" || orders.stance === "defensive";
+  const inReach = (e) => {
+    switch (orders.stance) {
+      case "aggressive":
+        return distance(e, owner) <= BRAIN_LEASH;
+      case "hold":
+        return distance(e, self) <= weaponRange(self);
+      case "escort":
+      case "defensive":
+        return distance(e, owner) <= BRAIN_ESCORT_RANGE;
+    }
+  };
+  return enemies.filter((e) => inReach(e) && (!attackersOnly || e.attackedWing));
+}
+function chooseTarget(view, orders) {
+  const focus = orders.oneShot;
+  if (focus?.kind === "focus") {
+    return view.enemies.find((e) => e.id === focus.enemyId);
+  }
+  if (orders.fire === "hold") {
+    return void 0;
+  }
+  const { self } = view;
+  const rank = (e) => [
+    orders.supportFirst && SUPPORT_KINDS.includes(e.kind) ? 0 : 1,
+    orders.stance === "aggressive" ? ENEMY_HP[e.kind] : 0,
+    distance(e, self)
+  ];
+  const before = (a, b) => {
+    const i = a.findIndex((value, k) => value !== b[k]);
+    return i >= 0 && (a[i] ?? 0) < (b[i] ?? 0);
+  };
+  return candidates(view, orders).reduce(
+    (best, e) => best === void 0 || before(rank(e), rank(best)) ? e : best,
+    void 0
+  );
+}
+function attackGoal(self, target) {
+  const away = Math.atan2(self.y - target.y, self.x - target.x);
+  return {
+    point: {
+      x: target.x + BRAIN_ATTACK_DISTANCE * Math.cos(away),
+      y: target.y + BRAIN_ATTACK_DISTANCE * Math.sin(away)
+    },
+    velocity: STILL
+  };
+}
+function attackersNearOwner(view) {
+  return view.enemies.filter((e) => e.attackedWing && distance(e, view.owner) <= BRAIN_ESCORT_RANGE);
+}
+function shieldGoal(view, attackers) {
+  const { owner } = view;
+  const cx = attackers.reduce((sum, e) => sum + e.x, 0) / attackers.length;
+  const cy = attackers.reduce((sum, e) => sum + e.y, 0) / attackers.length;
+  const toward = Math.atan2(cy - owner.y, cx - owner.x);
+  return {
+    point: {
+      x: owner.x + BRAIN_SHIELD_DISTANCE * Math.cos(toward),
+      y: owner.y + BRAIN_SHIELD_DISTANCE * Math.sin(toward)
+    },
+    velocity: { x: owner.vx, y: owner.vy }
+  };
+}
+function chooseGoal(view, orders, target) {
+  const { self, owner } = view;
+  const oneShot = orders.oneShot;
+  switch (oneShot?.kind) {
+    case "regroup":
+      return { point: formationPoint(owner, view.slot), velocity: { x: owner.vx, y: owner.vy } };
+    case "goHome":
+      return { point: { x: 0, y: 0 }, velocity: STILL };
+    case "shieldMe": {
+      const attackers = attackersNearOwner(view);
+      if (attackers.length > 0) {
+        return shieldGoal(view, attackers);
+      }
+      break;
+    }
+    case "focus":
+      if (target !== void 0) {
+        return attackGoal(self, target);
+      }
+      break;
+    case void 0:
+      break;
+  }
+  const fallingBack = self.damage >= BRAIN_BADLY_DAMAGED && (orders.stance === "defensive" || orders.resources === "conserve");
+  if (fallingBack) {
+    return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: { x: owner.vx, y: owner.vy } };
+  }
+  if (target !== void 0 && orders.stance === "aggressive") {
+    return attackGoal(self, target);
+  }
+  return stanceGoal(view, orders);
+}
+function oneShotDone(view, orders, target) {
+  switch (orders.oneShot?.kind) {
+    case "focus":
+      return target === void 0;
+    case "regroup":
+      return distance(view.self, formationPoint(view.owner, view.slot)) <= BRAIN_IN_FORMATION;
+    case "goHome":
+      return Math.hypot(view.self.x, view.self.y) <= BRAIN_HOME_RADIUS;
+    case "shieldMe":
+      return attackersNearOwner(view).length === 0;
+    case void 0:
+      return false;
+  }
+}
+function holdsVolley(self, orders, target) {
+  return orders.resources === "conserve" && self.loadout.weapon === "bigSpaceGun" && orders.oneShot?.kind !== "focus" && !SUPPORT_KINDS.includes(target.kind);
+}
+function think(view, orders, random) {
+  const { self, owner } = view;
+  const target = orders.oneShot?.kind === "regroup" ? void 0 : chooseTarget(view, orders);
+  const goal = chooseGoal(view, orders, target);
+  const move = arrive(self, goal.point, goal.velocity);
+  let aim;
+  let fire = false;
+  if (target === void 0) {
+    const look = rotateOffset(BRAIN_LOOK_AHEAD, 0, owner.angle);
+    aim = { x: self.x + look.x, y: self.y + look.y };
+  } else {
+    const toTarget = Math.atan2(target.y - self.y, target.x - self.x);
+    const wobble = (random() * 2 - 1) * BRAIN_AIM_JITTER;
+    const reach = distance(self, target);
+    aim = { x: self.x + reach * Math.cos(toTarget + wobble), y: self.y + reach * Math.sin(toTarget + wobble) };
+    fire = reach <= weaponRange(self) && Math.abs(wrapAngle(self.angle - toTarget)) <= BRAIN_FIRE_CONE && !holdsVolley(self, orders, target);
+  }
+  return {
+    command: { moveX: move.x, moveY: move.y, aimX: aim.x, aimY: aim.y, fire },
+    done: oneShotDone(view, orders, target)
+  };
+}
+
 // src/sim/ship.ts
 function createShip(x, y, loadout = DEFAULT_LOADOUT) {
   return {
@@ -809,12 +1032,12 @@ function applyWorldEdge(ship, dt) {
   const inner = WORLD_HALF_SIZE - WORLD_EDGE_BAND;
   for (const axis of ["x", "y"]) {
     const v = axis === "x" ? "vx" : "vy";
-    const distance = Math.abs(ship[axis]);
-    if (distance > inner) {
-      const depth = Math.min(1, (distance - inner) / WORLD_EDGE_BAND);
+    const distance2 = Math.abs(ship[axis]);
+    if (distance2 > inner) {
+      const depth = Math.min(1, (distance2 - inner) / WORLD_EDGE_BAND);
       ship[v] -= Math.sign(ship[axis]) * depth * WORLD_EDGE_PUSH * dt;
     }
-    if (distance > WORLD_HALF_SIZE) {
+    if (distance2 > WORLD_HALF_SIZE) {
       ship[axis] = Math.sign(ship[axis]) * WORLD_HALF_SIZE;
       if (Math.sign(ship[v]) === Math.sign(ship[axis])) {
         ship[v] = 0;
@@ -844,6 +1067,7 @@ function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
 
 // src/sim/sandbox.ts
 var PROJECTILE_CAPACITY = 256;
+var COMPANION_SEED = 24301;
 var Sandbox = class {
   ship = createShip(0, 160);
   projectiles = new ProjectilePool(PROJECTILE_CAPACITY);
@@ -851,23 +1075,47 @@ var Sandbox = class {
   previous = { x: this.ship.x, y: this.ship.y };
   /** How WASD maps to movement; ship-relative unless the player switched. */
   controlMode = "ship";
+  /** In formation-slot order. */
+  companions = [];
   accumulator = 0;
   /** How far the display is between the last two ticks, from 0 to 1. */
   get alpha() {
     return this.accumulator / TICK_SECONDS;
   }
-  /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
-  advance(frameSeconds, input) {
+  /** Adds a companion the server granted, at (x, y), with the default parts until unlocks exist. */
+  addCompanion(number, x, y) {
+    this.removeCompanion(number);
+    const companion = {
+      number,
+      ship: createShip(x, y),
+      previous: { x, y },
+      orders: { ...DEFAULT_ORDERS },
+      random: seededRandom(COMPANION_SEED + number)
+    };
+    this.companions.push(companion);
+    return companion;
+  }
+  removeCompanion(number) {
+    const i = this.companions.findIndex((c) => c.number === number);
+    if (i >= 0) {
+      this.companions.splice(i, 1);
+    }
+  }
+  /**
+   * Runs as many fixed ticks as frameSeconds covers, using the same input for
+   * each. Companions decide from the enemies as drawn.
+   */
+  advance(frameSeconds, input, enemies = []) {
     const events = { ticks: 0, charges: [], shots: [], expired: [] };
     this.accumulator = Math.min(this.accumulator + frameSeconds, TICK_SECONDS * MAX_TICKS_PER_FRAME);
     const cmd = toCommand(input);
     while (this.accumulator >= TICK_SECONDS) {
       this.accumulator -= TICK_SECONDS;
-      this.tick(cmd, events);
+      this.tick(cmd, enemies, events);
     }
     return events;
   }
-  tick(screenCmd, events) {
+  tick(screenCmd, enemies, events) {
     this.previous.x = this.ship.x;
     this.previous.y = this.ship.y;
     const cmd = this.controlMode === "ship" ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
@@ -879,12 +1127,33 @@ var Sandbox = class {
     }
     for (const shot of weapon.shots) {
       const p = this.projectiles.spawn({ kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle });
-      events.shots.push({ ...shot, id: p.shotId });
+      events.shots.push({ ...shot, id: p.shotId, companion: 0 });
     }
+    this.companions.forEach((companion, slot) => {
+      this.tickCompanion(companion, slot, enemies, events);
+    });
     for (const p of this.projectiles.step(TICK_SECONDS, projectileInBounds)) {
       events.expired.push({ kind: p.kind, faction: p.faction, x: p.x, y: p.y });
     }
     events.ticks++;
+  }
+  tickCompanion(companion, slot, enemies, events) {
+    const { ship, previous } = companion;
+    previous.x = ship.x;
+    previous.y = ship.y;
+    const step = think({ self: ship, owner: this.ship, slot, enemies }, companion.orders, companion.random);
+    if (step.done) {
+      companion.orders = { ...companion.orders, oneShot: void 0 };
+    }
+    stepShip(ship, step.command, TICK_SECONDS);
+    applyWorldEdge(ship, TICK_SECONDS);
+    for (const shot of stepWeapon(ship, step.command.fire, TICK_SECONDS).shots) {
+      const p = this.projectiles.spawn(
+        { kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle },
+        { owner: String(companion.number) }
+      );
+      events.shots.push({ ...shot, id: p.shotId, companion: companion.number });
+    }
   }
 };
 
@@ -1433,16 +1702,6 @@ var TimedQueue = class {
     });
     return due;
   }
-};
-
-// src/sim/enemies.ts
-var ENEMY_BULLET = {
-  scout: "klaedBullet",
-  fighter: "klaedBigBullet"
-};
-var ENEMY_RADIUS = {
-  scout: 11,
-  fighter: 12
 };
 
 // src/sim/hits.ts
