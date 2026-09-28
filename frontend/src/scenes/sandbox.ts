@@ -15,7 +15,16 @@ import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
 import { Sandbox, type FrameEvents } from '../sim/sandbox.ts';
-import { ROTATION_SNAP_STEPS, VIEW_HEIGHT, VIEW_WIDTH, WEAPON_STATS } from '../sim/tuning.ts';
+import {
+  ENEMY_FIRE_GLOW_COLOUR,
+  ENEMY_FIRE_GLOW_DISTANCE,
+  ENEMY_FIRE_GLOW_QUALITY,
+  ENEMY_FIRE_GLOW_STRENGTH,
+  ROTATION_SNAP_STEPS,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+  WEAPON_STATS,
+} from '../sim/tuning.ts';
 import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
@@ -29,6 +38,14 @@ const PARALLAX = [0.05, 0.15, 0.3] as const;
 const BACKGROUND_FPS = 6;
 const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
+/** Bloom's blur reach, in screen pixels at EFFECT_ZOOM. */
+const BLOOM_BLUR = 3;
+/**
+ * Filters work in screen pixels, so their reach is scaled by zoom / EFFECT_ZOOM
+ * to look the same on every screen size and display scaling. 2 is the zoom of
+ * a 1280x720 window, where the effects were tuned.
+ */
+const EFFECT_ZOOM = 2;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
 const HIT_SPARKS = 5;
@@ -51,9 +68,13 @@ export class SandboxScene extends Phaser.Scene {
   private ship!: ShipView;
   private net: NetPlay | undefined;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
+  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  private enemyFire!: Phaser.GameObjects.Layer;
+  private enemyFireGlow: Phaser.Filters.Glow | undefined;
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
+  private bloomBlur: Phaser.Filters.Blur | undefined;
   private vignette: Phaser.Filters.Vignette | undefined;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
@@ -111,6 +132,7 @@ export class SandboxScene extends Phaser.Scene {
       enemies: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: undefined,
+      enemyFireGlow: false,
       hitsTaken: 0,
     };
     this.publish();
@@ -182,6 +204,18 @@ export class SandboxScene extends Phaser.Scene {
 
       return sprite;
     });
+    this.enemyFire = this.add.layer();
+    this.world.add(this.enemyFire);
+    this.enemyFire.enableFilters();
+    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
+      ENEMY_FIRE_GLOW_COLOUR,
+      ENEMY_FIRE_GLOW_STRENGTH,
+      0,
+      1,
+      false,
+      ENEMY_FIRE_GLOW_QUALITY,
+      ENEMY_FIRE_GLOW_DISTANCE,
+    );
   }
 
   private createParticles(): void {
@@ -211,8 +245,9 @@ export class SandboxScene extends Phaser.Scene {
     main.setBackgroundColor('#05030a');
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]
-      ?.parallelFilters;
+    const bloom = Phaser.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    this.bloom = bloom?.parallelFilters;
+    this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
 
     this.hud = this.add
@@ -302,6 +337,9 @@ export class SandboxScene extends Phaser.Scene {
         if (this.vignette !== undefined) {
           this.vignette.active = this.effects;
         }
+        if (this.enemyFireGlow !== undefined) {
+          this.enemyFireGlow.active = this.effects;
+        }
         this.updateHud();
         break;
       default:
@@ -322,6 +360,14 @@ export class SandboxScene extends Phaser.Scene {
     // every art pixel a whole number of device pixels.
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
+    const effectScale = zoom / EFFECT_ZOOM;
+    if (this.bloomBlur !== undefined) {
+      this.bloomBlur.x = BLOOM_BLUR * effectScale;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale;
+    }
+    if (this.enemyFireGlow !== undefined) {
+      this.enemyFireGlow.scale = effectScale;
+    }
     this.hudCamera.setSize(width, height);
     const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
@@ -380,6 +426,12 @@ export class SandboxScene extends Phaser.Scene {
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
+      // Pooled sprites carry every faction in turn: move each to its layer.
+      const layer = p.faction === 'enemy' ? this.enemyFire : this.world;
+      if (sprite.displayList !== layer) {
+        sprite.displayList.remove(sprite);
+        layer.add(sprite);
+      }
     });
   }
 
@@ -467,6 +519,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
+    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;

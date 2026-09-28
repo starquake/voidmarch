@@ -89,13 +89,20 @@ test('debug keys cycle parts, hull, rotation and effects', async ({ page }) => {
     .poll(async () => {
       const s = await state(page);
 
-      return { loadout: s.loadout, damage: s.damage, rotationSnap: s.rotationSnap, effects: s.effects };
+      return {
+        loadout: s.loadout,
+        damage: s.damage,
+        rotationSnap: s.rotationSnap,
+        effects: s.effects,
+        enemyFireGlow: s.enemyFireGlow,
+      };
     })
     .toEqual({
       loadout: { weapon: 'rockets', engine: 'bigPulse', shield: 'frontAndSide' },
       damage: 'slightDamage',
       rotationSnap: 16,
       effects: false,
+      enemyFireGlow: false,
     });
 });
 

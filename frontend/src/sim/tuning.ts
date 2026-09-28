@@ -229,3 +229,13 @@ export const BRAIN_BADLY_DAMAGED = 3;
 export const BRAIN_HOME_RADIUS = 250;
 /** Shielding the owner, a companion keeps this far out toward the attackers. */
 export const BRAIN_SHIELD_DISTANCE = 45;
+
+/**
+ * Enemy bullets fly on a layer with one glow in this colour (0xRRGGBB), so
+ * they stand out from the players' shots (#36). Quality is the filter's
+ * sample count: a low one keeps software-rendered CI fast.
+ */
+export const ENEMY_FIRE_GLOW_COLOUR = 0x3fa8ff;
+export const ENEMY_FIRE_GLOW_STRENGTH = 6;
+export const ENEMY_FIRE_GLOW_QUALITY = 3;
+export const ENEMY_FIRE_GLOW_DISTANCE = 4;

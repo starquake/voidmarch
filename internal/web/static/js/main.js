@@ -244,6 +244,10 @@ var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
 var SHIP_RADIUS = 12;
 var SHOT_RADIUS = 3;
+var ENEMY_FIRE_GLOW_COLOUR = 4172031;
+var ENEMY_FIRE_GLOW_STRENGTH = 6;
+var ENEMY_FIRE_GLOW_QUALITY = 3;
+var ENEMY_FIRE_GLOW_DISTANCE = 4;
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -260,6 +264,7 @@ var KLAED_FILES = {
   scout: { engine: 10, weapons: 6, destruction: 10 },
   fighter: { engine: 10, weapons: 6, destruction: 9 }
 };
+var BULLET_VARIANT = "blue";
 var BULLET_FRAMES = {
   bullet: { width: 4, frames: 4 },
   "big-bullet": { width: 8, frames: 4 }
@@ -395,7 +400,7 @@ function sheets() {
     }),
     ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
       key: `klaed-${name}`,
-      url: `${klaed}/${name}.png`,
+      url: `${klaed}/${name}-${BULLET_VARIANT}.png`,
       frameWidth: f.width,
       frameHeight: 16,
       frames: f.frames,
@@ -1945,6 +1950,8 @@ var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
+var BLOOM_BLUR = 3;
+var EFFECT_ZOOM = 2;
 var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
@@ -1958,9 +1965,13 @@ var SandboxScene = class extends Phaser5.Scene {
   ship;
   net;
   projectileSprites = [];
+  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  enemyFire;
+  enemyFireGlow;
   muzzleFlash;
   puff;
   bloom;
+  bloomBlur;
   vignette;
   hudCamera;
   hud;
@@ -2015,6 +2026,7 @@ var SandboxScene = class extends Phaser5.Scene {
       enemies: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
+      enemyFireGlow: false,
       hitsTaken: 0
     };
     this.publish();
@@ -2079,6 +2091,18 @@ var SandboxScene = class extends Phaser5.Scene {
       this.world.add(sprite);
       return sprite;
     });
+    this.enemyFire = this.add.layer();
+    this.world.add(this.enemyFire);
+    this.enemyFire.enableFilters();
+    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
+      ENEMY_FIRE_GLOW_COLOUR,
+      ENEMY_FIRE_GLOW_STRENGTH,
+      0,
+      1,
+      false,
+      ENEMY_FIRE_GLOW_QUALITY,
+      ENEMY_FIRE_GLOW_DISTANCE
+    );
   }
   createParticles() {
     this.muzzleFlash = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -2106,7 +2130,9 @@ var SandboxScene = class extends Phaser5.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser5.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
+    const bloom = Phaser5.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    this.bloom = bloom?.parallelFilters;
+    this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -2188,6 +2214,9 @@ var SandboxScene = class extends Phaser5.Scene {
         if (this.vignette !== void 0) {
           this.vignette.active = this.effects;
         }
+        if (this.enemyFireGlow !== void 0) {
+          this.enemyFireGlow.active = this.effects;
+        }
         this.updateHud();
         break;
       default:
@@ -2204,6 +2233,14 @@ var SandboxScene = class extends Phaser5.Scene {
     const { width, height } = this.scale;
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
+    const effectScale = zoom / EFFECT_ZOOM;
+    if (this.bloomBlur !== void 0) {
+      this.bloomBlur.x = BLOOM_BLUR * effectScale;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale;
+    }
+    if (this.enemyFireGlow !== void 0) {
+      this.enemyFireGlow.scale = effectScale;
+    }
     this.hudCamera.setSize(width, height);
     const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
@@ -2257,6 +2294,11 @@ var SandboxScene = class extends Phaser5.Scene {
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
+      const layer = p.faction === "enemy" ? this.enemyFire : this.world;
+      if (sprite.displayList !== layer) {
+        sprite.displayList.remove(sprite);
+        layer.add(sprite);
+      }
     });
   }
   playEffects(events) {
@@ -2337,6 +2379,7 @@ var SandboxScene = class extends Phaser5.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
+    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
