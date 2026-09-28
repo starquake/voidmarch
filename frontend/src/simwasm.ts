@@ -125,8 +125,8 @@ interface Exports {
   spawn(kind: number, faction: number, x: number, y: number, angle: number, age: number, shotId: number): number;
   deactivate(slot: number): void;
   clear(faction: number): void;
-  positionAt(slot: number, age: number): void;
-  hitAlong(x0: number, y0: number, x1: number, y1: number, n: number): number;
+  hitsPointer(): number;
+  hitScan(faction: number, stepSeconds: number, n: number): number;
   enemyPattern(kind: number, x: number, y: number, angle: number, seed: number): number;
 }
 
@@ -234,16 +234,16 @@ export class Sandbox {
     this.read();
   }
 
-  /** Where p was, or will be, at age. */
-  positionAt(p: Projectile, age: number): Vec {
-    this.exports.positionAt(p.slot, age);
-    const scratch = this.scratch();
-
-    return { x: scratch[0] ?? p.x, y: scratch[1] ?? p.y };
-  }
-
-  /** The first target a projectile touches on its way from (x0, y0) to (x1, y1), if any. */
-  hitTargetAlong<Id>(x0: number, y0: number, x1: number, y1: number, targets: readonly Target<Id>[]): Target<Id> | undefined {
+  /**
+   * Tests every active projectile of the faction along the path it flew in
+   * the last stepSeconds against the targets, ends the ones that hit, and
+   * returns what hit what: one call for the frame.
+   */
+  hitScan<Id>(
+    faction: Faction,
+    stepSeconds: number,
+    targets: readonly Target<Id>[],
+  ): { projectile: Projectile; target: Target<Id> }[] {
     const n = Math.min(targets.length, LAYOUT.maxTargets);
     const scratch = this.scratch();
     for (let i = 0; i < n; i++) {
@@ -252,9 +252,24 @@ export class Sandbox {
         scratch.set([t.x, t.y, t.radius], i * 3);
       }
     }
-    const hit = this.exports.hitAlong(x0, y0, x1, y1, n);
+    const count = this.exports.hitScan(FACTIONS.indexOf(faction), stepSeconds, n);
+    if (count === 0) {
+      return [];
+    }
+    const pointer = this.exports.hitsPointer();
+    const pairs = new Float64Array(this.memory(), pointer, count * 2);
+    const hits = Array.from({ length: count }, (_, i) => [pairs[i * 2] ?? -1, pairs[i * 2 + 1] ?? -1] as const);
+    this.read();
+    const out: { projectile: Projectile; target: Target<Id> }[] = [];
+    for (const [slot, index] of hits) {
+      const projectile = this.projectiles.items[slot];
+      const target = targets[index];
+      if (projectile !== undefined && target !== undefined) {
+        out.push({ projectile, target });
+      }
+    }
 
-    return hit < 0 ? undefined : targets[hit];
+    return out;
   }
 
   /** The bullets of an enemy's volley: pure and seeded, the same on every client. */

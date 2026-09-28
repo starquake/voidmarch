@@ -508,33 +508,23 @@ export class NetPlay {
       { id: -1, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
       ...companions.map((c, i) => ({ id: i, x: c.view.root.x, y: c.view.root.y, radius: SHIP_RADIUS })),
     ];
-    for (const p of this.options.sim.projectiles.items) {
-      if (!p.active || p.faction === 'remote') {
+    const { sim } = this.options;
+    for (const { projectile: p, target } of sim.hitScan('own', stepSeconds, targets)) {
+      if (!isWeapon(p.kind)) {
         continue;
       }
-      const from = this.options.sim.positionAt(p, Math.max(0, p.age - stepSeconds));
-      if (p.faction === 'own' && isWeapon(p.kind)) {
-        const target = this.options.sim.hitTargetAlong(from.x, from.y, p.x, p.y, targets);
-        if (target !== undefined) {
-          this.options.sim.projectiles.deactivate(p);
-          this.lastHit = { id: target.id, atMs: now() };
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
-          this.enemies.get(target.id)?.view.flash();
-          frame.enemyHits.push({ x: p.x, y: p.y });
-        }
-      } else if (p.faction === 'enemy') {
-        const hit = this.options.sim.hitTargetAlong(from.x, from.y, p.x, p.y, wing);
-        if (hit === undefined) {
-          continue;
-        }
-        this.options.sim.projectiles.deactivate(p);
-        if (hit.id === -1) {
-          this.hitsTaken++;
-          frame.hitsOnMe.push({ x: p.x, y: p.y });
-        } else {
-          companions[hit.id]?.view.flash(this.options.scene);
-          frame.enemyHits.push({ x: p.x, y: p.y });
-        }
+      this.lastHit = { id: target.id, atMs: now() };
+      this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+      this.enemies.get(target.id)?.view.flash();
+      frame.enemyHits.push({ x: p.x, y: p.y });
+    }
+    for (const { projectile: p, target } of sim.hitScan('enemy', stepSeconds, wing)) {
+      if (target.id === -1) {
+        this.hitsTaken++;
+        frame.hitsOnMe.push({ x: p.x, y: p.y });
+      } else {
+        companions[target.id]?.view.flash(this.options.scene);
+        frame.enemyHits.push({ x: p.x, y: p.y });
       }
     }
   }

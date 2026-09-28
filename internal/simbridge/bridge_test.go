@@ -145,12 +145,6 @@ func TestProjectiles(t *testing.T) {
 		t.Errorf("remote shot id = %v, want 77", slot(b, remote)[ProjectileShotID])
 	}
 
-	b.PositionAt(s, 1)
-	want := 10 + sim.EnemyBulletStatsOf(sim.KlaedBullet).Speed
-	if math.Abs(b.Scratch[0]-want) > 1e-9 || b.Scratch[1] != 20 {
-		t.Errorf("position at 1 s = (%v, %v), want (%v, 20)", b.Scratch[0], b.Scratch[1], want)
-	}
-
 	b.Deactivate(remote)
 	b.Clear(enemy)
 	if slot(b, s)[ProjectileActive] != 0 || slot(b, remote)[ProjectileActive] != 0 {
@@ -158,23 +152,6 @@ func TestProjectiles(t *testing.T) {
 	}
 	b.Deactivate(-1)
 	b.Clear(-1)
-	b.PositionAt(ProjectileCapacity, 0)
-}
-
-func TestHitAlong(t *testing.T) {
-	t.Parallel()
-
-	b := New()
-	copy(b.Scratch[:], []float64{0, 0, 10, 100, 0, 12})
-	if got := b.HitAlong(-50, 2, 50, 2, 2); got != 0 {
-		t.Errorf("HitAlong() = %d, want the first target", got)
-	}
-	if got := b.HitAlong(150, 0, -50, 0, 2); got != 1 {
-		t.Errorf("HitAlong() = %d, want the nearer, second target", got)
-	}
-	if got := b.HitAlong(-50, 20, 50, 20, 2); got != -1 {
-		t.Errorf("HitAlong() = %d, want a miss", got)
-	}
 }
 
 func TestEnemyPattern(t *testing.T) {
@@ -214,5 +191,39 @@ func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
 			b.State[HeaderShipCooldown],
 			b.State[HeaderShipNextMuzzle],
 		)
+	}
+}
+
+func TestHitScan(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	own, enemy := slices.Index(
+		Factions(),
+		sim.FactionOwn,
+	), slices.Index(
+		Factions(),
+		sim.FactionEnemy,
+	)
+	hitting := b.Spawn(0, own, -20, 0, 0, 0, 0)
+	missing := b.Spawn(0, own, -20, 100, 0, 0, 0)
+	bullet := b.Spawn(4, enemy, -20, 0, 0, 0, 0)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000})
+	copy(b.Scratch[:], []float64{0, 0, 10})
+
+	if got := b.HitScan(own, sim.TickSeconds, 1); got != 1 {
+		t.Fatalf("HitScan() = %d hits, want 1", got)
+	}
+	if b.Hits[0] != float64(hitting) || b.Hits[1] != 0 {
+		t.Errorf("hit = (slot %v, target %v), want (%d, 0)", b.Hits[0], b.Hits[1], hitting)
+	}
+	if slot(b, hitting)[ProjectileActive] != 0 || slot(b, missing)[ProjectileActive] != 1 {
+		t.Error("HitScan() didn't end just the hit")
+	}
+	if slot(b, bullet)[ProjectileActive] != 1 {
+		t.Error("HitScan() for own shots ended an enemy bullet")
+	}
+	if b.HitScan(9, sim.TickSeconds, 1) != 0 {
+		t.Error("an unknown faction hit something")
 	}
 }

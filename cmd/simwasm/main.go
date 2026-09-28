@@ -76,14 +76,14 @@ func clear(faction int32) {
 	bridge.Clear(int(faction))
 }
 
-//go:wasmexport positionAt
-func positionAt(slot int32, age float64) {
-	bridge.PositionAt(int(slot), age)
+//go:wasmexport hitsPointer
+func hitsPointer() int32 {
+	return int32(uintptr(unsafe.Pointer(&bridge.Hits[0])))
 }
 
-//go:wasmexport hitAlong
-func hitAlong(x0, y0, x1, y1 float64, n int32) int32 {
-	return int32(bridge.HitAlong(x0, y0, x1, y1, int(n)))
+//go:wasmexport hitScan
+func hitScan(faction int32, stepSeconds float64, n int32) int32 {
+	return int32(bridge.HitScan(int(faction), stepSeconds, int(n)))
 }
 
 //go:wasmexport enemyPattern

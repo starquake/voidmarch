@@ -108,6 +108,8 @@ type Bridge struct {
 	// Scratch passes a call's extra numbers both ways: hit targets in, a
 	// position or an enemy pattern out.
 	Scratch [scratchFloats]float64
+	// Hits is HitScan's answer: pairs of (slot, target index).
+	Hits [ProjectileCapacity * 2]float64
 }
 
 // New returns a bridge around a fresh sandbox, its state already written.
@@ -199,32 +201,43 @@ func (b *Bridge) Clear(faction int) {
 	}
 }
 
-// PositionAt writes where the projectile in slot was, or will be, at age
-// into Scratch[0:2].
-func (b *Bridge) PositionAt(slot int, age float64) {
-	items := b.sandbox.Projectiles.Items()
-	if slot < 0 || slot >= len(items) {
-		return
+// HitScan tests every active projectile of the faction at index faction of
+// [Factions] along the path it flew in the last stepSeconds against n targets
+// in Scratch (x, y, radius each), ends the ones that hit, and writes (slot,
+// target index) pairs into Hits. It returns how many hit: one call for a
+// frame's hits instead of two per projectile.
+func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
+	factions := Factions()
+	if faction < 0 || faction >= len(factions) {
+		return 0
 	}
-	at := sim.PositionAt(&items[slot], age)
-	b.Scratch[0], b.Scratch[1] = at.X, at.Y
-}
-
-// HitAlong is the index of the first of n targets in Scratch (x, y, radius
-// each) that a projectile moving from (x0, y0) to (x1, y1) touches, or -1.
-func (b *Bridge) HitAlong(x0, y0, x1, y1 float64, n int) int {
 	n = min(max(n, 0), MaxTargets)
 	targets := make([]sim.Target[int], n)
 	for i := range n {
 		at := b.Scratch[i*targetSize:]
 		targets[i] = sim.Target[int]{ID: i, X: at[0], Y: at[1], Radius: at[2]}
 	}
-	hit, ok := sim.HitTargetAlong(x0, y0, x1, y1, targets)
-	if !ok {
-		return -1
+	hits := 0
+	items := b.sandbox.Projectiles.Items()
+	for slot := range items {
+		p := &items[slot]
+		if !p.Active || p.Faction != factions[faction] {
+			continue
+		}
+		from := sim.PositionAt(p, max(0, p.Age-stepSeconds))
+		target, ok := sim.HitTargetAlong(from.X, from.Y, p.X, p.Y, targets)
+		if !ok {
+			continue
+		}
+		p.Active = false
+		b.Hits[hits*2], b.Hits[hits*2+1] = float64(slot), float64(target.ID)
+		hits++
+	}
+	if hits > 0 {
+		b.write(sim.FrameEvents{})
 	}
 
-	return hit.ID
+	return hits
 }
 
 // EnemyPattern writes the bullets of an enemy's volley into Scratch (kind

@@ -824,14 +824,12 @@ var Sandbox = class {
     this.exports.setRotationSnap(steps);
     this.read();
   }
-  /** Where p was, or will be, at age. */
-  positionAt(p, age) {
-    this.exports.positionAt(p.slot, age);
-    const scratch = this.scratch();
-    return { x: scratch[0] ?? p.x, y: scratch[1] ?? p.y };
-  }
-  /** The first target a projectile touches on its way from (x0, y0) to (x1, y1), if any. */
-  hitTargetAlong(x0, y0, x1, y1, targets) {
+  /**
+   * Tests every active projectile of the faction along the path it flew in
+   * the last stepSeconds against the targets, ends the ones that hit, and
+   * returns what hit what: one call for the frame.
+   */
+  hitScan(faction, stepSeconds, targets) {
     const n = Math.min(targets.length, LAYOUT.maxTargets);
     const scratch = this.scratch();
     for (let i = 0; i < n; i++) {
@@ -840,8 +838,23 @@ var Sandbox = class {
         scratch.set([t.x, t.y, t.radius], i * 3);
       }
     }
-    const hit = this.exports.hitAlong(x0, y0, x1, y1, n);
-    return hit < 0 ? void 0 : targets[hit];
+    const count = this.exports.hitScan(FACTIONS.indexOf(faction), stepSeconds, n);
+    if (count === 0) {
+      return [];
+    }
+    const pointer = this.exports.hitsPointer();
+    const pairs = new Float64Array(this.memory(), pointer, count * 2);
+    const hits = Array.from({ length: count }, (_, i) => [pairs[i * 2] ?? -1, pairs[i * 2 + 1] ?? -1]);
+    this.read();
+    const out = [];
+    for (const [slot, index] of hits) {
+      const projectile = this.projectiles.items[slot];
+      const target = targets[index];
+      if (projectile !== void 0 && target !== void 0) {
+        out.push({ projectile, target });
+      }
+    }
+    return out;
   }
   /** The bullets of an enemy's volley: pure and seeded, the same on every client. */
   enemyPattern(kind, x, y, angle, seed) {
@@ -2200,33 +2213,23 @@ var NetPlay = class {
       { id: -1, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
       ...companions.map((c, i) => ({ id: i, x: c.view.root.x, y: c.view.root.y, radius: SHIP_RADIUS }))
     ];
-    for (const p of this.options.sim.projectiles.items) {
-      if (!p.active || p.faction === "remote") {
+    const { sim } = this.options;
+    for (const { projectile: p, target } of sim.hitScan("own", stepSeconds, targets)) {
+      if (!isWeapon(p.kind)) {
         continue;
       }
-      const from = this.options.sim.positionAt(p, Math.max(0, p.age - stepSeconds));
-      if (p.faction === "own" && isWeapon(p.kind)) {
-        const target = this.options.sim.hitTargetAlong(from.x, from.y, p.x, p.y, targets);
-        if (target !== void 0) {
-          this.options.sim.projectiles.deactivate(p);
-          this.lastHit = { id: target.id, atMs: now() };
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
-          this.enemies.get(target.id)?.view.flash();
-          frame.enemyHits.push({ x: p.x, y: p.y });
-        }
-      } else if (p.faction === "enemy") {
-        const hit = this.options.sim.hitTargetAlong(from.x, from.y, p.x, p.y, wing);
-        if (hit === void 0) {
-          continue;
-        }
-        this.options.sim.projectiles.deactivate(p);
-        if (hit.id === -1) {
-          this.hitsTaken++;
-          frame.hitsOnMe.push({ x: p.x, y: p.y });
-        } else {
-          companions[hit.id]?.view.flash(this.options.scene);
-          frame.enemyHits.push({ x: p.x, y: p.y });
-        }
+      this.lastHit = { id: target.id, atMs: now() };
+      this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+      this.enemies.get(target.id)?.view.flash();
+      frame.enemyHits.push({ x: p.x, y: p.y });
+    }
+    for (const { projectile: p, target } of sim.hitScan("enemy", stepSeconds, wing)) {
+      if (target.id === -1) {
+        this.hitsTaken++;
+        frame.hitsOnMe.push({ x: p.x, y: p.y });
+      } else {
+        companions[target.id]?.view.flash(this.options.scene);
+        frame.enemyHits.push({ x: p.x, y: p.y });
       }
     }
   }

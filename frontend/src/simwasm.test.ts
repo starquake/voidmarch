@@ -115,21 +115,23 @@ test('enemy bullets spawn part-way through their flight, and clear by faction', 
   assert.equal(bullet.age, 1);
   assert.ok(bullet.x > 100, 'a second along its way');
   assert.equal(isWeapon(bullet.kind), false);
-  const back = s.positionAt(bullet, 0);
-  assert.deepEqual([back.x, back.y], [0, 0]);
   s.projectiles.clear('enemy');
   assert.equal(bullet.active, false);
 });
 
-test('a shot path hits the nearest target it passes', async () => {
+test('a scan ends the shots that hit, and says what they hit', async () => {
   const s = await sim();
-  const targets = [
-    { id: 'near', x: 0, y: 0, radius: SHIP_RADIUS },
-    { id: 'far', x: 100, y: 0, radius: SHIP_RADIUS },
-  ];
-  assert.equal(s.hitTargetAlong(-50, 2, 150, 2, targets)?.id, 'near');
-  assert.equal(s.hitTargetAlong(150, 0, -50, 0, targets)?.id, 'far');
-  assert.equal(s.hitTargetAlong(-50, 30, 150, 30, targets), undefined);
+  const hitting = s.projectiles.spawn({ kind: 'autoCannon', x: -30, y: 0, angle: 0 });
+  const missing = s.projectiles.spawn({ kind: 'autoCannon', x: -30, y: 100, angle: 0 });
+  const bullet = s.projectiles.spawn({ kind: 'klaedBullet', x: -30, y: 0, angle: 0 }, { faction: 'enemy' });
+  s.advance(TICK_SECONDS * 2, input());
+  const hits = s.hitScan('own', TICK_SECONDS * 2, [{ id: 'enemy', x: 0, y: 0, radius: SHIP_RADIUS }]);
+  assert.deepEqual(
+    hits.map((h) => [h.projectile.slot, h.target.id]),
+    [[hitting.slot, 'enemy']],
+  );
+  assert.deepEqual([hitting.active, missing.active, bullet.active], [false, true, true]);
+  assert.deepEqual(s.hitScan('enemy', TICK_SECONDS, []), []);
 });
 
 test('an enemy volley is the same for the same seed, and leaves in front of the enemy', async () => {
