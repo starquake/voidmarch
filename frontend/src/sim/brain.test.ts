@@ -50,6 +50,17 @@ test('formation slots sit behind the owner and turn with it', () => {
   assert.ok(formationPoint(owner, 2).x < 0, 'behind an owner facing right is to the left');
 });
 
+test('with more companions than slots, each gets its own point on a wider ring', () => {
+  const owner = createShip(0, 0);
+  const points = Array.from({ length: 15 }, (_, slot) => formationPoint(owner, slot));
+  for (const [i, a] of points.entries()) {
+    for (const b of points.slice(i + 1)) {
+      assert.ok(distance(a, b) > 20, 'no two companions share a slot');
+    }
+  }
+  assert.ok(distance(points[3] ?? owner, owner) > distance(points[0] ?? owner, owner));
+});
+
 test('a companion settles into its slot and stays there', () => {
   const owner = createShip(0, 0);
   const self = createShip(220, 160);

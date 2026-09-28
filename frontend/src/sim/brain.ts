@@ -98,10 +98,15 @@ export interface BrainStep {
   done: boolean;
 }
 
-/** Where a formation slot is now, scaled toward the owner by scale. */
+/**
+ * Where a formation slot is now, scaled toward the owner by scale. Slots past
+ * the first few (development allows up to 15 companions) repeat the pattern on
+ * wider rings, so no two companions share a point.
+ */
 export function formationPoint(owner: Mover, slot: number, scale = 1): Vec {
   const offset = FORMATION_SLOTS[slot % FORMATION_SLOTS.length] ?? { forward: 0, right: 0 };
-  const world = rotateOffset(offset.forward * scale, offset.right * scale, owner.angle);
+  const ring = 1 + Math.floor(slot / FORMATION_SLOTS.length);
+  const world = rotateOffset(offset.forward * scale * ring, offset.right * scale * ring, owner.angle);
 
   return { x: owner.x + world.x, y: owner.y + world.y };
 }
