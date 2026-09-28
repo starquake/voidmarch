@@ -31,13 +31,14 @@ async function otherPlayer(browser: Browser, baseURL: string, name: string): Pro
   return page;
 }
 
-async function summonThree(page: Page): Promise<void> {
+/** Summons count companions; the specs share one server's 16 seats, so they use few. */
+async function summon(page: Page, count: number): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < count; i++) {
     await page.keyboard.press('g');
   }
-  await expect.poll(async () => (await state(page)).companions.length).toBe(3);
+  await expect.poll(async () => (await state(page)).companions.length).toBe(count);
 }
 
 /** Holds Q with the pointer at (x, y), points at the order, and lets go. */
@@ -55,25 +56,29 @@ async function giveOrder(page: Page, x: number, y: number, label: string): Promi
 
 test('summoned companions fly with their owner, and others see them as theirs', async ({ page, browser, baseURL }) => {
   test.setTimeout(90_000);
-  await summonThree(page);
+  await summon(page, 3);
   const owner = (await state(page)).net.playerId;
   const mo = await otherPlayer(browser, baseURL ?? '', `Mo${String(Date.now() % 100000)}`);
-
-  await expect
-    .poll(async () => (await state(mo)).net.others.filter((o) => o.ownerId === owner).map((o) => o.id).sort())
-    .toEqual([`${owner ?? ''}/1`, `${owner ?? ''}/2`, `${owner ?? ''}/3`]);
+  try {
+    await expect
+      .poll(async () => (await state(mo)).net.others.filter((o) => o.ownerId === owner).map((o) => o.id).sort())
+      .toEqual([`${owner ?? ''}/1`, `${owner ?? ''}/2`, `${owner ?? ''}/3`]);
+  } finally {
+    // An open page keeps rendering WebGL through later specs (#22).
+    await mo.context().close();
+  }
 });
 
 test('an Aggressive order reaches every companion, and they shoot down an enemy', async ({ page }) => {
   test.setTimeout(90_000);
-  await summonThree(page);
+  await summon(page, 2);
 
   // Right of the ship, where no companion is, so the order goes to all of them.
   const view = page.viewportSize() ?? { width: 640, height: 360 };
   await giveOrder(page, view.width / 2 + 180, view.height / 2, 'Aggressive');
   await expect
     .poll(async () => (await state(page)).companions.map((c) => c.stance))
-    .toEqual(['aggressive', 'aggressive', 'aggressive']);
+    .toEqual(['aggressive', 'aggressive']);
 
   // Fly out of the safe zone; the companions come along and hunt.
   await page.mouse.move(view.width / 2, view.height - 10);

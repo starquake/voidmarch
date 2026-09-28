@@ -40,32 +40,37 @@ test('two players see each other fly and shoot', async ({ browser, baseURL }) =>
   const suffix = String(Date.now() % 100000);
   const sanne = await player(browser, baseURL ?? '', `Sanne${suffix}`, '?wire=json');
   const mo = await player(browser, baseURL ?? '', `Mo${suffix}`);
+  // Close both when done: an open page keeps rendering WebGL through later specs (#22).
+  try {
+    // Mo sees Sanne by name, in a colour.
+    await expect
+      .poll(async () => (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`))
+      .toMatchObject({ name: `Sanne${suffix}` });
+    const before = (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`);
+    expect(before?.colour).toBeGreaterThan(0);
 
-  // Mo sees Sanne by name, in a colour.
-  await expect
-    .poll(async () => (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`))
-    .toMatchObject({ name: `Sanne${suffix}` });
-  const before = (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`);
-  expect(before?.colour).toBeGreaterThan(0);
+    // Sanne flies toward the mouse; Mo sees her ship move.
+    await sanne.mouse.move(VIEWPORT.width / 2 + 150, VIEWPORT.height / 2);
+    await sanne.keyboard.down('w');
+    await expect
+      .poll(async () => (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`)?.x ?? 0)
+      .toBeGreaterThan((before?.x ?? 0) + 20);
+    await sanne.keyboard.up('w');
 
-  // Sanne flies toward the mouse; Mo sees her ship move.
-  await sanne.mouse.move(VIEWPORT.width / 2 + 150, VIEWPORT.height / 2);
-  await sanne.keyboard.down('w');
-  await expect
-    .poll(async () => (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`)?.x ?? 0)
-    .toBeGreaterThan((before?.x ?? 0) + 20);
-  await sanne.keyboard.up('w');
+    // Sanne fires; her shots reach Mo's world.
+    const shotsBefore = (await state(mo)).projectiles;
+    await sanne.mouse.down();
+    await expect.poll(async () => (await state(mo)).projectiles).toBeGreaterThan(shotsBefore);
+    await sanne.mouse.up();
 
-  // Sanne fires; her shots reach Mo's world.
-  const shotsBefore = (await state(mo)).projectiles;
-  await sanne.mouse.down();
-  await expect.poll(async () => (await state(mo)).projectiles).toBeGreaterThan(shotsBefore);
-  await sanne.mouse.up();
-
-  // And Sanne sees Mo, over JSON.
-  await expect
-    .poll(async () => (await state(sanne)).net.others.some((o) => o.name === `Mo${suffix}`))
-    .toBe(true);
+    // And Sanne sees Mo, over JSON.
+    await expect
+      .poll(async () => (await state(sanne)).net.others.some((o) => o.name === `Mo${suffix}`))
+      .toBe(true);
+  } finally {
+    await sanne.context().close();
+    await mo.context().close();
+  }
 });
 
 test('without the server the game still plays', async ({ page }) => {
