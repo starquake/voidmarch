@@ -71,16 +71,22 @@ export class Sandbox {
     return this.accumulator / TICK_SECONDS;
   }
 
-  /** Adds a companion the server granted, at (x, y), with the default parts until unlocks exist. */
+  /**
+   * Adds a companion the server granted, at (x, y), with the default parts
+   * until unlocks exist. It joins the wing's standing orders: the wing
+   * follows one set.
+   */
   addCompanion(number: number, x: number, y: number): Companion {
     this.removeCompanion(number);
+    const wing = this.companions[0];
+    const orders: Orders = wing === undefined ? { ...DEFAULT_ORDERS } : { ...this.ordersFor(wing), oneShot: undefined };
     const random = seededRandom(COMPANION_SEED + number);
     const reaction = BRAIN_REACTION_MIN + random() * (BRAIN_REACTION_MAX - BRAIN_REACTION_MIN);
     const companion: Companion = {
       number,
       ship: createShip(x, y),
       previous: { x, y },
-      orders: { ...DEFAULT_ORDERS },
+      orders,
       pending: undefined,
       reactionTicks: Math.round(reaction / TICK_SECONDS),
       random,

@@ -616,6 +616,31 @@ function describeOrders(orders) {
   }
   return parts.join(" \xB7 ");
 }
+var FOCUS_PICK_RADIUS = 30;
+var FOCUS_WIDE_RADIUS = 120;
+var FOCUS_LAST_HIT_MS = 3e3;
+function nearestWithin(items, x, y, radius) {
+  let best;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+  return best;
+}
+function chooseFocus(enemies, x, y, lastHit, nowMs) {
+  const under = nearestWithin(enemies, x, y, FOCUS_PICK_RADIUS);
+  if (under !== void 0) {
+    return under.id;
+  }
+  if (lastHit !== void 0 && nowMs - lastHit.atMs <= FOCUS_LAST_HIT_MS && enemies.some((e) => e.id === lastHit.id)) {
+    return lastHit.id;
+  }
+  return nearestWithin(enemies, x, y, FOCUS_WIDE_RADIUS)?.id;
+}
 
 // src/sim/input.ts
 var CONTROL_MODES = ["ship", "screen"];
@@ -1164,16 +1189,22 @@ var Sandbox = class {
   get alpha() {
     return this.accumulator / TICK_SECONDS;
   }
-  /** Adds a companion the server granted, at (x, y), with the default parts until unlocks exist. */
+  /**
+   * Adds a companion the server granted, at (x, y), with the default parts
+   * until unlocks exist. It joins the wing's standing orders: the wing
+   * follows one set.
+   */
   addCompanion(number, x, y) {
     this.removeCompanion(number);
+    const wing = this.companions[0];
+    const orders = wing === void 0 ? { ...DEFAULT_ORDERS } : { ...this.ordersFor(wing), oneShot: void 0 };
     const random = seededRandom(COMPANION_SEED + number);
     const reaction = BRAIN_REACTION_MIN + random() * (BRAIN_REACTION_MAX - BRAIN_REACTION_MIN);
     const companion = {
       number,
       ship: createShip(x, y),
       previous: { x, y },
-      orders: { ...DEFAULT_ORDERS },
+      orders,
       pending: void 0,
       reactionTicks: Math.round(reaction / TICK_SECONDS),
       random
@@ -2060,6 +2091,8 @@ var NetPlay = class {
   hitsTaken = 0;
   /** Enemies this player's companions shot down. */
   companionKills = 0;
+  /** The enemy the player last hit, and when (performance.now() ms): what they're shooting at. */
+  lastHit;
   /** How many companions the server allows each player. */
   companionLimit = 0;
   name = "";
@@ -2369,6 +2402,9 @@ var NetPlay = class {
         if (target !== void 0) {
           p.active = false;
           const companion = p.owner === "" ? 0 : Number(p.owner);
+          if (companion === 0) {
+            this.lastHit = { id: target.id, atMs: now() };
+          }
           this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage, companion);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
@@ -2543,21 +2579,8 @@ var HUD_MARGIN_PX = 8;
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 110;
 var ORDER_DEAD_ZONE_PX = 24;
-var ORDER_PICK_RADIUS = 30;
 var ORDER_TEXT = "#d8f8ff";
 var ORDER_PICKED_TEXT = "#ffe08a";
-function nearestWithin(items, x, y, radius) {
-  let best;
-  let bestDistance = radius;
-  for (const item of items) {
-    const d = Math.hypot(item.x - x, item.y - y);
-    if (d <= bestDistance) {
-      best = item;
-      bestDistance = d;
-    }
-  }
-  return best;
-}
 var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
@@ -2852,24 +2875,17 @@ var SandboxScene = class extends Phaser5.Scene {
       default:
     }
   }
-  /** Q down: remember where the pointer is, and the companion under it, if any. */
+  /** Q down: remember where the pointer is. */
   pressOrders() {
     this.closeOrderRing();
     const pointer = this.input.activePointer;
     const world = pointer.positionToCamera(this.cameras.main);
-    const under = nearestWithin(
-      this.sim.companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y })),
-      world.x,
-      world.y,
-      ORDER_PICK_RADIUS
-    );
     this.orderPress = {
       downAt: this.time.now,
       screenX: pointer.x,
       screenY: pointer.y,
       worldX: world.x,
       worldY: world.y,
-      companion: under?.id,
       labels: void 0
     };
   }
@@ -2929,28 +2945,34 @@ var SandboxScene = class extends Phaser5.Scene {
       this.giveOrder(item, press);
     }
   }
-  /** Gives an order to the companion the pointer was on, or to all of them. */
+  /** Gives an order to every companion: the wing follows one set of orders. */
   giveOrder(item, press) {
-    const targets = press.companion === void 0 ? this.sim.companions : this.sim.companions.filter((c) => c.number === press.companion);
-    if (targets.length === 0) {
+    const { companions } = this.sim;
+    if (companions.length === 0) {
       this.net?.say("no companions: press G at the home planet");
       return;
     }
-    const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
-    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
-    const next = targets.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
+    const focusEnemyId = chooseFocus(
+      this.net?.brainEnemies ?? [],
+      press.worldX,
+      press.worldY,
+      this.net?.lastHit,
+      performance.now()
+    );
+    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId };
+    const next = companions.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
     if (next.includes(void 0)) {
-      this.net?.say("no enemy under the cursor to focus");
+      this.net?.say("no enemy to focus: hit one, or point at it");
       return;
     }
-    targets.forEach((c, i) => {
+    companions.forEach((c, i) => {
       const orders = next[i];
       if (orders !== void 0) {
         this.sim.order(c, orders);
       }
     });
     this.lastOrder = item;
-    this.net?.say(press.companion === void 0 ? item.label : `${item.label} (companion ${String(press.companion)})`);
+    this.net?.say(item.label);
     this.updateHud();
   }
   dpr() {
@@ -3095,8 +3117,8 @@ var SandboxScene = class extends Phaser5.Scene {
     }
     const { companions } = this.sim;
     const out = companions.length;
-    const orders = [...new Set(companions.map((c) => describeOrders(c.orders)))];
-    const wing = out === 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"} \xB7 ${orders.length === 1 ? orders[0] ?? "" : "mixed orders"}`;
+    const first = companions[0];
+    const wing = first === void 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"} \xB7 ${describeOrders(this.sim.ordersFor(first))}`;
     const notice = net.noticeText;
     return notice === void 0 ? wing : `${wing} \xB7 ${notice}`;
   }

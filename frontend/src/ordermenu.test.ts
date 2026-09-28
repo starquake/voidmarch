@@ -1,7 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ORDER_ITEMS, applyOrder, describeOrders, itemPosition, pickItem, type OrderItem } from './ordermenu.ts';
+import {
+  FOCUS_LAST_HIT_MS,
+  ORDER_ITEMS,
+  applyOrder,
+  chooseFocus,
+  describeOrders,
+  itemPosition,
+  nearestWithin,
+  pickItem,
+  type OrderItem,
+} from './ordermenu.ts';
 import { DEFAULT_ORDERS } from './sim/brain.ts';
 
 const item = (label: string): OrderItem => {
@@ -69,4 +79,37 @@ test('the HUD describes orders in a few words', () => {
     describeOrders({ ...DEFAULT_ORDERS, stance: 'hold', supportFirst: true, oneShot: { kind: 'goHome' } }),
     'holding · weapons free · spend · support first · going home',
   );
+});
+
+test('focus picks the enemy under the cursor first', () => {
+  const enemies = [
+    { id: 1, x: 0, y: 0 },
+    { id: 2, x: 200, y: 0 },
+  ];
+  assert.equal(chooseFocus(enemies, 10, 5, { id: 2, atMs: 900 }, 1000), 1);
+});
+
+test('with nothing under the cursor, focus picks what the player is shooting at', () => {
+  const enemies = [
+    { id: 1, x: 0, y: 0 },
+    { id: 2, x: 400, y: 0 },
+  ];
+  assert.equal(chooseFocus(enemies, 60, 60, { id: 2, atMs: 900 }, 1000), 2);
+  assert.equal(chooseFocus(enemies, 60, 60, { id: 2, atMs: 900 }, 900 + FOCUS_LAST_HIT_MS + 1), 1, 'too long ago');
+  assert.equal(chooseFocus([{ id: 1, x: 0, y: 0 }], 60, 60, { id: 2, atMs: 900 }, 1000), 1, 'the last hit is gone');
+});
+
+test('otherwise focus picks the nearest enemy within a wider reach, or none', () => {
+  const enemies = [{ id: 1, x: 0, y: 0 }];
+  assert.equal(chooseFocus(enemies, 80, 0, undefined, 0), 1);
+  assert.equal(chooseFocus(enemies, 500, 0, undefined, 0), undefined);
+});
+
+test('nearestWithin picks the closest in reach', () => {
+  const items = [
+    { id: 1, x: 0, y: 0 },
+    { id: 2, x: 10, y: 0 },
+  ];
+  assert.equal(nearestWithin(items, 8, 0, 30)?.id, 2);
+  assert.equal(nearestWithin(items, 100, 0, 30), undefined);
 });

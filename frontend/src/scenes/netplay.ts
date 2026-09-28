@@ -151,6 +151,8 @@ export class NetPlay {
   hitsTaken = 0;
   /** Enemies this player's companions shot down. */
   companionKills = 0;
+  /** The enemy the player last hit, and when (performance.now() ms): what they're shooting at. */
+  lastHit: { id: number; atMs: number } | undefined;
   /** How many companions the server allows each player. */
   companionLimit = 0;
   private name = '';
@@ -486,6 +488,9 @@ export class NetPlay {
         if (target !== undefined) {
           p.active = false;
           const companion = p.owner === '' ? 0 : Number(p.owner);
+          if (companion === 0) {
+            this.lastHit = { id: target.id, atMs: now() };
+          }
           this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage, companion);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });

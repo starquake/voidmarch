@@ -115,3 +115,60 @@ export function describeOrders(orders: Orders): string {
 
   return parts.join(' · ');
 }
+
+/** An enemy under the cursor, in art pixels: pointing right at it picks it. */
+export const FOCUS_PICK_RADIUS = 30;
+/** With nothing under the cursor, the nearest enemy this close to it. */
+export const FOCUS_WIDE_RADIUS = 120;
+/** The enemy the player last hit counts as their target this long after, in ms. */
+export const FOCUS_LAST_HIT_MS = 3000;
+
+/** Something at a point with an id: an enemy or a companion. */
+export interface Placed<Id> {
+  id: Id;
+  x: number;
+  y: number;
+}
+
+/** The item nearest (x, y), if any is within radius. */
+export function nearestWithin<T extends { x: number; y: number }>(
+  items: readonly T[],
+  x: number,
+  y: number,
+  radius: number,
+): T | undefined {
+  let best: T | undefined;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+
+  return best;
+}
+
+/**
+ * The enemy a focus order means. Small ships move too fast to point at, so
+ * after the enemy under the cursor comes the one the player last hit, "what
+ * I'm shooting at", then the nearest to the cursor within a wider reach.
+ */
+export function chooseFocus(
+  enemies: readonly Placed<number>[],
+  x: number,
+  y: number,
+  lastHit: { id: number; atMs: number } | undefined,
+  nowMs: number,
+): number | undefined {
+  const under = nearestWithin(enemies, x, y, FOCUS_PICK_RADIUS);
+  if (under !== undefined) {
+    return under.id;
+  }
+  if (lastHit !== undefined && nowMs - lastHit.atMs <= FOCUS_LAST_HIT_MS && enemies.some((e) => e.id === lastHit.id)) {
+    return lastHit.id;
+  }
+
+  return nearestWithin(enemies, x, y, FOCUS_WIDE_RADIUS)?.id;
+}

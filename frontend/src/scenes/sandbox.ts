@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { wireFormatFrom } from '../net/codec.ts';
-import { ORDER_ITEMS, applyOrder, describeOrders, itemPosition, pickItem, type OrderItem } from '../ordermenu.ts';
+import { ORDER_ITEMS, applyOrder, chooseFocus, describeOrders, itemPosition, pickItem, type OrderItem } from '../ordermenu.ts';
 import {
   clearToken,
   loadAudioSettings,
@@ -58,35 +58,17 @@ const ORDER_HOLD_MS = 200;
 /** The order ring's height radius and its dead centre, in CSS pixels. */
 const ORDER_RING_PX = 110;
 const ORDER_DEAD_ZONE_PX = 24;
-/** A companion or enemy this close to the pointer, in art pixels, is the one under it. */
-const ORDER_PICK_RADIUS = 30;
 const ORDER_TEXT = '#d8f8ff';
 const ORDER_PICKED_TEXT = '#ffe08a';
 
-/** Q held down: where the pointer was, and which companion it was on, if any. */
+/** Q held down: where the pointer was. */
 interface OrderPress {
   downAt: number;
   screenX: number;
   screenY: number;
   worldX: number;
   worldY: number;
-  companion: number | undefined;
   labels: Phaser.GameObjects.Text[] | undefined;
-}
-
-/** The item nearest (x, y), if any is within radius. */
-function nearestWithin<T extends { x: number; y: number }>(items: readonly T[], x: number, y: number, radius: number): T | undefined {
-  let best: T | undefined;
-  let bestDistance = radius;
-  for (const item of items) {
-    const d = Math.hypot(item.x - x, item.y - y);
-    if (d <= bestDistance) {
-      best = item;
-      bestDistance = d;
-    }
-  }
-
-  return best;
 }
 
 interface Background {
@@ -411,25 +393,17 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Q down: remember where the pointer is, and the companion under it, if any. */
+  /** Q down: remember where the pointer is. */
   private pressOrders(): void {
     this.closeOrderRing();
     const pointer = this.input.activePointer;
     const world = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-    // Formation slots sit close together: the nearest one is the one meant.
-    const under = nearestWithin(
-      this.sim.companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y })),
-      world.x,
-      world.y,
-      ORDER_PICK_RADIUS,
-    );
     this.orderPress = {
       downAt: this.time.now,
       screenX: pointer.x,
       screenY: pointer.y,
       worldX: world.x,
       worldY: world.y,
-      companion: under?.id,
       labels: undefined,
     };
   }
@@ -500,31 +474,36 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Gives an order to the companion the pointer was on, or to all of them. */
-  private giveOrder(item: OrderItem, press: Pick<OrderPress, 'worldX' | 'worldY' | 'companion'>): void {
-    const targets =
-      press.companion === undefined ? this.sim.companions : this.sim.companions.filter((c) => c.number === press.companion);
-    if (targets.length === 0) {
+  /** Gives an order to every companion: the wing follows one set of orders. */
+  private giveOrder(item: OrderItem, press: Pick<OrderPress, 'worldX' | 'worldY'>): void {
+    const { companions } = this.sim;
+    if (companions.length === 0) {
       this.net?.say('no companions: press G at the home planet');
 
       return;
     }
-    const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
-    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
-    const next = targets.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
+    const focusEnemyId = chooseFocus(
+      this.net?.brainEnemies ?? [],
+      press.worldX,
+      press.worldY,
+      this.net?.lastHit,
+      performance.now(),
+    );
+    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId };
+    const next = companions.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
     if (next.includes(undefined)) {
-      this.net?.say('no enemy under the cursor to focus');
+      this.net?.say('no enemy to focus: hit one, or point at it');
 
       return;
     }
-    targets.forEach((c, i) => {
+    companions.forEach((c, i) => {
       const orders = next[i];
       if (orders !== undefined) {
         this.sim.order(c, orders);
       }
     });
     this.lastOrder = item;
-    this.net?.say(press.companion === undefined ? item.label : `${item.label} (companion ${String(press.companion)})`);
+    this.net?.say(item.label);
     this.updateHud();
   }
 
@@ -686,11 +665,12 @@ export class SandboxScene extends Phaser.Scene {
     }
     const { companions } = this.sim;
     const out = companions.length;
-    const orders = [...new Set(companions.map((c) => describeOrders(c.orders)))];
+    const first = companions[0];
+    // The wing shares one set of orders; show the ones on their way.
     const wing =
-      out === 0
+      first === undefined
         ? 'no companions'
-        : `${String(out)} companion${out === 1 ? '' : 's'} · ${orders.length === 1 ? (orders[0] ?? '') : 'mixed orders'}`;
+        : `${String(out)} companion${out === 1 ? '' : 's'} · ${describeOrders(this.sim.ordersFor(first))}`;
     const notice = net.noticeText;
 
     return notice === undefined ? wing : `${wing} · ${notice}`;

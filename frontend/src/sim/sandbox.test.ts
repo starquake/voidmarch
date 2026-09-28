@@ -201,3 +201,13 @@ test('a companion follows where its owner was, a moment ago', () => {
   }
   assert.ok(c.ship.vx > 50, 'but heads after it once it has seen the move');
 });
+
+test("a new companion joins the wing's standing orders, not its one-shot", () => {
+  const sandbox = new Sandbox();
+  const first = sandbox.addCompanion(1, 0, 200);
+  sandbox.order(first, { ...first.orders, stance: 'aggressive', fire: 'return', oneShot: { kind: 'regroup' } });
+  const second = sandbox.addCompanion(2, 0, 200);
+  assert.equal(second.orders.stance, 'aggressive');
+  assert.equal(second.orders.fire, 'return');
+  assert.equal(second.orders.oneShot, undefined);
+});
