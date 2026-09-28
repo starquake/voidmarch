@@ -2518,6 +2518,18 @@ var ORDER_DEAD_ZONE_PX = 24;
 var ORDER_PICK_RADIUS = 30;
 var ORDER_TEXT = "#d8f8ff";
 var ORDER_PICKED_TEXT = "#ffe08a";
+function nearestWithin(items, x, y, radius) {
+  let best;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+  return best;
+}
 var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
@@ -2817,8 +2829,11 @@ var SandboxScene = class extends Phaser5.Scene {
     this.closeOrderRing();
     const pointer = this.input.activePointer;
     const world = pointer.positionToCamera(this.cameras.main);
-    const under = this.sim.companions.find(
-      (c) => Math.hypot(c.ship.x - world.x, c.ship.y - world.y) <= ORDER_PICK_RADIUS
+    const under = nearestWithin(
+      this.sim.companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y })),
+      world.x,
+      world.y,
+      ORDER_PICK_RADIUS
     );
     this.orderPress = {
       downAt: this.time.now,
@@ -2826,7 +2841,7 @@ var SandboxScene = class extends Phaser5.Scene {
       screenY: pointer.y,
       worldX: world.x,
       worldY: world.y,
-      companion: under?.number,
+      companion: under?.id,
       labels: void 0
     };
   }
@@ -2893,9 +2908,7 @@ var SandboxScene = class extends Phaser5.Scene {
       this.net?.say("no companions: press G at the home planet");
       return;
     }
-    const focus = (this.net?.brainEnemies ?? []).find(
-      (e) => Math.hypot(e.x - press.worldX, e.y - press.worldY) <= ORDER_PICK_RADIUS
-    );
+    const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
     const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
     const next = targets.map((c) => applyOrder(item, c.orders, context));
     if (next.includes(void 0)) {

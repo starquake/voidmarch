@@ -74,6 +74,21 @@ interface OrderPress {
   labels: Phaser.GameObjects.Text[] | undefined;
 }
 
+/** The item nearest (x, y), if any is within radius. */
+function nearestWithin<T extends { x: number; y: number }>(items: readonly T[], x: number, y: number, radius: number): T | undefined {
+  let best: T | undefined;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+
+  return best;
+}
+
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
   factor: number;
@@ -401,8 +416,12 @@ export class SandboxScene extends Phaser.Scene {
     this.closeOrderRing();
     const pointer = this.input.activePointer;
     const world = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-    const under = this.sim.companions.find(
-      (c) => Math.hypot(c.ship.x - world.x, c.ship.y - world.y) <= ORDER_PICK_RADIUS,
+    // Formation slots sit close together: the nearest one is the one meant.
+    const under = nearestWithin(
+      this.sim.companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y })),
+      world.x,
+      world.y,
+      ORDER_PICK_RADIUS,
     );
     this.orderPress = {
       downAt: this.time.now,
@@ -410,7 +429,7 @@ export class SandboxScene extends Phaser.Scene {
       screenY: pointer.y,
       worldX: world.x,
       worldY: world.y,
-      companion: under?.number,
+      companion: under?.id,
       labels: undefined,
     };
   }
@@ -490,9 +509,7 @@ export class SandboxScene extends Phaser.Scene {
 
       return;
     }
-    const focus = (this.net?.brainEnemies ?? []).find(
-      (e) => Math.hypot(e.x - press.worldX, e.y - press.worldY) <= ORDER_PICK_RADIUS,
-    );
+    const focus = nearestWithin(this.net?.brainEnemies ?? [], press.worldX, press.worldY, ORDER_PICK_RADIUS);
     const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId: focus?.id };
     const next = targets.map((c) => applyOrder(item, c.orders, context));
     if (next.includes(undefined)) {
