@@ -6,9 +6,10 @@ const ci = process.env.CI !== undefined;
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  // CI renders WebGL in software on a few cores, and every page is a player on
-  // the same server: one worker keeps pages from starving each other (#22).
-  ...(ci ? { workers: 1 } : {}),
+  // One worker everywhere. Every page is a player on the same server: in CI,
+  // rendering WebGL in software, pages would starve each other (#22), and at
+  // the home planet each page counts toward the others' companion wing cap.
+  workers: 1,
   forbidOnly: ci,
   reporter: ci ? [['list'], ['html', { open: 'never' }]] : 'list',
   // CI renders WebGL in software, where a frame can take a while.

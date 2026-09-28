@@ -151,9 +151,8 @@ export class NetPlay {
   hitsTaken = 0;
   /** Enemies this player's companions shot down. */
   companionKills = 0;
-  /** How many companions the server allows, and whether outside the safe zone too. */
+  /** How many companions the server allows each player. */
   companionLimit = 0;
-  summonAnywhere = false;
   private name = '';
   private colour = 0xffffff;
   private readonly companionDrawings = new Map<number, CompanionDrawing>();
@@ -287,7 +286,7 @@ export class NetPlay {
       this.say('companions need the server');
     } else if (companions.length >= this.companionLimit) {
       this.say('all your companions are already out');
-    } else if (!this.summonAnywhere && Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+    } else if (Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
       this.say('summon companions at the home planet');
     } else {
       this.connection.sendSummon();
@@ -580,7 +579,6 @@ export class NetPlay {
     this.name = welcome.name;
     this.colour = welcome.colour;
     this.companionLimit = welcome.companionLimit;
-    this.summonAnywhere = welcome.summonAnywhere;
     this.reconcileCompanions(welcome.companions);
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;

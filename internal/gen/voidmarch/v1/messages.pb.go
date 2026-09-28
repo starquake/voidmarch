@@ -929,9 +929,6 @@ type Welcome struct {
 	TickRate uint32  `protobuf:"varint,6,opt,name=tick_rate,json=tickRate,proto3" json:"tick_rate,omitempty"`
 	// How many companions the player may have at once.
 	CompanionLimit uint32 `protobuf:"varint,7,opt,name=companion_limit,json=companionLimit,proto3" json:"companion_limit,omitempty"`
-	// Companions may be summoned anywhere, not only at the home planet
-	// (development servers, for testing).
-	SummonAnywhere bool `protobuf:"varint,8,opt,name=summon_anywhere,json=summonAnywhere,proto3" json:"summon_anywhere,omitempty"`
 	// The player's name, for labelling their own companions.
 	Name string `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
 	// The player's companions the server kept (a reconnect), so the client can
@@ -1018,13 +1015,6 @@ func (x *Welcome) GetCompanionLimit() uint32 {
 		return x.CompanionLimit
 	}
 	return 0
-}
-
-func (x *Welcome) GetSummonAnywhere() bool {
-	if x != nil {
-		return x.SummonAnywhere
-	}
-	return false
 }
 
 func (x *Welcome) GetName() string {
@@ -2079,7 +2069,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x06summon\x18\x05 \x01(\v2\x14.voidmarch.v1.SummonH\x00R\x06summon\x12<\n" +
 	"\tcompanion\x18\x06 \x01(\v2\x1c.voidmarch.v1.CompanionStateH\x00R\tcompanion\x121\n" +
 	"\adismiss\x18\a \x01(\v2\x15.voidmarch.v1.DismissH\x00R\adismissB\x06\n" +
-	"\x04kind\"\xa7\x02\n" +
+	"\x04kind\"\x95\x02\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x16\n" +
 	"\x06colour\x18\x02 \x01(\rR\x06colour\x12\x17\n" +
@@ -2087,13 +2077,12 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\aspawn_y\x18\x04 \x01(\x02R\x06spawnY\x12\x12\n" +
 	"\x04tick\x18\x05 \x01(\rR\x04tick\x12\x1b\n" +
 	"\ttick_rate\x18\x06 \x01(\rR\btickRate\x12'\n" +
-	"\x0fcompanion_limit\x18\a \x01(\rR\x0ecompanionLimit\x12'\n" +
-	"\x0fsummon_anywhere\x18\b \x01(\bR\x0esummonAnywhere\x12\x12\n" +
+	"\x0fcompanion_limit\x18\a \x01(\rR\x0ecompanionLimit\x12\x12\n" +
 	"\x04name\x18\t \x01(\tR\x04name\x12\x1e\n" +
 	"\n" +
 	"companions\x18\n" +
 	" \x03(\rR\n" +
-	"companions\"\xa3\x01\n" +
+	"companionsJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xa3\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +

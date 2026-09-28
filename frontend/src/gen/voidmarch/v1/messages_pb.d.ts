@@ -367,14 +367,6 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
   companionLimit: number;
 
   /**
-   * Companions may be summoned anywhere, not only at the home planet
-   * (development servers, for testing).
-   *
-   * @generated from field: bool summon_anywhere = 8;
-   */
-  summonAnywhere: boolean;
-
-  /**
    * The player's name, for labelling their own companions.
    *
    * @generated from field: string name = 9;

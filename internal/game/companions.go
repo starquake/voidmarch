@@ -13,8 +13,6 @@ import (
 const (
 	// companionLimit is how many companions a player may have at once.
 	companionLimit = 3
-	// developmentCompanionLimit fills every other seat, for testing alone.
-	developmentCompanionLimit = MaxPlayers - 1
 	// wingCap is the most ships in one wing, companions included.
 	wingCap = 4
 
@@ -59,14 +57,6 @@ func (h *Hub) seats() int {
 	return n
 }
 
-func (h *Hub) companionLimit() int {
-	if h.development {
-		return developmentCompanionLimit
-	}
-
-	return companionLimit
-}
-
 // summon grants the owner a companion, or says why not.
 func (h *Hub) summon(owner string, m *member) {
 	if reason := h.summonRefusal(m); reason != "" {
@@ -94,12 +84,10 @@ func (h *Hub) summon(owner string, m *member) {
 // summonRefusal is why the owner can't have another companion, or "".
 func (h *Hub) summonRefusal(m *member) string {
 	switch {
-	case len(m.companions) >= h.companionLimit():
+	case len(m.companions) >= companionLimit:
 		return "all your companions are already out"
 	case h.seats() >= MaxPlayers:
 		return "the frontier is full"
-	case h.development:
-		return ""
 	case m.state == nil ||
 		math.Hypot(float64(m.state.GetX()), float64(m.state.GetY())) > safeRadius:
 		return "summon companions at the home planet"

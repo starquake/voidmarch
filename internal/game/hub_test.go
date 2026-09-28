@@ -14,12 +14,12 @@ import (
 )
 
 // testHub runs a hub stepped by hand through the returned tick function.
-func testHub(t *testing.T, opts ...HubOption) (*Hub, func(n int)) {
+func testHub(t *testing.T) (*Hub, func(n int)) {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(t.Context())
 	ticks := make(chan time.Time)
-	hub := NewHub(slog.New(slog.DiscardHandler), append([]HubOption{WithSeed(1)}, opts...)...)
+	hub := NewHub(slog.New(slog.DiscardHandler), WithSeed(1))
 	done := make(chan struct{})
 	go func() {
 		hub.Run(ctx, ticks)

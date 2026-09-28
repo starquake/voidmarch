@@ -141,36 +141,36 @@ func TestCompanions_WingCap(t *testing.T) {
 	}
 }
 
-func TestCompanions_DevelopmentLiftsTheLimits(t *testing.T) {
-	t.Parallel()
+// fillSeats has four players each summon three companions at the home
+// planet and fly off, filling all 16 seats; their companions report no state,
+// so no wing is full.
+func fillSeats(t *testing.T, hub *Hub) []*Session {
+	t.Helper()
 
-	hub, _ := testHub(t, WithDevelopment())
-	a, welcome := join(t, hub, "a")
-	if !welcome.GetSummonAnywhere() || welcome.GetCompanionLimit() != MaxPlayers-1 {
-		t.Errorf("welcome = %v, want summon anywhere and a limit of %d", welcome, MaxPlayers-1)
-	}
-	a.Send(state(1000, 0))
-	for range MaxPlayers - 1 {
-		grant(t, a)
+	ids := []string{"a", "b", "c", "d"}
+	out := make([]*Session, 0, len(ids))
+	for i, id := range ids {
+		s, _ := join(t, hub, id)
+		s.Send(state(0, 180))
+		for range 3 {
+			grant(t, s)
+		}
+		s.Send(state(-1500, float32(i*300)))
+		out = append(out, s)
 	}
 
-	if _, reason := summonReply(t, a); reason != "all your companions are already out" {
-		t.Errorf("summon past the development limit: reason = %q, want the limit", reason)
-	}
+	return out
 }
 
 func TestCompanions_SeatsAreCapped(t *testing.T) {
 	t.Parallel()
 
-	hub, _ := testHub(t, WithDevelopment())
-	a, _ := join(t, hub, "a")
-	join(t, hub, "b")
-	a.Send(state(0, 180))
-	for range MaxPlayers - 2 {
-		grant(t, a)
-	}
+	hub, _ := testHub(t)
+	fillSeats(t, hub)
+	e, _ := join(t, hub, "e")
+	e.Send(state(0, 180))
 
-	if _, reason := summonReply(t, a); reason != "the frontier is full" {
+	if _, reason := summonReply(t, e); reason != "the frontier is full" {
 		t.Errorf("summon with every seat taken: reason = %q, want the frontier is full", reason)
 	}
 }
@@ -318,18 +318,14 @@ func TestCompanions_KeptOnReconnect(t *testing.T) {
 func TestCompanions_HumansDisplaceTheNewest(t *testing.T) {
 	t.Parallel()
 
-	hub, _ := testHub(t, WithDevelopment())
-	a, _ := join(t, hub, "a")
-	a.Send(state(0, 180))
-	for range MaxPlayers - 1 {
-		grant(t, a)
-	}
+	hub, _ := testHub(t)
+	d := fillSeats(t, hub)[3]
 
-	join(t, hub, "b")
+	join(t, hub, "e")
 	for {
-		if d := next(t, a).GetCompanionDismissed(); d != nil {
-			if got, want := d.GetCompanion(), uint32(MaxPlayers-1); got != want {
-				t.Errorf("dismissed = %d, want the newest, %d", got, want)
+		if dismissed := next(t, d).GetCompanionDismissed(); dismissed != nil {
+			if got, want := dismissed.GetCompanion(), uint32(3); got != want {
+				t.Errorf("dismissed = %d, want d's newest, %d", got, want)
 			}
 
 			return

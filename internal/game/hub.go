@@ -119,18 +119,15 @@ type Hub struct {
 	enemies   map[uint32]*enemy
 	nextEnemy uint32
 	rng       *rand.Rand
-	// development lifts the companion limits, for testing alone.
-	development bool
-	nextGrant   uint64
+	nextGrant uint64
 }
 
 // HubOption configures a [Hub].
 type HubOption func(*hubOptions)
 
 type hubOptions struct {
-	seed        uint64
-	seeded      bool
-	development bool
+	seed   uint64
+	seeded bool
 }
 
 // WithSeed makes the hub's randomness (spawns, steering, fire timing)
@@ -138,14 +135,6 @@ type hubOptions struct {
 func WithSeed(seed uint64) HubOption {
 	return func(o *hubOptions) {
 		o.seed, o.seeded = seed, true
-	}
-}
-
-// WithDevelopment lifts the companion limits, so one player can fill the
-// world with companions anywhere to test multiplayer alone.
-func WithDevelopment() HubOption {
-	return func(o *hubOptions) {
-		o.development = true
 	}
 }
 
@@ -165,8 +154,6 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		members:  make(map[string]*member),
 		enemies:  make(map[uint32]*enemy),
 		rng:      newRand(o),
-
-		development: o.development,
 	}
 }
 
@@ -262,8 +249,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Tick:     h.tick,
 		TickRate: TickRate,
 
-		CompanionLimit: uint32(h.companionLimit()), //nolint:gosec // at most MaxPlayers.
-		SummonAnywhere: h.development,
+		CompanionLimit: companionLimit,
 		Companions:     slices.Sorted(maps.Keys(companions)),
 	}
 

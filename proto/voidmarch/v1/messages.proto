@@ -129,9 +129,9 @@ message Welcome {
   uint32 tick_rate = 6;
   // How many companions the player may have at once.
   uint32 companion_limit = 7;
-  // Companions may be summoned anywhere, not only at the home planet
-  // (development servers, for testing).
-  bool summon_anywhere = 8;
+  // Was summon_anywhere: development servers lifted the companion limits.
+  reserved 8;
+  reserved "summon_anywhere";
   // The player's name, for labelling their own companions.
   string name = 9;
   // The player's companions the server kept (a reconnect), so the client can

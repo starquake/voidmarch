@@ -69,8 +69,7 @@ first, and the one-shots Focus target, Shield me, Regroup and Go home.
 
 Other players see your companions as ships of yours. Companions count toward
 the 16 seats, so a player joining a full world sends the newest companion
-home. On a development server (`APP_ENV=development`) the limits are lifted:
-up to 15 companions, summoned anywhere.
+home.
 
 ## Enemies
 
