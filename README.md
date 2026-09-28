@@ -62,7 +62,7 @@ game keeps running on its own and reconnects when it can.
 Playing alone, press **G** at the home planet to summon a companion, up to
 three: AI wingmates that fly in formation with you, in your colour. Hold **Q**
 for a ring of orders, point at one and let go; tap Q to repeat the last. Every
-order goes to the whole wing. There are five modes, Escort, Attack, Guard,
+order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
 Hold here and Stealth, and three one-shots that return to the mode when done:
 Focus (the enemy under the cursor, or else the one you last hit), Regroup and
 Go home.
@@ -70,6 +70,14 @@ Go home.
 Other players see your companions as ships of yours. Companions count toward
 the 16 seats, so a player joining a full world sends the newest companion
 home.
+
+## Squadrons
+
+Everyone flies in a squadron of up to 4 ships, companions included. Joining a
+server with squadrons that have room, you pick one or start your own (Alpha,
+Beta, Gamma…); alone, you just start one. Joining a squadron that is at 4
+ships takes over one of its companions. Orders are the squadron's: your
+squadmates see "you: Attack", and every companion in the squadron follows.
 
 ## Enemies
 

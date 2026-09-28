@@ -84,8 +84,13 @@ pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
   owner's client (`Sandbox.companions`) and sent as `CompanionState`. Shots and
   hits carry `companion` (0 is the player's own ship). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
-  home planet, a wing of 4), so E2E runs one worker: pages at the home planet
-  count toward each other's wing.
+  home planet, 4 ships per squadron).
+- **Squadrons** (`internal/game/squadrons.go`): everyone picks one with
+  `ChooseSquadron` (empty starts a new one, Greek-named); the server sends
+  `Squadrons` on every change and caps them at 4 ships. `SquadronOrder` is
+  relayed to squadmates as `SquadronOrdered`, and every client applies it to its
+  own companions. The join screen (`frontend/src/squadrons.ts`) only shows when
+  there's a squadron with room; E2E's first page per spec starts its own.
 - **E2E runs everyone on one server**: each test's page is a registered player
   (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
   Assert on your own state (`shotsFired`, `ship`), never on shared counts.
