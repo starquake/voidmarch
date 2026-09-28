@@ -23,6 +23,9 @@ const PoolStartDefault = 3
 
 const maxPort = 65535
 
+// invalidValue wraps an Err sentinel with the value that failed.
+const invalidValue = "%w: %q"
+
 var (
 	// ErrInvalidAppEnv is returned when APP_ENV holds an unknown environment.
 	ErrInvalidAppEnv = errors.New("invalid APP_ENV")
@@ -63,7 +66,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 
 	if val := getenv("APP_ENV"); val != "" {
 		if val != AppEnvironmentDevelopment && val != AppEnvironmentProduction {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidAppEnv, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidAppEnv, val)
 		}
 		c.AppEnvironment = val
 	}
@@ -73,7 +76,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 	if val := getenv("PORT"); val != "" {
 		port, err := strconv.Atoi(val)
 		if err != nil || port < 0 || port > maxPort {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidPort, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidPort, val)
 		}
 		c.Port = val
 	}
@@ -88,7 +91,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 	if val := getenv("WIRE_LOG"); val != "" {
 		wireLog, err := strconv.ParseBool(val)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidWireLog, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidWireLog, val)
 		}
 		c.WireLog = wireLog
 	}
@@ -96,7 +99,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 	if val := getenv("POOL_START"); val != "" {
 		n, err := strconv.Atoi(val)
 		if err != nil || n < 0 {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidPoolStart, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidPoolStart, val)
 		}
 		c.PoolStart = n
 	}

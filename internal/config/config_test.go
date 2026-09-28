@@ -94,8 +94,16 @@ func TestParse_Errors(t *testing.T) {
 			env:  map[string]string{"WIRE_LOG": "loud"},
 			want: ErrInvalidWireLog,
 		},
-		{name: "pool start not a number", env: map[string]string{"POOL_START": "many"}, want: ErrInvalidPoolStart},
-		{name: "pool start negative", env: map[string]string{"POOL_START": "-1"}, want: ErrInvalidPoolStart},
+		{
+			name: "pool start not a number",
+			env:  map[string]string{"POOL_START": "many"},
+			want: ErrInvalidPoolStart,
+		},
+		{
+			name: "pool start negative",
+			env:  map[string]string{"POOL_START": "-1"},
+			want: ErrInvalidPoolStart,
+		},
 	}
 
 	for _, tc := range tests {

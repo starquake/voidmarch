@@ -123,14 +123,25 @@ type Hub struct {
 	rng       *rand.Rand
 	nextGrant uint64
 	squadrons map[string]*squadron
+	// hangar is how many companion ships wait to be drawn (docs/design.md, section 13).
+	hangar int
 }
 
 // HubOption configures a [Hub].
 type HubOption func(*hubOptions)
 
 type hubOptions struct {
-	seed   uint64
-	seeded bool
+	seed      uint64
+	seeded    bool
+	poolStart int
+}
+
+// WithPoolStart sets how many companion ships the hangar holds at start.
+// Without it the hangar has a ship for every seat, so it never limits.
+func WithPoolStart(ships int) HubOption {
+	return func(o *hubOptions) {
+		o.poolStart = ships
+	}
 }
 
 // WithSeed makes the hub's randomness (spawns, steering, fire timing)
@@ -143,7 +154,7 @@ func WithSeed(seed uint64) HubOption {
 
 // NewHub returns a hub; start it with [Hub.Run].
 func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
-	var o hubOptions
+	o := hubOptions{poolStart: MaxPlayers}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -159,6 +170,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		rng:      newRand(o),
 
 		squadrons: make(map[string]*squadron),
+		hangar:    o.poolStart,
 	}
 }
 
@@ -373,6 +385,7 @@ func (h *Hub) drop(id, reason string) {
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
 	for _, number := range slices.Sorted(maps.Keys(m.companions)) {
 		h.broadcast(left(seatID(id, number)), "")
+		h.hangar++
 	}
 	h.broadcast(left(id), "")
 	h.leaveSquadron(id, m)

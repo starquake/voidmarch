@@ -456,3 +456,106 @@ func TestCompanions_EnemiesComeForThemAndTheirHitsCount(t *testing.T) {
 		t.Errorf("destroyed by %q, want %q", got, want)
 	}
 }
+
+// nextHangar reads s's messages until a squadron list and returns the ships
+// waiting in the hangar.
+func nextHangar(t *testing.T, s *Session) uint32 {
+	t.Helper()
+
+	for {
+		if sq := next(t, s).GetSquadrons(); sq != nil {
+			return sq.GetHangar()
+		}
+	}
+}
+
+// waitHangar reads s's squadron lists until the hangar holds want ships.
+func waitHangar(t *testing.T, s *Session, want uint32) {
+	t.Helper()
+
+	for nextHangar(t, s) != want {
+		continue
+	}
+}
+
+func TestHangar_EveryoneSeesItsShips(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t, WithPoolStart(2))
+	_, w := join(t, hub, "a")
+
+	if got, want := w.GetSquadrons().GetHangar(), uint32(2); got != want {
+		t.Errorf("Welcome hangar = %d, want %d", got, want)
+	}
+}
+
+func TestHangar_SummonDrawsFromIt(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t, WithPoolStart(2))
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	a.Send(summon)
+
+	// The list after the join says 2; the one after the grant must say 1.
+	waitHangar(t, a, 1)
+}
+
+func TestHangar_EmptyRefuses(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t, WithPoolStart(1))
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
+	a.Send(state(0, 180))
+	b.Send(state(0, -180))
+	grant(t, a)
+
+	if _, reason := summonReply(t, b); reason != "the hangar is empty" {
+		t.Errorf("summon with no ships left: reason = %q, want the hangar is empty", reason)
+	}
+}
+
+func TestHangar_ShipsComeBack(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		// giveBack returns a's companion to the hangar.
+		giveBack func(a *Session)
+	}{
+		{
+			name: "dismissed",
+			giveBack: func(a *Session) {
+				a.Send(
+					&pb.ClientMessage{
+						Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: 1}},
+					},
+				)
+			},
+		},
+		{
+			name:     "owner dropped",
+			giveBack: func(a *Session) { a.Leave() },
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hub, _ := testHub(t, WithPoolStart(1))
+			a, _ := pilot(t, hub, "a")
+			b, _ := pilot(t, hub, "b")
+			a.Send(state(0, 180))
+			b.Send(state(0, -180))
+			grant(t, a)
+
+			tc.giveBack(a)
+			waitHangar(t, b, 1)
+			if g, reason := summonReply(t, b); g == nil {
+				t.Errorf("summon after the ship came back refused: %q", reason)
+			}
+		})
+	}
+}

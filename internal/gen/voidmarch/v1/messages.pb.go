@@ -1532,9 +1532,11 @@ func (x *SquadronInfo) GetMode() CompanionMode {
 // Squadrons is every squadron, and the name a new one would get. The server
 // sends it on every change.
 type Squadrons struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Squadrons     []*SquadronInfo        `protobuf:"bytes,1,rep,name=squadrons,proto3" json:"squadrons,omitempty"`
-	NextName      string                 `protobuf:"bytes,2,opt,name=next_name,json=nextName,proto3" json:"next_name,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Squadrons []*SquadronInfo        `protobuf:"bytes,1,rep,name=squadrons,proto3" json:"squadrons,omitempty"`
+	NextName  string                 `protobuf:"bytes,2,opt,name=next_name,json=nextName,proto3" json:"next_name,omitempty"`
+	// Companion ships waiting in the shared hangar, for anyone to draw.
+	Hangar        uint32 `protobuf:"varint,3,opt,name=hangar,proto3" json:"hangar,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1581,6 +1583,13 @@ func (x *Squadrons) GetNextName() string {
 		return x.NextName
 	}
 	return ""
+}
+
+func (x *Squadrons) GetHangar() uint32 {
+	if x != nil {
+		return x.Hangar
+	}
+	return 0
 }
 
 // SquadronJoined answers ChooseSquadron. Taking over a companion puts the
@@ -2842,10 +2851,11 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\fSquadronInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x126\n" +
 	"\amembers\x18\x02 \x03(\v2\x1c.voidmarch.v1.SquadronMemberR\amembers\x12/\n" +
-	"\x04mode\x18\x03 \x01(\x0e2\x1b.voidmarch.v1.CompanionModeR\x04mode\"b\n" +
+	"\x04mode\x18\x03 \x01(\x0e2\x1b.voidmarch.v1.CompanionModeR\x04mode\"z\n" +
 	"\tSquadrons\x128\n" +
 	"\tsquadrons\x18\x01 \x03(\v2\x1a.voidmarch.v1.SquadronInfoR\tsquadrons\x12\x1b\n" +
-	"\tnext_name\x18\x02 \x01(\tR\bnextName\"\x8e\x01\n" +
+	"\tnext_name\x18\x02 \x01(\tR\bnextName\x12\x16\n" +
+	"\x06hangar\x18\x03 \x01(\rR\x06hangar\"\x8e\x01\n" +
 	"\x0eSquadronJoined\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12/\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x1b.voidmarch.v1.CompanionModeR\x04mode\x12\x1b\n" +

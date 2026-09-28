@@ -69,6 +69,7 @@ func (h *Hub) summon(owner string, m *member) {
 		number++
 	}
 	h.nextGrant++
+	h.hangar--
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, lastSeen: h.tick}
 	h.broadcastSquadrons()
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
@@ -90,6 +91,8 @@ func (h *Hub) summonRefusal(m *member) string {
 	case m.state == nil ||
 		math.Hypot(float64(m.state.GetX()), float64(m.state.GetY())) > safeRadius:
 		return "summon companions at the home planet"
+	case h.hangar <= 0:
+		return "the hangar is empty"
 	case h.squadrons[m.squadron] == nil:
 		return "pick a squadron first"
 	case h.squadronShips(h.squadrons[m.squadron]) >= squadronCap:
@@ -140,6 +143,7 @@ func (h *Hub) dismiss(owner string, m *member, number uint32) {
 		return
 	}
 	delete(m.companions, number)
+	h.hangar++
 	h.broadcast(left(seatID(owner, number)), owner)
 	h.broadcastSquadrons()
 }
