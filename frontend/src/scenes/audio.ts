@@ -26,8 +26,8 @@ const SHOT_VOLUME = 0.35;
 /** Other players' shots, relative to your own. */
 const REMOTE_SHOT_VOLUME = 0.5;
 const ENEMY_SHOT_VOLUME = 0.15;
-/** Enemy shots sound lower than yours, in cents. */
-const ENEMY_SHOT_DETUNE = -600;
+/** Enemy shots sound a little lower, in cents. */
+const ENEMY_SHOT_DETUNE = -300;
 const CHARGE_VOLUME = 0.3;
 /** Pitches the charge above the shield sound it shares a source with. */
 const CHARGE_DETUNE = 300;
@@ -126,7 +126,7 @@ export class ShipAudio {
     }
   }
 
-  /** An enemy's shot: the auto cannon, lower and quieter. */
+  /** An enemy's shot: their own laser, soft and a little low. */
   enemyShot(): void {
     this.scene.sound.play(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
   }

@@ -1010,7 +1010,9 @@ func (x *Snapshot) GetEnemies() []*EnemyState {
 }
 
 // EnemyFired is an enemy firing its pattern; every client expands the pattern
-// from the seed, so bullets are never streamed.
+// from the seed, so bullets are never streamed. It is announced ahead: the
+// weapon animates from tick - warn_ticks, and the bullets leave at tick from
+// where the enemy is then. x and y are where it was when announced.
 type EnemyFired struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EnemyId       uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
@@ -1020,6 +1022,7 @@ type EnemyFired struct {
 	X             float32                `protobuf:"fixed32,5,opt,name=x,proto3" json:"x,omitempty"`
 	Y             float32                `protobuf:"fixed32,6,opt,name=y,proto3" json:"y,omitempty"`
 	Angle         float32                `protobuf:"fixed32,7,opt,name=angle,proto3" json:"angle,omitempty"`
+	WarnTicks     uint32                 `protobuf:"varint,8,opt,name=warn_ticks,json=warnTicks,proto3" json:"warn_ticks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1099,6 +1102,13 @@ func (x *EnemyFired) GetY() float32 {
 func (x *EnemyFired) GetAngle() float32 {
 	if x != nil {
 		return x.Angle
+	}
+	return 0
+}
+
+func (x *EnemyFired) GetWarnTicks() uint32 {
+	if x != nil {
+		return x.WarnTicks
 	}
 	return 0
 }
@@ -1631,7 +1641,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
-	"\aenemies\x18\x03 \x03(\v2\x18.voidmarch.v1.EnemyStateR\aenemies\"\xae\x01\n" +
+	"\aenemies\x18\x03 \x03(\v2\x18.voidmarch.v1.EnemyStateR\aenemies\"\xcd\x01\n" +
 	"\n" +
 	"EnemyFired\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -1640,7 +1650,9 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x04seed\x18\x04 \x01(\rR\x04seed\x12\f\n" +
 	"\x01x\x18\x05 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x06 \x01(\x02R\x01y\x12\x14\n" +
-	"\x05angle\x18\a \x01(\x02R\x05angle\"\xaa\x01\n" +
+	"\x05angle\x18\a \x01(\x02R\x05angle\x12\x1d\n" +
+	"\n" +
+	"warn_ticks\x18\b \x01(\rR\twarnTicks\"\xaa\x01\n" +
 	"\x0eEnemyDestroyed\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x17.voidmarch.v1.EnemyKindR\x04kind\x12 \n" +

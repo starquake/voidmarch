@@ -29,6 +29,10 @@ const (
 	// maxHitDamage caps a reported hit at the strongest weapon's damage.
 	maxHitDamage = 12
 
+	// fireWarning is how long an enemy's weapon animates before its bullets
+	// leave, so every shot is telegraphed (docs/design.md, section 3).
+	fireWarning = 6
+
 	fighterShare  = 0.4
 	scoutWander   = 60
 	wanderEvery   = TickRate / 2
@@ -306,13 +310,14 @@ func nearest(e *enemy, players []point) (target point, distance float64, found b
 
 func (h *Hub) fire(e *enemy) {
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
-		EnemyId: e.id,
-		Kind:    e.kind,
-		Tick:    h.tick,
-		Seed:    h.rng.Uint32(),
-		X:       float32(e.x),
-		Y:       float32(e.y),
-		Angle:   float32(e.angle),
+		EnemyId:   e.id,
+		Kind:      e.kind,
+		Tick:      h.tick + fireWarning,
+		WarnTicks: fireWarning,
+		Seed:      h.rng.Uint32(),
+		X:         float32(e.x),
+		Y:         float32(e.y),
+		Angle:     float32(e.angle),
 	}}}, "")
 }
 

@@ -180,6 +180,13 @@ export const ENEMY_BULLET_STATS: Readonly<Record<EnemyBulletId, ProjectileStats>
 export const ENEMY_AIM_JITTER = 0.08;
 /** Enemy bullets leave this far ahead of the enemy's centre, in art pixels. */
 export const ENEMY_MUZZLE = 14;
+/**
+ * Volleys from enemies farther than this from the ship are skipped: past the
+ * view plus the bullets' reach, they can neither be seen nor hit you.
+ */
+export const ENEMY_VOLLEY_RANGE = 800;
+/** Enemies explode audibly only this close to the ship, about the view. */
+export const ENEMY_SOUND_RANGE = 400;
 
 /** The player ship's hit circle, in art pixels. */
 export const SHIP_RADIUS = 12;

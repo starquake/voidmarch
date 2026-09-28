@@ -40,7 +40,8 @@ export class EnemyView {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
   }
 
-  fired(): void {
+  /** Plays the weapon animation: the telegraph before a volley leaves. */
+  warn(): void {
     this.weapon.play(keys.enemyWeapons(this.kind));
   }
 

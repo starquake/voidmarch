@@ -12,10 +12,10 @@ import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
 import { hitTargetAlong } from '../sim/hits.ts';
 import type { WeaponId } from '../sim/loadout.ts';
 import { enemyPattern } from '../sim/patterns.ts';
-import { isWeapon, positionAt, type ProjectileSpawn } from '../sim/projectiles.ts';
+import { isWeapon, positionAt } from '../sim/projectiles.ts';
 import type { ShotSpawn } from '../sim/weapons.ts';
 import type { FrameEvents, Sandbox } from '../sim/sandbox.ts';
-import { SHIP_RADIUS, TICK_SECONDS, WEAPON_STATS } from '../sim/tuning.ts';
+import { ENEMY_SOUND_RANGE, ENEMY_VOLLEY_RANGE, SHIP_RADIUS, TICK_SECONDS, WEAPON_STATS } from '../sim/tuning.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
@@ -59,6 +59,8 @@ interface Enemy {
   buffer: StateBuffer<Pose>;
   /** The last snapshot tick it was in. */
   lastSeen: number;
+  /** The tick it was shot down at, once the server said so. */
+  destroyedAt: number | undefined;
 }
 
 /** Another player's shot that hit an enemy, waiting for the delayed timeline. */
@@ -70,7 +72,13 @@ interface ShotEnd {
 /** An enemy volley, waiting for the delayed timeline. */
 interface EnemyVolley {
   enemyId: number;
-  bullets: ProjectileSpawn[];
+  kind: EnemyKind;
+  tick: number;
+  seed: number;
+  angle: number;
+  /** Where the enemy was when the volley was announced, if it isn't known at tick. */
+  x: number;
+  y: number;
 }
 
 /** Where hits landed this frame, for sparks and flashes. */
@@ -110,6 +118,7 @@ export class NetPlay {
   private readonly remotes = new Map<string, Remote>();
   private readonly enemies = new Map<number, Enemy>();
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
+  private enemyWarnings = new TimedQueue<number>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
   private shotEnds = new TimedQueue<ShotEnd>(20);
   private latestSnapshot = 0;
@@ -173,6 +182,10 @@ export class NetPlay {
           this.enemyFired(fired);
         },
         enemyDestroyed: (destroyed) => {
+          const enemy = this.enemies.get(destroyed.enemyId);
+          if (enemy !== undefined) {
+            enemy.destroyedAt = destroyed.tick;
+          }
           this.destructions.add(destroyed.tick, destroyed);
         },
         shotEnded: (ended) => {
@@ -278,12 +291,11 @@ export class NetPlay {
         enemy.view.place(pose.x, pose.y, pose.angle);
       }
     }
+    for (const { item: enemyId } of this.enemyWarnings.due(renderTick)) {
+      this.enemies.get(enemyId)?.view.warn();
+    }
     for (const { item: volley, ageSeconds } of this.enemyVolleys.due(renderTick)) {
-      for (const bullet of volley.bullets) {
-        this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
-      }
-      this.enemies.get(volley.enemyId)?.view.fired();
-      this.options.audio.enemyShot();
+      this.fireVolley(volley, ageSeconds);
     }
     for (const { item: destroyed } of this.destructions.due(renderTick)) {
       this.destroyEnemy(destroyed);
@@ -333,11 +345,36 @@ export class NetPlay {
     }
   }
 
+  /**
+   * Spawns a volley's bullets from where the enemy is at its tick, unless it
+   * was shot down first or is too far away to matter.
+   */
+  private fireVolley(volley: EnemyVolley, ageSeconds: number): void {
+    const enemy = this.enemies.get(volley.enemyId);
+    if (enemy === undefined || (enemy.destroyedAt !== undefined && enemy.destroyedAt < volley.tick)) {
+      return;
+    }
+    const origin = enemy.buffer.sample(volley.tick) ?? volley;
+    const ship = this.options.sim.ship;
+    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
+      return;
+    }
+    for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+      this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
+    }
+    this.options.audio.enemyShot();
+  }
+
   private enemyFired(fired: EnemyFired): void {
-    const kind = fromEnemyKind(fired.kind);
+    this.enemyWarnings.add(fired.tick - fired.warnTicks, fired.enemyId);
     this.enemyVolleys.add(fired.tick, {
       enemyId: fired.enemyId,
-      bullets: enemyPattern(kind, fired.x, fired.y, fired.angle, fired.seed),
+      kind: fromEnemyKind(fired.kind),
+      tick: fired.tick,
+      seed: fired.seed,
+      angle: fired.angle,
+      x: fired.x,
+      y: fired.y,
     });
   }
 
@@ -347,8 +384,11 @@ export class NetPlay {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    const ship = this.options.sim.ship;
+    if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
+      this.options.audio.enemyDestroyed();
+    }
     enemy.view.destroy(true);
-    this.options.audio.enemyDestroyed();
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
     }
@@ -376,6 +416,7 @@ export class NetPlay {
   private resetTimeline(tickRate: number): void {
     this.shots = new TimedQueue<RemoteShotItem>(tickRate);
     this.enemyVolleys = new TimedQueue<EnemyVolley>(tickRate);
+    this.enemyWarnings = new TimedQueue<number>(tickRate);
     this.destructions = new TimedQueue<EnemyDestroyed>(tickRate);
     this.shotEnds = new TimedQueue<ShotEnd>(tickRate);
   }
@@ -398,6 +439,7 @@ export class NetPlay {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
           buffer: new StateBuffer<Pose>(),
           lastSeen: snapshot.tick,
+          destroyedAt: undefined,
         };
         this.enemies.set(state.enemyId, enemy);
       }

@@ -104,7 +104,7 @@ var ENGINE_LOOPS = {
 };
 var SHIELD_SOUND = "sfx-shield";
 var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
-var ENEMY_SHOT_SOUND = "sfx-auto-cannon-1";
+var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
 var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
 function effectFiles() {
@@ -117,6 +117,7 @@ function effectFiles() {
     both("sfx-big-blast", "sfx/big-blast"),
     both("sfx-charge", "sfx/charge"),
     both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
+    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
     both("sfx-engine-base", "sfx/engine-base"),
@@ -239,6 +240,8 @@ var ENEMY_BULLET_STATS = {
 };
 var ENEMY_AIM_JITTER = 0.08;
 var ENEMY_MUZZLE = 14;
+var ENEMY_VOLLEY_RANGE = 800;
+var ENEMY_SOUND_RANGE = 400;
 var SHIP_RADIUS = 12;
 var SHOT_RADIUS = 3;
 
@@ -446,7 +449,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKGAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiPQoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSIGCgRGdWxsIv4CCg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIgYKBEZ1bGwi/gIKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 5);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 16);
@@ -977,7 +980,7 @@ function shotDetune(random) {
 var SHOT_VOLUME = 0.35;
 var REMOTE_SHOT_VOLUME = 0.5;
 var ENEMY_SHOT_VOLUME = 0.15;
-var ENEMY_SHOT_DETUNE = -600;
+var ENEMY_SHOT_DETUNE = -300;
 var CHARGE_VOLUME = 0.3;
 var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
@@ -1063,7 +1066,7 @@ var ShipAudio = class {
       this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
   }
-  /** An enemy's shot: the auto cannon, lower and quieter. */
+  /** An enemy's shot: their own laser, soft and a little low. */
   enemyShot() {
     this.scene.sound.play(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
   }
@@ -1571,7 +1574,8 @@ var EnemyView = class {
   place(x, y, angle) {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
   }
-  fired() {
+  /** Plays the weapon animation: the telegraph before a volley leaves. */
+  warn() {
     this.weapon.play(keys.enemyWeapons(this.kind));
   }
   /** A short white flash where a shot landed. */
@@ -1607,6 +1611,7 @@ var NetPlay = class {
   remotes = /* @__PURE__ */ new Map();
   enemies = /* @__PURE__ */ new Map();
   enemyVolleys = new TimedQueue(20);
+  enemyWarnings = new TimedQueue(20);
   destructions = new TimedQueue(20);
   shotEnds = new TimedQueue(20);
   latestSnapshot = 0;
@@ -1669,6 +1674,10 @@ var NetPlay = class {
           this.enemyFired(fired);
         },
         enemyDestroyed: (destroyed) => {
+          const enemy = this.enemies.get(destroyed.enemyId);
+          if (enemy !== void 0) {
+            enemy.destroyedAt = destroyed.tick;
+          }
           this.destructions.add(destroyed.tick, destroyed);
         },
         shotEnded: (ended) => {
@@ -1762,12 +1771,11 @@ var NetPlay = class {
         enemy.view.place(pose.x, pose.y, pose.angle);
       }
     }
+    for (const { item: enemyId } of this.enemyWarnings.due(renderTick)) {
+      this.enemies.get(enemyId)?.view.warn();
+    }
     for (const { item: volley, ageSeconds } of this.enemyVolleys.due(renderTick)) {
-      for (const bullet of volley.bullets) {
-        this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
-      }
-      this.enemies.get(volley.enemyId)?.view.fired();
-      this.options.audio.enemyShot();
+      this.fireVolley(volley, ageSeconds);
     }
     for (const { item: destroyed } of this.destructions.due(renderTick)) {
       this.destroyEnemy(destroyed);
@@ -1814,11 +1822,35 @@ var NetPlay = class {
       }
     }
   }
+  /**
+   * Spawns a volley's bullets from where the enemy is at its tick, unless it
+   * was shot down first or is too far away to matter.
+   */
+  fireVolley(volley, ageSeconds) {
+    const enemy = this.enemies.get(volley.enemyId);
+    if (enemy === void 0 || enemy.destroyedAt !== void 0 && enemy.destroyedAt < volley.tick) {
+      return;
+    }
+    const origin = enemy.buffer.sample(volley.tick) ?? volley;
+    const ship = this.options.sim.ship;
+    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
+      return;
+    }
+    for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+      this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
+    }
+    this.options.audio.enemyShot();
+  }
   enemyFired(fired) {
-    const kind = fromEnemyKind(fired.kind);
+    this.enemyWarnings.add(fired.tick - fired.warnTicks, fired.enemyId);
     this.enemyVolleys.add(fired.tick, {
       enemyId: fired.enemyId,
-      bullets: enemyPattern(kind, fired.x, fired.y, fired.angle, fired.seed)
+      kind: fromEnemyKind(fired.kind),
+      tick: fired.tick,
+      seed: fired.seed,
+      angle: fired.angle,
+      x: fired.x,
+      y: fired.y
     });
   }
   destroyEnemy(destroyed) {
@@ -1827,8 +1859,11 @@ var NetPlay = class {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    const ship = this.options.sim.ship;
+    if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
+      this.options.audio.enemyDestroyed();
+    }
     enemy.view.destroy(true);
-    this.options.audio.enemyDestroyed();
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
     }
@@ -1853,6 +1888,7 @@ var NetPlay = class {
   resetTimeline(tickRate) {
     this.shots = new TimedQueue(tickRate);
     this.enemyVolleys = new TimedQueue(tickRate);
+    this.enemyWarnings = new TimedQueue(tickRate);
     this.destructions = new TimedQueue(tickRate);
     this.shotEnds = new TimedQueue(tickRate);
   }
@@ -1872,7 +1908,8 @@ var NetPlay = class {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
           buffer: new StateBuffer(),
-          lastSeen: snapshot.tick
+          lastSeen: snapshot.tick,
+          destroyedAt: void 0
         };
         this.enemies.set(state.enemyId, enemy);
       }

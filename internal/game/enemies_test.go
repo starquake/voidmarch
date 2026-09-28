@@ -196,6 +196,32 @@ func TestEnemies_HitsDestroyThem(t *testing.T) {
 	}
 }
 
+func TestEnemies_AnnounceVolleysAhead(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	s, _ := join(t, hub, "a")
+	for range 15 * TickRate {
+		snap, messages := latest(t, s, tick, 1, 1000, 0)
+		for _, msg := range messages {
+			fired := msg.GetEnemyFired()
+			if fired == nil {
+				continue
+			}
+			if got, want := fired.GetWarnTicks(), uint32(FireWarning); got != want {
+				t.Errorf("warn ticks = %d, want %d", got, want)
+			}
+			// Sent in the step whose snapshot follows it.
+			if got, want := fired.GetTick(), snap.GetTick()+FireWarning; got != want {
+				t.Errorf("fires at tick %d, want %d (announced at %d)", got, want, snap.GetTick())
+			}
+
+			return
+		}
+	}
+	t.Fatal("no enemy fired within 15 s")
+}
+
 func TestDamaged(t *testing.T) {
 	t.Parallel()
 

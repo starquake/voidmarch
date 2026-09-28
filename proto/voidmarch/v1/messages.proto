@@ -133,7 +133,9 @@ message Snapshot {
 }
 
 // EnemyFired is an enemy firing its pattern; every client expands the pattern
-// from the seed, so bullets are never streamed.
+// from the seed, so bullets are never streamed. It is announced ahead: the
+// weapon animates from tick - warn_ticks, and the bullets leave at tick from
+// where the enemy is then. x and y are where it was when announced.
 message EnemyFired {
   uint32 enemy_id = 1;
   EnemyKind kind = 2;
@@ -142,6 +144,7 @@ message EnemyFired {
   float x = 5;
   float y = 6;
   float angle = 7;
+  uint32 warn_ticks = 8;
 }
 
 // EnemyDestroyed is an enemy shot down, at the tick and place it died.

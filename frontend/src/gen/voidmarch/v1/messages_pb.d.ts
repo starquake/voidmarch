@@ -381,7 +381,9 @@ export declare const SnapshotSchema: GenMessage<Snapshot>;
 
 /**
  * EnemyFired is an enemy firing its pattern; every client expands the pattern
- * from the seed, so bullets are never streamed.
+ * from the seed, so bullets are never streamed. It is announced ahead: the
+ * weapon animates from tick - warn_ticks, and the bullets leave at tick from
+ * where the enemy is then. x and y are where it was when announced.
  *
  * @generated from message voidmarch.v1.EnemyFired
  */
@@ -420,6 +422,11 @@ export declare type EnemyFired = Message<"voidmarch.v1.EnemyFired"> & {
    * @generated from field: float angle = 7;
    */
   angle: number;
+
+  /**
+   * @generated from field: uint32 warn_ticks = 8;
+   */
+  warnTicks: number;
 };
 
 /**
