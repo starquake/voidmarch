@@ -2373,8 +2373,10 @@ func (x *CompanionRefused) GetReason() string {
 // CompanionDismissed says the server took a companion's seat back: for a
 // human joining a full world, or because its states stopped or never came.
 type CompanionDismissed struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Companion uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
+	// Set when a player joining the squadron took the companion over.
+	TakenBy       string `protobuf:"bytes,2,opt,name=taken_by,json=takenBy,proto3" json:"taken_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2414,6 +2416,13 @@ func (x *CompanionDismissed) GetCompanion() uint32 {
 		return x.Companion
 	}
 	return 0
+}
+
+func (x *CompanionDismissed) GetTakenBy() string {
+	if x != nil {
+		return x.TakenBy
+	}
+	return ""
 }
 
 // Full says the frontier has no room; the server closes the connection after it.
@@ -2896,9 +2905,10 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x03 \x01(\x02R\x01y\"*\n" +
 	"\x10CompanionRefused\x12\x16\n" +
-	"\x06reason\x18\x01 \x01(\tR\x06reason\"2\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"M\n" +
 	"\x12CompanionDismissed\x12\x1c\n" +
-	"\tcompanion\x18\x01 \x01(\rR\tcompanion\"\x06\n" +
+	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12\x19\n" +
+	"\btaken_by\x18\x02 \x01(\tR\atakenBy\"\x06\n" +
 	"\x04Full\"\xd7\a\n" +
 	"\rServerMessage\x121\n" +
 	"\awelcome\x18\x01 \x01(\v2\x15.voidmarch.v1.WelcomeH\x00R\awelcome\x124\n" +

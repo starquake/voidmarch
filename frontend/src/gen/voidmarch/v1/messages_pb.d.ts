@@ -988,6 +988,13 @@ export declare type CompanionDismissed = Message<"voidmarch.v1.CompanionDismisse
    * @generated from field: uint32 companion = 1;
    */
   companion: number;
+
+  /**
+   * Set when a player joining the squadron took the companion over.
+   *
+   * @generated from field: string taken_by = 2;
+   */
+  takenBy: string;
 };
 
 /**

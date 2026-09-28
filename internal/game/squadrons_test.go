@@ -125,6 +125,9 @@ func TestSquadrons_JoiningAFullSquadronTakesOverACompanion(t *testing.T) {
 			if got, want := d.GetCompanion(), uint32(3); got != want {
 				t.Errorf("a lost companion %d, want the newest, %d", got, want)
 			}
+			if got, want := d.GetTakenBy(), "name-b"; got != want {
+				t.Errorf("taken by %q, want %q", got, want)
+			}
 
 			return
 		}

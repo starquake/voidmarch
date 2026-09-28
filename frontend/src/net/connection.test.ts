@@ -98,7 +98,7 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     shotEnded: (e) => log.events.push(`shot ended ${e.playerId}:${e.shotId}`),
     companionGranted: (g) => log.events.push(`granted ${g.companion}`),
     companionRefused: (reason) => log.events.push(`refused ${reason}`),
-    companionDismissed: (n) => log.events.push(`dismissed ${n}`),
+    companionDismissed: (n, by) => log.events.push(`dismissed ${n}${by === '' ? '' : ` by ${by}`}`),
     squadrons: (list) => log.events.push(`squadrons ${String(list.squadrons.length)}`),
     squadronJoined: (j) => log.events.push(`joined ${j.name}`),
     squadronRefused: (reason) => log.events.push(`squadron refused ${reason}`),

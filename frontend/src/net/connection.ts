@@ -58,7 +58,7 @@ export interface ConnectionEvents {
   /** A summon was refused, with the reason to show. */
   companionRefused(reason: string): void;
   /** The server took a companion's seat back. */
-  companionDismissed(companion: number): void;
+  companionDismissed(companion: number, takenBy: string): void;
   /** The squadrons changed. */
   squadrons(list: Squadrons): void;
   /** The player is in a squadron now. */
@@ -269,7 +269,7 @@ export class Connection {
         events.companionRefused(message.kind.value.reason);
         break;
       case 'companionDismissed':
-        events.companionDismissed(message.kind.value.companion);
+        events.companionDismissed(message.kind.value.companion, message.kind.value.takenBy);
         break;
       case 'squadrons':
         events.squadrons(message.kind.value);

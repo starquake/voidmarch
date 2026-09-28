@@ -316,6 +316,8 @@ message CompanionRefused {
 // human joining a full world, or because its states stopped or never came.
 message CompanionDismissed {
   uint32 companion = 1;
+  // Set when a player joining the squadron took the companion over.
+  string taken_by = 2;
 }
 
 // Full says the frontier has no room; the server closes the connection after it.

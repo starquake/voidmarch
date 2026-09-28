@@ -5,16 +5,28 @@ import type {
   EnemyDestroyed,
   EnemyFired,
   Snapshot,
+  SquadronInfo,
   SquadronJoined,
+  SquadronOrdered,
   Squadrons,
   Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
+import { CompanionMode, CompanionOneShot } from '../gen/voidmarch/v1/messages_pb.js';
 import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
 import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interpolation.ts';
-import { fromCompanionMode, fromEnemyKind, fromShipState, fromWeapon, type RemoteShip } from '../net/mapping.ts';
-import { ORDER_ITEMS, applyOrder, type Mode } from '../ordermenu.ts';
+import {
+  fromCompanionMode,
+  fromCompanionOneShot,
+  fromEnemyKind,
+  fromShipState,
+  fromWeapon,
+  toCompanionMode,
+  toCompanionOneShot,
+  type RemoteShip,
+} from '../net/mapping.ts';
+import { ORDER_ITEMS, applyOrder, type Mode, type OrderContext, type OrderItem } from '../ordermenu.ts';
 import { loadLastSquadron, saveLastSquadron } from '../settings.ts';
 import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
@@ -60,6 +72,8 @@ interface Remote {
   colour: number;
   /** Set for another player's companion: its owner's id. */
   ownerId: string;
+  /** The squadron shown in a player's label. */
+  squadron: string;
 }
 
 /** One of this player's companions, as drawn. */
@@ -140,6 +154,9 @@ export interface RemoteDebug {
 }
 
 const now = (): number => performance.now();
+
+/** A player's name label, with their squadron once they have one. */
+const playerLabel = (name: string, squadron: string): string => (squadron === '' ? name : `${name} · ${squadron}`);
 
 /**
  * Plays with others: sends the local ship and its shots, and draws everyone
@@ -264,14 +281,16 @@ export class NetPlay {
         squadronRefused: (reason) => {
           options.squadronScreen.showError(reason);
         },
-        squadronOrdered: () => {
-          // Callouts and orders from squadmates arrive with squadron play.
+        squadronOrdered: (ordered) => {
+          this.squadronOrdered(ordered);
         },
-        companionDismissed: (number) => {
+        companionDismissed: (number, takenBy) => {
           // Stale states in flight can bring back a dismissal for one already gone.
           if (this.options.sim.companions.some((c) => c.number === number)) {
             this.dismissCompanion(number);
-            this.say(`companion ${String(number)} went home`);
+            this.say(
+              takenBy === '' ? `companion ${String(number)} went home` : `${takenBy} took over companion ${String(number)}`,
+            );
           }
         },
       },
@@ -312,6 +331,25 @@ export class NetPlay {
   /** The latest notice for the HUD, while it lasts. */
   get noticeText(): string | undefined {
     return this.notice !== undefined && now() < this.notice.untilMs ? this.notice.text : undefined;
+  }
+
+  /** The player's squadron as the server last listed it. */
+  get squadronInfo(): SquadronInfo | undefined {
+    return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+
+  /** Sends the player's order to the squadron, whose other players see it as a callout. */
+  orderSquadron(item: OrderItem, context: OrderContext): void {
+    if (item.kind === 'mode') {
+      this.squadronMode = item.mode;
+    }
+    this.connection.sendSquadronOrder({
+      mode: item.kind === 'mode' ? toCompanionMode(item.mode) : CompanionMode.UNSPECIFIED,
+      oneShot: item.kind === 'oneShot' ? toCompanionOneShot(item.oneShot) : CompanionOneShot.UNSPECIFIED,
+      x: context.pointX,
+      y: context.pointY,
+      focusEnemyId: context.focusEnemyId ?? 0,
+    });
   }
 
   /** Asks the server for a companion, or says why there can't be one. */
@@ -424,6 +462,10 @@ export class NetPlay {
   private companionGranted(granted: CompanionGranted): void {
     const { scene, ships, sim } = this.options;
     const companion = sim.addCompanion(granted.companion, granted.x, granted.y);
+    // A first companion takes the squadron's mode; later ones join the wing's orders.
+    if (sim.companions.length === 1) {
+      this.followMode(companion);
+    }
     this.companionDrawings.get(granted.companion)?.view.destroy();
     const view = new ShipView(scene, ships, granted.x, granted.y);
     view.setLoadout(companion.ship.loadout);
@@ -485,6 +527,38 @@ export class NetPlay {
     for (const c of this.options.sim.companions) {
       this.followMode(c);
     }
+  }
+
+  /** A squadmate's order: a callout for the player, and orders for their companions. */
+  private squadronOrdered(ordered: SquadronOrdered): void {
+    const order = ordered.order;
+    if (order === undefined) {
+      return;
+    }
+    const mode = fromCompanionMode(order.mode);
+    const oneShot = fromCompanionOneShot(order.oneShot);
+    const item = ORDER_ITEMS.find(
+      (i) => (i.kind === 'mode' && i.mode === mode) || (i.kind === 'oneShot' && i.oneShot === oneShot),
+    );
+    if (item === undefined) {
+      return;
+    }
+    if (mode !== undefined) {
+      this.squadronMode = mode;
+    }
+    const context = {
+      pointX: order.x,
+      pointY: order.y,
+      focusEnemyId: order.focusEnemyId === 0 ? undefined : order.focusEnemyId,
+    };
+    const { sim } = this.options;
+    for (const c of sim.companions) {
+      const next = applyOrder(item, sim.ordersFor(c), context);
+      if (next !== undefined) {
+        sim.order(c, next);
+      }
+    }
+    this.say(`${ordered.name}: ${item.label}`);
   }
 
   /** Sets a companion to the squadron's mode. */
@@ -698,7 +772,18 @@ export class NetPlay {
         continue;
       }
       const remote =
-        this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour, player.ownerId);
+        this.remotes.get(player.playerId) ??
+        this.add(player.playerId, player.name, player.colour, player.ownerId, player.squadron);
+      if (player.ownerId === '' && remote.squadron !== player.squadron) {
+        remote.squadron = player.squadron;
+        remote.view.setLabel(
+          this.options.scene,
+          this.options.ships,
+          playerLabel(player.name, player.squadron),
+          player.colour,
+          this.options.labelResolution(),
+        );
+      }
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
 
@@ -719,11 +804,11 @@ export class NetPlay {
   }
 
   /** A remote ship: another player, or (with an owner) one of their companions. */
-  private add(id: string, name: string, colour: number, ownerId: string): Remote {
+  private add(id: string, name: string, colour: number, ownerId: string, squadron: string): Remote {
     const { scene, ships } = this.options;
     const view = new ShipView(scene, ships, 0, 0);
     // A companion's seat is "<owner>/<n>": tinted in its owner's colour, labelled "name n".
-    const label = ownerId === '' ? name : `${name} ${id.slice(ownerId.length + 1)}`;
+    const label = ownerId === '' ? playerLabel(name, squadron) : `${name} ${id.slice(ownerId.length + 1)}`;
     if (ownerId !== '') {
       view.setTint(colour);
     }
@@ -736,6 +821,7 @@ export class NetPlay {
       name,
       colour,
       ownerId,
+      squadron,
     };
     this.remotes.set(id, remote);
 

@@ -39,7 +39,7 @@ import {
 import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
-import { SquadronScreen } from '../squadrons.ts';
+import { SquadronScreen, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { ShipAudio } from './audio.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
@@ -592,10 +592,15 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Gives an order to every companion: the wing follows one set of orders. */
+  /**
+   * Gives an order to the squadron: the player's own companions follow it,
+   * and so do their squadmates', who see it as a callout.
+   */
   private giveOrder(item: OrderItem, press: Pick<OrderPress, 'worldX' | 'worldY'>): void {
     const { companions } = this.sim;
-    if (companions.length === 0) {
+    // Squadmates hear the order even when nobody has companions yet; alone, it needs some.
+    const squadmates = (this.net?.squadronInfo?.members.length ?? 1) - 1;
+    if (companions.length === 0 && squadmates === 0) {
       this.net?.say('no companions: press G at the home planet');
 
       return;
@@ -609,7 +614,7 @@ export class SandboxScene extends Phaser.Scene {
     );
     const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId };
     const next = companions.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
-    if (next.includes(undefined)) {
+    if (item.kind === 'oneShot' && item.oneShot === 'focus' && focusEnemyId === undefined) {
       this.net?.say('no enemy to focus: hit one, or point at it');
 
       return;
@@ -621,6 +626,7 @@ export class SandboxScene extends Phaser.Scene {
       }
     });
     this.lastOrder = item;
+    this.net?.orderSquadron(item, context);
     this.net?.say(item.label);
     this.updateHud();
   }
@@ -776,24 +782,33 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /** The companions out, and the latest notice (a refused summon, a companion sent home). */
+  /** The squadron, its players and companions and orders, then the latest notice on its own line. */
   private wingStatus(): string {
     const net = this.net;
     if (net === undefined) {
       return '';
     }
-    const { companions } = this.sim;
-    const out = companions.length;
-    const first = companions[0];
-    // The wing shares one set of orders; show the ones on their way.
-    const wing =
-      first === undefined
-        ? 'no companions'
-        : `${String(out)} companion${out === 1 ? '' : 's'} · ${describeOrders(this.sim.ordersFor(first))}`;
+    const info = net.squadronInfo;
+    // A one-shot under way, as the HUD describes it after the mode ("regrouping").
+    const first = this.sim.companions[0];
+    const doing = first === undefined ? undefined : describeOrders(this.sim.ordersFor(first)).split(' · ')[1];
+    const lines: string[] = [];
+    if (info === undefined) {
+      lines.push(net.squadron === '' ? 'no squadron yet' : net.squadron);
+    } else {
+      const companions = info.members.reduce((n, m) => n + m.companions, 0);
+      const ai = companions === 0 ? '' : ` · ${String(companions)} companion${companions === 1 ? '' : 's'}`;
+      const now = doing === undefined ? '' : ` · ${doing}`;
+      lines.push(`${info.name}: ${info.members.map((m) => m.name).join(', ')}${ai} · ${modeName(info)}${now}`);
+    }
     const notice = net.noticeText;
+    if (notice !== undefined) {
+      lines.push(`→ ${notice}`);
+    }
 
-    // What the wing does, then what just happened, apart: state and feedback don't blur.
-    return notice === undefined ? wing : `${wing}\n→ ${notice}`;
+    return lines.join('\n');
   }
+
 
   private netStatus(): string {
     const net = this.net;
