@@ -61,11 +61,11 @@ game keeps running on its own and reconnects when it can.
 
 Playing alone, press **G** at the home planet to summon a companion, up to
 three: AI wingmates that fly in formation with you, in your colour. Hold **Q**
-for a ring of orders, point at one and let go; tap Q to repeat the last. An
-order goes to the companion under the cursor when you press Q, or to all of
-them. The orders are stances (Escort, Aggressive, Defensive, Hold here), fire
-discipline (Weapons free, Return fire, Hold fire), Spend or Conserve, Support
-first, and the one-shots Focus target, Shield me, Regroup and Go home.
+for a ring of orders, point at one and let go; tap Q to repeat the last. Every
+order goes to the whole wing. There are five modes, Escort, Attack, Guard,
+Hold here and Stealth, and three one-shots that return to the mode when done:
+Focus (the enemy under the cursor, or else the one you last hit), Regroup and
+Go home.
 
 Other players see your companions as ships of yours. Companions count toward
 the 16 seats, so a player joining a full world sends the newest companion

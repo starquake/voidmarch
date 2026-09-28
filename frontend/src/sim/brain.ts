@@ -162,8 +162,14 @@ function stanceGoal(view: BrainView, orders: Orders): Goal {
   switch (orders.stance) {
     case 'hold':
       return { point: { x: orders.holdX, y: orders.holdY }, velocity: STILL };
-    case 'defensive':
-      return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
+    case 'defensive': {
+      // Guarding: between the owner and whoever attacks the wing, else close in.
+      const attackers = attackersNearOwner(view);
+
+      return attackers.length > 0
+        ? shieldGoal(view, attackers)
+        : { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
+    }
     case 'escort':
     case 'aggressive':
       return { point: formationPoint(owner, view.slot), velocity: moving };

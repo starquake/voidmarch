@@ -292,3 +292,11 @@ test('badly damaged, a conserving or defensive companion falls back instead of h
   assert.ok(hunt({ resources: 'spend' }) > 200, 'spending, it fights on');
   assert.ok(hunt({ resources: 'conserve' }) < 60, 'conserving, it stays close');
 });
+
+test('the defensive stance puts itself between its owner and the attackers', () => {
+  const self = createShip(-40, 40);
+  const owner = createShip(0, 0);
+  const attackers = [enemy(1, 0, -250, { attackedWing: true })];
+  fly(self, owner, 3, { orders: { ...DEFAULT_ORDERS, stance: 'defensive' }, enemies: attackers });
+  assert.ok(distance(self, { x: 0, y: -BRAIN_SHIELD_DISTANCE }) < BRAIN_IN_FORMATION, 'toward the attacker');
+});
