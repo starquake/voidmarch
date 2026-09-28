@@ -163,6 +163,35 @@ export declare type ShotFired = Message<"voidmarch.v1.ShotFired"> & {
 export declare const ShotFiredSchema: GenMessage<ShotFired>;
 
 /**
+ * Hit reports that one of the player's shots hit an enemy; the client is
+ * trusted for it (docs/design.md, section 9).
+ *
+ * @generated from message voidmarch.v1.Hit
+ */
+export declare type Hit = Message<"voidmarch.v1.Hit"> & {
+  /**
+   * @generated from field: uint32 enemy_id = 1;
+   */
+  enemyId: number;
+
+  /**
+   * @generated from field: uint32 shot_id = 2;
+   */
+  shotId: number;
+
+  /**
+   * @generated from field: uint32 damage = 3;
+   */
+  damage: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.Hit.
+ * Use `create(HitSchema)` to create a new message.
+ */
+export declare const HitSchema: GenMessage<Hit>;
+
+/**
  * ClientMessage is everything a browser sends.
  *
  * @generated from message voidmarch.v1.ClientMessage
@@ -189,6 +218,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: ShotFired;
     case: "shot";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Hit hit = 4;
+     */
+    value: Hit;
+    case: "hit";
   } | { case: undefined; value?: undefined };
 };
 
@@ -277,7 +312,47 @@ export declare type PlayerSnapshot = Message<"voidmarch.v1.PlayerSnapshot"> & {
 export declare const PlayerSnapshotSchema: GenMessage<PlayerSnapshot>;
 
 /**
- * Snapshot is every other player at a server tick.
+ * EnemyState is one enemy at a tick; the server moves enemies.
+ *
+ * @generated from message voidmarch.v1.EnemyState
+ */
+export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
+  /**
+   * @generated from field: uint32 enemy_id = 1;
+   */
+  enemyId: number;
+
+  /**
+   * @generated from field: voidmarch.v1.EnemyKind kind = 2;
+   */
+  kind: EnemyKind;
+
+  /**
+   * @generated from field: float x = 3;
+   */
+  x: number;
+
+  /**
+   * @generated from field: float y = 4;
+   */
+  y: number;
+
+  /**
+   * Facing in radians; 0 is +x and y grows downward.
+   *
+   * @generated from field: float angle = 5;
+   */
+  angle: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.EnemyState.
+ * Use `create(EnemyStateSchema)` to create a new message.
+ */
+export declare const EnemyStateSchema: GenMessage<EnemyState>;
+
+/**
+ * Snapshot is every other player, and every enemy, at a server tick.
  *
  * @generated from message voidmarch.v1.Snapshot
  */
@@ -291,6 +366,11 @@ export declare type Snapshot = Message<"voidmarch.v1.Snapshot"> & {
    * @generated from field: repeated voidmarch.v1.PlayerSnapshot players = 2;
    */
   players: PlayerSnapshot[];
+
+  /**
+   * @generated from field: repeated voidmarch.v1.EnemyState enemies = 3;
+   */
+  enemies: EnemyState[];
 };
 
 /**
@@ -298,6 +378,134 @@ export declare type Snapshot = Message<"voidmarch.v1.Snapshot"> & {
  * Use `create(SnapshotSchema)` to create a new message.
  */
 export declare const SnapshotSchema: GenMessage<Snapshot>;
+
+/**
+ * EnemyFired is an enemy firing its pattern; every client expands the pattern
+ * from the seed, so bullets are never streamed. It is announced ahead: the
+ * weapon animates from tick - warn_ticks, and the bullets leave at tick from
+ * where the enemy is then. x and y are where it was when announced.
+ *
+ * @generated from message voidmarch.v1.EnemyFired
+ */
+export declare type EnemyFired = Message<"voidmarch.v1.EnemyFired"> & {
+  /**
+   * @generated from field: uint32 enemy_id = 1;
+   */
+  enemyId: number;
+
+  /**
+   * @generated from field: voidmarch.v1.EnemyKind kind = 2;
+   */
+  kind: EnemyKind;
+
+  /**
+   * @generated from field: uint32 tick = 3;
+   */
+  tick: number;
+
+  /**
+   * @generated from field: uint32 seed = 4;
+   */
+  seed: number;
+
+  /**
+   * @generated from field: float x = 5;
+   */
+  x: number;
+
+  /**
+   * @generated from field: float y = 6;
+   */
+  y: number;
+
+  /**
+   * @generated from field: float angle = 7;
+   */
+  angle: number;
+
+  /**
+   * @generated from field: uint32 warn_ticks = 8;
+   */
+  warnTicks: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.EnemyFired.
+ * Use `create(EnemyFiredSchema)` to create a new message.
+ */
+export declare const EnemyFiredSchema: GenMessage<EnemyFired>;
+
+/**
+ * EnemyDestroyed is an enemy shot down, at the tick and place it died.
+ *
+ * @generated from message voidmarch.v1.EnemyDestroyed
+ */
+export declare type EnemyDestroyed = Message<"voidmarch.v1.EnemyDestroyed"> & {
+  /**
+   * @generated from field: uint32 enemy_id = 1;
+   */
+  enemyId: number;
+
+  /**
+   * @generated from field: voidmarch.v1.EnemyKind kind = 2;
+   */
+  kind: EnemyKind;
+
+  /**
+   * @generated from field: string by_player_id = 3;
+   */
+  byPlayerId: string;
+
+  /**
+   * @generated from field: uint32 tick = 4;
+   */
+  tick: number;
+
+  /**
+   * @generated from field: float x = 5;
+   */
+  x: number;
+
+  /**
+   * @generated from field: float y = 6;
+   */
+  y: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.EnemyDestroyed.
+ * Use `create(EnemyDestroyedSchema)` to create a new message.
+ */
+export declare const EnemyDestroyedSchema: GenMessage<EnemyDestroyed>;
+
+/**
+ * ShotEnded removes a player's shot everywhere once it hit something, at the
+ * server tick the hit arrived, so clients end it on their delayed timeline.
+ *
+ * @generated from message voidmarch.v1.ShotEnded
+ */
+export declare type ShotEnded = Message<"voidmarch.v1.ShotEnded"> & {
+  /**
+   * @generated from field: string player_id = 1;
+   */
+  playerId: string;
+
+  /**
+   * @generated from field: uint32 shot_id = 2;
+   */
+  shotId: number;
+
+  /**
+   * @generated from field: uint32 tick = 3;
+   */
+  tick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.ShotEnded.
+ * Use `create(ShotEndedSchema)` to create a new message.
+ */
+export declare const ShotEndedSchema: GenMessage<ShotEnded>;
 
 /**
  * RemoteShot is another player's shot, stamped with the server tick it arrived at.
@@ -398,6 +606,24 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: Full;
     case: "full";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.EnemyFired enemy_fired = 6;
+     */
+    value: EnemyFired;
+    case: "enemyFired";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.EnemyDestroyed enemy_destroyed = 7;
+     */
+    value: EnemyDestroyed;
+    case: "enemyDestroyed";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.ShotEnded shot_ended = 8;
+     */
+    value: ShotEnded;
+    case: "shotEnded";
   } | { case: undefined; value?: undefined };
 };
 
@@ -517,4 +743,31 @@ export enum Shield {
  * Describes the enum voidmarch.v1.Shield.
  */
 export declare const ShieldSchema: GenEnum<Shield>;
+
+/**
+ * Enemy classes from the Void Fleet packs.
+ *
+ * @generated from enum voidmarch.v1.EnemyKind
+ */
+export enum EnemyKind {
+  /**
+   * @generated from enum value: ENEMY_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: ENEMY_KIND_SCOUT = 1;
+   */
+  SCOUT = 1,
+
+  /**
+   * @generated from enum value: ENEMY_KIND_FIGHTER = 2;
+   */
+  FIGHTER = 2,
+}
+
+/**
+ * Describes the enum voidmarch.v1.EnemyKind.
+ */
+export declare const EnemyKindSchema: GenEnum<EnemyKind>;
 

@@ -1,3 +1,4 @@
+import type { EnemyBulletId } from './enemies.ts';
 import type { EngineId, ShieldId, WeaponId } from './loadout.ts';
 
 /** The simulation runs at a fixed rate, independent of the display. */
@@ -46,6 +47,20 @@ export const ENGINE_STATS: Readonly<Record<EngineId, EngineStats>> = {
 export interface Muzzle {
   forward: number;
   right: number;
+}
+
+/** How a projectile flies: shared by player weapons and enemy bullets. */
+export interface ProjectileStats {
+  /** Launch speed in px/s. */
+  speed: number;
+  /** px/s², 0 for constant speed. */
+  acceleration: number;
+  /** Speed cap when accelerating. */
+  maxSpeed: number;
+  /** Seconds before the projectile expires. */
+  lifetime: number;
+  /** Sideways travel of a zigzagging projectile; amplitude 0 flies straight. */
+  zigzag: { amplitude: number; frequency: number };
 }
 
 export interface WeaponStats {
@@ -154,3 +169,26 @@ export const SHIELD_STATS: Readonly<Record<ShieldId, ShieldStats>> = {
   round: { coverage: Math.PI * 2, strength: 1, recharge: 3 },
   invincibility: { coverage: Math.PI * 2, strength: 3, recharge: 12 },
 };
+
+/** Enemy bullets: slow and readable, so they can be dodged (docs/design.md, section 3). */
+export const ENEMY_BULLET_STATS: Readonly<Record<EnemyBulletId, ProjectileStats>> = {
+  klaedBullet: { speed: 110, acceleration: 0, maxSpeed: 110, lifetime: 3.2, zigzag: STRAIGHT },
+  klaedBigBullet: { speed: 130, acceleration: 0, maxSpeed: 130, lifetime: 3, zigzag: STRAIGHT },
+};
+
+/** An enemy's aim wobbles by up to this much, in radians, from its seed. */
+export const ENEMY_AIM_JITTER = 0.08;
+/** Enemy bullets leave this far ahead of the enemy's centre, in art pixels. */
+export const ENEMY_MUZZLE = 14;
+/**
+ * Volleys from enemies farther than this from the ship are skipped: past the
+ * view plus the bullets' reach, they can neither be seen nor hit you.
+ */
+export const ENEMY_VOLLEY_RANGE = 800;
+/** Enemies explode audibly only this close to the ship, about the view. */
+export const ENEMY_SOUND_RANGE = 400;
+
+/** The player ship's hit circle, in art pixels. */
+export const SHIP_RADIUS = 12;
+/** A projectile's own size when testing hits, in art pixels. */
+export const SHOT_RADIUS = 3;

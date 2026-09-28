@@ -80,4 +80,6 @@ test('without the server the game still plays', async ({ page }) => {
   await page.keyboard.down('d');
   await expect.poll(async () => (await state(page)).ship.x).not.toBe(before.ship.x);
   await page.keyboard.up('d');
+  // Enemies come from the server, so offline there are none.
+  expect((await state(page)).enemies).toEqual([]);
 });

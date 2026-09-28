@@ -37,6 +37,9 @@ export const ENGINE_LOOPS: Readonly<Record<EngineId, string>> = {
 };
 
 export const SHIELD_SOUND = 'sfx-shield';
+export const ENEMY_EXPLOSION_SOUND = 'sfx-enemy-explosion';
+/** A laser of their own, so incoming fire doesn't sound like yours. */
+export const ENEMY_SHOT_SOUND = 'sfx-enemy-shot';
 export const PART_SWITCH_SOUND = 'sfx-part-switch';
 
 /** Music tracks, played in turn. */
@@ -52,6 +55,8 @@ export function effectFiles(): SoundFile[] {
     both('sfx-rocket-blast', 'sfx/rocket-blast'),
     both('sfx-big-blast', 'sfx/big-blast'),
     both('sfx-charge', 'sfx/charge'),
+    both(ENEMY_EXPLOSION_SOUND, 'sfx/enemy-explosion'),
+    both(ENEMY_SHOT_SOUND, 'sfx/enemy-shot'),
     both(SHIELD_SOUND, 'sfx/shield'),
     both(PART_SWITCH_SOUND, 'sfx/part-switch'),
     both('sfx-engine-base', 'sfx/engine-base'),

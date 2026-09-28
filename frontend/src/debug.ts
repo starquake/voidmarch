@@ -1,4 +1,4 @@
-import type { NetStatus, RemoteDebug } from './scenes/netplay.ts';
+import type { EnemyDebug, NetStatus, RemoteDebug } from './scenes/netplay.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
 
@@ -18,6 +18,10 @@ export interface DebugState {
   fps: number;
   weaponFrame: number;
   net: { status: NetStatus; playerId: string | undefined; others: RemoteDebug[] };
+  enemies: EnemyDebug[];
+  /** Enemies this player shot down, and enemy bullets that hit this ship. */
+  enemiesDestroyed: number;
+  hitsTaken: number;
   audio: {
     muted: boolean;
     music: boolean;

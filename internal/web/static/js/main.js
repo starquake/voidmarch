@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser5 from "./vendor/phaser.js";
+import Phaser6 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -103,6 +103,8 @@ var ENGINE_LOOPS = {
   supercharged: "sfx-engine-supercharged"
 };
 var SHIELD_SOUND = "sfx-shield";
+var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
+var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
 var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
 function effectFiles() {
@@ -114,6 +116,8 @@ function effectFiles() {
     both("sfx-rocket-blast", "sfx/rocket-blast"),
     both("sfx-big-blast", "sfx/big-blast"),
     both("sfx-charge", "sfx/charge"),
+    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
+    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
     both("sfx-engine-base", "sfx/engine-base"),
@@ -230,6 +234,16 @@ var SHIELD_STATS = {
   round: { coverage: Math.PI * 2, strength: 1, recharge: 3 },
   invincibility: { coverage: Math.PI * 2, strength: 3, recharge: 12 }
 };
+var ENEMY_BULLET_STATS = {
+  klaedBullet: { speed: 110, acceleration: 0, maxSpeed: 110, lifetime: 3.2, zigzag: STRAIGHT },
+  klaedBigBullet: { speed: 130, acceleration: 0, maxSpeed: 130, lifetime: 3, zigzag: STRAIGHT }
+};
+var ENEMY_AIM_JITTER = 0.08;
+var ENEMY_MUZZLE = 14;
+var ENEMY_VOLLEY_RANGE = 800;
+var ENEMY_SOUND_RANGE = 400;
+var SHIP_RADIUS = 12;
+var SHOT_RADIUS = 3;
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -242,6 +256,14 @@ var still = (key, url, size) => ({
   fps: 0,
   loop: false
 });
+var KLAED_FILES = {
+  scout: { engine: 10, weapons: 6, destruction: 10 },
+  fighter: { engine: 10, weapons: 6, destruction: 9 }
+};
+var BULLET_FRAMES = {
+  bullet: { width: 4, frames: 4 },
+  "big-bullet": { width: 8, frames: 4 }
+};
 var strip = (key, url, size, frames, fps, loop = true) => ({
   key,
   url,
@@ -321,11 +343,17 @@ var keys = {
   projectile: (id) => `projectile-${id}`,
   background: ["background-void", "background-stars", "background-big-stars"],
   planet: "planet",
-  asteroid: "asteroid"
+  asteroid: "asteroid",
+  enemyBase: (kind) => `klaed-${kind}-base`,
+  enemyEngine: (kind) => `klaed-${kind}-engine`,
+  enemyWeapons: (kind) => `klaed-${kind}-weapons`,
+  enemyDestruction: (kind) => `klaed-${kind}-destruction`,
+  enemyBullet: (id) => id === "klaedBullet" ? "klaed-bullet" : "klaed-big-bullet"
 };
 function sheets() {
   const ship = `${ASSETS}/mainship`;
   const env = `${ASSETS}/environment`;
+  const klaed = `${ASSETS}/klaed`;
   return [
     ...DAMAGE_STATES.map((s) => still(keys.hull(s), `${ship}/${HULL_FILES[s]}.png`, 48)),
     ...ENGINES.flatMap((id) => {
@@ -355,7 +383,25 @@ function sheets() {
       loop: true
     })),
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
-    still(keys.asteroid, `${env}/asteroid.png`, 96)
+    still(keys.asteroid, `${env}/asteroid.png`, 96),
+    ...["scout", "fighter"].flatMap((kind) => {
+      const f = KLAED_FILES[kind];
+      return [
+        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, 64),
+        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, 64, f.engine, 12),
+        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, 64, f.weapons, 18, false),
+        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false)
+      ];
+    }),
+    ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
+      key: `klaed-${name}`,
+      url: `${klaed}/${name}.png`,
+      frameWidth: f.width,
+      frameHeight: 16,
+      frames: f.frames,
+      fps: 12,
+      loop: true
+    }))
   ];
 }
 
@@ -391,7 +437,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser4 from "./vendor/phaser.js";
+import Phaser5 from "./vendor/phaser.js";
 
 // src/debug.ts
 function publishDebugState(state) {
@@ -403,16 +449,18 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIikAEKDUNsaWVudE1lc3NhZ2USJAoFaGVsbG8YASABKAsyEy52b2lkbWFyY2gudjEuSGVsbG9IABIoCgVzdGF0ZRgCIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGVIABInCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZEgAQgYKBGtpbmQibwoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDgoGY29sb3VyGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDSJpCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZjb2xvdXIYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlIkcKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdCJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIgYKBEZ1bGwi5QEKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEARCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJInIKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAIiOAoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNIrIBCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SABCBgoEa2luZCJvCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNImkKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg4KBmNvbG91chgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIgYKBEZ1bGwi/gIKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
-var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 4);
-var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 11);
+var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 5);
+var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 16);
 var WeaponSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 0);
 var Weapon = /* @__PURE__ */ tsEnum(WeaponSchema);
 var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
 var Engine = /* @__PURE__ */ tsEnum(EngineSchema);
 var ShieldSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 2);
 var Shield = /* @__PURE__ */ tsEnum(ShieldSchema);
+var EnemyKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 3);
+var EnemyKind = /* @__PURE__ */ tsEnum(EnemyKindSchema);
 
 // src/net/codec.ts
 function wireFormatFrom(search) {
@@ -546,6 +594,12 @@ function clearToken(store = browserStorage()) {
 }
 
 // src/sim/projectiles.ts
+function isWeapon(kind) {
+  return WEAPONS.includes(kind);
+}
+function projectileStats(kind) {
+  return isWeapon(kind) ? WEAPON_STATS[kind] : ENEMY_BULLET_STATS[kind];
+}
 function travelled(stats, age) {
   if (stats.acceleration <= 0) {
     return stats.speed * age;
@@ -557,20 +611,28 @@ function travelled(stats, age) {
   const ramp = stats.speed * rampTime + 0.5 * stats.acceleration * rampTime * rampTime;
   return ramp + stats.maxSpeed * (age - rampTime);
 }
+function positionAt(p, age) {
+  const stats = projectileStats(p.kind);
+  const lateral = stats.zigzag.amplitude * triangleWave(age * stats.zigzag.frequency);
+  const offset = rotateOffset(travelled(stats, age), lateral, p.angle);
+  return { x: p.originX + offset.x, y: p.originY + offset.y };
+}
 function place(p) {
-  const stats = WEAPON_STATS[p.weapon];
-  const lateral = stats.zigzag.amplitude * triangleWave(p.age * stats.zigzag.frequency);
-  const offset = rotateOffset(travelled(stats, p.age), lateral, p.angle);
-  p.x = p.originX + offset.x;
-  p.y = p.originY + offset.y;
+  const { x, y } = positionAt(p, p.age);
+  p.x = x;
+  p.y = y;
 }
 var ProjectilePool = class {
   items;
   next = 0;
+  lastShotId = 0;
   constructor(capacity) {
     this.items = Array.from({ length: capacity }, () => ({
       active: false,
-      weapon: DEFAULT_LOADOUT.weapon,
+      kind: WEAPONS[0],
+      faction: "own",
+      owner: "",
+      shotId: 0,
       originX: 0,
       originY: 0,
       angle: 0,
@@ -582,8 +644,7 @@ var ProjectilePool = class {
   get activeCount() {
     return this.items.reduce((n, p) => n + Number(p.active), 0);
   }
-  /** Starts a projectile, already ageSeconds old: a remote shot seen late. */
-  spawn(shot, ageSeconds = 0) {
+  spawn(shot, options = {}) {
     let chosen;
     for (let i = 0; i < this.items.length && chosen === void 0; i++) {
       const candidate = this.items[(this.next + i) % this.items.length];
@@ -594,13 +655,32 @@ var ProjectilePool = class {
     }
     chosen ??= this.oldest();
     chosen.active = true;
-    chosen.weapon = shot.weapon;
+    chosen.kind = shot.kind;
+    chosen.faction = options.faction ?? "own";
+    chosen.owner = options.owner ?? "";
+    chosen.shotId = options.shotId ?? ++this.lastShotId;
     chosen.originX = shot.x;
     chosen.originY = shot.y;
     chosen.angle = shot.angle;
-    chosen.age = ageSeconds;
+    chosen.age = options.ageSeconds ?? 0;
     place(chosen);
     return chosen;
+  }
+  /** Ends every projectile of a faction: the server's are gone once offline. */
+  clear(faction) {
+    for (const p of this.items) {
+      if (p.faction === faction) {
+        p.active = false;
+      }
+    }
+  }
+  /** Ends a remote player's shot that hit something, and returns it. */
+  end(owner, shotId) {
+    const p = this.items.find((q) => q.active && q.faction === "remote" && q.owner === owner && q.shotId === shotId);
+    if (p !== void 0) {
+      p.active = false;
+    }
+    return p;
   }
   /** Ages every projectile by dt and returns those that expired this tick. */
   step(dt, inBounds) {
@@ -611,7 +691,7 @@ var ProjectilePool = class {
       }
       p.age += dt;
       place(p);
-      if (p.age >= WEAPON_STATS[p.weapon].lifetime || !inBounds(p.x, p.y)) {
+      if (p.age >= projectileStats(p.kind).lifetime || !inBounds(p.x, p.y)) {
         p.active = false;
         expired.push(p);
       }
@@ -793,11 +873,11 @@ var Sandbox = class {
       events.charges.push(this.ship.loadout.weapon);
     }
     for (const shot of weapon.shots) {
-      this.projectiles.spawn(shot);
-      events.shots.push(shot);
+      const p = this.projectiles.spawn({ kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle });
+      events.shots.push({ ...shot, id: p.shotId });
     }
     for (const p of this.projectiles.step(TICK_SECONDS, projectileInBounds)) {
-      events.expired.push({ weapon: p.weapon, x: p.x, y: p.y });
+      events.expired.push({ kind: p.kind, faction: p.faction, x: p.x, y: p.y });
     }
     events.ticks++;
   }
@@ -899,6 +979,8 @@ function shotDetune(random) {
 // src/scenes/audio.ts
 var SHOT_VOLUME = 0.35;
 var REMOTE_SHOT_VOLUME = 0.5;
+var ENEMY_SHOT_VOLUME = 0.15;
+var ENEMY_SHOT_DETUNE = -300;
 var CHARGE_VOLUME = 0.3;
 var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
@@ -971,7 +1053,7 @@ var ShipAudio = class {
       }
     }
     for (const expired of events.expired) {
-      const key = EXPIRE_SOUNDS[expired.weapon];
+      const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : void 0;
       if (key !== void 0) {
         this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
@@ -983,6 +1065,13 @@ var ShipAudio = class {
     if (key !== void 0) {
       this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
+  }
+  /** An enemy's shot: their own laser, soft and a little low. */
+  enemyShot() {
+    this.scene.sound.play(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
+  }
+  enemyDestroyed() {
+    this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
   }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
@@ -1085,6 +1174,7 @@ var WEAPON_IDS = reverse(WEAPONS2);
 var ENGINE_IDS = reverse(ENGINES2);
 var SHIELD_IDS = reverse(SHIELDS2);
 var toWeapon = (id) => WEAPONS2[id];
+var fromEnemyKind = (kind) => kind === EnemyKind.FIGHTER ? "fighter" : "scout";
 var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
 function toShipState(ship) {
   return create(ShipStateSchema, {
@@ -1141,7 +1231,6 @@ var Connection = class {
   welcomed = false;
   stateIntervalMs = 50;
   lastStateAt = Number.NEGATIVE_INFINITY;
-  shotId = 0;
   constructor(options) {
     this.options = options;
     this.makeSocket = options.socket ?? ((url) => new WebSocket(url));
@@ -1170,19 +1259,26 @@ var Connection = class {
     this.lastStateAt = nowMs;
     this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
   }
+  /** Sends a shot under its projectile-pool id, which a hit later reports. */
   sendShot(shot) {
     if (!this.welcomed) {
       return;
     }
-    this.shotId++;
     this.send(
       create2(ClientMessageSchema, {
         kind: {
           case: "shot",
-          value: { id: this.shotId, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
+          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
         }
       })
     );
+  }
+  /** Reports that one of our shots hit an enemy; the server trusts it. */
+  sendHit(enemyId, shotId, damage) {
+    if (!this.welcomed) {
+      return;
+    }
+    this.send(create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage } } }));
   }
   open() {
     const socket = this.makeSocket(this.options.url);
@@ -1222,6 +1318,15 @@ var Connection = class {
       case "full":
         events.full();
         break;
+      case "enemyFired":
+        events.enemyFired(message.kind.value);
+        break;
+      case "enemyDestroyed":
+        events.enemyDestroyed(message.kind.value);
+        break;
+      case "shotEnded":
+        events.shotEnded(message.kind.value);
+        break;
       default:
     }
   }
@@ -1256,12 +1361,12 @@ var INTERPOLATION_DELAY_TICKS = 2;
 var MAX_SAMPLES = 32;
 var StateBuffer = class {
   samples = [];
-  push(tick, ship) {
+  push(tick, state) {
     const last = this.samples.at(-1);
     if (last !== void 0 && tick <= last.tick) {
       return;
     }
-    this.samples.push({ tick, ship });
+    this.samples.push({ tick, state });
     if (this.samples.length > MAX_SAMPLES) {
       this.samples.shift();
     }
@@ -1269,7 +1374,7 @@ var StateBuffer = class {
   get empty() {
     return this.samples.length === 0;
   }
-  /** The ship at a (fractional) tick, or undefined with no samples. */
+  /** The state at a (fractional) tick, or undefined with no samples. */
   sample(tick) {
     const first = this.samples[0];
     const last = this.samples.at(-1);
@@ -1277,10 +1382,10 @@ var StateBuffer = class {
       return void 0;
     }
     if (tick <= first.tick) {
-      return first.ship;
+      return first.state;
     }
     if (tick >= last.tick) {
-      return last.ship;
+      return last.state;
     }
     let i = this.samples.length - 1;
     while (i > 0 && (this.samples[i - 1]?.tick ?? 0) > tick) {
@@ -1289,45 +1394,84 @@ var StateBuffer = class {
     const a = this.samples[i - 1];
     const b = this.samples[i];
     if (a === void 0 || b === void 0) {
-      return last.ship;
+      return last.state;
     }
     const t = (tick - a.tick) / (b.tick - a.tick);
     return {
-      ...a.ship,
-      x: a.ship.x + (b.ship.x - a.ship.x) * t,
-      y: a.ship.y + (b.ship.y - a.ship.y) * t,
-      angle: wrapAngle(a.ship.angle + wrapAngle(b.ship.angle - a.ship.angle) * t)
+      ...a.state,
+      x: a.state.x + (b.state.x - a.state.x) * t,
+      y: a.state.y + (b.state.y - a.state.y) * t,
+      angle: wrapAngle(a.state.angle + wrapAngle(b.state.angle - a.state.angle) * t)
     };
   }
 };
 
 // src/net/remoteshots.ts
-var RemoteShots = class {
+var TimedQueue = class {
   pending = [];
   tickRate;
   constructor(tickRate) {
     this.tickRate = tickRate;
   }
-  add(tick, from, shot) {
-    this.pending.push({ tick, from, shot });
+  add(tick, item) {
+    this.pending.push({ tick, item });
   }
-  /** Removes and returns the shots at or before renderTick, with their age. */
+  /** Removes and returns what is at or before renderTick, with its age. */
   due(renderTick) {
     const due = [];
     this.pending = this.pending.filter((p) => {
       if (p.tick > renderTick) {
         return true;
       }
-      due.push({ from: p.from, shot: p.shot, ageSeconds: (renderTick - p.tick) / this.tickRate });
+      due.push({ item: p.item, ageSeconds: (renderTick - p.tick) / this.tickRate });
       return false;
     });
     return due;
   }
 };
 
+// src/sim/enemies.ts
+var ENEMY_BULLET = {
+  scout: "klaedBullet",
+  fighter: "klaedBigBullet"
+};
+var ENEMY_RADIUS = {
+  scout: 11,
+  fighter: 12
+};
+
+// src/sim/hits.ts
+function hitTargetAlong(x0, y0, x1, y1, targets) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const lengthSquared = dx * dx + dy * dy;
+  let first;
+  let firstAlong = Infinity;
+  for (const t of targets) {
+    const along = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((t.x - x0) * dx + (t.y - y0) * dy) / lengthSquared));
+    if (Math.hypot(t.x - (x0 + along * dx), t.y - (y0 + along * dy)) <= t.radius + SHOT_RADIUS && along < firstAlong) {
+      first = t;
+      firstAlong = along;
+    }
+  }
+  return first;
+}
+
+// src/sim/patterns.ts
+function enemyPattern(kind, x, y, angle, seed) {
+  const random = seededRandom(seed);
+  const aim = angle + (random() * 2 - 1) * ENEMY_AIM_JITTER;
+  const muzzle = rotateOffset(ENEMY_MUZZLE, 0, aim);
+  return [{ kind: ENEMY_BULLET[kind], x: x + muzzle.x, y: y + muzzle.y, angle: aim }];
+}
+
+// src/scenes/enemyview.ts
+import Phaser4 from "./vendor/phaser.js";
+
 // src/scenes/shipview.ts
-import "./vendor/phaser.js";
+import Phaser3 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
+var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
 var ShipView = class {
   root;
@@ -1388,9 +1532,72 @@ var ShipView = class {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
   }
+  /** A short white flash of the hull where an enemy bullet hit. */
+  flash(scene) {
+    this.hull.setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
+    scene.time.delayedCall(HIT_FLASH_MS, () => {
+      this.hull.clearTint().setTintMode(Phaser3.TintModes.MULTIPLY);
+    });
+  }
   destroy() {
     this.root.destroy();
     this.label?.destroy();
+  }
+};
+
+// src/scenes/enemyview.ts
+var FLASH_MS = 70;
+var EnemyView = class {
+  kind;
+  root;
+  base;
+  weapon;
+  scene;
+  constructor(scene, parent, kind) {
+    this.scene = scene;
+    this.kind = kind;
+    const engine = scene.add.sprite(0, 0, keys.enemyEngine(kind)).play(keys.enemyEngine(kind));
+    this.base = scene.add.image(0, 0, keys.enemyBase(kind));
+    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(kind), 0);
+    this.weapon.on(Phaser4.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.weapon.setFrame(0);
+    });
+    this.root = scene.add.container(0, 0, [engine, this.base, this.weapon]);
+    parent.add(this.root);
+  }
+  get x() {
+    return this.root.x;
+  }
+  get y() {
+    return this.root.y;
+  }
+  place(x, y, angle) {
+    this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
+  }
+  /** Plays the weapon animation: the telegraph before a volley leaves. */
+  warn() {
+    this.weapon.play(keys.enemyWeapons(this.kind));
+  }
+  /** A short white flash where a shot landed. */
+  flash() {
+    this.base.setTint(16777215).setTintMode(Phaser4.TintModes.FILL);
+    this.scene.time.delayedCall(FLASH_MS, () => {
+      this.base.clearTint().setTintMode(Phaser4.TintModes.MULTIPLY);
+    });
+  }
+  /** Plays the pack's destruction animation in place of the ship, then goes. */
+  destroy(explode) {
+    if (!explode) {
+      this.root.destroy();
+      return;
+    }
+    const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.kind)).setRotation(this.root.rotation);
+    this.root.parentContainer.add(boom);
+    this.root.destroy();
+    boom.once(Phaser4.Animations.Events.ANIMATION_COMPLETE, () => {
+      boom.destroy();
+    });
+    boom.play(keys.enemyDestruction(this.kind));
   }
 };
 
@@ -1402,8 +1609,18 @@ var NetPlay = class {
   options;
   connection;
   remotes = /* @__PURE__ */ new Map();
+  enemies = /* @__PURE__ */ new Map();
+  enemyVolleys = new TimedQueue(20);
+  enemyWarnings = new TimedQueue(20);
+  destructions = new TimedQueue(20);
+  shotEnds = new TimedQueue(20);
+  latestSnapshot = 0;
+  tickRate = 20;
+  /** Enemies this player shot down, and enemy bullets that hit this ship. */
+  enemiesDestroyed = 0;
+  hitsTaken = 0;
   clock = new ServerClock(20);
-  shots = new RemoteShots(20);
+  shots = new TimedQueue(20);
   spawned = false;
   constructor(options) {
     this.options = options;
@@ -1423,12 +1640,10 @@ var NetPlay = class {
           if (shot === void 0 || !this.remotes.has(remote.playerId)) {
             return;
           }
-          this.shots.add(remote.tick, remote.playerId, {
-            weapon: fromWeapon(shot.weapon),
-            muzzle: shot.muzzle,
-            x: shot.x,
-            y: shot.y,
-            angle: shot.angle
+          this.shots.add(remote.tick, {
+            from: remote.playerId,
+            id: shot.id,
+            shot: { weapon: fromWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle }
           });
         },
         left: (playerId) => {
@@ -1447,6 +1662,26 @@ var NetPlay = class {
           for (const id of [...this.remotes.keys()]) {
             this.remove(id);
           }
+          for (const [id, enemy] of this.enemies) {
+            enemy.view.destroy(false);
+            this.enemies.delete(id);
+          }
+          this.resetTimeline(this.tickRate);
+          options.sim.projectiles.clear("remote");
+          options.sim.projectiles.clear("enemy");
+        },
+        enemyFired: (fired) => {
+          this.enemyFired(fired);
+        },
+        enemyDestroyed: (destroyed) => {
+          const enemy = this.enemies.get(destroyed.enemyId);
+          if (enemy !== void 0) {
+            enemy.destroyedAt = destroyed.tick;
+          }
+          this.destructions.add(destroyed.tick, destroyed);
+        },
+        shotEnded: (ended) => {
+          this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
         }
       }
     });
@@ -1467,8 +1702,16 @@ var NetPlay = class {
       y: r.view.root.y
     }));
   }
-  /** Once a frame: send the local ship, draw the others, spawn their shots. */
+  /** Enemies as drawn, for the E2E tests. */
+  get enemyList() {
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
+  }
+  /**
+   * Once a frame: send the local ship, draw the others and the enemies, spawn
+   * their shots, and test hits. Returns where hits landed.
+   */
   update(events) {
+    const frame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
     this.connection.sendState(this.options.sim.ship, nowMs);
     for (const shot of events.shots) {
@@ -1476,7 +1719,7 @@ var NetPlay = class {
     }
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === void 0) {
-      return;
+      return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     const seconds = nowMs / 1e3;
@@ -1496,8 +1739,11 @@ var NetPlay = class {
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
     }
     const volleys = /* @__PURE__ */ new Set();
-    for (const due of this.shots.due(renderTick)) {
-      this.options.sim.projectiles.spawn(due.shot, due.ageSeconds);
+    for (const { item: due, ageSeconds } of this.shots.due(renderTick)) {
+      this.options.sim.projectiles.spawn(
+        { kind: due.shot.weapon, x: due.shot.x, y: due.shot.y, angle: due.shot.angle },
+        { ageSeconds, faction: "remote", owner: due.from, shotId: due.id }
+      );
       const volley = WEAPON_STATS[due.shot.weapon].alternate ? void 0 : `${due.from}:${due.shot.weapon}`;
       if (volley === void 0 || !volleys.has(volley)) {
         this.options.audio.remoteShot(due.shot.weapon);
@@ -1511,12 +1757,123 @@ var NetPlay = class {
         shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
       }
     }
+    for (const { item: ended } of this.shotEnds.due(renderTick)) {
+      this.options.sim.projectiles.end(ended.owner, ended.shotId);
+    }
+    this.drawEnemies(renderTick);
+    this.testHits(frame, events.ticks * TICK_SECONDS);
+    return frame;
+  }
+  drawEnemies(renderTick) {
+    for (const enemy of this.enemies.values()) {
+      const pose = enemy.buffer.sample(renderTick);
+      if (pose !== void 0) {
+        enemy.view.place(pose.x, pose.y, pose.angle);
+      }
+    }
+    for (const { item: enemyId } of this.enemyWarnings.due(renderTick)) {
+      this.enemies.get(enemyId)?.view.warn();
+    }
+    for (const { item: volley, ageSeconds } of this.enemyVolleys.due(renderTick)) {
+      this.fireVolley(volley, ageSeconds);
+    }
+    for (const { item: destroyed } of this.destructions.due(renderTick)) {
+      this.destroyEnemy(destroyed);
+    }
+    for (const [id, enemy] of this.enemies) {
+      if (enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
+        enemy.view.destroy(false);
+        this.enemies.delete(id);
+      }
+    }
+  }
+  /**
+   * Own shots against enemies as drawn, reported to the server (the design's
+   * trust model); enemy bullets against the local ship, which only flash it
+   * until health exists (#5). Each projectile is tested along the path it
+   * flew during the frame's stepSeconds, so low frame rates don't skip hits.
+   */
+  testHits(frame, stepSeconds) {
+    const targets = [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      x: e.view.x,
+      y: e.view.y,
+      radius: ENEMY_RADIUS[e.view.kind]
+    }));
+    const ship = this.options.sim.ship;
+    const me = [{ id: "me", x: ship.x, y: ship.y, radius: SHIP_RADIUS }];
+    for (const p of this.options.sim.projectiles.items) {
+      if (!p.active || p.faction === "remote") {
+        continue;
+      }
+      const from = positionAt(p, Math.max(0, p.age - stepSeconds));
+      if (p.faction === "own" && isWeapon(p.kind)) {
+        const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
+        if (target !== void 0) {
+          p.active = false;
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+          this.enemies.get(target.id)?.view.flash();
+          frame.enemyHits.push({ x: p.x, y: p.y });
+        }
+      } else if (p.faction === "enemy" && hitTargetAlong(from.x, from.y, p.x, p.y, me) !== void 0) {
+        p.active = false;
+        this.hitsTaken++;
+        frame.hitsOnMe.push({ x: p.x, y: p.y });
+      }
+    }
+  }
+  /**
+   * Spawns a volley's bullets from where the enemy is at its tick, unless it
+   * was shot down first or is too far away to matter.
+   */
+  fireVolley(volley, ageSeconds) {
+    const enemy = this.enemies.get(volley.enemyId);
+    if (enemy === void 0 || enemy.destroyedAt !== void 0 && enemy.destroyedAt < volley.tick) {
+      return;
+    }
+    const origin = enemy.buffer.sample(volley.tick) ?? volley;
+    const ship = this.options.sim.ship;
+    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
+      return;
+    }
+    for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+      this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
+    }
+    this.options.audio.enemyShot();
+  }
+  enemyFired(fired) {
+    this.enemyWarnings.add(fired.tick - fired.warnTicks, fired.enemyId);
+    this.enemyVolleys.add(fired.tick, {
+      enemyId: fired.enemyId,
+      kind: fromEnemyKind(fired.kind),
+      tick: fired.tick,
+      seed: fired.seed,
+      angle: fired.angle,
+      x: fired.x,
+      y: fired.y
+    });
+  }
+  destroyEnemy(destroyed) {
+    const enemy = this.enemies.get(destroyed.enemyId);
+    if (enemy === void 0) {
+      return;
+    }
+    this.enemies.delete(destroyed.enemyId);
+    const ship = this.options.sim.ship;
+    if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
+      this.options.audio.enemyDestroyed();
+    }
+    enemy.view.destroy(true);
+    if (destroyed.byPlayerId === this.playerId) {
+      this.enemiesDestroyed++;
+    }
   }
   welcome(welcome) {
     this.status = "online";
     this.playerId = welcome.playerId;
     this.clock = new ServerClock(welcome.tickRate);
-    this.shots = new RemoteShots(welcome.tickRate);
+    this.tickRate = welcome.tickRate;
+    this.resetTimeline(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
     if (!this.spawned) {
       this.spawned = true;
@@ -1527,14 +1884,37 @@ var NetPlay = class {
       ship.vy = 0;
     }
   }
+  /** Drops everything waiting for the delayed timeline. */
+  resetTimeline(tickRate) {
+    this.shots = new TimedQueue(tickRate);
+    this.enemyVolleys = new TimedQueue(tickRate);
+    this.enemyWarnings = new TimedQueue(tickRate);
+    this.destructions = new TimedQueue(tickRate);
+    this.shotEnds = new TimedQueue(tickRate);
+  }
   snapshot(snapshot) {
     this.clock.observe(snapshot.tick, now());
+    this.latestSnapshot = snapshot.tick;
     for (const player of snapshot.players) {
       if (player.state === void 0) {
         continue;
       }
       const remote = this.remotes.get(player.playerId) ?? this.add(player.playerId, player.name, player.colour);
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
+    }
+    for (const state of snapshot.enemies) {
+      let enemy = this.enemies.get(state.enemyId);
+      if (enemy === void 0) {
+        enemy = {
+          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
+          buffer: new StateBuffer(),
+          lastSeen: snapshot.tick,
+          destroyedAt: void 0
+        };
+        this.enemies.set(state.enemyId, enemy);
+      }
+      enemy.lastSeen = snapshot.tick;
+      enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
     }
   }
   add(id, name, colour) {
@@ -1564,9 +1944,10 @@ var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var HUD_REFRESH_MS = 250;
+var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
-var SandboxScene = class extends Phaser4.Scene {
+var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
   backgrounds = [];
@@ -1609,7 +1990,7 @@ var SandboxScene = class extends Phaser4.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser4.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser5.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -1628,14 +2009,20 @@ var SandboxScene = class extends Phaser4.Scene {
       fps: 0,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
-      net: { status: "offline", playerId: void 0, others: [] }
+      net: { status: "offline", playerId: void 0, others: [] },
+      enemies: [],
+      enemiesDestroyed: 0,
+      hitsTaken: 0
     };
     this.publish();
   }
   update(time, deltaMs) {
     const events = this.sim.advance(deltaMs / 1e3, this.readInput());
-    this.net?.update(events);
+    const net = this.net?.update(events);
     this.drawShip(events);
+    if (net !== void 0) {
+      this.showHits(net);
+    }
     this.drawProjectiles();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
@@ -1681,7 +2068,7 @@ var SandboxScene = class extends Phaser4.Scene {
       }
     });
     this.net.start();
-    this.events.once(Phaser4.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => this.net?.stop());
   }
   createProjectiles() {
     this.projectileSprites = this.sim.projectiles.items.map(() => {
@@ -1697,7 +2084,7 @@ var SandboxScene = class extends Phaser4.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser4.BlendModes.ADD,
+      blendMode: Phaser5.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -1706,7 +2093,7 @@ var SandboxScene = class extends Phaser4.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser4.BlendModes.ADD,
+      blendMode: Phaser5.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -1716,7 +2103,7 @@ var SandboxScene = class extends Phaser4.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser4.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
+    this.bloom = Phaser5.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -1728,7 +2115,7 @@ var SandboxScene = class extends Phaser4.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser4.Input.Keyboard.KeyCodes;
+    const codes = Phaser5.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -1742,7 +2129,7 @@ var SandboxScene = class extends Phaser4.Scene {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    this.events.once(Phaser4.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
     });
   }
@@ -1866,7 +2253,7 @@ var SandboxScene = class extends Phaser4.Scene {
         return;
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
-      sprite.play(keys.projectile(p.weapon), true);
+      sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
     });
   }
   playEffects(events) {
@@ -1883,6 +2270,18 @@ var SandboxScene = class extends Phaser4.Scene {
     }
     for (const p of events.expired) {
       this.puff.explode(4, p.x, p.y);
+    }
+  }
+  /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
+  showHits(net) {
+    for (const hit of net.enemyHits) {
+      this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    for (const hit of net.hitsOnMe) {
+      this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    if (net.hitsOnMe.length > 0) {
+      this.ship.flash(this);
     }
   }
   /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
@@ -1949,6 +2348,9 @@ var SandboxScene = class extends Phaser4.Scene {
     this.debug.net.status = this.net?.status ?? "offline";
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
+    this.debug.enemies = this.net?.enemyList ?? [];
+    this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
+    this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
     publishDebugState(this.debug);
   }
 };
@@ -1963,8 +2365,8 @@ async function start() {
     }
   }
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser5.Game({
-    type: Phaser5.AUTO,
+  const game = new Phaser6.Game({
+    type: Phaser6.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -1973,7 +2375,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser5.Scale.NONE,
+      mode: Phaser6.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

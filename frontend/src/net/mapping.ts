@@ -1,12 +1,14 @@
 import { create } from '@bufbuild/protobuf';
 
 import {
+  EnemyKind as WireEnemyKind,
   Engine,
   Shield,
   ShipStateSchema,
   Weapon,
   type ShipState,
 } from '../gen/voidmarch/v1/messages_pb.js';
+import type { EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
 import type { Ship } from '../sim/ship.ts';
 
@@ -40,6 +42,9 @@ const ENGINE_IDS = reverse(ENGINES);
 const SHIELD_IDS = reverse(SHIELDS);
 
 export const toWeapon = (id: WeaponId): Weapon => WEAPONS[id];
+
+/** The sim's enemy kind for a wire kind; anything unknown is drawn as a Scout. */
+export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => (kind === WireEnemyKind.FIGHTER ? 'fighter' : 'scout');
 
 /** The sim's weapon for a wire weapon; unknown values fall back to the default. */
 export const fromWeapon = (w: Weapon): WeaponId => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;

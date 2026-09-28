@@ -10,4 +10,7 @@ required; it is given here anyway.
 - `environment/`: [Void - Environment Pack](https://foozlecc.itch.io/void-environment-pack),
   commissioned from Baldur, distributed by Foozle.
 
+- `klaed/`: [Void - Fleet Pack 1 (Kla'ed)](https://foozlecc.itch.io/void-fleet-pack-1),
+  distributed by Foozle.
+
 Files are renamed to kebab-case and otherwise unchanged.

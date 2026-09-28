@@ -95,6 +95,14 @@ Each faction uses its 8 ship classes in these roles:
 - Enemies use their pack's destruction animation when killed.
 - Killed enemies may drop part pickups (drop rate tunable; favor parts the nearby players don't own yet).
 
+As built in milestone 3 (#4), Kla'ed fodder only:
+
+- **Spawning**: the server keeps about 3 enemies around each player outside the safe zone (300 px around the home planet), spawning one a second just out of view (380–460 px away); 40% are Fighters. An enemy with no player outside the safe zone within 800 px for 30 s leaves. Enemies are pushed out of the safe zone.
+- **Scout**: 2 HP, fast (150 px/s), wanders erratically and closes to about 90 px; fires one small bullet.
+- **Fighter**: 6 HP, slower (95 px/s), strafes around its target at about 170 px; fires one big bullet.
+- **Firing**: enemies come for the nearest player within 500 px, the whole spawn ring, and fire once within 340 px, where their bullets still reach, every so many ticks with jitter; every volley is telegraphed by the weapon animating for 300 ms before the bullets leave; bullets are slow enough to dodge (110–130 px/s), aimed with a small seeded spread. Enemy shots have their own soft laser (Kenney `laserSmall_004`).
+- **Death**: the pack's destruction animation, and an explosion sound when it happens in view. No drops yet (pickups are milestone 5).
+
 ## 7. Bosses and scaling for 1–16 players
 
 ### Encounter bosses (Frigate, Battlecruiser)
@@ -158,6 +166,7 @@ As built in milestone 2 (#3):
 - **Protocol**: WebSocket at `/ws`, Protocol Buffers (`proto/voidmarch/v1/messages.proto`) in binary frames, or protobuf JSON in text frames per connection for debugging.
 - **Ships**: each client sends its ship's state 20 times a second; the server keeps the latest and sends everyone a snapshot of the others every tick. Clients draw other ships 100 ms in the past, blended between snapshots.
 - **Shots**: a shot is one message; the server stamps it with its tick and relays it; every client simulates the projectile from that spawn (position is a pure function of spawn and age), on the same delayed timeline as the ships.
+- **Enemies** (milestone 3, #4): the server runs them at the tick rate and sends their positions in each snapshot; clients draw them on the same 100 ms delayed timeline. A shot is one `EnemyFired` message (enemy, tick, seed, angle), announced 6 ticks ahead: clients animate the weapon from then, and at the tick expand the seed into bullets from the enemy's position in that tick's snapshot, with the same seeded pattern (`frontend/src/sim/patterns.ts`). Clients skip volleys from enemies more than 800 px away, which they could neither see nor be hit by. A client that sees its own shot touch an enemy sends a `Hit` (damage capped at 12); the server applies it, tells the others the shot ended (`ShotEnded`), and announces `EnemyDestroyed` when the HP runs out. Both carry the tick of the hit, so the others see them on the same delayed timeline as the shot and the enemy. Each client checks enemy bullets against its own ship.
 - **Players**: name and token in memory until persistence arrives with unlocks; a client whose token the server forgot is asked for a name again. At most 16 players; a player silent for 3 s is removed; a client too slow to keep up is dropped rather than slowing the others.
 
 ### Persistent state (at minimum)

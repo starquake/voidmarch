@@ -3,10 +3,10 @@ import { test } from 'node:test';
 
 import { create } from '@bufbuild/protobuf';
 
-import { ShipStateSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
+import { EnemyKind, ShipStateSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
 import { ENGINES, SHIELDS, WEAPONS } from '../sim/loadout.ts';
 import { createShip } from '../sim/ship.ts';
-import { fromShipState, fromWeapon, toShipState, toWeapon } from './mapping.ts';
+import { fromEnemyKind, fromShipState, fromWeapon, toShipState, toWeapon } from './mapping.ts';
 
 test('every loadout survives the round trip through the wire', () => {
   for (const weapon of WEAPONS) {
@@ -34,4 +34,10 @@ test('unknown or missing parts fall back to the defaults', () => {
   assert.deepEqual(remote.loadout, { weapon: 'autoCannon', engine: 'base', shield: 'front' });
   assert.equal(remote.damage, 3);
   assert.equal(fromWeapon(Weapon.UNSPECIFIED), 'autoCannon');
+});
+
+test('enemy kinds map from the wire', () => {
+  assert.equal(fromEnemyKind(EnemyKind.SCOUT), 'scout');
+  assert.equal(fromEnemyKind(EnemyKind.FIGHTER), 'fighter');
+  assert.equal(fromEnemyKind(EnemyKind.UNSPECIFIED), 'scout');
 });

@@ -2,12 +2,15 @@ import { create } from '@bufbuild/protobuf';
 
 import {
   ClientMessageSchema,
+  type EnemyDestroyed,
+  type EnemyFired,
   type RemoteShot,
+  type ShotEnded,
   type Snapshot,
   type Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Ship } from '../sim/ship.ts';
-import type { ShotSpawn } from '../sim/weapons.ts';
+import type { FiredShot } from '../sim/sandbox.ts';
 import { decodeServer, encodeClient, type WireFormat } from './codec.ts';
 import { toShipState, toWeapon } from './mapping.ts';
 
@@ -41,6 +44,10 @@ export interface ConnectionEvents {
   unknownToken(): void;
   /** The link dropped; the connection is retrying. */
   disconnected(): void;
+  enemyFired(fired: EnemyFired): void;
+  enemyDestroyed(destroyed: EnemyDestroyed): void;
+  /** Another player's shot hit something; remove it. */
+  shotEnded(ended: ShotEnded): void;
 }
 
 export interface Timers {
@@ -80,7 +87,6 @@ export class Connection {
   private welcomed = false;
   private stateIntervalMs = 50;
   private lastStateAt = Number.NEGATIVE_INFINITY;
-  private shotId = 0;
 
   constructor(options: ConnectionOptions) {
     this.options = options;
@@ -115,19 +121,27 @@ export class Connection {
     this.send(create(ClientMessageSchema, { kind: { case: 'state', value: toShipState(ship) } }));
   }
 
-  sendShot(shot: ShotSpawn): void {
+  /** Sends a shot under its projectile-pool id, which a hit later reports. */
+  sendShot(shot: FiredShot): void {
     if (!this.welcomed) {
       return;
     }
-    this.shotId++;
     this.send(
       create(ClientMessageSchema, {
         kind: {
           case: 'shot',
-          value: { id: this.shotId, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle },
+          value: { id: shot.id, weapon: toWeapon(shot.weapon), muzzle: shot.muzzle, x: shot.x, y: shot.y, angle: shot.angle },
         },
       }),
     );
+  }
+
+  /** Reports that one of our shots hit an enemy; the server trusts it. */
+  sendHit(enemyId: number, shotId: number, damage: number): void {
+    if (!this.welcomed) {
+      return;
+    }
+    this.send(create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage } } }));
   }
 
   private open(): void {
@@ -168,6 +182,15 @@ export class Connection {
         break;
       case 'full':
         events.full();
+        break;
+      case 'enemyFired':
+        events.enemyFired(message.kind.value);
+        break;
+      case 'enemyDestroyed':
+        events.enemyDestroyed(message.kind.value);
+        break;
+      case 'shotEnded':
+        events.shotEnded(message.kind.value);
         break;
       default:
     }

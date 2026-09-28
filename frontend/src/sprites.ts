@@ -1,4 +1,5 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
+import type { EnemyBulletId, EnemyKind } from './sim/enemies.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
 
@@ -25,6 +26,18 @@ const still = (key: string, url: string, size: number): Sheet => ({
   fps: 0,
   loop: false,
 });
+
+
+const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruction: number }> = {
+  scout: { engine: 10, weapons: 6, destruction: 10 },
+  fighter: { engine: 10, weapons: 6, destruction: 9 },
+};
+
+/** Enemy bullet strips: frames are narrower than they are tall. */
+const BULLET_FRAMES: Record<string, { width: number; frames: number }> = {
+  bullet: { width: 4, frames: 4 },
+  'big-bullet': { width: 8, frames: 4 },
+};
 
 const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true): Sheet => ({
   key,
@@ -124,12 +137,18 @@ export const keys = {
   background: ['background-void', 'background-stars', 'background-big-stars'] as const,
   planet: 'planet',
   asteroid: 'asteroid',
+  enemyBase: (kind: EnemyKind): string => `klaed-${kind}-base`,
+  enemyEngine: (kind: EnemyKind): string => `klaed-${kind}-engine`,
+  enemyWeapons: (kind: EnemyKind): string => `klaed-${kind}-weapons`,
+  enemyDestruction: (kind: EnemyKind): string => `klaed-${kind}-destruction`,
+  enemyBullet: (id: EnemyBulletId): string => (id === 'klaedBullet' ? 'klaed-bullet' : 'klaed-big-bullet'),
 };
 
 /** Every sheet the client loads, with its frame layout from the Void packs. */
 export function sheets(): Sheet[] {
   const ship = `${ASSETS}/mainship`;
   const env = `${ASSETS}/environment`;
+  const klaed = `${ASSETS}/klaed`;
 
   return [
     ...DAMAGE_STATES.map((s) => still(keys.hull(s), `${ship}/${HULL_FILES[s]}.png`, 48)),
@@ -163,5 +182,24 @@ export function sheets(): Sheet[] {
     })),
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
+    ...(['scout', 'fighter'] as const).flatMap((kind) => {
+      const f = KLAED_FILES[kind];
+
+      return [
+        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, 64),
+        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, 64, f.engine, 12),
+        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, 64, f.weapons, 18, false),
+        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false),
+      ];
+    }),
+    ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
+      key: `klaed-${name}`,
+      url: `${klaed}/${name}.png`,
+      frameWidth: f.width,
+      frameHeight: 16,
+      frames: f.frames,
+      fps: 12,
+      loop: true,
+    })),
   ];
 }

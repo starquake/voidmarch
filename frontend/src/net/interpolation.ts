@@ -1,29 +1,35 @@
 import { wrapAngle } from '../sim/math.ts';
-import type { RemoteShip } from './mapping.ts';
 
-/** Remote ships are drawn this many ticks in the past, between two snapshots. */
+/** Remote ships and enemies are drawn this many ticks in the past, between two snapshots. */
 export const INTERPOLATION_DELAY_TICKS = 2;
 
 const MAX_SAMPLES = 32;
 
-interface Sample {
+/** Anything drawn at a position and facing. */
+export interface Pose {
+  x: number;
+  y: number;
+  angle: number;
+}
+
+interface Sample<T extends Pose> {
   tick: number;
-  ship: RemoteShip;
+  state: T;
 }
 
 /**
- * A remote player's recent states. Sampled between the two that surround a
+ * A remote ship or enemy's recent states. Sampled between the two that surround a
  * tick; before the first or after the last it holds, never guessing ahead.
  */
-export class StateBuffer {
-  private readonly samples: Sample[] = [];
+export class StateBuffer<T extends Pose> {
+  private readonly samples: Sample<T>[] = [];
 
-  push(tick: number, ship: RemoteShip): void {
+  push(tick: number, state: T): void {
     const last = this.samples.at(-1);
     if (last !== undefined && tick <= last.tick) {
       return;
     }
-    this.samples.push({ tick, ship });
+    this.samples.push({ tick, state });
     if (this.samples.length > MAX_SAMPLES) {
       this.samples.shift();
     }
@@ -33,18 +39,18 @@ export class StateBuffer {
     return this.samples.length === 0;
   }
 
-  /** The ship at a (fractional) tick, or undefined with no samples. */
-  sample(tick: number): RemoteShip | undefined {
+  /** The state at a (fractional) tick, or undefined with no samples. */
+  sample(tick: number): T | undefined {
     const first = this.samples[0];
     const last = this.samples.at(-1);
     if (first === undefined || last === undefined) {
       return undefined;
     }
     if (tick <= first.tick) {
-      return first.ship;
+      return first.state;
     }
     if (tick >= last.tick) {
-      return last.ship;
+      return last.state;
     }
 
     let i = this.samples.length - 1;
@@ -54,16 +60,16 @@ export class StateBuffer {
     const a = this.samples[i - 1];
     const b = this.samples[i];
     if (a === undefined || b === undefined) {
-      return last.ship;
+      return last.state;
     }
 
     const t = (tick - a.tick) / (b.tick - a.tick);
 
     return {
-      ...a.ship,
-      x: a.ship.x + (b.ship.x - a.ship.x) * t,
-      y: a.ship.y + (b.ship.y - a.ship.y) * t,
-      angle: wrapAngle(a.ship.angle + wrapAngle(b.ship.angle - a.ship.angle) * t),
+      ...a.state,
+      x: a.state.x + (b.state.x - a.state.x) * t,
+      y: a.state.y + (b.state.y - a.state.y) * t,
+      angle: wrapAngle(a.state.angle + wrapAngle(b.state.angle - a.state.angle) * t),
     };
   }
 }

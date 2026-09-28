@@ -9,6 +9,9 @@ export const SPRITE_FACING = Math.PI / 2;
 /** What ships and their names are added to. */
 export type ShipParent = Phaser.GameObjects.Layer | Phaser.GameObjects.Container;
 
+/** How long a hit flashes the hull white. */
+const HIT_FLASH_MS = 70;
+
 /** Where a name sits below the ship's centre, in art pixels. */
 const LABEL_OFFSET = 26;
 
@@ -83,6 +86,14 @@ export class ShipView {
   place(x: number, y: number, angle: number): void {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
+  }
+
+  /** A short white flash of the hull where an enemy bullet hit. */
+  flash(scene: Phaser.Scene): void {
+    this.hull.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+    scene.time.delayedCall(HIT_FLASH_MS, () => {
+      this.hull.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+    });
   }
 
   destroy(): void {

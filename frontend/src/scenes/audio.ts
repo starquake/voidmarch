@@ -4,10 +4,13 @@ import { engineMix, nextVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
 import type { EngineId, WeaponId } from '../sim/loadout.ts';
 import type { FrameEvents } from '../sim/sandbox.ts';
+import { isWeapon } from '../sim/projectiles.ts';
 import type { Ship } from '../sim/ship.ts';
 import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
 import {
   CHARGE_SOUNDS,
+  ENEMY_EXPLOSION_SOUND,
+  ENEMY_SHOT_SOUND,
   ENGINE_LOOPS,
   EXPIRE_SOUNDS,
   MUSIC,
@@ -22,6 +25,9 @@ type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound | Phaser.
 const SHOT_VOLUME = 0.35;
 /** Other players' shots, relative to your own. */
 const REMOTE_SHOT_VOLUME = 0.5;
+const ENEMY_SHOT_VOLUME = 0.15;
+/** Enemy shots sound a little lower, in cents. */
+const ENEMY_SHOT_DETUNE = -300;
 const CHARGE_VOLUME = 0.3;
 /** Pitches the charge above the shield sound it shares a source with. */
 const CHARGE_DETUNE = 300;
@@ -105,7 +111,7 @@ export class ShipAudio {
       }
     }
     for (const expired of events.expired) {
-      const key = EXPIRE_SOUNDS[expired.weapon];
+      const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : undefined;
       if (key !== undefined) {
         this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
@@ -118,6 +124,15 @@ export class ShipAudio {
     if (key !== undefined) {
       this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
+  }
+
+  /** An enemy's shot: their own laser, soft and a little low. */
+  enemyShot(): void {
+    this.scene.sound.play(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
+  }
+
+  enemyDestroyed(): void {
+    this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
   }
 
   shieldSwitched(): void {
