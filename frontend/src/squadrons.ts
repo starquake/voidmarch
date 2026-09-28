@@ -55,6 +55,15 @@ export function squadronChoices(list: Pick<Squadrons, 'squadrons'>): { choices: 
   return { choices, full };
 }
 
+/** The hangar line for the HUD: shown at the home planet, where G draws a companion from it. */
+export function hangarLine(hangar: number | undefined, atHome: boolean): string | undefined {
+  if (!atHome || hangar === undefined) {
+    return undefined;
+  }
+
+  return hangar === 0 ? 'hangar: empty' : `hangar: ${String(hangar)} ship${hangar === 1 ? '' : 's'}`;
+}
+
 /** The squadron to pick first: the one the player flew in last, else the fullest. */
 export function pickFirst(choices: readonly SquadronChoice[], last: string | undefined): string | undefined {
   return choices.find((c) => c.name === last)?.name ?? choices[0]?.name;

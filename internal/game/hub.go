@@ -105,6 +105,10 @@ type member struct {
 	companions map[uint32]*companion
 	// squadron is the name of the player's squadron, "" until they choose.
 	squadron string
+	// held counts the companion ships this player took the place of on
+	// joining; they go back to the hangar when the player leaves, so joining
+	// never adds ships to it.
+	held int
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -123,14 +127,25 @@ type Hub struct {
 	rng       *rand.Rand
 	nextGrant uint64
 	squadrons map[string]*squadron
+	// hangar is how many companion ships wait to be drawn (docs/design.md, section 13).
+	hangar int
 }
 
 // HubOption configures a [Hub].
 type HubOption func(*hubOptions)
 
 type hubOptions struct {
-	seed   uint64
-	seeded bool
+	seed      uint64
+	seeded    bool
+	poolStart int
+}
+
+// WithPoolStart sets how many companion ships the hangar holds at start.
+// Without it the hangar has a ship for every seat, so it never limits.
+func WithPoolStart(ships int) HubOption {
+	return func(o *hubOptions) {
+		o.poolStart = ships
+	}
 }
 
 // WithSeed makes the hub's randomness (spawns, steering, fire timing)
@@ -143,7 +158,7 @@ func WithSeed(seed uint64) HubOption {
 
 // NewHub returns a hub; start it with [Hub.Run].
 func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
-	var o hubOptions
+	o := hubOptions{poolStart: MaxPlayers}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -159,6 +174,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		rng:      newRand(o),
 
 		squadrons: make(map[string]*squadron),
+		hangar:    o.poolStart,
 	}
 }
 
@@ -223,13 +239,18 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	// and their squadron.
 	companions := make(map[uint32]*companion)
 	var squadron string
+	var held int
 	if old, ok := h.members[player.ID]; ok {
 		companions = old.companions
 		squadron = old.squadron
+		held = old.held
 		close(old.session.queue)
 		delete(h.members, player.ID)
-	} else if h.seats() >= MaxPlayers && !h.displaceNewestCompanion() {
-		return joinResult{err: ErrFull}
+	} else if h.seats() >= MaxPlayers {
+		if !h.displaceNewestCompanion() {
+			return joinResult{err: ErrFull}
+		}
+		held = 1
 	}
 
 	out := make(chan *pb.ServerMessage, sendQueue)
@@ -242,6 +263,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		lastSeen:   h.tick,
 		companions: companions,
 		squadron:   squadron,
+		held:       held,
 	}
 	h.logger.Info(
 		"player joined",
@@ -373,7 +395,9 @@ func (h *Hub) drop(id, reason string) {
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
 	for _, number := range slices.Sorted(maps.Keys(m.companions)) {
 		h.broadcast(left(seatID(id, number)), "")
+		h.hangar++
 	}
+	h.hangar += m.held
 	h.broadcast(left(id), "")
 	h.leaveSquadron(id, m)
 	h.broadcastSquadrons()

@@ -63,7 +63,10 @@ func (h *Hub) squadronsMessage() *pb.Squadrons {
 	}
 	slices.SortStableFunc(list, func(a, b *squadron) int { return len(b.members) - len(a.members) })
 
-	out := &pb.Squadrons{NextName: h.nextSquadronName()}
+	out := &pb.Squadrons{
+		NextName: h.nextSquadronName(),
+		Hangar:   uint32(max(h.hangar, 0)), //nolint:gosec // never negative.
+	}
 	for _, sq := range list {
 		info := &pb.SquadronInfo{Name: sq.name, Mode: sq.mode}
 		for _, id := range sq.members {
@@ -135,7 +138,8 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 			if owner, c := h.newestCompanionIn(sq); c != nil {
 				joined.TookOver = true
 				joined.X, joined.Y = c.state.GetX(), c.state.GetY()
-				h.dismiss(owner, h.members[owner], c.number)
+				h.takeCompanion(owner, h.members[owner], c.number)
+				m.held++
 				takenOver := dismissed(c.number)
 				takenOver.GetCompanionDismissed().TakenBy = m.session.Player.Name
 				h.send(owner, takenOver)

@@ -69,6 +69,7 @@ func (h *Hub) summon(owner string, m *member) {
 		number++
 	}
 	h.nextGrant++
+	h.hangar--
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, lastSeen: h.tick}
 	h.broadcastSquadrons()
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
@@ -90,6 +91,8 @@ func (h *Hub) summonRefusal(m *member) string {
 	case m.state == nil ||
 		math.Hypot(float64(m.state.GetX()), float64(m.state.GetY())) > safeRadius:
 		return "summon companions at the home planet"
+	case h.hangar <= 0:
+		return "the hangar is empty"
 	case h.squadrons[m.squadron] == nil:
 		return "pick a squadron first"
 	case h.squadronShips(h.squadrons[m.squadron]) >= squadronCap:
@@ -131,22 +134,34 @@ func (h *Hub) expireCompanions() {
 	}
 }
 
-// dismiss gives a companion's seat back, and tells everyone else it's gone.
+// dismiss sends a companion home: its seat is given back, its ship docks in
+// the hangar, and everyone else is told it's gone.
 func (h *Hub) dismiss(owner string, m *member, number uint32) {
-	if m == nil {
+	if !h.takeCompanion(owner, m, number) {
 		return
 	}
-	if _, ok := m.companions[number]; !ok {
-		return
-	}
-	delete(m.companions, number)
-	h.broadcast(left(seatID(owner, number)), owner)
+	h.hangar++
 	h.broadcastSquadrons()
 }
 
+// takeCompanion removes a companion from the world without docking its ship,
+// for a joiner taking its place, and reports whether there was one.
+func (h *Hub) takeCompanion(owner string, m *member, number uint32) bool {
+	if m == nil {
+		return false
+	}
+	if _, ok := m.companions[number]; !ok {
+		return false
+	}
+	delete(m.companions, number)
+	h.broadcast(left(seatID(owner, number)), owner)
+
+	return true
+}
+
 // displaceNewestCompanion frees a seat for a joining human: the newest
-// companion in the world goes, and its owner is told. It reports whether one
-// was found.
+// companion in the world goes, held for the joiner rather than docked, and
+// its owner is told. It reports whether one was found.
 func (h *Hub) displaceNewestCompanion() bool {
 	var owner string
 	var newest *companion
@@ -161,7 +176,8 @@ func (h *Hub) displaceNewestCompanion() bool {
 		return false
 	}
 	// Free the seat before telling the owner: the send may drop them as too slow.
-	h.dismiss(owner, h.members[owner], newest.number)
+	h.takeCompanion(owner, h.members[owner], newest.number)
+	h.broadcastSquadrons()
 	h.send(owner, dismissed(newest.number))
 
 	return true

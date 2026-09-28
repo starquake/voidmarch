@@ -63,7 +63,7 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		}
 	}
 
-	hub := game.NewHub(logger)
+	hub := game.NewHub(logger, game.WithPoolStart(cfg.PoolStart))
 	ticker := time.NewTicker(time.Second / game.TickRate)
 	defer ticker.Stop()
 	hubDone := make(chan struct{})

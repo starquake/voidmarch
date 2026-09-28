@@ -84,7 +84,9 @@ pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
   owner's client (`Sandbox.companions`) and sent as `CompanionState`. Shots and
   hits carry `companion` (0 is the player's own ship). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
-  home planet, 4 ships per squadron).
+  home planet, 4 ships per squadron). Summons draw from the shared hangar,
+  `POOL_START` ships at start (3 by default); the E2E server sets 15, since the
+  specs share it, and hub tests without `WithPoolStart` get a ship per seat.
 - **Squadrons** (`internal/game/squadrons.go`): everyone picks one with
   `ChooseSquadron` (empty starts a new one, Greek-named); the server sends
   `Squadrons` on every change and caps them at 4 ships. `SquadronOrder` is

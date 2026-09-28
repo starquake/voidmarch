@@ -34,7 +34,7 @@ make server
 | A / D | Strafe left / right |
 | Mouse | Aim |
 | Left button (hold) | Fire |
-| G | Summon a companion (at the home planet) |
+| G | Draw a companion from the hangar (at the home planet) |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
 | C | Switch to screen-relative movement (W is up the screen) and back |
@@ -59,8 +59,11 @@ game keeps running on its own and reconnects when it can.
 
 ## Companions
 
-Playing alone, press **G** at the home planet to summon a companion, up to
-three: AI wingmates that fly in formation with you, in your colour. Hold **Q**
+Press **G** at the home planet to draw a companion from the hangar, up to
+three: AI wingmates that fly in formation with you, in your colour. The hangar
+is shared by everyone on the server; the HUD shows its ships while you're at
+the home planet. A companion sent home, or one whose player leaves, docks back
+into it. The server starts with `POOL_START` ships in it (3 unless set). Hold **Q**
 for a ring of orders, point at one and let go; tap Q to repeat the last. Every
 order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
 Hold here and Stealth, and three one-shots that return to the mode when done:

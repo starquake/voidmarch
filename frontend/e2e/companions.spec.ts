@@ -54,6 +54,16 @@ async function giveOrder(page: Page, x: number, y: number, label: string): Promi
   await page.keyboard.up('q');
 }
 
+test('the server lists the hangar\'s ships to a joining player', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  await expect.poll(async () => (await state(page)).hangar).toBeDefined();
+  // Other specs share the hangar, so only the range is ours to assert.
+  const hangar = (await state(page)).hangar ?? -1;
+  expect(hangar).toBeGreaterThanOrEqual(0);
+  expect(hangar).toBeLessThanOrEqual(15);
+});
+
 test('summoned companions fly with their owner, and others see them as theirs', async ({ page, browser, baseURL }) => {
   test.setTimeout(90_000);
   await summon(page, 3);

@@ -595,6 +595,13 @@ export declare type Squadrons = Message<"voidmarch.v1.Squadrons"> & {
    * @generated from field: string next_name = 2;
    */
   nextName: string;
+
+  /**
+   * Companion ships waiting in the shared hangar, for anyone to draw.
+   *
+   * @generated from field: uint32 hangar = 3;
+   */
+  hangar: number;
 };
 
 /**

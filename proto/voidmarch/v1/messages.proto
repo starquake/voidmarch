@@ -213,6 +213,8 @@ message SquadronInfo {
 message Squadrons {
   repeated SquadronInfo squadrons = 1;
   string next_name = 2;
+  // Companion ships waiting in the shared hangar, for anyone to draw.
+  uint32 hangar = 3;
 }
 
 // SquadronJoined answers ChooseSquadron. Taking over a companion puts the

@@ -17,7 +17,14 @@ const (
 // PortDefault is the TCP port the server listens on when PORT is unset.
 const PortDefault = "8080"
 
+// PoolStartDefault is how many companion ships the hangar holds at start when
+// POOL_START is unset, until fights can be won (see #49).
+const PoolStartDefault = 3
+
 const maxPort = 65535
+
+// invalidValue wraps an Err sentinel with the value that failed.
+const invalidValue = "%w: %q"
 
 var (
 	// ErrInvalidAppEnv is returned when APP_ENV holds an unknown environment.
@@ -26,6 +33,8 @@ var (
 	ErrInvalidPort = errors.New("invalid PORT")
 	// ErrInvalidWireLog is returned when WIRE_LOG is not a boolean.
 	ErrInvalidWireLog = errors.New("invalid WIRE_LOG")
+	// ErrInvalidPoolStart is returned when POOL_START is not a non-negative number.
+	ErrInvalidPoolStart = errors.New("invalid POOL_START")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
 	ErrWebDirNotAllowed = errors.New("WEB_DIR is only allowed when APP_ENV=development")
 )
@@ -42,6 +51,8 @@ type Config struct {
 	WebDir string
 	// WireLog logs every WebSocket message, decoded. Noisy; for debugging.
 	WireLog bool
+	// PoolStart is how many companion ships the shared hangar holds at start.
+	PoolStart int
 }
 
 // Parse reads the configuration through getenv, applying defaults for unset
@@ -50,11 +61,12 @@ func Parse(getenv func(string) string) (*Config, error) {
 	c := &Config{
 		AppEnvironment: AppEnvironmentProduction,
 		Port:           PortDefault,
+		PoolStart:      PoolStartDefault,
 	}
 
 	if val := getenv("APP_ENV"); val != "" {
 		if val != AppEnvironmentDevelopment && val != AppEnvironmentProduction {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidAppEnv, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidAppEnv, val)
 		}
 		c.AppEnvironment = val
 	}
@@ -64,7 +76,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 	if val := getenv("PORT"); val != "" {
 		port, err := strconv.Atoi(val)
 		if err != nil || port < 0 || port > maxPort {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidPort, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidPort, val)
 		}
 		c.Port = val
 	}
@@ -79,9 +91,17 @@ func Parse(getenv func(string) string) (*Config, error) {
 	if val := getenv("WIRE_LOG"); val != "" {
 		wireLog, err := strconv.ParseBool(val)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %q", ErrInvalidWireLog, val)
+			return nil, fmt.Errorf(invalidValue, ErrInvalidWireLog, val)
 		}
 		c.WireLog = wireLog
+	}
+
+	if val := getenv("POOL_START"); val != "" {
+		n, err := strconv.Atoi(val)
+		if err != nil || n < 0 {
+			return nil, fmt.Errorf(invalidValue, ErrInvalidPoolStart, val)
+		}
+		c.PoolStart = n
 	}
 
 	return c, nil
