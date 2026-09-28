@@ -15,6 +15,13 @@ board.
 - Game rules live in `frontend/src/sim/`, which never imports Phaser: plain
   functions and data, unit-tested in Node. The Phaser scenes only read input,
   step the sim and draw it.
+- **The rules are moving to Go** (#13, decision 26): `internal/sim` is the
+  port, for the server natively and, from #53, the browser through TinyGo.
+  Until #53 removes the TypeScript copy, a rule change goes in both, `make
+  golden` records the TypeScript's results in
+  `internal/sim/testdata/golden.json`, and the Go tests must match them.
+  `make test-tinygo` runs the Go tests compiled by TinyGo, so nothing TinyGo
+  can't build or computes differently slips in.
 
 ## Hard rules
 
@@ -40,6 +47,8 @@ make check      # lint, ascii, proto lint/drift, ts check/lint/test, bundle drif
 make test       # fast Go tests (integration tests skip under -short)
 make test-e2e   # Playwright, chromium + firefox, against the embedded client
 make js         # rebuild the committed bundle after any frontend/ change
+make golden     # record the TypeScript sim's results for internal/sim's parity tests
+make test-tinygo # internal/sim's tests compiled by TinyGo, run under Node's WASI
 make proto      # regenerate Go and TypeScript after any proto/ change
 make lint-fix   # golangci-lint --fix and eslint --fix
 make server     # the server with the embedded client on :8080
@@ -49,7 +58,9 @@ make docker     # the image as voidmarch:dev
 
 `golangci-lint` and `buf` are downloaded to `build/bin/` at the versions
 pinned in the Makefile (`GOLANGCI_VERSION`, `BUF_VERSION`); CI reads the same
-pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
+pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
+`build/_toolchains/`, which `./...` skips, at `TINYGO_VERSION` and
+`BINARYEN_VERSION`; CI caches them. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
 `protoc-gen-es` comes from npm. `frontend/go.mod` is a stub module so that
 `go ... ./...` skips `frontend/node_modules`.
 
