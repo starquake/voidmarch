@@ -90,10 +90,19 @@ func (s *Sandbox) RemoveCompanion(number int) {
 // Advance runs as many fixed ticks as frameSeconds covers, using the same
 // input for each. Companions decide from the enemies as drawn.
 func (s *Sandbox) Advance(frameSeconds float64, input Input, enemies []BrainEnemy) FrameEvents {
+	return s.run(frameSeconds, ToCommand(input), enemies)
+}
+
+// AdvanceCommand is [Sandbox.Advance] for a command the browser already
+// mapped from its keys, with no companions to fly.
+func (s *Sandbox) AdvanceCommand(frameSeconds float64, cmd Command) FrameEvents {
+	return s.run(frameSeconds, cmd, nil)
+}
+
+func (s *Sandbox) run(frameSeconds float64, cmd Command, enemies []BrainEnemy) FrameEvents {
 	var events FrameEvents
 	s.accumulator = math.Min(s.accumulator+frameSeconds, TickSeconds*MaxTicksPerFrame)
 
-	cmd := ToCommand(input)
 	for s.accumulator >= TickSeconds {
 		s.accumulator -= TickSeconds
 		s.tick(cmd, enemies, &events)

@@ -1,0 +1,218 @@
+package simbridge_test
+
+import (
+	"math"
+	"slices"
+	"testing"
+
+	"github.com/starquake/voidmarch/internal/sim"
+	. "github.com/starquake/voidmarch/internal/simbridge"
+)
+
+func slot(b *Bridge, i int) []float64 {
+	return b.State[PoolOffset+i*ProjectileSize : PoolOffset+(i+1)*ProjectileSize]
+}
+
+func index[T comparable](list []T, v T) float64 {
+	return float64(slices.Index(list, v))
+}
+
+func TestNew_WritesTheStartingShip(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	if b.State[HeaderShipX] != 0 || b.State[HeaderShipY] != 160 {
+		t.Errorf("ship at (%v, %v), want (0, 160)", b.State[HeaderShipX], b.State[HeaderShipY])
+	}
+	got, want := b.State[HeaderShipWeapon], index(sim.Weapons(), sim.WeaponAutoCannon)
+	if got != want {
+		t.Errorf("weapon index = %v, want %v", got, want)
+	}
+}
+
+func TestAdvance_MovesAndReportsShots(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds*3, sim.Command{MoveY: -1, AimY: -1000, Fire: true})
+	if got := b.State[HeaderTicks]; got != 3 {
+		t.Errorf("ticks = %v, want 3", got)
+	}
+	if b.State[HeaderShipY] >= 160 || b.State[HeaderPreviousY] <= b.State[HeaderShipY] {
+		t.Errorf(
+			"ship y %v, previous %v, want moving up",
+			b.State[HeaderShipY],
+			b.State[HeaderPreviousY],
+		)
+	}
+	if b.State[HeaderShots] < 1 {
+		t.Fatalf("shots = %v, want the auto cannon firing", b.State[HeaderShots])
+	}
+	shot := b.State[ShotsOffset : ShotsOffset+ShotSize]
+	if shot[ShotID] != 1 || shot[ShotWeapon] != index(sim.Weapons(), sim.WeaponAutoCannon) {
+		t.Errorf("first shot = %v, want id 1 from the auto cannon", shot)
+	}
+	first := slot(b, 0)
+	if first[ProjectileActive] != 1 ||
+		first[ProjectileFaction] != index(Factions(), sim.FactionOwn) {
+		t.Errorf("slot 0 = %v, want an active own shot", first)
+	}
+}
+
+func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), -1, -1)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000, Fire: true})
+	if b.State[HeaderCharges] != 1 ||
+		b.State[ChargesOffset] != index(sim.Weapons(), sim.WeaponBigSpaceGun) {
+		t.Errorf("charges = %v, want the big space gun's", b.State[HeaderCharges])
+	}
+
+	b = New()
+	b.Spawn(0, 0, 0, 0, 0, 10, 0)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000})
+	if b.State[HeaderExpired] != 1 {
+		t.Errorf("expired = %v, want the spawned-old shot", b.State[HeaderExpired])
+	}
+}
+
+func TestShipSetters(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.PlaceShip(50, 60)
+	if b.State[HeaderShipX] != 50 || b.State[HeaderPreviousY] != 60 {
+		t.Errorf("placed at (%v, %v), want (50, 60)", b.State[HeaderShipX], b.State[HeaderShipY])
+	}
+	b.SetLoadout(1, 2, 3)
+	if b.State[HeaderShipWeapon] != 1 || b.State[HeaderShipEngine] != 2 ||
+		b.State[HeaderShipShield] != 3 {
+		t.Errorf("loadout = %v, want 1 2 3", b.State[HeaderShipWeapon:HeaderShipShield+1])
+	}
+	b.SetLoadout(9, -1, 0)
+	if b.State[HeaderShipWeapon] != 1 || b.State[HeaderShipEngine] != 2 ||
+		b.State[HeaderShipShield] != 0 {
+		t.Errorf(
+			"out-of-range indexes changed parts: %v",
+			b.State[HeaderShipWeapon:HeaderShipShield+1],
+		)
+	}
+	b.SetDamage(2)
+	b.SetRotationSnap(16)
+	if b.State[HeaderShipDamage] != 2 || b.State[HeaderShipRotationSnap] != 16 {
+		t.Errorf(
+			"damage %v, snap %v, want 2 and 16",
+			b.State[HeaderShipDamage],
+			b.State[HeaderShipRotationSnap],
+		)
+	}
+}
+
+func TestControlMode(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.SetControlMode(sim.ControlScreen)
+	for range 30 {
+		b.Advance(sim.TickSeconds, sim.Command{MoveY: -1, AimX: 10_000, AimY: 160})
+	}
+	if math.Abs(b.State[HeaderShipX]) > 1e-9 || b.State[HeaderShipY] >= 140 {
+		t.Errorf(
+			"screen-relative W: at (%v, %v), want straight up",
+			b.State[HeaderShipX],
+			b.State[HeaderShipY],
+		)
+	}
+}
+
+func TestProjectiles(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	bullet := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.KlaedBullet))
+	enemy := slices.Index(Factions(), sim.FactionEnemy)
+	s := b.Spawn(bullet, enemy, 10, 20, 0, 0.5, 0)
+	if s < 0 || slot(b, s)[ProjectileKind] != float64(bullet) || slot(b, s)[ProjectileAge] != 0.5 {
+		t.Fatalf("spawned slot %d = %v, want a half-second-old bullet", s, slot(b, s))
+	}
+	if b.Spawn(99, 0, 0, 0, 0, 0, 0) != -1 || b.Spawn(0, 9, 0, 0, 0, 0, 0) != -1 {
+		t.Error("spawned an unknown kind or faction")
+	}
+	remote := b.Spawn(0, slices.Index(Factions(), sim.FactionRemote), 0, 0, 0, 0, 77)
+	if slot(b, remote)[ProjectileShotID] != 77 {
+		t.Errorf("remote shot id = %v, want 77", slot(b, remote)[ProjectileShotID])
+	}
+
+	b.PositionAt(s, 1)
+	want := 10 + sim.EnemyBulletStatsOf(sim.KlaedBullet).Speed
+	if math.Abs(b.Scratch[0]-want) > 1e-9 || b.Scratch[1] != 20 {
+		t.Errorf("position at 1 s = (%v, %v), want (%v, 20)", b.Scratch[0], b.Scratch[1], want)
+	}
+
+	b.Deactivate(remote)
+	b.Clear(enemy)
+	if slot(b, s)[ProjectileActive] != 0 || slot(b, remote)[ProjectileActive] != 0 {
+		t.Error("cleared and deactivated projectiles are still active")
+	}
+	b.Deactivate(-1)
+	b.Clear(-1)
+	b.PositionAt(ProjectileCapacity, 0)
+}
+
+func TestHitAlong(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	copy(b.Scratch[:], []float64{0, 0, 10, 100, 0, 12})
+	if got := b.HitAlong(-50, 2, 50, 2, 2); got != 0 {
+		t.Errorf("HitAlong() = %d, want the first target", got)
+	}
+	if got := b.HitAlong(150, 0, -50, 0, 2); got != 1 {
+		t.Errorf("HitAlong() = %d, want the nearer, second target", got)
+	}
+	if got := b.HitAlong(-50, 20, 50, 20, 2); got != -1 {
+		t.Errorf("HitAlong() = %d, want a miss", got)
+	}
+}
+
+func TestEnemyPattern(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	fighter := slices.Index(sim.EnemyKinds(), sim.EnemyFighter)
+	want := sim.EnemyPattern(sim.EnemyFighter, 100, 50, 1, 42)
+	if n := b.EnemyPattern(fighter, 100, 50, 1, 42); n != len(want) {
+		t.Fatalf("EnemyPattern() = %d bullets, want %d", n, len(want))
+	}
+	if b.Scratch[0] != index(ProjectileKinds(), want[0].Kind) || b.Scratch[1] != want[0].X ||
+		b.Scratch[3] != want[0].Angle {
+		t.Errorf("bullet = %v, want %+v", b.Scratch[:4], want[0])
+	}
+	if b.EnemyPattern(9, 0, 0, 0, 1) != 0 {
+		t.Error("an unknown enemy kind fired")
+	}
+}
+
+func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds*3, sim.Command{AimY: -1000, Fire: true})
+	if b.State[HeaderShipCooldown] <= 0 || b.State[HeaderShipNextMuzzle] == 0 {
+		t.Fatalf(
+			"after firing: cooldown %v, next muzzle %v, want both set",
+			b.State[HeaderShipCooldown],
+			b.State[HeaderShipNextMuzzle],
+		)
+	}
+	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponRockets), -1, -1)
+	if b.State[HeaderShipCooldown] != 0 || b.State[HeaderShipNextMuzzle] != 0 {
+		t.Errorf(
+			"new weapon: cooldown %v, next muzzle %v, want ready",
+			b.State[HeaderShipCooldown],
+			b.State[HeaderShipNextMuzzle],
+		)
+	}
+}
