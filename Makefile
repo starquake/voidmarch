@@ -151,6 +151,10 @@ js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh buil
 	diff -r "$$tmp" $(JS_OUT) || { echo "the committed bundle is stale: run make js"; rm -rf "$$tmp"; exit 1; }; \
 	rm -rf "$$tmp"
 
+.PHONY: golden
+golden: $(JS_DEPS) ## Record the TypeScript sim's results for internal/sim's parity tests
+	cd $(FRONTEND) && node scripts/golden.ts
+
 .PHONY: ts-check
 ts-check: $(JS_DEPS) ## Type-check the TypeScript
 	cd $(FRONTEND) && npm run check
