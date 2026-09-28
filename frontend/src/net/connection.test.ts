@@ -10,7 +10,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from '../gen/voidmarch/v1/messages_pb.js';
-import { createShip } from '../sim/ship.ts';
+import type { Ship } from '../simwasm.ts';
 import {
   CLOSE_TRY_AGAIN_LATER,
   CLOSE_UNKNOWN_TOKEN,
@@ -19,6 +19,22 @@ import {
   type SocketLike,
   type Timers,
 } from './connection.ts';
+
+/** A ship at (x, y), at rest, with the default parts. */
+const createShip = (x: number, y: number): Ship => ({
+  x,
+  y,
+  vx: 0,
+  vy: 0,
+  angle: -Math.PI / 2,
+  thrusting: false,
+  loadout: { weapon: 'autoCannon', engine: 'base', shield: 'front' },
+  damage: 0,
+  cooldown: 0,
+  charging: 0,
+  nextMuzzle: 0,
+  rotationSnap: 0,
+});
 
 class FakeSocket implements SocketLike {
   binaryType: BinaryType = 'blob';

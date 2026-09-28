@@ -131,12 +131,126 @@ function musicFiles() {
   return MUSIC.map((key) => both(key, `music/${key.replace(/^music-/, "")}`));
 }
 
-// src/sim/loadout.ts
+// src/sim/rules.gen.ts
 var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
 var SHIELDS = ["front", "frontAndSide", "round", "invincibility"];
-var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
+var ENEMY_KINDS = ["scout", "fighter"];
+var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet"];
+var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front" };
+var TICK_RATE = 60;
+var TICK_SECONDS = 1 / TICK_RATE;
+var WORLD_HALF_SIZE = 2e3;
+var WORLD_EDGE_BAND = 200;
+var SAFE_ZONE_RADIUS = 300;
+var SHIP_RADIUS = 12;
+var ENGINE_STATS = {
+  base: { acceleration: 900, maxSpeed: 220, drag: 3.5 },
+  bigPulse: { acceleration: 520, maxSpeed: 300, drag: 1.2 },
+  burst: { acceleration: 1700, maxSpeed: 185, drag: 7 },
+  supercharged: { acceleration: 1200, maxSpeed: 270, drag: 2 }
+};
+var WEAPON_STATS = {
+  autoCannon: {
+    interval: 0.13,
+    charge: 0,
+    damage: 1,
+    speed: 520,
+    lifetime: 0.9,
+    muzzles: [{ forward: 9, right: -10.5 }, { forward: 9, right: 10.5 }],
+    alternate: true,
+    shake: 0
+  },
+  rockets: {
+    interval: 0.32,
+    charge: 0,
+    damage: 4,
+    speed: 140,
+    lifetime: 1.5,
+    muzzles: [{ forward: 7, right: -12 }, { forward: 7, right: 12 }],
+    alternate: true,
+    shake: 0
+  },
+  bigSpaceGun: {
+    interval: 0.9,
+    charge: 0.45,
+    damage: 12,
+    speed: 300,
+    lifetime: 2,
+    muzzles: [{ forward: 16, right: 0 }],
+    alternate: false,
+    shake: 6e-3
+  },
+  zapper: {
+    interval: 0.24,
+    charge: 0.1,
+    damage: 2,
+    speed: 430,
+    lifetime: 0.75,
+    muzzles: [{ forward: 15, right: -11 }, { forward: 15, right: 11 }],
+    alternate: false,
+    shake: 0
+  }
+};
+var ENEMY_RADIUS = {
+  scout: 11,
+  fighter: 12
+};
+var LAYOUT = {
+  ticks: 0,
+  alpha: 1,
+  shipX: 2,
+  shipY: 3,
+  shipVX: 4,
+  shipVY: 5,
+  shipAngle: 6,
+  shipThrusting: 7,
+  shipCooldown: 8,
+  shipCharging: 9,
+  shipNextMuzzle: 10,
+  shipDamage: 11,
+  shipRotationSnap: 12,
+  shipWeapon: 13,
+  shipEngine: 14,
+  shipShield: 15,
+  previousX: 16,
+  previousY: 17,
+  shots: 18,
+  charges: 19,
+  expired: 20,
+  projectileCapacity: 256,
+  poolOffset: 21,
+  projectileSize: 8,
+  projectileActive: 0,
+  projectileKind: 1,
+  projectileFaction: 2,
+  projectileX: 3,
+  projectileY: 4,
+  projectileAngle: 5,
+  projectileAge: 6,
+  projectileShotId: 7,
+  shotsOffset: 2069,
+  shotSize: 6,
+  shotId: 0,
+  shotWeapon: 1,
+  shotMuzzle: 2,
+  shotX: 3,
+  shotY: 4,
+  shotAngle: 5,
+  chargesOffset: 2129,
+  expiredOffset: 2134,
+  expiredSize: 4,
+  expiredKind: 0,
+  expiredFaction: 1,
+  expiredX: 2,
+  expiredY: 3,
+  stateSize: 3158,
+  maxTargets: 128
+};
+
+// src/sim/loadout.ts
+var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
 function nextInCycle(list, current) {
   const next = list[(list.indexOf(current) + 1) % list.length];
   if (next === void 0) {
@@ -146,105 +260,14 @@ function nextInCycle(list, current) {
 }
 
 // src/sim/tuning.ts
-var TICK_RATE = 60;
-var TICK_SECONDS = 1 / TICK_RATE;
-var MAX_TICKS_PER_FRAME = 5;
 var VIEW_WIDTH = 640;
 var VIEW_HEIGHT = 360;
-var WORLD_HALF_SIZE = 2e3;
-var WORLD_EDGE_BAND = 200;
-var WORLD_EDGE_PUSH = 1400;
 var ROTATION_SNAP_STEPS = 16;
 var ASTEROID_SEED = 20260927;
 var ASTEROID_COUNT = 60;
 var ASTEROID_CLEAR_RADIUS = 260;
-var ENGINE_STATS = {
-  base: { acceleration: 900, maxSpeed: 220, drag: 3.5 },
-  bigPulse: { acceleration: 520, maxSpeed: 300, drag: 1.2 },
-  burst: { acceleration: 1700, maxSpeed: 185, drag: 7 },
-  supercharged: { acceleration: 1200, maxSpeed: 270, drag: 2 }
-};
-var STRAIGHT = { amplitude: 0, frequency: 0 };
-var WEAPON_STATS = {
-  autoCannon: {
-    interval: 0.13,
-    charge: 0,
-    speed: 520,
-    acceleration: 0,
-    maxSpeed: 520,
-    lifetime: 0.9,
-    damage: 1,
-    muzzles: [
-      { forward: 9, right: -10.5 },
-      { forward: 9, right: 10.5 }
-    ],
-    alternate: true,
-    zigzag: STRAIGHT,
-    shake: 0
-  },
-  rockets: {
-    interval: 0.32,
-    charge: 0,
-    speed: 140,
-    acceleration: 900,
-    maxSpeed: 560,
-    lifetime: 1.5,
-    damage: 4,
-    muzzles: [
-      { forward: 7, right: -12 },
-      { forward: 7, right: 12 }
-    ],
-    alternate: true,
-    zigzag: STRAIGHT,
-    shake: 0
-  },
-  bigSpaceGun: {
-    interval: 0.9,
-    charge: 0.45,
-    speed: 300,
-    acceleration: 0,
-    maxSpeed: 300,
-    lifetime: 2,
-    damage: 12,
-    muzzles: [{ forward: 16, right: 0 }],
-    alternate: false,
-    zigzag: STRAIGHT,
-    shake: 6e-3
-  },
-  zapper: {
-    interval: 0.24,
-    charge: 0.1,
-    speed: 430,
-    acceleration: 0,
-    maxSpeed: 430,
-    lifetime: 0.75,
-    damage: 2,
-    muzzles: [
-      { forward: 15, right: -11 },
-      { forward: 15, right: 11 }
-    ],
-    alternate: false,
-    zigzag: { amplitude: 7, frequency: 5 },
-    shake: 0
-  }
-};
-var SHIELD_STATS = {
-  front: { coverage: Math.PI * 0.5, strength: 3, recharge: 5 },
-  frontAndSide: { coverage: Math.PI, strength: 2, recharge: 5 },
-  round: { coverage: Math.PI * 2, strength: 1, recharge: 3 },
-  invincibility: { coverage: Math.PI * 2, strength: 3, recharge: 12 }
-};
-var ENEMY_BULLET_STATS = {
-  klaedBullet: { speed: 110, acceleration: 0, maxSpeed: 110, lifetime: 3.2, zigzag: STRAIGHT },
-  klaedBigBullet: { speed: 130, acceleration: 0, maxSpeed: 130, lifetime: 3, zigzag: STRAIGHT }
-};
-var ENEMY_AIM_JITTER = 0.08;
-var ENEMY_MUZZLE = 14;
 var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
-var SAFE_ZONE_RADIUS = 300;
-var SHIP_RADIUS = 12;
-var SHOT_RADIUS = 3;
 var ENEMY_FIRE_GLOW_COLOUR = 4172031;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
 var ENEMY_FIRE_GLOW_QUALITY = 3;
@@ -568,28 +591,12 @@ var TAU = Math.PI * 2;
 function wrapAngle(angle) {
   return angle - TAU * Math.floor((angle + Math.PI) / TAU);
 }
-function snapAngle(angle, steps) {
-  if (steps <= 0) {
-    return wrapAngle(angle);
-  }
-  const step = TAU / steps;
-  return wrapAngle(Math.round(angle / step) * step);
-}
 function normalize(x, y) {
   const length = Math.hypot(x, y);
   if (length === 0) {
     return { x: 0, y: 0 };
   }
   return { x: x / length, y: y / length };
-}
-function rotateOffset(forward, right, angle) {
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-  return { x: forward * cos - right * sin, y: forward * sin + right * cos };
-}
-function triangleWave(phase) {
-  const shifted = phase - 0.25;
-  return 1 - 4 * Math.abs(Math.round(shifted) - shifted);
 }
 function seededRandom(seed) {
   let state = seed >>> 0;
@@ -657,10 +664,6 @@ var CONTROL_MODES = ["ship", "screen"];
 function toCommand(input) {
   const move = normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up));
   return { moveX: move.x, moveY: move.y, aimX: input.pointerX, aimY: input.pointerY, fire: input.fire };
-}
-function relativeTo(cmd, angle) {
-  const move = rotateOffset(-cmd.moveY, cmd.moveX, angle);
-  return { ...cmd, moveX: move.x, moveY: move.y };
 }
 
 // src/settings.ts
@@ -744,234 +747,293 @@ function saveLastSquadron(name, store = browserStorage()) {
   }
 }
 
-// src/sim/projectiles.ts
-function isWeapon(kind) {
-  return WEAPONS.includes(kind);
+// src/simwasm.ts
+var SCRATCH_SIZE = LAYOUT.maxTargets * 3;
+var PATTERN_SIZE = 4;
+var at = (list, i, fallback) => list[i] ?? fallback;
+async function instantiate(bytes, go) {
+  const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
+  void go.run(instance);
+  return instance.exports;
 }
-function projectileStats(kind) {
-  return isWeapon(kind) ? WEAPON_STATS[kind] : ENEMY_BULLET_STATS[kind];
-}
-function travelled(stats, age) {
-  if (stats.acceleration <= 0) {
-    return stats.speed * age;
+var Sandbox = class {
+  ship;
+  /** Ship position before the last tick, for smooth drawing between ticks. */
+  previous = { x: 0, y: 0 };
+  projectiles;
+  exports;
+  mode = "ship";
+  alphaValue = 0;
+  shipState;
+  constructor(exports) {
+    this.exports = exports;
+    this.shipState = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      angle: 0,
+      thrusting: false,
+      loadout: { weapon: WEAPONS[0], engine: ENGINES[0], shield: SHIELDS[0] },
+      damage: 0,
+      cooldown: 0,
+      charging: 0,
+      nextMuzzle: 0,
+      rotationSnap: 0
+    };
+    this.ship = this.shipState;
+    this.projectiles = new Projectiles(this);
+    this.read();
   }
-  const rampTime = Math.max(0, (stats.maxSpeed - stats.speed) / stats.acceleration);
-  if (age <= rampTime) {
-    return stats.speed * age + 0.5 * stats.acceleration * age * age;
+  /** How far the display is between the last two ticks, from 0 to 1. */
+  get alpha() {
+    return this.alphaValue;
   }
-  const ramp = stats.speed * rampTime + 0.5 * stats.acceleration * rampTime * rampTime;
-  return ramp + stats.maxSpeed * (age - rampTime);
-}
-function positionAt(p, age) {
-  const stats = projectileStats(p.kind);
-  const lateral = stats.zigzag.amplitude * triangleWave(age * stats.zigzag.frequency);
-  const offset = rotateOffset(travelled(stats, age), lateral, p.angle);
-  return { x: p.originX + offset.x, y: p.originY + offset.y };
-}
-function place(p) {
-  const { x, y } = positionAt(p, p.age);
-  p.x = x;
-  p.y = y;
-}
-var ProjectilePool = class {
+  /** How WASD maps to movement; ship-relative unless the player switched. */
+  get controlMode() {
+    return this.mode;
+  }
+  set controlMode(mode) {
+    this.mode = mode;
+    this.exports.setControlMode(mode === "screen" ? 1 : 0);
+  }
+  /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
+  advance(frameSeconds, input) {
+    const cmd = toCommand(input);
+    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0);
+    return this.read();
+  }
+  /** Puts the ship at (x, y) at rest, as a spawn or a takeover does. */
+  placeShip(x, y) {
+    this.exports.placeShip(x, y);
+    this.read();
+  }
+  setLoadout(loadout) {
+    this.exports.setLoadout(
+      WEAPONS.indexOf(loadout.weapon),
+      ENGINES.indexOf(loadout.engine),
+      SHIELDS.indexOf(loadout.shield)
+    );
+    this.read();
+  }
+  setDamage(damage) {
+    this.exports.setDamage(damage);
+    this.read();
+  }
+  setRotationSnap(steps) {
+    this.exports.setRotationSnap(steps);
+    this.read();
+  }
+  /** Where p was, or will be, at age. */
+  positionAt(p, age) {
+    this.exports.positionAt(p.slot, age);
+    const scratch = this.scratch();
+    return { x: scratch[0] ?? p.x, y: scratch[1] ?? p.y };
+  }
+  /** The first target a projectile touches on its way from (x0, y0) to (x1, y1), if any. */
+  hitTargetAlong(x0, y0, x1, y1, targets) {
+    const n = Math.min(targets.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const t = targets[i];
+      if (t !== void 0) {
+        scratch.set([t.x, t.y, t.radius], i * 3);
+      }
+    }
+    const hit = this.exports.hitAlong(x0, y0, x1, y1, n);
+    return hit < 0 ? void 0 : targets[hit];
+  }
+  /** The bullets of an enemy's volley: pure and seeded, the same on every client. */
+  enemyPattern(kind, x, y, angle, seed) {
+    const n = this.exports.enemyPattern(ENEMY_KINDS.indexOf(kind), x, y, angle, seed >>> 0);
+    const scratch = this.scratch();
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const b = i * PATTERN_SIZE;
+      out.push({
+        kind: at(PROJECTILE_KINDS, scratch[b] ?? 0, PROJECTILE_KINDS[0]),
+        x: scratch[b + 1] ?? x,
+        y: scratch[b + 2] ?? y,
+        angle: scratch[b + 3] ?? angle
+      });
+    }
+    return out;
+  }
+  /** The module's calls, for the projectile pool. */
+  get calls() {
+    return this.exports;
+  }
+  memory() {
+    const memory = this.exports.memory ?? this.exports.mem;
+    if (memory === void 0) {
+      throw new Error("the sim module exports no memory");
+    }
+    return memory.buffer;
+  }
+  /**
+   * The state array, viewed afresh: a call may have grown the memory, which
+   * detaches older views. The pointer comes first for the same reason.
+   */
+  state() {
+    const pointer = this.exports.statePointer();
+    return new Float64Array(this.memory(), pointer, LAYOUT.stateSize);
+  }
+  scratch() {
+    const pointer = this.exports.scratchPointer();
+    return new Float64Array(this.memory(), pointer, SCRATCH_SIZE);
+  }
+  /** Mirrors the state into the ship and projectiles, and returns the frame's events. */
+  read() {
+    const s = this.state();
+    const get = (i) => s[i] ?? 0;
+    const ship = this.shipState;
+    ship.x = get(LAYOUT.shipX);
+    ship.y = get(LAYOUT.shipY);
+    ship.vx = get(LAYOUT.shipVX);
+    ship.vy = get(LAYOUT.shipVY);
+    ship.angle = get(LAYOUT.shipAngle);
+    ship.thrusting = get(LAYOUT.shipThrusting) !== 0;
+    ship.cooldown = get(LAYOUT.shipCooldown);
+    ship.charging = get(LAYOUT.shipCharging);
+    ship.nextMuzzle = get(LAYOUT.shipNextMuzzle);
+    ship.damage = get(LAYOUT.shipDamage);
+    ship.rotationSnap = get(LAYOUT.shipRotationSnap);
+    ship.loadout.weapon = at(WEAPONS, get(LAYOUT.shipWeapon), WEAPONS[0]);
+    ship.loadout.engine = at(ENGINES, get(LAYOUT.shipEngine), ENGINES[0]);
+    ship.loadout.shield = at(SHIELDS, get(LAYOUT.shipShield), SHIELDS[0]);
+    this.previous.x = get(LAYOUT.previousX);
+    this.previous.y = get(LAYOUT.previousY);
+    this.alphaValue = get(LAYOUT.alpha);
+    this.projectiles.read(s);
+    const events = { ticks: get(LAYOUT.ticks), charges: [], shots: [], expired: [] };
+    for (let i = 0; i < get(LAYOUT.shots); i++) {
+      const b = LAYOUT.shotsOffset + i * LAYOUT.shotSize;
+      events.shots.push({
+        id: get(b + LAYOUT.shotId),
+        weapon: at(WEAPONS, get(b + LAYOUT.shotWeapon), WEAPONS[0]),
+        muzzle: get(b + LAYOUT.shotMuzzle),
+        x: get(b + LAYOUT.shotX),
+        y: get(b + LAYOUT.shotY),
+        angle: get(b + LAYOUT.shotAngle)
+      });
+    }
+    for (let i = 0; i < get(LAYOUT.charges); i++) {
+      events.charges.push(at(WEAPONS, get(LAYOUT.chargesOffset + i), WEAPONS[0]));
+    }
+    for (let i = 0; i < get(LAYOUT.expired); i++) {
+      const b = LAYOUT.expiredOffset + i * LAYOUT.expiredSize;
+      events.expired.push({
+        kind: at(PROJECTILE_KINDS, get(b + LAYOUT.expiredKind), PROJECTILE_KINDS[0]),
+        faction: at(FACTIONS, get(b + LAYOUT.expiredFaction), FACTIONS[0]),
+        x: get(b + LAYOUT.expiredX),
+        y: get(b + LAYOUT.expiredY)
+      });
+    }
+    return events;
+  }
+};
+var Projectiles = class {
   items;
-  next = 0;
-  lastShotId = 0;
-  constructor(capacity) {
-    this.items = Array.from({ length: capacity }, () => ({
+  slots;
+  owners;
+  sandbox;
+  constructor(sandbox2) {
+    this.sandbox = sandbox2;
+    this.slots = Array.from({ length: LAYOUT.projectileCapacity }, (_, slot) => ({
+      slot,
       active: false,
-      kind: WEAPONS[0],
-      faction: "own",
+      kind: PROJECTILE_KINDS[0],
+      faction: FACTIONS[0],
       owner: "",
       shotId: 0,
-      originX: 0,
-      originY: 0,
-      angle: 0,
-      age: 0,
       x: 0,
-      y: 0
+      y: 0,
+      angle: 0,
+      age: 0
     }));
+    this.owners = this.slots.map(() => "");
+    this.items = this.slots;
   }
   get activeCount() {
-    return this.items.reduce((n, p) => n + Number(p.active), 0);
+    return this.slots.reduce((n, p) => n + Number(p.active), 0);
   }
+  /** Starts a projectile and returns it. */
   spawn(shot, options = {}) {
-    let chosen;
-    for (let i = 0; i < this.items.length && chosen === void 0; i++) {
-      const candidate = this.items[(this.next + i) % this.items.length];
-      if (candidate !== void 0 && !candidate.active) {
-        chosen = candidate;
-        this.next = (this.next + i + 1) % this.items.length;
-      }
-    }
-    chosen ??= this.oldest();
-    chosen.active = true;
-    chosen.kind = shot.kind;
-    chosen.faction = options.faction ?? "own";
-    chosen.owner = options.owner ?? "";
-    chosen.shotId = options.shotId ?? ++this.lastShotId;
-    chosen.originX = shot.x;
-    chosen.originY = shot.y;
-    chosen.angle = shot.angle;
-    chosen.age = options.ageSeconds ?? 0;
-    place(chosen);
-    return chosen;
-  }
-  /** Ends every projectile of a faction: the server's are gone once offline. */
-  clear(faction) {
-    for (const p of this.items) {
-      if (p.faction === faction) {
-        p.active = false;
-      }
-    }
-  }
-  /** Ends a remote player's shot that hit something, and returns it. */
-  end(owner, shotId) {
-    const p = this.items.find((q) => q.active && q.faction === "remote" && q.owner === owner && q.shotId === shotId);
-    if (p !== void 0) {
-      p.active = false;
+    const faction = options.faction ?? "own";
+    const slot = this.sandbox.calls.spawn(
+      PROJECTILE_KINDS.indexOf(shot.kind),
+      FACTIONS.indexOf(faction),
+      shot.x,
+      shot.y,
+      shot.angle,
+      options.ageSeconds ?? 0,
+      options.shotId ?? 0
+    );
+    this.owners[slot] = options.owner ?? "";
+    this.read(this.sandbox.state());
+    const p = this.slots[slot];
+    if (p === void 0) {
+      throw new Error(`the sim refused to spawn ${shot.kind}`);
     }
     return p;
   }
-  /** Ages every projectile by dt and returns those that expired this tick. */
-  step(dt, inBounds) {
-    const expired = [];
-    for (const p of this.items) {
-      if (!p.active) {
-        continue;
-      }
-      p.age += dt;
-      place(p);
-      if (p.age >= projectileStats(p.kind).lifetime || !inBounds(p.x, p.y)) {
-        p.active = false;
-        expired.push(p);
-      }
-    }
-    return expired;
+  /** Ends a projectile, as a hit does. */
+  deactivate(p) {
+    this.sandbox.calls.deactivate(p.slot);
+    this.read(this.sandbox.state());
   }
-  oldest() {
-    let oldest = this.items[0];
-    for (const p of this.items) {
-      if (oldest === void 0 || p.age > oldest.age) {
-        oldest = p;
-      }
+  /** Ends every projectile of a faction: the server's are gone once offline. */
+  clear(faction) {
+    this.sandbox.calls.clear(FACTIONS.indexOf(faction));
+    this.read(this.sandbox.state());
+  }
+  /** Ends a remote player's shot that hit something, and returns it. */
+  end(owner, shotId) {
+    const p = this.slots.find((q) => q.active && q.faction === "remote" && q.owner === owner && q.shotId === shotId);
+    if (p !== void 0) {
+      this.deactivate(p);
     }
-    if (oldest === void 0) {
-      throw new Error("ProjectilePool: zero capacity");
+    return p;
+  }
+  /** Mirrors the pool from the state array. */
+  read(s) {
+    for (const p of this.slots) {
+      const b = LAYOUT.poolOffset + p.slot * LAYOUT.projectileSize;
+      p.active = (s[b + LAYOUT.projectileActive] ?? 0) !== 0;
+      p.kind = at(PROJECTILE_KINDS, s[b + LAYOUT.projectileKind] ?? 0, PROJECTILE_KINDS[0]);
+      p.faction = at(FACTIONS, s[b + LAYOUT.projectileFaction] ?? 0, FACTIONS[0]);
+      p.owner = p.faction === "own" ? "" : this.owners[p.slot] ?? "";
+      p.x = s[b + LAYOUT.projectileX] ?? 0;
+      p.y = s[b + LAYOUT.projectileY] ?? 0;
+      p.angle = s[b + LAYOUT.projectileAngle] ?? 0;
+      p.age = s[b + LAYOUT.projectileAge] ?? 0;
+      p.shotId = s[b + LAYOUT.projectileShotId] ?? 0;
     }
-    return oldest;
   }
 };
-
-// src/sim/ship.ts
-function createShip(x, y, loadout = DEFAULT_LOADOUT) {
-  return {
-    x,
-    y,
-    vx: 0,
-    vy: 0,
-    angle: -Math.PI / 2,
-    thrusting: false,
-    loadout: { ...loadout },
-    damage: 0,
-    cooldown: 0,
-    charging: 0,
-    nextMuzzle: 0,
-    rotationSnap: 0
-  };
+function isWeapon(kind) {
+  return WEAPONS.includes(kind);
 }
-function stepShip(ship, cmd, dt) {
-  const engine = ENGINE_STATS[ship.loadout.engine];
-  ship.thrusting = cmd.moveX !== 0 || cmd.moveY !== 0;
-  ship.vx += cmd.moveX * engine.acceleration * dt;
-  ship.vy += cmd.moveY * engine.acceleration * dt;
-  const keep = Math.exp(-engine.drag * dt);
-  ship.vx *= keep;
-  ship.vy *= keep;
-  const speed = Math.hypot(ship.vx, ship.vy);
-  if (speed > engine.maxSpeed) {
-    ship.vx *= engine.maxSpeed / speed;
-    ship.vy *= engine.maxSpeed / speed;
+var loaded;
+async function loadSim(url) {
+  if (loaded === void 0) {
+    const Go = globalThis.Go;
+    if (Go === void 0) {
+      throw new Error("wasm_exec.js did not load: no Go runtime");
+    }
+    const response = await fetch(url);
+    loaded = new Sandbox(await instantiate(await response.arrayBuffer(), new Go()));
   }
-  ship.x += ship.vx * dt;
-  ship.y += ship.vy * dt;
-  const dx = cmd.aimX - ship.x;
-  const dy = cmd.aimY - ship.y;
-  if (dx !== 0 || dy !== 0) {
-    ship.angle = snapAngle(Math.atan2(dy, dx), ship.rotationSnap);
-  }
+  return loaded;
 }
-
-// src/sim/weapons.ts
-function stepWeapon(ship, fire, dt) {
-  const stats = WEAPON_STATS[ship.loadout.weapon];
-  const step = { chargeStarted: false, shots: [] };
-  ship.cooldown -= dt;
-  if (ship.charging > 0) {
-    ship.charging -= dt;
-    if (ship.charging <= 0) {
-      ship.charging = 0;
-      fireVolley(ship, stats, step.shots);
-    }
-    return step;
+function sandbox() {
+  if (loaded === void 0) {
+    throw new Error("the sim is not loaded yet");
   }
-  if (!fire) {
-    ship.cooldown = Math.max(ship.cooldown, 0);
-    return step;
-  }
-  while (ship.cooldown <= 0) {
-    ship.cooldown += stats.interval;
-    if (stats.charge > 0) {
-      ship.charging = stats.charge;
-      step.chargeStarted = true;
-      break;
-    }
-    fireVolley(ship, stats, step.shots);
-  }
-  return step;
-}
-function fireVolley(ship, stats, shots) {
-  const muzzles = stats.alternate ? [ship.nextMuzzle % stats.muzzles.length] : stats.muzzles.map((_, i) => i);
-  ship.nextMuzzle = (ship.nextMuzzle + 1) % stats.muzzles.length;
-  for (const index of muzzles) {
-    const muzzle = stats.muzzles[index];
-    if (muzzle === void 0) {
-      continue;
-    }
-    const offset = rotateOffset(muzzle.forward, muzzle.right, ship.angle);
-    shots.push({
-      weapon: ship.loadout.weapon,
-      muzzle: index,
-      x: ship.x + offset.x,
-      y: ship.y + offset.y,
-      angle: ship.angle
-    });
-  }
+  return loaded;
 }
 
 // src/sim/world.ts
-var PROJECTILE_MARGIN = 64;
-function applyWorldEdge(ship, dt) {
-  const inner = WORLD_HALF_SIZE - WORLD_EDGE_BAND;
-  for (const axis of ["x", "y"]) {
-    const v = axis === "x" ? "vx" : "vy";
-    const distance = Math.abs(ship[axis]);
-    if (distance > inner) {
-      const depth = Math.min(1, (distance - inner) / WORLD_EDGE_BAND);
-      ship[v] -= Math.sign(ship[axis]) * depth * WORLD_EDGE_PUSH * dt;
-    }
-    if (distance > WORLD_HALF_SIZE) {
-      ship[axis] = Math.sign(ship[axis]) * WORLD_HALF_SIZE;
-      if (Math.sign(ship[v]) === Math.sign(ship[axis])) {
-        ship[v] = 0;
-      }
-    }
-  }
-}
-function projectileInBounds(x, y) {
-  const limit = WORLD_HALF_SIZE + PROJECTILE_MARGIN;
-  return Math.abs(x) <= limit && Math.abs(y) <= limit;
-}
 function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
   const random = seededRandom(seed);
   const field = [];
@@ -987,52 +1049,6 @@ function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
   }
   return field;
 }
-
-// src/sim/sandbox.ts
-var PROJECTILE_CAPACITY = 256;
-var Sandbox = class {
-  ship = createShip(0, 160);
-  projectiles = new ProjectilePool(PROJECTILE_CAPACITY);
-  /** Ship position before the last tick, for smooth drawing between ticks. */
-  previous = { x: this.ship.x, y: this.ship.y };
-  /** How WASD maps to movement; ship-relative unless the player switched. */
-  controlMode = "ship";
-  accumulator = 0;
-  /** How far the display is between the last two ticks, from 0 to 1. */
-  get alpha() {
-    return this.accumulator / TICK_SECONDS;
-  }
-  /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
-  advance(frameSeconds, input) {
-    const events = { ticks: 0, charges: [], shots: [], expired: [] };
-    this.accumulator = Math.min(this.accumulator + frameSeconds, TICK_SECONDS * MAX_TICKS_PER_FRAME);
-    const cmd = toCommand(input);
-    while (this.accumulator >= TICK_SECONDS) {
-      this.accumulator -= TICK_SECONDS;
-      this.tick(cmd, events);
-    }
-    return events;
-  }
-  tick(screenCmd, events) {
-    this.previous.x = this.ship.x;
-    this.previous.y = this.ship.y;
-    const cmd = this.controlMode === "ship" ? relativeTo(screenCmd, this.ship.angle) : screenCmd;
-    stepShip(this.ship, cmd, TICK_SECONDS);
-    applyWorldEdge(this.ship, TICK_SECONDS);
-    const weapon = stepWeapon(this.ship, cmd.fire, TICK_SECONDS);
-    if (weapon.chargeStarted) {
-      events.charges.push(this.ship.loadout.weapon);
-    }
-    for (const shot of weapon.shots) {
-      const p = this.projectiles.spawn({ kind: shot.weapon, x: shot.x, y: shot.y, angle: shot.angle });
-      events.shots.push({ ...shot, id: p.shotId });
-    }
-    for (const p of this.projectiles.step(TICK_SECONDS, projectileInBounds)) {
-      events.expired.push({ kind: p.kind, faction: p.faction, x: p.x, y: p.y });
-    }
-    events.ticks++;
-  }
-};
 
 // src/sim/zoom.ts
 var MIN_ZOOM = 2;
@@ -1704,41 +1720,6 @@ var TimedQueue = class {
   }
 };
 
-// src/sim/enemies.ts
-var ENEMY_BULLET = {
-  scout: "klaedBullet",
-  fighter: "klaedBigBullet"
-};
-var ENEMY_RADIUS = {
-  scout: 11,
-  fighter: 12
-};
-
-// src/sim/hits.ts
-function hitTargetAlong(x0, y0, x1, y1, targets) {
-  const dx = x1 - x0;
-  const dy = y1 - y0;
-  const lengthSquared = dx * dx + dy * dy;
-  let first;
-  let firstAlong = Infinity;
-  for (const t of targets) {
-    const along = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((t.x - x0) * dx + (t.y - y0) * dy) / lengthSquared));
-    if (Math.hypot(t.x - (x0 + along * dx), t.y - (y0 + along * dy)) <= t.radius + SHOT_RADIUS && along < firstAlong) {
-      first = t;
-      firstAlong = along;
-    }
-  }
-  return first;
-}
-
-// src/sim/patterns.ts
-function enemyPattern(kind, x, y, angle, seed) {
-  const random = seededRandom(seed);
-  const aim = angle + (random() * 2 - 1) * ENEMY_AIM_JITTER;
-  const muzzle = rotateOffset(ENEMY_MUZZLE, 0, aim);
-  return [{ kind: ENEMY_BULLET[kind], x: x + muzzle.x, y: y + muzzle.y, angle: aim }];
-}
-
 // src/scenes/enemyview.ts
 import Phaser4 from "./vendor/phaser.js";
 
@@ -2149,11 +2130,7 @@ var NetPlay = class {
     this.squadron = joined.name;
     saveLastSquadron(joined.name);
     if (joined.tookOver) {
-      const { ship, previous } = this.options.sim;
-      ship.x = previous.x = joined.x;
-      ship.y = previous.y = joined.y;
-      ship.vx = 0;
-      ship.vy = 0;
+      this.options.sim.placeShip(joined.x, joined.y);
     }
   }
   /** A squadmate's order, as a callout: the hub gives it to every companion. */
@@ -2227,22 +2204,22 @@ var NetPlay = class {
       if (!p.active || p.faction === "remote") {
         continue;
       }
-      const from = positionAt(p, Math.max(0, p.age - stepSeconds));
+      const from = this.options.sim.positionAt(p, Math.max(0, p.age - stepSeconds));
       if (p.faction === "own" && isWeapon(p.kind)) {
-        const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
+        const target = this.options.sim.hitTargetAlong(from.x, from.y, p.x, p.y, targets);
         if (target !== void 0) {
-          p.active = false;
+          this.options.sim.projectiles.deactivate(p);
           this.lastHit = { id: target.id, atMs: now() };
           this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
       } else if (p.faction === "enemy") {
-        const hit = hitTargetAlong(from.x, from.y, p.x, p.y, wing);
+        const hit = this.options.sim.hitTargetAlong(from.x, from.y, p.x, p.y, wing);
         if (hit === void 0) {
           continue;
         }
-        p.active = false;
+        this.options.sim.projectiles.deactivate(p);
         if (hit.id === -1) {
           this.hitsTaken++;
           frame.hitsOnMe.push({ x: p.x, y: p.y });
@@ -2272,7 +2249,7 @@ var NetPlay = class {
     if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
     }
-    for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+    for (const bullet of this.options.sim.enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
     }
     const ship = this.options.sim.ship;
@@ -2325,11 +2302,7 @@ var NetPlay = class {
     this.clock.observe(welcome.tick, now());
     if (!this.spawned) {
       this.spawned = true;
-      const { ship, previous } = this.options.sim;
-      ship.x = previous.x = welcome.spawnX;
-      ship.y = previous.y = welcome.spawnY;
-      ship.vx = 0;
-      ship.vy = 0;
+      this.options.sim.placeShip(welcome.spawnX, welcome.spawnY);
     }
   }
   /** Drops everything waiting for the delayed timeline. */
@@ -2442,7 +2415,7 @@ function destroyRing(press) {
   press.backdrop?.destroy();
 }
 var SandboxScene = class extends Phaser5.Scene {
-  sim = new Sandbox();
+  sim = sandbox();
   world;
   backgrounds = [];
   backgroundFrame = 0;
@@ -2680,19 +2653,17 @@ var SandboxScene = class extends Phaser5.Scene {
     const ship = this.sim.ship;
     switch (code) {
       case "Digit1":
-        ship.loadout.weapon = nextInCycle(WEAPONS, ship.loadout.weapon);
-        ship.cooldown = 0;
-        ship.nextMuzzle = 0;
+        this.sim.setLoadout({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case "Digit2":
-        ship.loadout.engine = nextInCycle(ENGINES, ship.loadout.engine);
+        this.sim.setLoadout({ ...ship.loadout, engine: nextInCycle(ENGINES, ship.loadout.engine) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case "Digit3":
-        ship.loadout.shield = nextInCycle(SHIELDS, ship.loadout.shield);
+        this.sim.setLoadout({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
@@ -2712,7 +2683,7 @@ var SandboxScene = class extends Phaser5.Scene {
         break;
       case "KeyH":
         this.damage = nextInCycle(DAMAGE_STATES, this.damage);
-        ship.damage = DAMAGE_STATES.indexOf(this.damage);
+        this.sim.setDamage(DAMAGE_STATES.indexOf(this.damage));
         this.ship.setDamage(ship.damage);
         break;
       case "KeyC":
@@ -2721,7 +2692,7 @@ var SandboxScene = class extends Phaser5.Scene {
         this.updateHud();
         break;
       case "KeyR":
-        ship.rotationSnap = ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0;
+        this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
         this.updateHud();
         break;
       case "KeyF":
@@ -2780,15 +2751,15 @@ var SandboxScene = class extends Phaser5.Scene {
     press.backdrop = this.add.graphics();
     this.cameras.main.ignore(press.backdrop);
     const labels = ORDER_ITEMS.map((item, i) => {
-      const at = itemPosition(i, ORDER_RING_PX * dpr);
-      const x = press.screenX + at.x;
-      const y = press.screenY + at.y + ORDER_LABEL_DROP * dpr;
+      const at2 = itemPosition(i, ORDER_RING_PX * dpr);
+      const x = press.screenX + at2.x;
+      const y = press.screenY + at2.y + ORDER_LABEL_DROP * dpr;
       const inForce = item.kind === "mode" && item.mode === mode;
       const label = this.add.text(x, y, `${inForce ? "\u2022 " : ""}${item.label}`, { ...style, color: hex(ORDER_COLOURS[item.kind]) }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
       this.cameras.main.ignore(label);
       const icon = ORDER_ICONS[item.label];
       if (icon !== void 0) {
-        const image = this.add.image(x, press.screenY + at.y - ORDER_ICON_RISE * dpr, icon.key, icon.frame ?? 0).setScale(icon.scale * dpr);
+        const image = this.add.image(x, press.screenY + at2.y - ORDER_ICON_RISE * dpr, icon.key, icon.frame ?? 0).setScale(icon.scale * dpr);
         if (icon.dim === true) {
           image.setTint(10132122);
         }
@@ -3122,6 +3093,7 @@ async function start() {
       saveToken(token);
     }
   }
+  await loadSim("/static/wasm/sim.wasm");
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
   const game = new Phaser6.Game({
     type: Phaser6.AUTO,

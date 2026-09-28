@@ -5,6 +5,7 @@ import { askName } from './name.ts';
 import { BootScene } from './scenes/boot.ts';
 import { SandboxScene } from './scenes/sandbox.ts';
 import { loadToken, saveToken } from './settings.ts';
+import { loadSim } from './simwasm.ts';
 
 /** Asks for a name on the first visit, then starts the game with the player's token. */
 async function start(): Promise<void> {
@@ -15,6 +16,9 @@ async function start(): Promise<void> {
       saveToken(token);
     }
   }
+
+  // The rules run in WebAssembly (internal/sim); the scenes need them from their first frame.
+  await loadSim('/static/wasm/sim.wasm');
 
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
   const game = new Phaser.Game({

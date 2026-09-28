@@ -1,4 +1,4 @@
-import { normalize, rotateOffset } from './math.ts';
+import { normalize } from './math.ts';
 
 /** Ship-relative: W thrusts toward the aim. Screen-relative: W moves up the screen. */
 export const CONTROL_MODES = ['ship', 'screen'] as const;
@@ -29,14 +29,4 @@ export function toCommand(input: InputSnapshot): ShipCommand {
   const move = normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up));
 
   return { moveX: move.x, moveY: move.y, aimX: input.pointerX, aimY: input.pointerY, fire: input.fire };
-}
-
-/**
- * Turns a screen-relative move into one relative to a ship facing angle:
- * up becomes forward and right becomes the ship's right.
- */
-export function relativeTo(cmd: ShipCommand, angle: number): ShipCommand {
-  const move = rotateOffset(-cmd.moveY, cmd.moveX, angle);
-
-  return { ...cmd, moveX: move.x, moveY: move.y };
 }

@@ -21,7 +21,7 @@ func TestWebClient_Embedded(t *testing.T) {
 		wantType    string
 		wantContain string
 	}{
-		{path: "/", wantType: "text/html", wantContain: `src="/static/js/main.js"`},
+		{path: "/", wantType: "text/html", wantContain: `src="/static/wasm/wasm_exec.js"`},
 		{path: "/static/css/style.css", wantType: "text/css"},
 		{
 			path:        "/static/js/main.js",
@@ -29,6 +29,12 @@ func TestWebClient_Embedded(t *testing.T) {
 			wantContain: "./vendor/phaser.js",
 		},
 		{path: "/static/js/vendor/phaser.js", wantType: "text/javascript", wantContain: "Phaser"},
+		{path: "/static/wasm/sim.wasm", wantType: "application/wasm", wantContain: "\x00asm"},
+		{
+			path:        "/static/wasm/wasm_exec.js",
+			wantType:    "text/javascript",
+			wantContain: "globalThis.Go = class",
+		},
 		{path: "/healthz", wantType: "application/json", wantContain: `"status":"ok"`},
 		{path: "/version", wantType: "application/json", wantContain: `"env":"development"`},
 	}

@@ -208,7 +208,10 @@ func TestNew_SecurityHeaders(t *testing.T) {
 			resp := get(t, srv.URL+"/", nil)
 
 			csp := resp.header.Get("Content-Security-Policy")
-			if got, want := csp, "script-src 'self'"; !strings.Contains(got, want) {
+			if got, want := csp, "script-src 'self' 'wasm-unsafe-eval';"; !strings.Contains(
+				got,
+				want,
+			) {
 				t.Errorf("Content-Security-Policy = %q, should contain %q", got, want)
 			}
 			if got, want := resp.header.Get("X-Content-Type-Options"), "nosniff"; got != want {
