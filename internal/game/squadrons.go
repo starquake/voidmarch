@@ -137,7 +137,7 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		if h.squadronShips(sq) >= squadronCap {
 			if owner, c := h.newestCompanionIn(sq); c != nil {
 				joined.TookOver = true
-				joined.X, joined.Y = c.state.GetX(), c.state.GetY()
+				joined.X, joined.Y = float32(c.flight.Ship.X), float32(c.flight.Ship.Y)
 				h.takeCompanion(owner, h.members[owner], c.number)
 				m.held++
 				takenOver := dismissed(c.number)
@@ -153,6 +153,9 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		}
 		sq.members = append(sq.members, id)
 		m.squadron = sq.name
+		for _, c := range m.wing.Companions {
+			m.wing.Order(c, h.squadronModeOrders(m))
+		}
 	}
 	h.send(id, &pb.ServerMessage{Kind: &pb.ServerMessage_SquadronJoined{SquadronJoined: joined}})
 	h.broadcastSquadrons()
@@ -201,8 +204,9 @@ func newestCompanionOf(m *member) *companion {
 	return newest
 }
 
-// squadronOrder passes a player's order to the rest of their squadron, and
-// keeps a new mode as the squadron's.
+// squadronOrder gives a player's order to every companion in their
+// squadron, passes it to the other players as a callout, and keeps a new mode
+// as the squadron's.
 func (h *Hub) squadronOrder(id string, m *member, order *pb.SquadronOrder) {
 	sq := h.squadrons[m.squadron]
 	if sq == nil {
@@ -221,6 +225,9 @@ func (h *Hub) squadronOrder(id string, m *member, order *pb.SquadronOrder) {
 		}},
 	}
 	for _, other := range sq.members {
+		if om := h.members[other]; om != nil {
+			orderWing(om, order)
+		}
 		if other != id {
 			h.send(other, ordered)
 		}

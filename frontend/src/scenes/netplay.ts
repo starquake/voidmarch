@@ -1,7 +1,6 @@
 import type Phaser from 'phaser';
 
 import type {
-  CompanionGranted,
   EnemyDestroyed,
   EnemyFired,
   Snapshot,
@@ -26,12 +25,11 @@ import {
   toCompanionOneShot,
   type RemoteShip,
 } from '../net/mapping.ts';
-import { ORDER_ITEMS, applyOrder, type Mode, type OrderContext, type OrderItem } from '../ordermenu.ts';
+import { ORDER_ITEMS, type OrderContext, type OrderItem } from '../ordermenu.ts';
 import { loadLastSquadron, saveLastSquadron } from '../settings.ts';
 import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
-import type { BrainEnemy } from '../sim/brain.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
 import { hitTargetAlong } from '../sim/hits.ts';
 import type { WeaponId } from '../sim/loadout.ts';
@@ -40,7 +38,6 @@ import { isWeapon, positionAt } from '../sim/projectiles.ts';
 import type { ShotSpawn } from '../sim/weapons.ts';
 import type { FrameEvents, Sandbox } from '../sim/sandbox.ts';
 import {
-  BRAIN_ATTACKER_RANGE,
   ENEMY_SOUND_RANGE,
   ENEMY_VOLLEY_RANGE,
   SAFE_ZONE_RADIUS,
@@ -74,12 +71,6 @@ interface Remote {
   ownerId: string;
   /** The squadron shown in a player's label. */
   squadron: string;
-}
-
-/** One of this player's companions, as drawn. */
-interface CompanionDrawing {
-  view: ShipView;
-  animator: WeaponAnimator;
 }
 
 /** How long a notice (a refused summon, a companion sent home) stays in the HUD. */
@@ -185,16 +176,9 @@ export class NetPlay {
   lastHit: { id: number; atMs: number } | undefined;
   /** How many companions the server allows each player. */
   companionLimit = 0;
-  private name = '';
   /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
   squadrons: Squadrons | undefined;
   squadron = '';
-  /** The squadron's mode, which the player's companions follow. */
-  private squadronMode: Mode = 'escort';
-  private colour = 0xffffff;
-  private readonly companionDrawings = new Map<number, CompanionDrawing>();
-  /** Enemies that fired near the wing, which defensive orders and return fire answer. */
-  private readonly attackers = new Set<number>();
   private notice: { text: string; untilMs: number } | undefined;
   private clock = new ServerClock(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
@@ -263,8 +247,8 @@ export class NetPlay {
         shotEnded: (ended) => {
           this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
         },
-        companionGranted: (granted) => {
-          this.companionGranted(granted);
+        companionGranted: () => {
+          // The hub flies it: it arrives in the next snapshot like any ship.
         },
         companionRefused: (reason) => {
           this.say(reason);
@@ -285,13 +269,7 @@ export class NetPlay {
           this.squadronOrdered(ordered);
         },
         companionDismissed: (number, takenBy) => {
-          // Stale states in flight can bring back a dismissal for one already gone.
-          if (this.options.sim.companions.some((c) => c.number === number)) {
-            this.dismissCompanion(number);
-            this.say(
-              takenBy === '' ? `companion ${String(number)} went home` : `${takenBy} took over companion ${String(number)}`,
-            );
-          }
+          this.say(takenBy === '' ? `companion ${String(number)} went home` : `${takenBy} took over companion ${String(number)}`);
         },
       },
     });
@@ -317,17 +295,6 @@ export class NetPlay {
     }));
   }
 
-  /** Enemies as drawn, as companion brains see them. */
-  get brainEnemies(): BrainEnemy[] {
-    return [...this.enemies.entries()].map(([id, e]) => ({
-      id,
-      kind: e.view.kind,
-      x: e.view.x,
-      y: e.view.y,
-      attackedWing: this.attackers.has(id),
-    }));
-  }
-
   /** The latest notice for the HUD, while it lasts. */
   get noticeText(): string | undefined {
     return this.notice !== undefined && now() < this.notice.untilMs ? this.notice.text : undefined;
@@ -338,6 +305,11 @@ export class NetPlay {
     return this.squadrons?.hangar;
   }
 
+  /** How many companions the player has out, as the server last listed them. */
+  get companionCount(): number {
+    return this.squadronInfo?.members.find((m) => m.playerId === this.playerId)?.companions ?? 0;
+  }
+
   /** The player's squadron as the server last listed it. */
   get squadronInfo(): SquadronInfo | undefined {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
@@ -345,9 +317,6 @@ export class NetPlay {
 
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
   orderSquadron(item: OrderItem, context: OrderContext): void {
-    if (item.kind === 'mode') {
-      this.squadronMode = item.mode;
-    }
     this.connection.sendSquadronOrder({
       mode: item.kind === 'mode' ? toCompanionMode(item.mode) : CompanionMode.UNSPECIFIED,
       oneShot: item.kind === 'oneShot' ? toCompanionOneShot(item.oneShot) : CompanionOneShot.UNSPECIFIED,
@@ -359,10 +328,10 @@ export class NetPlay {
 
   /** Asks the server for a companion, or says why there can't be one. */
   summon(): void {
-    const { ship, companions } = this.options.sim;
+    const { ship } = this.options.sim;
     if (this.status !== 'online') {
       this.say('companions need the server');
-    } else if (companions.length >= this.companionLimit) {
+    } else if (this.companionCount >= this.companionLimit) {
       this.say('all your companions are already out');
     } else if (Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
       this.say('summon companions at the home planet');
@@ -386,11 +355,10 @@ export class NetPlay {
     const frame: NetFrame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
     const seconds = nowMs / 1000;
-    this.connection.sendState(this.options.sim.ship, nowMs, this.options.sim.companions);
+    this.connection.sendState(this.options.sim.ship, nowMs);
     for (const shot of events.shots) {
       this.connection.sendShot(shot);
     }
-    this.drawCompanions(events, seconds);
 
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === undefined) {
@@ -444,65 +412,6 @@ export class NetPlay {
     return frame;
   }
 
-  /** Places this player's companions between their last two ticks, like the player's ship. */
-  private drawCompanions(events: FrameEvents, seconds: number): void {
-    const { companions, alpha } = this.options.sim;
-    for (const shot of events.shots) {
-      const drawing = this.companionDrawings.get(shot.companion);
-      if (drawing !== undefined) {
-        const stats = WEAPON_STATS[shot.weapon];
-        drawing.animator.release(seconds, stats.alternate ? shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
-      }
-    }
-    for (const { number, ship, previous } of companions) {
-      const drawing = this.companionDrawings.get(number);
-      if (drawing === undefined) {
-        continue;
-      }
-      drawing.view.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
-      drawing.view.setThrusting(ship.thrusting);
-      drawing.view.setDamage(ship.damage);
-      drawing.view.weapon.setFrame(drawing.animator.frame(seconds));
-    }
-  }
-
-  private companionGranted(granted: CompanionGranted): void {
-    const { scene, ships, sim } = this.options;
-    const companion = sim.addCompanion(granted.companion, granted.x, granted.y);
-    // A first companion takes the squadron's mode; later ones join the orders already given.
-    if (sim.companions.length === 1) {
-      this.followMode(companion);
-    }
-    this.companionDrawings.get(granted.companion)?.view.destroy();
-    const view = new ShipView(scene, ships, granted.x, granted.y);
-    view.setLoadout(companion.ship.loadout);
-    view.setTint(this.colour);
-    view.setLabel(scene, ships, `${this.name} ${String(granted.companion)}`, this.colour, this.options.labelResolution());
-    this.companionDrawings.set(granted.companion, {
-      view,
-      animator: new WeaponAnimator(weaponTiming(companion.ship.loadout.weapon)),
-    });
-  }
-
-  /**
-   * After a (re)connect, keeps the companions the server kept. Ones it
-   * dropped (the player went silent) go; ones this client doesn't fly (another
-   * tab's) are given back.
-   */
-  private reconcileCompanions(kept: readonly number[]): void {
-    const flying = this.options.sim.companions.map((c) => c.number);
-    const gone = flying.filter((n) => !kept.includes(n));
-    for (const number of gone) {
-      this.dismissCompanion(number);
-    }
-    if (gone.length > 0) {
-      this.say('your companions went home while you were away');
-    }
-    for (const number of kept.filter((n) => !flying.includes(n))) {
-      this.connection.sendDismiss(number);
-    }
-  }
-
   /**
    * Everyone flies in a squadron: with squadrons to choose from the player
    * picks on the join screen, and with none they start their own.
@@ -518,12 +427,11 @@ export class NetPlay {
     });
   }
 
-  /** In a squadron now: its companions take its mode; a takeover puts the ship where the companion was. */
+  /** In a squadron now; a takeover puts the ship where the companion was. */
   private squadronJoined(joined: SquadronJoined): void {
     this.options.squadronScreen.hide();
     this.squadron = joined.name;
     saveLastSquadron(joined.name);
-    this.squadronMode = fromCompanionMode(joined.mode) ?? 'escort';
     if (joined.tookOver) {
       const { ship, previous } = this.options.sim;
       ship.x = previous.x = joined.x;
@@ -531,12 +439,9 @@ export class NetPlay {
       ship.vx = 0;
       ship.vy = 0;
     }
-    for (const c of this.options.sim.companions) {
-      this.followMode(c);
-    }
   }
 
-  /** A squadmate's order: a callout for the player, and orders for their companions. */
+  /** A squadmate's order, as a callout: the hub gives it to every companion. */
   private squadronOrdered(ordered: SquadronOrdered): void {
     const order = ordered.order;
     if (order === undefined) {
@@ -547,41 +452,9 @@ export class NetPlay {
     const item = ORDER_ITEMS.find(
       (i) => (i.kind === 'mode' && i.mode === mode) || (i.kind === 'oneShot' && i.oneShot === oneShot),
     );
-    if (item === undefined) {
-      return;
+    if (item !== undefined) {
+      this.say(`${ordered.name}: ${item.label}`);
     }
-    if (mode !== undefined) {
-      this.squadronMode = mode;
-    }
-    const context = {
-      pointX: order.x,
-      pointY: order.y,
-      focusEnemyId: order.focusEnemyId === 0 ? undefined : order.focusEnemyId,
-    };
-    const { sim } = this.options;
-    for (const c of sim.companions) {
-      const next = applyOrder(item, sim.ordersFor(c), context);
-      if (next !== undefined) {
-        sim.order(c, next);
-      }
-    }
-    this.say(`${ordered.name}: ${item.label}`);
-  }
-
-  /** Sets a companion to the squadron's mode. */
-  private followMode(companion: (typeof this.options.sim.companions)[number]): void {
-    const item = ORDER_ITEMS.find((i) => i.kind === 'mode' && i.mode === this.squadronMode);
-    const { ship } = this.options.sim;
-    const orders = item && applyOrder(item, companion.orders, { pointX: ship.x, pointY: ship.y, focusEnemyId: undefined });
-    if (orders !== undefined) {
-      companion.orders = orders;
-    }
-  }
-
-  private dismissCompanion(number: number): void {
-    this.options.sim.removeCompanion(number);
-    this.companionDrawings.get(number)?.view.destroy();
-    this.companionDrawings.delete(number);
   }
 
   /** Shows a notice in the HUD for a few seconds. */
@@ -606,21 +479,28 @@ export class NetPlay {
       this.destroyEnemy(destroyed);
     }
     // Missing from a newer snapshot and passed on the timeline: it despawned.
+    // One shot down waits for its destruction instead: the hub's companions
+    // shoot during a tick, so its snapshot already lacks the enemy.
     for (const [id, enemy] of this.enemies) {
-      if (enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
+      if (enemy.destroyedAt === undefined && enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
         enemy.view.destroy(false);
         this.enemies.delete(id);
-        this.attackers.delete(id);
       }
     }
   }
 
+  /** The player's companions as drawn: the hub flies them, so they come in snapshots. */
+  private ownCompanions(): Remote[] {
+    return [...this.remotes.values()].filter((r) => r.ownerId !== '' && r.ownerId === this.playerId);
+  }
+
   /**
-   * Own and companion shots against enemies as drawn, reported to the server
-   * (the design's trust model); enemy bullets against the local ship and its
-   * companions, which only flash them until health exists (#5). Each
-   * projectile is tested along the path it flew during the frame's
-   * stepSeconds, so low frame rates don't skip hits.
+   * The player's shots against enemies as drawn, reported to the server (the
+   * design's trust model); enemy bullets against the local ship and the
+   * player's companions, which only flash them until health exists (#5). The
+   * hub tests the companions' own shots. Each projectile is tested along the
+   * path it flew during the frame's stepSeconds, so low frame rates don't skip
+   * hits.
    */
   private testHits(frame: NetFrame, stepSeconds: number): void {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
@@ -629,11 +509,12 @@ export class NetPlay {
       y: e.view.y,
       radius: ENEMY_RADIUS[e.view.kind],
     }));
-    const { ship, companions } = this.options.sim;
-    // Companion number 0 is the player's own ship.
+    const { ship } = this.options.sim;
+    // The player's own ship, then their companions as drawn.
+    const companions = this.ownCompanions();
     const wing = [
-      { id: 0, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
-      ...companions.map((c) => ({ id: c.number, x: c.ship.x, y: c.ship.y, radius: SHIP_RADIUS })),
+      { id: -1, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
+      ...companions.map((c, i) => ({ id: i, x: c.view.root.x, y: c.view.root.y, radius: SHIP_RADIUS })),
     ];
     for (const p of this.options.sim.projectiles.items) {
       if (!p.active || p.faction === 'remote') {
@@ -644,11 +525,8 @@ export class NetPlay {
         const target = hitTargetAlong(from.x, from.y, p.x, p.y, targets);
         if (target !== undefined) {
           p.active = false;
-          const companion = p.owner === '' ? 0 : Number(p.owner);
-          if (companion === 0) {
-            this.lastHit = { id: target.id, atMs: now() };
-          }
-          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage, companion);
+          this.lastHit = { id: target.id, atMs: now() };
+          this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
           this.enemies.get(target.id)?.view.flash();
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
@@ -658,11 +536,11 @@ export class NetPlay {
           continue;
         }
         p.active = false;
-        if (hit.id === 0) {
+        if (hit.id === -1) {
           this.hitsTaken++;
           frame.hitsOnMe.push({ x: p.x, y: p.y });
         } else {
-          this.companionDrawings.get(hit.id)?.view.flash(this.options.scene);
+          companions[hit.id]?.view.flash(this.options.scene);
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
       }
@@ -671,9 +549,10 @@ export class NetPlay {
 
   /** Whether a point is within range of the player or one of their companions. */
   private nearWing(x: number, y: number, range: number): boolean {
-    const { ship, companions } = this.options.sim;
+    const { ship } = this.options.sim;
+    const ships = [{ x: ship.x, y: ship.y }, ...this.ownCompanions().map((c) => ({ x: c.view.root.x, y: c.view.root.y }))];
 
-    return [ship, ...companions.map((c) => c.ship)].some((s) => Math.hypot(s.x - x, s.y - y) <= range);
+    return ships.some((s) => Math.hypot(s.x - x, s.y - y) <= range);
   }
 
   /**
@@ -689,9 +568,6 @@ export class NetPlay {
     // Companions can be far from the player (holding a point), and enemies fire at them too.
     if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
-    }
-    if (this.nearWing(origin.x, origin.y, BRAIN_ATTACKER_RANGE)) {
-      this.attackers.add(volley.enemyId);
     }
     for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
@@ -721,7 +597,6 @@ export class NetPlay {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
-    this.attackers.delete(destroyed.enemyId);
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
@@ -738,20 +613,11 @@ export class NetPlay {
   private welcome(welcome: Welcome): void {
     this.status = 'online';
     this.playerId = welcome.playerId;
-    this.name = welcome.name;
-    this.colour = welcome.colour;
     this.companionLimit = welcome.companionLimit;
-    this.reconcileCompanions(welcome.companions);
     this.squadrons = welcome.squadrons;
     this.squadron = welcome.squadron;
     if (welcome.squadron === '') {
       this.pickSquadron(welcome.squadrons);
-    } else {
-      // Back after a reconnect: the squadron's mode may have changed meanwhile.
-      this.squadronMode = fromCompanionMode(this.squadronInfo?.mode ?? CompanionMode.UNSPECIFIED) ?? 'escort';
-      for (const c of this.options.sim.companions) {
-        this.followMode(c);
-      }
     }
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;

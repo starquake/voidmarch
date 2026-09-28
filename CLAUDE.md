@@ -87,14 +87,16 @@ pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
   never streamed: `EnemyFired` carries a seed, and `frontend/src/sim/patterns.ts`
   expands it identically on every client. Hub tests use `WithSeed` and step the
   hub by hand, so enemy behaviour is deterministic.
-- **Companion brains are sim code** (`frontend/src/sim/brain.ts`): `think`
-  turns a companion's view and orders into the same `ShipCommand` the keyboard
-  makes, pure and seeded, so its behaviour is unit-tested in Node like the rest
-  of `sim/`.
-- **Companions are seats** (`internal/game/companions.go`): the server grants
-  `Summon`, and a companion is then the seat `<playerId>/<n>`, flown by its
-  owner's client (`Sandbox.companions`) and sent as `CompanionState`. Shots and
-  hits carry `companion` (0 is the player's own ship). Seats count toward
+- **Companion brains are Go sim code** (`internal/sim/brain.go`): `Think`
+  turns a companion's view and orders into the same `Command` the keyboard
+  makes, pure and seeded, and `sim.Wing` flies a player's companions.
+- **Companions are the hub's seats** (`internal/game/companions.go`,
+  `flight.go`): the server grants `Summon`, and a companion is then the seat
+  `<playerId>/<n>`, flown by the hub at the sim's 60 Hz (three steps per hub
+  tick) and sent in snapshots like any ship, its owner's included. The hub
+  fires its shots as `RemoteShot`, tests them against its enemies and gives
+  `SquadronOrder` to every companion in the squadron. Clients never report a
+  companion's state, shot or hit (#51). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
   home planet, 4 ships per squadron). Summons draw from the shared hangar,
   `POOL_START` ships at start (3 by default); the E2E server sets 15, since the

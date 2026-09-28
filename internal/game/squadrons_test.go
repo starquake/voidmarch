@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"math"
 	"slices"
 	"testing"
 
@@ -113,12 +114,12 @@ func TestSquadrons_JoiningAFullSquadronTakesOverACompanion(t *testing.T) {
 	for range 3 {
 		grant(t, a)
 	}
-	a.Send(companionState(3, 60, 210))
 	b, _ := join(t, hub, "b")
 
+	// No tick has run, so the newest companion is still where it was granted, at a.
 	joined := chooseAndWait(t, b, "Alpha")
-	if !joined.GetTookOver() || joined.GetX() != 60 || joined.GetY() != 210 {
-		t.Errorf("joined = %v, want a takeover at the newest companion's (60, 210)", joined)
+	if !joined.GetTookOver() || joined.GetX() != 0 || joined.GetY() != 180 {
+		t.Errorf("joined = %v, want a takeover where the newest companion is, (0, 180)", joined)
 	}
 	for {
 		if d := next(t, a).GetCompanionDismissed(); d != nil {
@@ -198,5 +199,45 @@ func TestSquadrons_SnapshotsNameThem(t *testing.T) {
 
 	if got, want := snapshotPlayers(t, b, tick)["a"].GetSquadron(), "Alpha"; got != want {
 		t.Errorf("a's squadron in b's snapshot = %q, want %q", got, want)
+	}
+}
+
+func TestSquadrons_OrdersReachEveryCompanion(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	chooseAndWait(t, b, "Alpha")
+	a.Send(state(0, 180))
+	b.Send(state(0, -180))
+	grant(t, a)
+	grant(t, b)
+
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
+		Mode: pb.CompanionMode_COMPANION_MODE_HOLD, X: 150, Y: 150,
+	}}})
+	var snap *pb.Snapshot
+	for range 4 * TickRate {
+		b.Send(state(0, -180))
+		drain(b)
+		snap, _ = latest(t, a, tick, 1, 0, 180)
+	}
+	for _, p := range snap.GetPlayers() {
+		if p.GetOwnerId() == "" {
+			continue
+		}
+		x, y := float64(p.GetState().GetX()), float64(p.GetState().GetY())
+		if math.Hypot(x-150, y-150) > 40 {
+			t.Errorf(
+				"%s at (%v, %v), want holding near (150, 150)",
+				p.GetPlayerId(),
+				p.GetState().GetX(),
+				p.GetState().GetY(),
+			)
+		}
+	}
+	if len(snap.GetPlayers()) != 3 {
+		t.Errorf("a sees %d ships, want b, a/1 and b/1", len(snap.GetPlayers()))
 	}
 }

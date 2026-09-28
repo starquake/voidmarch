@@ -98,17 +98,7 @@ export class ShipAudio {
       }
     }
     const volleys = new Set<string>();
-    const companionVolleys = new Set<string>();
     for (const shot of events.shots) {
-      // Companions sound like other players' ships: quieter, one per volley.
-      if (shot.companion !== 0) {
-        const volley = `${String(shot.companion)}:${shot.weapon}`;
-        if (!companionVolleys.has(volley)) {
-          companionVolleys.add(volley);
-          this.remoteShot(shot.weapon);
-        }
-        continue;
-      }
       // Weapons that fire every muzzle at once (the zapper's two prongs) get one sound per volley.
       const volley = WEAPON_STATS[shot.weapon].alternate ? `${shot.weapon}-${shot.muzzle}-${volleys.size}` : shot.weapon;
       if (volleys.has(volley)) {

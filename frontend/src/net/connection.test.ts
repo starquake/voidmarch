@@ -200,8 +200,8 @@ test('state is sent at most at the tick rate, and only once welcomed', () => {
 
 test('shots carry their pool ids and the wire weapon', () => {
   const { conn, socket } = welcomed();
-  conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5, companion: 0 });
-  conn.sendShot({ id: 2, weapon: 'zapper', muzzle: 0, x: 1, y: 2, angle: 0.5, companion: 0 });
+  conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });
+  conn.sendShot({ id: 2, weapon: 'zapper', muzzle: 0, x: 1, y: 2, angle: 0.5 });
   const shots = socket.messages().flatMap((m) => (m.kind.case === 'shot' ? [m.kind.value] : []));
   assert.deepEqual(
     shots.map((s) => [s.id, s.weapon, s.muzzle]),
@@ -215,7 +215,7 @@ test('shots carry their pool ids and the wire weapon', () => {
 test('shots before the welcome are not sent', () => {
   const { conn, sockets } = setup();
   conn.start();
-  conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5, companion: 0 });
+  conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });
   assert.deepEqual(sockets[0]?.sent, []);
 });
 
@@ -285,33 +285,17 @@ test('hits before the welcome are not sent', () => {
   assert.deepEqual(sockets[0]?.sent, []);
 });
 
-test('companion states go out with the ship state, each under its number', () => {
+test('summon, dismiss, and a hit carry what the server needs, and never a companion state', () => {
   const { conn, socket } = welcomed();
-  conn.sendState(createShip(1, 2), 1000, [
-    { number: 1, ship: createShip(10, 20) },
-    { number: 3, ship: createShip(30, 40) },
-  ]);
-  const companions = socket.messages().flatMap((m) => (m.kind.case === 'companion' ? [m.kind.value] : []));
-  assert.deepEqual(
-    companions.map((c) => [c.companion, c.state?.x, c.state?.y]),
-    [
-      [1, 10, 20],
-      [3, 30, 40],
-    ],
-  );
-});
-
-test('summon, dismiss, and a companion shot and hit carry what the server needs', () => {
-  const { conn, socket } = welcomed();
+  conn.sendState(createShip(1, 2), 1000);
   conn.sendSummon();
   conn.sendDismiss(2);
-  conn.sendShot({ id: 5, weapon: 'autoCannon', muzzle: 0, x: 0, y: 0, angle: 0, companion: 2 });
-  conn.sendHit(7, 5, 1, 2);
+  conn.sendHit(7, 5, 1);
   const kinds = socket.messages().map((m) => m.kind);
   assert.ok(kinds.some((k) => k.case === 'summon'));
   assert.ok(kinds.some((k) => k.case === 'dismiss' && k.value.companion === 2));
-  assert.ok(kinds.some((k) => k.case === 'shot' && k.value.companion === 2));
-  assert.ok(kinds.some((k) => k.case === 'hit' && k.value.companion === 2 && k.value.enemyId === 7));
+  assert.ok(kinds.some((k) => k.case === 'hit' && k.value.enemyId === 7 && k.value.shotId === 5));
+  assert.ok(!kinds.some((k) => k.case === 'companion'), 'the hub flies companions');
 });
 
 test('nothing about companions is sent before the welcome', () => {

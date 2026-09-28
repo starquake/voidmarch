@@ -16,6 +16,7 @@ import (
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/players"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 const (
@@ -103,6 +104,11 @@ type member struct {
 	state      *pb.ShipState
 	lastSeen   uint32
 	companions map[uint32]*companion
+	// wing flies the companions, following this player's latest state.
+	wing *sim.Wing
+	// attackers are the enemies that fired near this player or their
+	// companions, which defensive orders and return fire answer.
+	attackers map[uint32]bool
 	// squadron is the name of the player's squadron, "" until they choose.
 	squadron string
 	// held counts the companion ships this player took the place of on
@@ -129,6 +135,8 @@ type Hub struct {
 	squadrons map[string]*squadron
 	// hangar is how many companion ships wait to be drawn (docs/design.md, section 13).
 	hangar int
+	// shots are the companions' shots in flight.
+	shots *sim.Pool
 }
 
 // HubOption configures a [Hub].
@@ -175,6 +183,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 
 		squadrons: make(map[string]*squadron),
 		hangar:    o.poolStart,
+		shots:     sim.NewPool(shotCapacity),
 	}
 }
 
@@ -238,10 +247,12 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	// A player who is back (a reconnect, a second tab) keeps their companions
 	// and their squadron.
 	companions := make(map[uint32]*companion)
+	wing := &sim.Wing{}
+	attackers := make(map[uint32]bool)
 	var squadron string
 	var held int
 	if old, ok := h.members[player.ID]; ok {
-		companions = old.companions
+		companions, wing, attackers = old.companions, old.wing, old.attackers
 		squadron = old.squadron
 		held = old.held
 		close(old.session.queue)
@@ -262,6 +273,8 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		colour:     colour,
 		lastSeen:   h.tick,
 		companions: companions,
+		wing:       wing,
+		attackers:  attackers,
 		squadron:   squadron,
 		held:       held,
 	}
@@ -300,13 +313,13 @@ func (h *Hub) handleMessage(in inbound) {
 	case *pb.ClientMessage_State:
 		m.state = kind.State
 	case *pb.ClientMessage_Hit:
-		if shooter, ok := shooterID(in.session.Player.ID, m, kind.Hit.GetCompanion()); ok {
-			h.hit(in.session.Player.ID, shooter, kind.Hit)
+		// The hub tests its companions' shots itself; a client reports its own.
+		if kind.Hit.GetCompanion() == 0 { //nolint:staticcheck // ignoring the deprecated field is the point.
+			id := in.session.Player.ID
+			h.hit(id, id, kind.Hit.GetEnemyId(), kind.Hit.GetShotId(), kind.Hit.GetDamage())
 		}
 	case *pb.ClientMessage_Summon:
 		h.summon(in.session.Player.ID, m)
-	case *pb.ClientMessage_Companion:
-		h.companionState(in.session.Player.ID, m, kind.Companion)
 	case *pb.ClientMessage_Dismiss:
 		h.dismiss(in.session.Player.ID, m, kind.Dismiss.GetCompanion())
 	case *pb.ClientMessage_ChooseSquadron:
@@ -314,12 +327,11 @@ func (h *Hub) handleMessage(in inbound) {
 	case *pb.ClientMessage_SquadronOrder:
 		h.squadronOrder(in.session.Player.ID, m, kind.SquadronOrder)
 	case *pb.ClientMessage_Shot:
-		shooter, ok := shooterID(in.session.Player.ID, m, kind.Shot.GetCompanion())
-		if !ok {
+		if kind.Shot.GetCompanion() != 0 {
 			return
 		}
 		shot := &pb.ServerMessage{Kind: &pb.ServerMessage_Shot{Shot: &pb.RemoteShot{
-			PlayerId: shooter,
+			PlayerId: in.session.Player.ID,
 			Tick:     h.tick,
 			Shot:     kind.Shot,
 		}}}
@@ -339,9 +351,10 @@ func (h *Hub) step() {
 		}
 	}
 
-	h.expireCompanions()
 	h.stepEnemies()
+	h.flyCompanions()
 	enemies := h.enemySnapshot()
+	companions := h.companionSnapshots()
 
 	for id := range h.members {
 		snapshot := &pb.Snapshot{Tick: h.tick, Enemies: enemies}
@@ -357,7 +370,7 @@ func (h *Hub) step() {
 				Squadron: other.squadron,
 			})
 		}
-		snapshot.Players = append(snapshot.Players, h.companionSnapshots(id)...)
+		snapshot.Players = append(snapshot.Players, companions...)
 		h.send(id, &pb.ServerMessage{Kind: &pb.ServerMessage_Snapshot{Snapshot: snapshot}})
 	}
 }

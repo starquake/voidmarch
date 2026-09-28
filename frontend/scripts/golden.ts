@@ -6,15 +6,13 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-import { DEFAULT_ORDERS, arrive, formationPoint, think, type BrainEnemy, type Orders } from '../src/sim/brain.ts';
 import { ENEMY_KINDS } from '../src/sim/enemies.ts';
 import { hitTargetAlong } from '../src/sim/hits.ts';
-import type { InputSnapshot, ShipCommand } from '../src/sim/input.ts';
-import { ENGINES, WEAPONS, type Loadout } from '../src/sim/loadout.ts';
+import type { ShipCommand } from '../src/sim/input.ts';
+import { ENGINES, WEAPONS } from '../src/sim/loadout.ts';
 import { normalize, rotateOffset, seededRandom, snapAngle, triangleWave, wrapAngle } from '../src/sim/math.ts';
 import { enemyPattern } from '../src/sim/patterns.ts';
 import { ProjectilePool, travelled, type ProjectileKind } from '../src/sim/projectiles.ts';
-import { Sandbox } from '../src/sim/sandbox.ts';
 import { createShip, stepShip, type Ship } from '../src/sim/ship.ts';
 import { ENEMY_BULLET_STATS, TICK_SECONDS, WEAPON_STATS } from '../src/sim/tuning.ts';
 import { stepWeapon } from '../src/sim/weapons.ts';
@@ -139,103 +137,12 @@ const patterns = ENEMY_KINDS.flatMap((kind) =>
   }),
 );
 
-const enemies = (n: number): BrainEnemy[] =>
-  Array.from({ length: n }, (_, id) => ({
-    id: id + 1,
-    kind: ENEMY_KINDS[id % ENEMY_KINDS.length] ?? 'scout',
-    x: between(-500, 500),
-    y: between(-500, 500),
-    attackedWing: random() < 0.5,
-  }));
-
-const orderSets: Orders[] = [
-  { ...DEFAULT_ORDERS },
-  { ...DEFAULT_ORDERS, stance: 'aggressive', supportFirst: true },
-  { ...DEFAULT_ORDERS, stance: 'defensive', fire: 'return', resources: 'conserve' },
-  { ...DEFAULT_ORDERS, stance: 'hold', holdX: 120, holdY: -80 },
-  { ...DEFAULT_ORDERS, fire: 'hold', resources: 'conserve' },
-  { ...DEFAULT_ORDERS, oneShot: { kind: 'regroup' } },
-  { ...DEFAULT_ORDERS, oneShot: { kind: 'goHome' } },
-  { ...DEFAULT_ORDERS, oneShot: { kind: 'shieldMe' } },
-  { ...DEFAULT_ORDERS, stance: 'aggressive', oneShot: { kind: 'focus', enemyId: 2 } },
-];
-
-const weaponsForBrain: Loadout['weapon'][] = ['autoCannon', 'bigSpaceGun'];
-const brain = orderSets.flatMap((orders, i) =>
-  weaponsForBrain.map((weapon) => {
-    const self = createShip(between(-200, 200), between(-200, 200), { weapon, engine: 'base', shield: 'front' });
-    self.vx = between(-100, 100);
-    self.vy = between(-100, 100);
-    self.angle = between(-3, 3);
-    self.damage = i % 4;
-    const owner = { x: between(-200, 200), y: between(-200, 200), vx: between(-150, 150), vy: between(-150, 150), angle: between(-3, 3) };
-    const view = { self, owner, slot: i % 4, enemies: enemies(5) };
-    const seed = 1000 + i;
-    const think1 = think(view, orders, seededRandom(seed));
-
-    return {
-      self: shipState(self).concat([self.damage]),
-      weapon,
-      owner,
-      slot: view.slot,
-      enemies: view.enemies,
-      orders,
-      seed,
-      command: [think1.command.moveX, think1.command.moveY, think1.command.aimX, think1.command.aimY, Number(think1.command.fire)],
-      done: think1.done,
-      formation: [formationPoint(owner, view.slot).x, formationPoint(owner, view.slot).y],
-      arrive: [arrive(self, { x: 0, y: 0 }).x, arrive(self, { x: 0, y: 0 }).y],
-    };
-  }),
-);
-
-/** The whole local world: a ship, three companions under changing orders, and enemies. */
-const sandboxes = [0, 1].map((variant) => {
-  const sandbox = new Sandbox();
-  sandbox.controlMode = variant === 0 ? 'ship' : 'screen';
-  for (let n = 1; n <= 3; n++) {
-    sandbox.addCompanion(n, n * 30, 120);
-  }
-  const frames: { input: InputSnapshot; seconds: number; enemies: BrainEnemy[]; order: number }[] = [];
-  const trace: { ship: number[]; companions: number[][]; shots: number[][]; ticks: number }[] = [];
-  const field = enemies(6);
-  for (let f = 0; f < 240; f++) {
-    for (const e of field) {
-      e.x += between(-3, 3);
-      e.y += between(-3, 3);
-    }
-    const order = f % 60 === 10 ? Math.floor(f / 60) : -1;
-    const input: InputSnapshot = {
-      up: random() < 0.5,
-      down: random() < 0.2,
-      left: random() < 0.3,
-      right: random() < 0.3,
-      pointerX: between(-400, 400),
-      pointerY: between(-400, 400),
-      fire: random() < 0.6,
-    };
-    const seconds = between(0.01, 0.04);
-    const snapshot = field.map((e) => ({ ...e }));
-    frames.push({ input, seconds, enemies: snapshot, order });
-    if (order >= 0) {
-      const next = orderSets[(order * 2 + variant) % orderSets.length] ?? DEFAULT_ORDERS;
-      for (const c of sandbox.companions) {
-        sandbox.order(c, next);
-      }
-    }
-    const events = sandbox.advance(seconds, input, snapshot);
-    trace.push({
-      ship: shipState(sandbox.ship),
-      companions: sandbox.companions.map((c) => shipState(c.ship)),
-      shots: events.shots.map((s) => [s.companion, s.id, s.x, s.y, s.angle]),
-      ticks: events.ticks,
-    });
-  }
-
-  return { controlMode: sandbox.controlMode, frames, trace };
-});
-
-const data = { math, ships: shipScenarios, weapons, projectiles, hits, worldEdge, patterns, brain, sandboxes, orderSets };
+/**
+ * What the TypeScript still runs. The brain and the companions' sandbox runs
+ * moved to the hub (#51); their recorded cases stay in the file, frozen, as
+ * the Go tests' regression cases.
+ */
+const data = { math, ships: shipScenarios, weapons, projectiles, hits, worldEdge, patterns };
 
 /** Where got and want first differ, allowing the last bits of a float to (as Math.sin may across platforms). */
 function firstDifference(got: unknown, want: unknown, path: string): string | undefined {
@@ -256,15 +163,16 @@ function firstDifference(got: unknown, want: unknown, path: string): string | un
   return undefined;
 }
 
+const committed = JSON.parse(readFileSync(defaultOut, 'utf8')) as Record<string, unknown>;
 if (process.argv[2] === '--check') {
   // A JSON round trip, so undefined fields drop out as they do in the file.
-  const fresh: unknown = JSON.parse(JSON.stringify(data));
-  const committed: unknown = JSON.parse(readFileSync(defaultOut, 'utf8'));
-  const diff = firstDifference(fresh, committed, 'golden');
+  const fresh = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
+  const recorded = Object.fromEntries(Object.keys(fresh).map((key) => [key, committed[key]]));
+  const diff = firstDifference(fresh, recorded, 'golden');
   if (diff !== undefined) {
     console.error(`the golden cases are stale (${diff}): change internal/sim to match, then run make golden`);
     process.exit(1);
   }
 } else {
-  writeFileSync(process.argv[2] ?? defaultOut, `${JSON.stringify(data)}\n`);
+  writeFileSync(process.argv[2] ?? defaultOut, `${JSON.stringify({ ...committed, ...data })}\n`);
 }

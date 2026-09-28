@@ -7,11 +7,13 @@ import (
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 var summon = &pb.ClientMessage{Kind: &pb.ClientMessage_Summon{Summon: &pb.Summon{}}}
 
 func companionState(number uint32, x, y float32) *pb.ClientMessage {
+	//nolint:staticcheck // an old client's report, which the hub must ignore.
 	return &pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
 		Companion: number,
 		State:     &pb.ShipState{X: x, Y: y},
@@ -219,33 +221,46 @@ func TestCompanions_SeatsAreCapped(t *testing.T) {
 	}
 }
 
-func TestCompanions_ExpireWhenTheirStatesStop(t *testing.T) {
+func TestCompanions_TheHubFliesThem(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
 	a, _ := pilot(t, hub, "a")
-	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
-	grant(t, a)
+	n := grant(t, a)
 
-	var dismissedAt *pb.CompanionDismissed
+	// A client's own report for a companion changes nothing: the hub flies it.
+	a.Send(companionState(n, 999, 999))
+	var snap *pb.Snapshot
+	messages := make([]*pb.ServerMessage, 0, 4*TickRate)
 	for range 4 * TickRate {
-		_, messages := latest(t, a, tick, 1, 0, 180)
-		b.Send(state(0, -180))
-		for _, msg := range messages {
-			if d := msg.GetCompanionDismissed(); d != nil {
-				dismissedAt = d
-			}
-		}
-		if dismissedAt != nil {
-			break
+		var got []*pb.ServerMessage
+		snap, got = latest(t, a, tick, 1, 0, 180)
+		messages = append(messages, got...)
+	}
+	for _, msg := range messages {
+		if msg.GetCompanionDismissed() != nil {
+			t.Fatal("a companion was dismissed while its client sent no states for it")
 		}
 	}
-	if dismissedAt == nil {
-		t.Fatal("a companion with no states for 4 s was never dismissed")
+	var c *pb.PlayerSnapshot
+	for _, p := range snap.GetPlayers() {
+		if p.GetPlayerId() == "a/1" {
+			c = p
+		}
 	}
-	if got, want := nextLeft(t, b), "a/1"; got != want {
-		t.Errorf("left = %q, want %q", got, want)
+	if c == nil {
+		t.Fatalf("a's snapshot players = %v, want its own companion a/1", snap.GetPlayers())
+	}
+	slot := sim.FormationPoint(sim.Mover{Y: 180}, 0, 1)
+	x, y := float64(c.GetState().GetX()), float64(c.GetState().GetY())
+	if d := math.Hypot(x-slot.X, y-slot.Y); d > sim.BrainInFormation {
+		t.Errorf(
+			"a/1 at (%v, %v), %v from its slot behind a, want in formation",
+			c.GetState().GetX(),
+			c.GetState().GetY(),
+			d,
+		)
 	}
 }
 
@@ -272,23 +287,23 @@ func TestCompanions_OthersSeeThemAsPlayers(t *testing.T) {
 	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	b.Send(state(0, -180))
-	n := grant(t, a)
-	a.Send(companionState(n, 30, 200))
+	grant(t, a)
 
 	seen := snapshotPlayers(t, b, tick)
 	c, ok := seen["a/1"]
 	if !ok {
 		t.Fatalf("b's snapshot players = %v, want a/1", seen)
 	}
-	if c.GetOwnerId() != "a" || c.GetName() != "name-a" || c.GetState().GetX() != 30 {
-		t.Errorf("a/1 = %v, want owner a, a's name, at x 30", c)
+	if c.GetOwnerId() != "a" || c.GetName() != "name-a" ||
+		math.Abs(float64(c.GetState().GetY())-180) > 20 {
+		t.Errorf("a/1 = %v, want owner a, a's name, beside a", c)
 	}
 	if got, want := c.GetColour(), seen["a"].GetColour(); got != want {
 		t.Errorf("colour = %06x, want a's %06x", got, want)
 	}
 
-	if _, ok := snapshotPlayers(t, a, tick)["a/1"]; ok {
-		t.Error("a's own snapshot has a/1; its client draws its own companions")
+	if _, ok := snapshotPlayers(t, a, tick)["a/1"]; !ok {
+		t.Error("a's own snapshot lacks a/1; the hub flies it, so a draws it from snapshots too")
 	}
 }
 
@@ -325,24 +340,6 @@ func TestCompanions_LeaveWithTheirOwner(t *testing.T) {
 	}
 }
 
-func TestCompanions_UnknownOnesAreDismissed(t *testing.T) {
-	t.Parallel()
-
-	hub, _ := testHub(t)
-	a, _ := pilot(t, hub, "a")
-	a.Send(companionState(2, 0, 0))
-
-	for {
-		if d := next(t, a).GetCompanionDismissed(); d != nil {
-			if got, want := d.GetCompanion(), uint32(2); got != want {
-				t.Errorf("dismissed = %d, want %d", got, want)
-			}
-
-			return
-		}
-	}
-}
-
 func TestCompanions_KeptOnReconnect(t *testing.T) {
 	t.Parallel()
 
@@ -350,9 +347,8 @@ func TestCompanions_KeptOnReconnect(t *testing.T) {
 	a, _ := pilot(t, hub, "a")
 	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
-	n := grant(t, a)
-	again, _ := join(t, hub, "a")
-	again.Send(companionState(n, 30, 200))
+	grant(t, a)
+	join(t, hub, "a")
 
 	if _, ok := snapshotPlayers(t, b, tick)["a/1"]; !ok {
 		t.Error("a/1 is gone after a reconnected, want it kept")
@@ -377,83 +373,104 @@ func TestCompanions_HumansDisplaceTheNewest(t *testing.T) {
 	}
 }
 
-func companionShot(companion, id uint32) *pb.ClientMessage {
-	return &pb.ClientMessage{Kind: &pb.ClientMessage_Shot{Shot: &pb.ShotFired{
-		Id: id, Companion: companion, Weapon: pb.Weapon_WEAPON_AUTO_CANNON,
-	}}}
+// outThere sends a's ship out of the safe zone, where enemies come, and steps
+// the hub until done, given each tick's snapshot and a's other messages, says
+// so, or 30 s pass.
+func outThere(
+	t *testing.T,
+	a *Session,
+	tick func(int),
+	done func(*pb.Snapshot, []*pb.ServerMessage) bool,
+) {
+	t.Helper()
+
+	for range 30 * TickRate {
+		if done(latest(t, a, tick, 1, 0, 700)) {
+			return
+		}
+	}
+	t.Fatal("30 s passed")
 }
 
-func TestCompanions_ShotsRelayUnderTheirSeat(t *testing.T) {
-	t.Parallel()
-
-	hub, _ := testHub(t)
-	a, _ := pilot(t, hub, "a")
-	b, _ := pilot(t, hub, "b")
-	a.Send(state(0, 180))
-	n := grant(t, a)
-	a.Send(companionShot(2, 1))
-	a.Send(companionShot(n, 7))
-
-	shot := nextShot(t, b)
-	if got, want := shot.GetPlayerId(), "a/1"; got != want {
-		t.Errorf("shot from %q, want %q (companion 2 was never granted)", got, want)
-	}
-	if got, want := shot.GetShot().GetId(), uint32(7); got != want {
-		t.Errorf("shot id = %d, want %d", got, want)
-	}
-}
-
-func TestCompanions_EnemiesComeForThemAndTheirHitsCount(t *testing.T) {
+func TestCompanions_FightOnTheHub(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
 	a, _ := pilot(t, hub, "a")
-	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
-	n := grant(t, a)
-	a.Send(companionState(n, 1000, 0))
-	b.Send(state(0, -180))
+	grant(t, a)
 
-	// The owner stays home; only the companion is out. Everyone keeps
-	// reporting, so nobody goes silent.
-	var snap *pb.Snapshot
-	for range 3 * TickRate {
-		a.Send(companionState(n, 1000, 0))
-		b.Send(state(0, -180))
-		snap, _ = latest(t, a, tick, 1, 0, 180)
-		for next(t, b).GetSnapshot().GetTick() != snap.GetTick() {
-			continue
-		}
-	}
-	var target *pb.EnemyState
-	for _, e := range snap.GetEnemies() {
-		if math.Hypot(float64(e.GetX())-1000, float64(e.GetY())) < 500 {
-			target = e
-		}
-	}
-	if target == nil {
-		t.Fatalf("enemies = %v, want one near the companion at (1000, 0)", snap.GetEnemies())
-	}
-
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Hit{Hit: &pb.Hit{
-		EnemyId: target.GetEnemyId(), ShotId: 7, Damage: 12, Companion: n,
-	}}})
+	var shot *pb.RemoteShot
 	var ended *pb.ShotEnded
 	var destroyed *pb.EnemyDestroyed
-	for ended == nil || destroyed == nil {
-		msg := next(t, b)
-		if e := msg.GetShotEnded(); e != nil {
-			ended = e
+	outThere(t, a, tick, func(_ *pb.Snapshot, messages []*pb.ServerMessage) bool {
+		for _, msg := range messages {
+			if s := msg.GetShot(); s != nil && s.GetPlayerId() == "a/1" {
+				shot = s
+			}
+			if e := msg.GetShotEnded(); e != nil && e.GetPlayerId() == "a/1" {
+				ended = e
+			}
+			if d := msg.GetEnemyDestroyed(); d != nil && d.GetByPlayerId() == "a/1" {
+				destroyed = d
+			}
 		}
-		if d := msg.GetEnemyDestroyed(); d != nil {
-			destroyed = d
+
+		return destroyed != nil
+	})
+	if shot == nil || shot.GetShot().GetCompanion() != 1 ||
+		shot.GetShot().GetWeapon() != pb.Weapon_WEAPON_AUTO_CANNON {
+		t.Errorf(
+			"a/1's shots = %v, want auto cannon shots of companion 1 sent to its owner too",
+			shot,
+		)
+	}
+	if ended == nil {
+		t.Error("no shot of a/1 ended on an enemy")
+	}
+}
+
+func TestCompanions_ClientsCantShootForThem(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	n := grant(t, a)
+	// Stealth: the companion itself never fires.
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
+		Mode: pb.CompanionMode_COMPANION_MODE_STEALTH,
+	}}})
+
+	var target *pb.EnemyState
+	outThere(t, a, tick, func(snap *pb.Snapshot, _ []*pb.ServerMessage) bool {
+		if enemies := snap.GetEnemies(); len(enemies) > 0 {
+			target = enemies[0]
 		}
+
+		return target != nil
+	})
+	a.Send(
+		&pb.ClientMessage{Kind: &pb.ClientMessage_Shot{Shot: &pb.ShotFired{Id: 7, Companion: n}}},
+	)
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Hit{Hit: &pb.Hit{
+		EnemyId: target.GetEnemyId(), ShotId: 7, Damage: 12,
+		Companion: n, //nolint:staticcheck // an old client\'s report, which the hub must ignore.
+	}}})
+	snap, messages := latest(t, a, tick, 2, 0, 700)
+	if !slices.ContainsFunc(
+		snap.GetEnemies(),
+		func(e *pb.EnemyState) bool { return e.GetEnemyId() == target.GetEnemyId() },
+	) {
+		t.Error("an enemy fell to a hit a client reported for its companion")
 	}
-	if got, want := ended.GetPlayerId(), "a/1"; got != want {
-		t.Errorf("shot ended for %q, want %q", got, want)
-	}
-	if got, want := destroyed.GetByPlayerId(), "a/1"; got != want {
-		t.Errorf("destroyed by %q, want %q", got, want)
+	for _, msg := range messages {
+		if msg.GetShotEnded() != nil {
+			t.Errorf(
+				"shot ended = %v, want none from a client's companion report",
+				msg.GetShotEnded(),
+			)
+		}
 	}
 }
 

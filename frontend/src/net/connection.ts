@@ -69,12 +69,6 @@ export interface ConnectionEvents {
   squadronOrdered(ordered: SquadronOrdered): void;
 }
 
-/** A companion as its states are sent: its number and its ship. */
-export interface CompanionShip {
-  number: number;
-  ship: Ship;
-}
-
 export interface Timers {
   setTimeout(fn: () => void, ms: number): unknown;
   clearTimeout(handle: unknown): void;
@@ -137,20 +131,13 @@ export class Connection {
     this.welcomed = false;
   }
 
-  /** Sends the ship's state, and its companions', at most at the server's tick rate. */
-  sendState(ship: Ship, nowMs: number, companions: readonly CompanionShip[] = []): void {
+  /** Sends the ship's state at most at the server's tick rate; the hub flies the companions. */
+  sendState(ship: Ship, nowMs: number): void {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
     this.lastStateAt = nowMs;
     this.send(create(ClientMessageSchema, { kind: { case: 'state', value: toShipState(ship) } }));
-    for (const c of companions) {
-      this.send(
-        create(ClientMessageSchema, {
-          kind: { case: 'companion', value: { companion: c.number, state: toShipState(c.ship) } },
-        }),
-      );
-    }
   }
 
   /** Joins the named squadron, or starts a new one when name is empty. */
@@ -197,21 +184,17 @@ export class Connection {
             x: shot.x,
             y: shot.y,
             angle: shot.angle,
-            companion: shot.companion,
           },
         },
       }),
     );
   }
 
-  /** Reports that one of our shots, or a companion's, hit an enemy; the server trusts it. */
-  sendHit(enemyId: number, shotId: number, damage: number, companion = 0): void {
-    if (!this.welcomed) {
-      return;
+  /** Reports that one of our shots hit an enemy; the server trusts it. */
+  sendHit(enemyId: number, shotId: number, damage: number): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage } } }));
     }
-    this.send(
-      create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage, companion } } }),
-    );
   }
 
   private open(): void {

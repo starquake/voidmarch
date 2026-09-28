@@ -5,12 +5,7 @@ import (
 	"strconv"
 )
 
-const (
-	projectileCapacity = 256
-	// companionSeed seeds each companion's brain from its number, so a replay
-	// flies the same.
-	companionSeed = 0x5eed
-)
+const projectileCapacity = 256
 
 // FiredShot is a shot the local ship or one of its companions fired, with
 // its id in the projectile pool.
@@ -40,39 +35,17 @@ type FrameEvents struct {
 	Expired []Expired
 }
 
-// PendingOrders are orders on their way: they take effect after the ticks
-// left.
-type PendingOrders struct {
-	Orders    Orders
-	TicksLeft int
-}
-
-// Companion is a wingmate flown by a brain (docs/design.md, section 13).
-type Companion struct {
-	// Number is its number from the server; its seat is "<playerId>/<number>".
-	Number int
-	Ship   *Ship
-	// Previous is its position before the last tick, for smooth drawing.
-	Previous Vec
-	Orders   Orders
-	Pending  *PendingOrders
-	// ReactionTicks is how many ticks late it reacts, from its seed.
-	ReactionTicks int
-	Random        *Random
-}
-
 // Sandbox is one ship, its companions and their projectiles, stepped at a
 // fixed rate.
 type Sandbox struct {
+	Wing
+
 	Ship        *Ship
 	Projectiles *Pool
 	// Previous is the ship's position before the last tick, for smooth
 	// drawing between ticks.
 	Previous    Vec
 	ControlMode ControlMode
-	// Companions are in formation-slot order.
-	Companions  []*Companion
-	ownerTrail  []Mover
 	accumulator float64
 }
 
@@ -89,20 +62,13 @@ func NewSandbox() *Sandbox {
 	}
 }
 
-// ownerTrailTicks is how many of the owner's recent poses are kept: enough
-// for the slowest reaction.
-func ownerTrailTicks() int {
-	return int(math.Ceil(BrainReactionMax/TickSeconds)) + 1
-}
-
 // Alpha is how far the display is between the last two ticks, from 0 to 1.
 func (s *Sandbox) Alpha() float64 {
 	return s.accumulator / TickSeconds
 }
 
-// AddCompanion adds a companion the server granted, at (x, y), with the
-// default parts until unlocks exist. It joins the wing's standing orders: the
-// wing follows one set.
+// AddCompanion adds a companion the server granted, at (x, y). It joins the
+// wing's standing orders: the wing follows one set.
 func (s *Sandbox) AddCompanion(number int, x, y float64) *Companion {
 	s.RemoveCompanion(number)
 	orders := DefaultOrders()
@@ -110,49 +76,14 @@ func (s *Sandbox) AddCompanion(number int, x, y float64) *Companion {
 		orders = s.OrdersFor(s.Companions[0])
 		orders.OneShot = OneShot{}
 	}
-	seed := uint32(companionSeed + number) //nolint:gosec // companion numbers are small.
-	random := NewRandom(seed)
-	reaction := BrainReactionMin + random.Next()*(BrainReactionMax-BrainReactionMin)
-	c := &Companion{
-		Number:        number,
-		Ship:          NewShip(x, y, DefaultLoadout()),
-		Previous:      Vec{X: x, Y: y},
-		Orders:        orders,
-		ReactionTicks: int(round(reaction / TickSeconds)),
-		Random:        random,
-	}
-	s.Companions = append(s.Companions, c)
 
-	return c
-}
-
-// OrdersFor is the orders a companion will follow: an order on its way, else
-// its current ones.
-func (*Sandbox) OrdersFor(c *Companion) Orders {
-	if c.Pending != nil {
-		return c.Pending.Orders
-	}
-
-	return c.Orders
-}
-
-// Order gives a companion new orders. They arrive after its reaction time
-// plus a fresh jitter, so a wing doesn't react as one.
-func (*Sandbox) Order(c *Companion, orders Orders) {
-	delay := c.ReactionTicks + int(round(c.Random.Next()*BrainOrderJitter/TickSeconds))
-	c.Pending = &PendingOrders{Orders: orders, TicksLeft: delay}
+	return s.Add(number, x, y, orders)
 }
 
 // RemoveCompanion removes a companion, and its shots still in flight, which
 // could no longer be reported.
 func (s *Sandbox) RemoveCompanion(number int) {
-	for i, c := range s.Companions {
-		if c.Number == number {
-			s.Companions = append(s.Companions[:i], s.Companions[i+1:]...)
-
-			break
-		}
-	}
+	s.Remove(number)
 	s.Projectiles.EndCompanionShots(number)
 }
 
@@ -172,10 +103,7 @@ func (s *Sandbox) Advance(frameSeconds float64, input Input, enemies []BrainEnem
 }
 
 func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEvents) {
-	s.ownerTrail = append(s.ownerTrail, s.Ship.Mover())
-	if len(s.ownerTrail) > ownerTrailTicks() {
-		s.ownerTrail = s.ownerTrail[1:]
-	}
+	s.Observe(s.Ship.Mover())
 	s.Previous = Vec{X: s.Ship.X, Y: s.Ship.Y}
 
 	cmd := screenCmd
@@ -201,8 +129,20 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 		)
 		events.Shots = append(events.Shots, FiredShot{ShotSpawn: shot, ID: p.ShotID})
 	}
-	for slot, c := range s.Companions {
-		s.tickCompanion(c, slot, enemies, events)
+	for _, shot := range s.Step(enemies) {
+		p := s.Projectiles.Spawn(
+			ProjectileSpawn{
+				Kind:  ProjectileKind(shot.Weapon),
+				X:     shot.X,
+				Y:     shot.Y,
+				Angle: shot.Angle,
+			},
+			SpawnOptions{Owner: strconv.Itoa(shot.Companion)},
+		)
+		events.Shots = append(
+			events.Shots,
+			FiredShot{ShotSpawn: shot.ShotSpawn, ID: p.ShotID, Companion: shot.Companion},
+		)
 	}
 	for _, p := range s.Projectiles.Step(TickSeconds, ProjectileInBounds) {
 		events.Expired = append(
@@ -211,46 +151,4 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 		)
 	}
 	events.Ticks++
-}
-
-func (s *Sandbox) tickCompanion(c *Companion, slot int, enemies []BrainEnemy, events *FrameEvents) {
-	c.Previous = Vec{X: c.Ship.X, Y: c.Ship.Y}
-	if c.Pending != nil {
-		c.Pending.TicksLeft--
-		if c.Pending.TicksLeft <= 0 {
-			c.Orders = c.Pending.Orders
-			c.Pending = nil
-		}
-	}
-	// It sees its owner as they were its reaction time ago.
-	seen := s.Ship.Mover()
-	if i := max(0, len(s.ownerTrail)-1-c.ReactionTicks); i < len(s.ownerTrail) {
-		seen = s.ownerTrail[i]
-	}
-	step := Think(
-		BrainView{Self: c.Ship, Owner: seen, Slot: slot, Enemies: enemies},
-		c.Orders,
-		c.Random,
-	)
-	if step.Done {
-		c.Orders.OneShot = OneShot{}
-	}
-	StepShip(c.Ship, step.Command, TickSeconds)
-	ApplyWorldEdge(c.Ship, TickSeconds)
-	owner := strconv.Itoa(c.Number)
-	for _, shot := range StepWeapon(c.Ship, step.Command.Fire, TickSeconds).Shots {
-		p := s.Projectiles.Spawn(
-			ProjectileSpawn{
-				Kind:  ProjectileKind(shot.Weapon),
-				X:     shot.X,
-				Y:     shot.Y,
-				Angle: shot.Angle,
-			},
-			SpawnOptions{Owner: owner},
-		)
-		events.Shots = append(
-			events.Shots,
-			FiredShot{ShotSpawn: shot, ID: p.ShotID, Companion: c.Number},
-		)
-	}
 }
