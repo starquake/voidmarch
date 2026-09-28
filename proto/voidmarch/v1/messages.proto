@@ -76,7 +76,8 @@ message ShotFired {
   float x = 4;
   float y = 5;
   float angle = 6;
-  // 0 for the player's own ship, n for their companion n.
+  // 0 for the player's own ship, n for their companion n. Only the hub sets
+  // it: it fires the companions' shots (#51) and ignores a client's.
   uint32 companion = 7;
 }
 
@@ -86,16 +87,19 @@ message Hit {
   uint32 enemy_id = 1;
   uint32 shot_id = 2;
   uint32 damage = 3;
-  // 0 for the player's own ship, n for their companion n.
-  uint32 companion = 4;
+  // Deprecated: the hub tests its companions' shots itself (#51); a hit with
+  // a companion set is ignored.
+  uint32 companion = 4 [deprecated = true];
 }
 
 // Summon asks for a companion seat (docs/design.md, section 13).
 message Summon {}
 
-// CompanionState is one of the player's companions, simulated by their client
-// like their own ship.
+// CompanionState was one of the player's companions, simulated by their
+// client. Deprecated: the hub flies companions (#51) and ignores these.
 message CompanionState {
+  option deprecated = true;
+
   uint32 companion = 1;
   ShipState state = 2;
 }
@@ -148,7 +152,7 @@ message ClientMessage {
     ShotFired shot = 3;
     Hit hit = 4;
     Summon summon = 5;
-    CompanionState companion = 6;
+    CompanionState companion = 6 [deprecated = true];
     Dismiss dismiss = 7;
     ChooseSquadron choose_squadron = 8;
     SquadronOrder squadron_order = 9;
@@ -315,7 +319,7 @@ message CompanionRefused {
 }
 
 // CompanionDismissed says the server took a companion's seat back: for a
-// human joining a full world, or because its states stopped or never came.
+// human joining a full world, or taken over by a player joining its squadron.
 message CompanionDismissed {
   uint32 companion = 1;
   // Set when a player joining the squadron took the companion over.

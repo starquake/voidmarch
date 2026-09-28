@@ -156,7 +156,8 @@ export declare type ShotFired = Message<"voidmarch.v1.ShotFired"> & {
   angle: number;
 
   /**
-   * 0 for the player's own ship, n for their companion n.
+   * 0 for the player's own ship, n for their companion n. Only the hub sets
+   * it: it fires the companions' shots (#51) and ignores a client's.
    *
    * @generated from field: uint32 companion = 7;
    */
@@ -192,9 +193,11 @@ export declare type Hit = Message<"voidmarch.v1.Hit"> & {
   damage: number;
 
   /**
-   * 0 for the player's own ship, n for their companion n.
+   * Deprecated: the hub tests its companions' shots itself (#51); a hit with
+   * a companion set is ignored.
    *
-   * @generated from field: uint32 companion = 4;
+   * @generated from field: uint32 companion = 4 [deprecated = true];
+   * @deprecated
    */
   companion: number;
 };
@@ -220,10 +223,11 @@ export declare type Summon = Message<"voidmarch.v1.Summon"> & {
 export declare const SummonSchema: GenMessage<Summon>;
 
 /**
- * CompanionState is one of the player's companions, simulated by their client
- * like their own ship.
+ * CompanionState was one of the player's companions, simulated by their
+ * client. Deprecated: the hub flies companions (#51) and ignores these.
  *
  * @generated from message voidmarch.v1.CompanionState
+ * @deprecated
  */
 export declare type CompanionState = Message<"voidmarch.v1.CompanionState"> & {
   /**
@@ -240,6 +244,7 @@ export declare type CompanionState = Message<"voidmarch.v1.CompanionState"> & {
 /**
  * Describes the message voidmarch.v1.CompanionState.
  * Use `create(CompanionStateSchema)` to create a new message.
+ * @deprecated
  */
 export declare const CompanionStateSchema: GenMessage<CompanionState>;
 
@@ -361,7 +366,8 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
     case: "summon";
   } | {
     /**
-     * @generated from field: voidmarch.v1.CompanionState companion = 6;
+     * @generated from field: voidmarch.v1.CompanionState companion = 6 [deprecated = true];
+     * @deprecated
      */
     value: CompanionState;
     case: "companion";
@@ -986,7 +992,7 @@ export declare const CompanionRefusedSchema: GenMessage<CompanionRefused>;
 
 /**
  * CompanionDismissed says the server took a companion's seat back: for a
- * human joining a full world, or because its states stopped or never came.
+ * human joining a full world, or taken over by a player joining its squadron.
  *
  * @generated from message voidmarch.v1.CompanionDismissed
  */

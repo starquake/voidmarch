@@ -2,14 +2,12 @@ import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { wireFormatFrom } from '../net/codec.ts';
+import { fromCompanionMode } from '../net/mapping.ts';
 import {
   ORDER_ITEMS,
   RING_ASPECT,
-  applyOrder,
   chooseFocus,
-  describeOrders,
   itemPosition,
-  modeOf,
   pickItem,
   type OrderItem,
 } from '../ordermenu.ts';
@@ -209,12 +207,13 @@ export class SandboxScene extends Phaser.Scene {
       squadron: '',
       squadronScreen: false,
       hangar: undefined,
+      squadronMode: undefined,
     };
     this.publish();
   }
 
   override update(time: number, deltaMs: number): void {
-    const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.brainEnemies ?? []);
+    const events = this.sim.advance(deltaMs / 1000, this.readInput());
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== undefined) {
@@ -482,8 +481,8 @@ export class SandboxScene extends Phaser.Scene {
   private openOrderRing(press: OrderPress): Phaser.GameObjects.Text[] {
     const dpr = this.dpr();
     const style = { fontFamily: 'monospace', fontSize: `${String(HUD_FONT_PX * dpr)}px` };
-    const first = this.sim.companions[0];
-    const mode = first === undefined ? undefined : modeOf(this.sim.ordersFor(first));
+    const info = this.net?.squadronInfo;
+    const mode = info === undefined ? undefined : fromCompanionMode(info.mode) ?? 'escort';
     press.backdrop = this.add.graphics();
     this.cameras.main.ignore(press.backdrop);
     const labels = ORDER_ITEMS.map((item, i) => {
@@ -511,12 +510,12 @@ export class SandboxScene extends Phaser.Scene {
 
       return label;
     });
-    const count = this.sim.companions.length;
+    const count = this.net?.companionCount ?? 0;
     const centre = this.add
       .text(
         press.screenX,
         press.screenY,
-        first === undefined ? 'no companions' : `wing (${String(count)})\n${describeOrders(this.sim.ordersFor(first))}`,
+        count === 0 || info === undefined ? 'no companions' : `wing (${String(count)})\n${modeName(info)}`,
         { ...style, color: '#ffffff', align: 'center' },
       )
       .setOrigin(0.5)
@@ -595,41 +594,30 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /**
-   * Gives an order to the squadron: the player's own companions follow it,
-   * and so do their squadmates', who see it as a callout.
+   * Gives an order to the squadron: the hub gives it to every companion in
+   * it, and squadmates see it as a callout.
    */
   private giveOrder(item: OrderItem, press: Pick<OrderPress, 'worldX' | 'worldY'>): void {
-    const { companions } = this.sim;
+    const net = this.net;
+    if (net === undefined) {
+      return;
+    }
     // Squadmates hear the order even when nobody has companions yet; alone, it needs some.
-    const squadmates = (this.net?.squadronInfo?.members.length ?? 1) - 1;
-    if (companions.length === 0 && squadmates === 0) {
-      this.net?.say('no companions: press G at the home planet');
+    const squadmates = (net.squadronInfo?.members.length ?? 1) - 1;
+    if (net.companionCount === 0 && squadmates === 0) {
+      net.say('no companions: press G at the home planet');
 
       return;
     }
-    const focusEnemyId = chooseFocus(
-      this.net?.brainEnemies ?? [],
-      press.worldX,
-      press.worldY,
-      this.net?.lastHit,
-      performance.now(),
-    );
-    const context = { pointX: press.worldX, pointY: press.worldY, focusEnemyId };
-    const next = companions.map((c) => applyOrder(item, this.sim.ordersFor(c), context));
+    const focusEnemyId = chooseFocus(net.enemyList, press.worldX, press.worldY, net.lastHit, performance.now());
     if (item.kind === 'oneShot' && item.oneShot === 'focus' && focusEnemyId === undefined) {
-      this.net?.say('no enemy to focus: hit one, or point at it');
+      net.say('no enemy to focus: hit one, or point at it');
 
       return;
     }
-    companions.forEach((c, i) => {
-      const orders = next[i];
-      if (orders !== undefined) {
-        this.sim.order(c, orders);
-      }
-    });
     this.lastOrder = item;
-    this.net?.orderSquadron(item, context);
-    this.net?.say(item.label);
+    net.orderSquadron(item, { pointX: press.worldX, pointY: press.worldY, focusEnemyId });
+    net.say(item.label);
     this.updateHud();
   }
 
@@ -692,7 +680,7 @@ export class SandboxScene extends Phaser.Scene {
   private animateWeapon(events: FrameEvents): void {
     const now = this.time.now / 1000;
     const stats = WEAPON_STATS[this.sim.ship.loadout.weapon];
-    const own = events.shots.filter((shot) => shot.companion === 0);
+    const own = events.shots;
     if (events.charges.length > 0) {
       this.weaponFrames.charge(now, stats.charge);
     }
@@ -728,14 +716,13 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private playEffects(events: FrameEvents): void {
-    this.shotsFired += events.shots.filter((shot) => shot.companion === 0).length;
+    this.shotsFired += events.shots.length;
     if (!this.effects) {
       return;
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      // Only the player's own big gun shakes the camera.
-      const shake = shot.companion === 0 ? WEAPON_STATS[shot.weapon].shake : 0;
+      const shake = WEAPON_STATS[shot.weapon].shake;
       if (shake > 0) {
         this.cameras.main.shake(120, shake);
       }
@@ -790,17 +777,13 @@ export class SandboxScene extends Phaser.Scene {
       return '';
     }
     const info = net.squadronInfo;
-    // A one-shot under way, as the HUD describes it after the mode ("regrouping").
-    const first = this.sim.companions[0];
-    const doing = first === undefined ? undefined : describeOrders(this.sim.ordersFor(first)).split(' · ')[1];
     const lines: string[] = [];
     if (info === undefined) {
       lines.push(net.squadron === '' ? 'no squadron yet' : net.squadron);
     } else {
       const companions = info.members.reduce((n, m) => n + m.companions, 0);
       const ai = companions === 0 ? '' : ` · ${String(companions)} companion${companions === 1 ? '' : 's'}`;
-      const now = doing === undefined ? '' : ` · ${doing}`;
-      lines.push(`${info.name}: ${info.members.map((m) => m.name).join(', ')}${ai} · ${modeName(info)}${now}`);
+      lines.push(`${info.name}: ${info.members.map((m) => m.name).join(', ')}${ai} · ${modeName(info)}`);
     }
     const { ship } = this.sim;
     const hangar = hangarLine(net.hangar, Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS);
@@ -864,15 +847,10 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
-    this.debug.companions = this.sim.companions.map((c) => ({
-      number: c.number,
-      x: c.ship.x,
-      y: c.ship.y,
-      stance: c.orders.stance,
-      fire: c.orders.fire,
-      resources: c.orders.resources,
-      oneShot: c.orders.oneShot?.kind,
-    }));
+    this.debug.companions = (this.net?.others ?? [])
+      .filter((o) => o.ownerId !== '' && o.ownerId === this.net?.playerId)
+      .map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));
+    this.debug.squadronMode = this.net?.squadronInfo === undefined ? undefined : modeName(this.net.squadronInfo);
     this.debug.companionKills = this.net?.companionKills ?? 0;
     this.debug.notice = this.net?.noticeText;
     this.debug.orderMenuOpen = this.orderPress?.labels !== undefined;

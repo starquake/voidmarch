@@ -574,7 +574,8 @@ type ShotFired struct {
 	X      float32 `protobuf:"fixed32,4,opt,name=x,proto3" json:"x,omitempty"`
 	Y      float32 `protobuf:"fixed32,5,opt,name=y,proto3" json:"y,omitempty"`
 	Angle  float32 `protobuf:"fixed32,6,opt,name=angle,proto3" json:"angle,omitempty"`
-	// 0 for the player's own ship, n for their companion n.
+	// 0 for the player's own ship, n for their companion n. Only the hub sets
+	// it: it fires the companions' shots (#51) and ignores a client's.
 	Companion     uint32 `protobuf:"varint,7,opt,name=companion,proto3" json:"companion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -666,7 +667,10 @@ type Hit struct {
 	EnemyId uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
 	ShotId  uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
 	Damage  uint32                 `protobuf:"varint,3,opt,name=damage,proto3" json:"damage,omitempty"`
-	// 0 for the player's own ship, n for their companion n.
+	// Deprecated: the hub tests its companions' shots itself (#51); a hit with
+	// a companion set is ignored.
+	//
+	// Deprecated: Marked as deprecated in voidmarch/v1/messages.proto.
 	Companion     uint32 `protobuf:"varint,4,opt,name=companion,proto3" json:"companion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -723,6 +727,7 @@ func (x *Hit) GetDamage() uint32 {
 	return 0
 }
 
+// Deprecated: Marked as deprecated in voidmarch/v1/messages.proto.
 func (x *Hit) GetCompanion() uint32 {
 	if x != nil {
 		return x.Companion
@@ -767,8 +772,10 @@ func (*Summon) Descriptor() ([]byte, []int) {
 	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{5}
 }
 
-// CompanionState is one of the player's companions, simulated by their client
-// like their own ship.
+// CompanionState was one of the player's companions, simulated by their
+// client. Deprecated: the hub flies companions (#51) and ignores these.
+//
+// Deprecated: Marked as deprecated in voidmarch/v1/messages.proto.
 type CompanionState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
@@ -1092,6 +1099,7 @@ func (x *ClientMessage) GetSummon() *Summon {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in voidmarch/v1/messages.proto.
 func (x *ClientMessage) GetCompanion() *CompanionState {
 	if x != nil {
 		if x, ok := x.Kind.(*ClientMessage_Companion); ok {
@@ -1153,6 +1161,7 @@ type ClientMessage_Summon struct {
 }
 
 type ClientMessage_Companion struct {
+	// Deprecated: Marked as deprecated in voidmarch/v1/messages.proto.
 	Companion *CompanionState `protobuf:"bytes,6,opt,name=companion,proto3,oneof"`
 }
 
@@ -2380,7 +2389,7 @@ func (x *CompanionRefused) GetReason() string {
 }
 
 // CompanionDismissed says the server took a companion's seat back: for a
-// human joining a full world, or because its states stopped or never came.
+// human joining a full world, or taken over by a player joining its squadron.
 type CompanionDismissed struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	Companion uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
@@ -2789,16 +2798,16 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01x\x18\x04 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x05 \x01(\x02R\x01y\x12\x14\n" +
 	"\x05angle\x18\x06 \x01(\x02R\x05angle\x12\x1c\n" +
-	"\tcompanion\x18\a \x01(\rR\tcompanion\"o\n" +
+	"\tcompanion\x18\a \x01(\rR\tcompanion\"s\n" +
 	"\x03Hit\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12\x17\n" +
 	"\ashot_id\x18\x02 \x01(\rR\x06shotId\x12\x16\n" +
-	"\x06damage\x18\x03 \x01(\rR\x06damage\x12\x1c\n" +
-	"\tcompanion\x18\x04 \x01(\rR\tcompanion\"\b\n" +
-	"\x06Summon\"]\n" +
+	"\x06damage\x18\x03 \x01(\rR\x06damage\x12 \n" +
+	"\tcompanion\x18\x04 \x01(\rB\x02\x18\x01R\tcompanion\"\b\n" +
+	"\x06Summon\"a\n" +
 	"\x0eCompanionState\x12\x1c\n" +
 	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12-\n" +
-	"\x05state\x18\x02 \x01(\v2\x17.voidmarch.v1.ShipStateR\x05state\"$\n" +
+	"\x05state\x18\x02 \x01(\v2\x17.voidmarch.v1.ShipStateR\x05state:\x02\x18\x01\"$\n" +
 	"\x0eChooseSquadron\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\xbd\x01\n" +
 	"\rSquadronOrder\x12/\n" +
@@ -2808,14 +2817,14 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01y\x18\x04 \x01(\x02R\x01y\x12$\n" +
 	"\x0efocus_enemy_id\x18\x05 \x01(\rR\ffocusEnemyId\"'\n" +
 	"\aDismiss\x12\x1c\n" +
-	"\tcompanion\x18\x01 \x01(\rR\tcompanion\"\xfb\x03\n" +
+	"\tcompanion\x18\x01 \x01(\rR\tcompanion\"\xff\x03\n" +
 	"\rClientMessage\x12+\n" +
 	"\x05hello\x18\x01 \x01(\v2\x13.voidmarch.v1.HelloH\x00R\x05hello\x12/\n" +
 	"\x05state\x18\x02 \x01(\v2\x17.voidmarch.v1.ShipStateH\x00R\x05state\x12-\n" +
 	"\x04shot\x18\x03 \x01(\v2\x17.voidmarch.v1.ShotFiredH\x00R\x04shot\x12%\n" +
 	"\x03hit\x18\x04 \x01(\v2\x11.voidmarch.v1.HitH\x00R\x03hit\x12.\n" +
-	"\x06summon\x18\x05 \x01(\v2\x14.voidmarch.v1.SummonH\x00R\x06summon\x12<\n" +
-	"\tcompanion\x18\x06 \x01(\v2\x1c.voidmarch.v1.CompanionStateH\x00R\tcompanion\x121\n" +
+	"\x06summon\x18\x05 \x01(\v2\x14.voidmarch.v1.SummonH\x00R\x06summon\x12@\n" +
+	"\tcompanion\x18\x06 \x01(\v2\x1c.voidmarch.v1.CompanionStateB\x02\x18\x01H\x00R\tcompanion\x121\n" +
 	"\adismiss\x18\a \x01(\v2\x15.voidmarch.v1.DismissH\x00R\adismiss\x12G\n" +
 	"\x0fchoose_squadron\x18\b \x01(\v2\x1c.voidmarch.v1.ChooseSquadronH\x00R\x0echooseSquadron\x12D\n" +
 	"\x0esquadron_order\x18\t \x01(\v2\x1b.voidmarch.v1.SquadronOrderH\x00R\rsquadronOrderB\x06\n" +

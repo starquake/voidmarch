@@ -1,4 +1,3 @@
-import { DEFAULT_ORDERS, type OneShot, type Orders } from './sim/brain.ts';
 import { TAU, type Vec } from './sim/math.ts';
 
 /**
@@ -8,10 +7,13 @@ import { TAU, type Vec } from './sim/math.ts';
 export const MODES = ['escort', 'attack', 'guard', 'hold', 'stealth'] as const;
 export type Mode = (typeof MODES)[number];
 
+/** The one-shots on the ring: each runs until done, then the mode resumes. */
+export type OneShotOrder = 'focus' | 'regroup' | 'goHome';
+
 /** One entry of the Q ring: a mode, or a one-shot that ends and returns to the mode. */
 export type OrderItem =
   | { kind: 'mode'; mode: Mode; label: string }
-  | { kind: 'oneShot'; oneShot: Exclude<OneShot['kind'], 'shieldMe'>; label: string };
+  | { kind: 'oneShot'; oneShot: OneShotOrder; label: string };
 
 /** The ring, clockwise from the top. */
 export const ORDER_ITEMS: readonly OrderItem[] = [
@@ -24,34 +26,6 @@ export const ORDER_ITEMS: readonly OrderItem[] = [
   { kind: 'oneShot', oneShot: 'regroup', label: 'Regroup' },
   { kind: 'oneShot', oneShot: 'goHome', label: 'Go home' },
 ];
-
-/** The standing orders each mode stands for, as the brain reads them. */
-const MODE_ORDERS: Readonly<Record<Mode, Omit<Orders, 'holdX' | 'holdY' | 'oneShot'>>> = {
-  // Formation on the owner, shooting anything near.
-  escort: { stance: 'escort', fire: 'free', resources: 'spend', supportFirst: false },
-  // Hunt around the owner, big shots at will, Support Ships first.
-  attack: { stance: 'aggressive', fire: 'free', resources: 'spend', supportFirst: true },
-  // Tight, between the owner and the fire, answering attackers only, falling back when hurt.
-  guard: { stance: 'defensive', fire: 'return', resources: 'conserve', supportFirst: false },
-  // Stay at a point and shoot what comes in range.
-  hold: { stance: 'hold', fire: 'free', resources: 'spend', supportFirst: false },
-  // Follow and never fire: sneak past, don't wake a boss.
-  stealth: { stance: 'escort', fire: 'hold', resources: 'conserve', supportFirst: false },
-};
-
-/** The mode a set of orders came from; every order the ring gives is a mode's. */
-export function modeOf(orders: Orders): Mode {
-  switch (orders.stance) {
-    case 'aggressive':
-      return 'attack';
-    case 'defensive':
-      return 'guard';
-    case 'hold':
-      return 'hold';
-    case 'escort':
-      return orders.fire === 'hold' ? 'stealth' : 'escort';
-  }
-}
 
 /** The ring's width over its height: 1 is a circle, which 8 items fit without crowding. */
 export const RING_ASPECT = 1;
@@ -82,51 +56,6 @@ export interface OrderContext {
   pointX: number;
   pointY: number;
   focusEnemyId: number | undefined;
-}
-
-/**
- * The orders after giving item, or undefined when it can't be given (focus
- * with no enemy to focus). A mode replaces every standing order and ends a
- * one-shot in progress; a one-shot keeps the mode.
- */
-export function applyOrder(item: OrderItem, orders: Orders, context: OrderContext): Orders | undefined {
-  if (item.kind === 'mode') {
-    return {
-      ...DEFAULT_ORDERS,
-      ...MODE_ORDERS[item.mode],
-      holdX: item.mode === 'hold' ? context.pointX : orders.holdX,
-      holdY: item.mode === 'hold' ? context.pointY : orders.holdY,
-      oneShot: undefined,
-    };
-  }
-  if (item.oneShot === 'focus') {
-    return context.focusEnemyId === undefined
-      ? undefined
-      : { ...orders, oneShot: { kind: 'focus', enemyId: context.focusEnemyId } };
-  }
-
-  return { ...orders, oneShot: { kind: item.oneShot } };
-}
-
-const MODE_LABELS: Readonly<Record<Mode, string>> = {
-  escort: 'Escort',
-  attack: 'Attack',
-  guard: 'Guard',
-  hold: 'Holding',
-  stealth: 'Stealth',
-};
-const ONE_SHOT_LABELS: Readonly<Record<OneShot['kind'], string>> = {
-  focus: 'focusing',
-  regroup: 'regrouping',
-  goHome: 'going home',
-  shieldMe: 'shielding you',
-};
-
-/** Orders in a word or two for the HUD: the mode, and a one-shot under way. */
-export function describeOrders(orders: Orders): string {
-  const mode = MODE_LABELS[modeOf(orders)];
-
-  return orders.oneShot === undefined ? mode : `${mode} · ${ONE_SHOT_LABELS[orders.oneShot.kind]}`;
 }
 
 /** An enemy under the cursor, in art pixels: pointing right at it picks it. */

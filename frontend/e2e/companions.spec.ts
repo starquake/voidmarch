@@ -79,16 +79,14 @@ test('summoned companions fly with their owner, and others see them as theirs', 
   }
 });
 
-test('the Attack mode reaches every companion, and they shoot down an enemy', async ({ page }) => {
+test('the Attack mode reaches the squadron, and its companions shoot down an enemy', async ({ page }) => {
   test.setTimeout(90_000);
   await summon(page, 2);
 
-  // Right of the ship, where no companion is, so the order goes to all of them.
   const view = page.viewportSize() ?? { width: 640, height: 360 };
   await giveOrder(page, view.width / 2 + 180, view.height / 2, 'Attack');
-  await expect
-    .poll(async () => (await state(page)).companions.map((c) => c.stance))
-    .toEqual(['aggressive', 'aggressive']);
+  // The hub flies the companions under the squadron's mode.
+  await expect.poll(async () => (await state(page)).squadronMode).toBe('Attack');
 
   // Fly out of the safe zone; the companions come along and hunt.
   await page.mouse.move(view.width / 2, view.height - 10);

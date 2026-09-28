@@ -11,7 +11,7 @@ import {
   type ShipState,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Mode } from '../ordermenu.ts';
-import type { OneShot } from '../sim/brain.ts';
+import type { OneShotOrder } from '../ordermenu.ts';
 import type { EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
 import type { Ship } from '../sim/ship.ts';
@@ -121,10 +121,10 @@ const ONE_SHOTS: Readonly<Record<'focus' | 'regroup' | 'goHome', CompanionOneSho
 };
 
 /** The wire one-shot for a squadron order. */
-export const toCompanionOneShot = (oneShot: Exclude<OneShot['kind'], 'shieldMe'>): CompanionOneShot => ONE_SHOTS[oneShot];
+export const toCompanionOneShot = (oneShot: OneShotOrder): CompanionOneShot => ONE_SHOTS[oneShot];
 
 /** The one-shot on the wire, or undefined for none (a mode order). */
 export const fromCompanionOneShot = (
   oneShot: CompanionOneShot,
-): Exclude<OneShot['kind'], 'shieldMe'> | undefined =>
+): OneShotOrder | undefined =>
   (Object.keys(ONE_SHOTS) as (keyof typeof ONE_SHOTS)[]).find((k) => ONE_SHOTS[k] === oneShot);

@@ -1,17 +1,12 @@
 import type { EnemyDebug, NetStatus, RemoteDebug } from './scenes/netplay.ts';
-import type { FireOrder, OneShot, ResourceOrder, Stance } from './sim/brain.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
 
-/** One of the player's companions, as the E2E tests see it. */
+/** One of the player's companions as drawn: the hub flies it. */
 export interface CompanionDebug {
   number: number;
   x: number;
   y: number;
-  stance: Stance;
-  fire: FireOrder;
-  resources: ResourceOrder;
-  oneShot: OneShot['kind'] | undefined;
 }
 
 /** Read-only state the E2E tests inspect through window.voidmarch. */
@@ -50,6 +45,8 @@ export interface DebugState {
   squadronScreen: boolean;
   /** Companion ships waiting in the shared hangar, once the server has listed them. */
   hangar: number | undefined;
+  /** The squadron's mode as the ring labels it ("Attack"), once in a squadron. */
+  squadronMode: string | undefined;
   audio: {
     muted: boolean;
     music: boolean;
