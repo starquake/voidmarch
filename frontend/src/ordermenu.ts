@@ -53,8 +53,8 @@ export function modeOf(orders: Orders): Mode {
   }
 }
 
-/** The ring is this much wider than tall, so the labels at its top and bottom don't collide. */
-export const RING_ASPECT = 1.7;
+/** The ring's width over its height: 1 is a circle, which 8 items fit without crowding. */
+export const RING_ASPECT = 1;
 
 /** Where item index sits on a ring of the given height radius (y down), the first at the top. */
 export function itemPosition(index: number, radius: number, count = ORDER_ITEMS.length): Vec {

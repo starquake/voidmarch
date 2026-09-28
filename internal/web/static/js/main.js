@@ -904,7 +904,7 @@ function modeOf(orders) {
       return orders.fire === "hold" ? "stealth" : "escort";
   }
 }
-var RING_ASPECT = 1.7;
+var RING_ASPECT = 1;
 function itemPosition(index, radius, count = ORDER_ITEMS.length) {
   const angle = -Math.PI / 2 + index * TAU / count;
   return { x: Math.cos(angle) * radius * RING_ASPECT, y: Math.sin(angle) * radius };
@@ -2585,10 +2585,32 @@ var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
 var ORDER_HOLD_MS = 200;
-var ORDER_RING_PX = 110;
+var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
-var ORDER_TEXT = "#d8f8ff";
-var ORDER_PICKED_TEXT = "#ffe08a";
+var ORDER_COLOURS = { mode: 9427199, oneShot: 16769162 };
+var ORDER_PICKED_TEXT = "#ffffff";
+var ORDER_BACKDROP = 328458;
+var ORDER_BACKDROP_ALPHA = 0.72;
+var ORDER_BACKDROP_PAD = 40;
+var ORDER_ICON_RISE = 10;
+var ORDER_LABEL_DROP = 12;
+var ORDER_ICONS = {
+  Escort: { key: keys.hull("fullHealth"), scale: 1 },
+  Attack: { key: keys.weapon("rockets"), scale: 1.1 },
+  Guard: { key: keys.shield("front"), scale: 0.9 },
+  "Hold here": { key: keys.engine("base"), scale: 1.2 },
+  Stealth: { key: keys.weapon("autoCannon"), dim: true, scale: 1.1 },
+  Focus: { key: keys.projectile("bigSpaceGun"), frame: 3, scale: 1.3 },
+  Regroup: { key: keys.flamePowering("base"), frame: 2, scale: 1.4 },
+  "Go home": { key: keys.planet, scale: 0.35 }
+};
+var hex = (colour) => `#${colour.toString(16).padStart(6, "0")}`;
+function destroyRing(press) {
+  for (const object of [...press.labels ?? [], ...press.extras]) {
+    object.destroy();
+  }
+  press.backdrop?.destroy();
+}
 var SandboxScene = class extends Phaser5.Scene {
   sim = new Sandbox();
   world;
@@ -2894,7 +2916,9 @@ var SandboxScene = class extends Phaser5.Scene {
       screenY: pointer.y,
       worldX: world.x,
       worldY: world.y,
-      labels: void 0
+      labels: void 0,
+      backdrop: void 0,
+      extras: []
     };
   }
   /** While Q is held: open the ring once held long enough, and light the item pointed at. */
@@ -2903,19 +2927,79 @@ var SandboxScene = class extends Phaser5.Scene {
     if (press === void 0 || time - press.downAt < ORDER_HOLD_MS) {
       return;
     }
+    press.labels ??= this.openOrderRing(press);
+    const picked = this.pickedOrder(press);
+    this.drawRingBackdrop(press, picked);
+    press.labels.forEach((label, i) => {
+      const item = ORDER_ITEMS[i];
+      label.setColor(i === picked || item === void 0 ? ORDER_PICKED_TEXT : hex(ORDER_COLOURS[item.kind]));
+      label.setScale(i === picked ? 1.15 : 1);
+    });
+  }
+  /** Lays out the ring: a label and its pack icon per order, and the wing's mode in the centre. */
+  openOrderRing(press) {
     const dpr = this.dpr();
-    press.labels ??= ORDER_ITEMS.map((item, i) => {
+    const style = { fontFamily: "monospace", fontSize: `${String(HUD_FONT_PX * dpr)}px` };
+    const first = this.sim.companions[0];
+    const mode = first === void 0 ? void 0 : modeOf(this.sim.ordersFor(first));
+    press.backdrop = this.add.graphics();
+    this.cameras.main.ignore(press.backdrop);
+    const labels = ORDER_ITEMS.map((item, i) => {
       const at = itemPosition(i, ORDER_RING_PX * dpr);
-      const label = this.add.text(press.screenX + at.x, press.screenY + at.y, item.label, {
-        fontFamily: "monospace",
-        fontSize: `${String(HUD_FONT_PX * dpr)}px`,
-        color: ORDER_TEXT
-      }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+      const x = press.screenX + at.x;
+      const y = press.screenY + at.y + ORDER_LABEL_DROP * dpr;
+      const inForce = item.kind === "mode" && item.mode === mode;
+      const label = this.add.text(x, y, `${inForce ? "\u2022 " : ""}${item.label}`, { ...style, color: hex(ORDER_COLOURS[item.kind]) }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
       this.cameras.main.ignore(label);
+      const icon = ORDER_ICONS[item.label];
+      if (icon !== void 0) {
+        const image = this.add.image(x, press.screenY + at.y - ORDER_ICON_RISE * dpr, icon.key, icon.frame ?? 0).setScale(icon.scale * dpr);
+        if (icon.dim === true) {
+          image.setTint(10132122);
+        }
+        this.cameras.main.ignore(image);
+        press.extras.push(image);
+      }
       return label;
     });
-    const picked = this.pickedOrder(press);
-    press.labels.forEach((label, i) => label.setColor(i === picked ? ORDER_PICKED_TEXT : ORDER_TEXT));
+    const count = this.sim.companions.length;
+    const centre = this.add.text(
+      press.screenX,
+      press.screenY,
+      first === void 0 ? "no companions" : `wing (${String(count)})
+${describeOrders(this.sim.ordersFor(first))}`,
+      { ...style, color: "#ffffff", align: "center" }
+    ).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+    this.cameras.main.ignore(centre);
+    press.extras.push(centre);
+    return labels;
+  }
+  /** The ring's backdrop, with the wedge of the item pointed at lit in its colour. */
+  drawRingBackdrop(press, picked) {
+    const g = press.backdrop;
+    if (g === void 0) {
+      return;
+    }
+    const dpr = this.dpr();
+    const rx = (ORDER_RING_PX * RING_ASPECT + ORDER_BACKDROP_PAD) * dpr;
+    const ry = (ORDER_RING_PX + ORDER_BACKDROP_PAD) * dpr;
+    const { screenX: cx, screenY: cy } = press;
+    g.clear();
+    g.fillStyle(ORDER_BACKDROP, ORDER_BACKDROP_ALPHA).fillEllipse(cx, cy, rx * 2, ry * 2);
+    g.lineStyle(dpr, ORDER_COLOURS.mode, 0.35).strokeEllipse(cx, cy, rx * 2, ry * 2);
+    const item = picked === void 0 ? void 0 : ORDER_ITEMS[picked];
+    if (picked === void 0 || item === void 0) {
+      return;
+    }
+    const n = ORDER_ITEMS.length;
+    const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
+    const points = [new Phaser5.Math.Vector2(cx, cy)];
+    const steps = 8;
+    for (let k = 0; k <= steps; k++) {
+      const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
+      points.push(new Phaser5.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+    }
+    g.fillStyle(ORDER_COLOURS[item.kind], 0.22).fillPoints(points, true);
   }
   pickedOrder(press) {
     const pointer = this.input.activePointer;
@@ -2923,8 +3007,8 @@ var SandboxScene = class extends Phaser5.Scene {
   }
   /** Drops a Q press and its ring without giving an order. */
   closeOrderRing() {
-    for (const label of this.orderPress?.labels ?? []) {
-      label.destroy();
+    if (this.orderPress !== void 0) {
+      destroyRing(this.orderPress);
     }
     this.orderPress = void 0;
   }
@@ -2945,9 +3029,7 @@ var SandboxScene = class extends Phaser5.Scene {
       return;
     }
     const picked = this.pickedOrder(press);
-    for (const label of press.labels) {
-      label.destroy();
-    }
+    destroyRing(press);
     const item = picked === void 0 ? void 0 : ORDER_ITEMS[picked];
     if (item !== void 0) {
       this.giveOrder(item, press);
@@ -3128,7 +3210,8 @@ var SandboxScene = class extends Phaser5.Scene {
     const first = companions[0];
     const wing = first === void 0 ? "no companions" : `${String(out)} companion${out === 1 ? "" : "s"} \xB7 ${describeOrders(this.sim.ordersFor(first))}`;
     const notice = net.noticeText;
-    return notice === void 0 ? wing : `${wing} \xB7 ${notice}`;
+    return notice === void 0 ? wing : `${wing}
+\u2192 ${notice}`;
   }
   netStatus() {
     const net = this.net;
