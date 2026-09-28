@@ -15,7 +15,16 @@ import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
 import { Sandbox, type FrameEvents } from '../sim/sandbox.ts';
-import { ROTATION_SNAP_STEPS, VIEW_HEIGHT, VIEW_WIDTH, WEAPON_STATS } from '../sim/tuning.ts';
+import {
+  ENEMY_FIRE_GLOW_COLOUR,
+  ENEMY_FIRE_GLOW_DISTANCE,
+  ENEMY_FIRE_GLOW_QUALITY,
+  ENEMY_FIRE_GLOW_STRENGTH,
+  ROTATION_SNAP_STEPS,
+  VIEW_HEIGHT,
+  VIEW_WIDTH,
+  WEAPON_STATS,
+} from '../sim/tuning.ts';
 import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
@@ -51,6 +60,9 @@ export class SandboxScene extends Phaser.Scene {
   private ship!: ShipView;
   private net: NetPlay | undefined;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
+  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  private enemyFire!: Phaser.GameObjects.Layer;
+  private enemyFireGlow: Phaser.Filters.Glow | undefined;
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
@@ -111,6 +123,7 @@ export class SandboxScene extends Phaser.Scene {
       enemies: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: undefined,
+      enemyFireGlow: false,
       hitsTaken: 0,
     };
     this.publish();
@@ -182,6 +195,18 @@ export class SandboxScene extends Phaser.Scene {
 
       return sprite;
     });
+    this.enemyFire = this.add.layer();
+    this.world.add(this.enemyFire);
+    this.enemyFire.enableFilters();
+    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
+      ENEMY_FIRE_GLOW_COLOUR,
+      ENEMY_FIRE_GLOW_STRENGTH,
+      0,
+      1,
+      false,
+      ENEMY_FIRE_GLOW_QUALITY,
+      ENEMY_FIRE_GLOW_DISTANCE,
+    );
   }
 
   private createParticles(): void {
@@ -302,6 +327,9 @@ export class SandboxScene extends Phaser.Scene {
         if (this.vignette !== undefined) {
           this.vignette.active = this.effects;
         }
+        if (this.enemyFireGlow !== undefined) {
+          this.enemyFireGlow.active = this.effects;
+        }
         this.updateHud();
         break;
       default:
@@ -380,6 +408,12 @@ export class SandboxScene extends Phaser.Scene {
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
+      // Pooled sprites carry every faction in turn: move each to its layer.
+      const layer = p.faction === 'enemy' ? this.enemyFire : this.world;
+      if (sprite.displayList !== layer) {
+        sprite.displayList.remove(sprite);
+        layer.add(sprite);
+      }
     });
   }
 
@@ -467,6 +501,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
+    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;

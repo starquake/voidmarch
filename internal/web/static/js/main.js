@@ -244,6 +244,10 @@ var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
 var SHIP_RADIUS = 12;
 var SHOT_RADIUS = 3;
+var ENEMY_FIRE_GLOW_COLOUR = 4172031;
+var ENEMY_FIRE_GLOW_STRENGTH = 6;
+var ENEMY_FIRE_GLOW_QUALITY = 3;
+var ENEMY_FIRE_GLOW_DISTANCE = 4;
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -1959,6 +1963,9 @@ var SandboxScene = class extends Phaser5.Scene {
   ship;
   net;
   projectileSprites = [];
+  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  enemyFire;
+  enemyFireGlow;
   muzzleFlash;
   puff;
   bloom;
@@ -2016,6 +2023,7 @@ var SandboxScene = class extends Phaser5.Scene {
       enemies: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
+      enemyFireGlow: false,
       hitsTaken: 0
     };
     this.publish();
@@ -2080,6 +2088,18 @@ var SandboxScene = class extends Phaser5.Scene {
       this.world.add(sprite);
       return sprite;
     });
+    this.enemyFire = this.add.layer();
+    this.world.add(this.enemyFire);
+    this.enemyFire.enableFilters();
+    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
+      ENEMY_FIRE_GLOW_COLOUR,
+      ENEMY_FIRE_GLOW_STRENGTH,
+      0,
+      1,
+      false,
+      ENEMY_FIRE_GLOW_QUALITY,
+      ENEMY_FIRE_GLOW_DISTANCE
+    );
   }
   createParticles() {
     this.muzzleFlash = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -2189,6 +2209,9 @@ var SandboxScene = class extends Phaser5.Scene {
         if (this.vignette !== void 0) {
           this.vignette.active = this.effects;
         }
+        if (this.enemyFireGlow !== void 0) {
+          this.enemyFireGlow.active = this.effects;
+        }
         this.updateHud();
         break;
       default:
@@ -2258,6 +2281,11 @@ var SandboxScene = class extends Phaser5.Scene {
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
+      const layer = p.faction === "enemy" ? this.enemyFire : this.world;
+      if (sprite.displayList !== layer) {
+        sprite.displayList.remove(sprite);
+        layer.add(sprite);
+      }
     });
   }
   playEffects(events) {
@@ -2338,6 +2366,7 @@ var SandboxScene = class extends Phaser5.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
+    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;

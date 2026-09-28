@@ -12,6 +12,8 @@ export interface DebugState {
   rotationSnap: number;
   controlMode: ControlMode;
   effects: boolean;
+  /** Whether enemy bullets glow (#36); it follows the effects toggle. */
+  enemyFireGlow: boolean;
   projectiles: number;
   shotsFired: number;
   zoom: number;
