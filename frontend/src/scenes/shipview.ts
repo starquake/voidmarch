@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import { keys } from '../sprites.ts';
-import { DAMAGE_STATES, type Loadout } from '../sim/loadout.ts';
+import { damageState, type Loadout } from '../sim/loadout.ts';
 
 /** Sprites face up; Phaser's rotation 0 faces right. */
 export const SPRITE_FACING = Math.PI / 2;
@@ -9,7 +9,7 @@ export const SPRITE_FACING = Math.PI / 2;
 /** What ships and their names are added to. */
 export type ShipParent = Phaser.GameObjects.Layer | Phaser.GameObjects.Container;
 
-/** How long a hit flashes the hull white. */
+/** How long a hit flashes the hull or shield white. */
 const HIT_FLASH_MS = 70;
 
 /** Where a name sits below the ship's centre, in art pixels. */
@@ -21,6 +21,7 @@ const LABEL_OFFSET = 26;
  */
 export class ShipView {
   readonly root: Phaser.GameObjects.Container;
+  private readonly scene: Phaser.Scene;
   readonly weapon: Phaser.GameObjects.Sprite;
   private readonly engine: Phaser.GameObjects.Image;
   private readonly flame: Phaser.GameObjects.Sprite;
@@ -30,8 +31,12 @@ export class ShipView {
   private loadout: Loadout | undefined;
   private tint: number | undefined;
   private thrusting = false;
+  /** The state last drawn, so a drop flashes; undefined until the first. */
+  private damage: number | undefined;
+  private charges: number | undefined;
 
   constructor(scene: Phaser.Scene, layer: ShipParent, x: number, y: number) {
+    this.scene = scene;
     this.engine = scene.add.image(0, 0, keys.engine('base'));
     this.flame = scene.add.sprite(0, 0, keys.flameIdle('base'));
     this.hull = scene.add.image(0, 0, keys.hull('fullHealth'));
@@ -80,9 +85,31 @@ export class ShipView {
     this.loadout = { ...loadout };
   }
 
+  /** Draws the hull for the hits taken; a new hit flashes it. */
   setDamage(damage: number): void {
-    const state = DAMAGE_STATES[Math.min(Math.max(0, damage), DAMAGE_STATES.length - 1)] ?? 'fullHealth';
-    this.hull.setTexture(keys.hull(state));
+    if (damage === this.damage) {
+      return;
+    }
+    this.hull.setTexture(keys.hull(damageState(damage)));
+    if (this.damage !== undefined && damage > this.damage) {
+      this.flash(this.hull);
+    }
+    this.damage = damage;
+  }
+
+  /** Draws the shield while it holds a whole charge; a lost charge flashes it. */
+  setShield(charges: number): void {
+    const whole = Math.floor(charges);
+    if (whole === this.charges) {
+      return;
+    }
+    const lost = this.charges !== undefined && whole < this.charges;
+    this.charges = whole;
+    if (lost) {
+      this.flash(this.shield);
+    } else {
+      this.shield.setVisible(whole > 0);
+    }
   }
 
   setThrusting(thrusting: boolean): void {
@@ -97,15 +124,23 @@ export class ShipView {
     this.label?.setPosition(x, y + LABEL_OFFSET);
   }
 
-  /** A short white flash of the hull where an enemy bullet hit. */
-  flash(scene: Phaser.Scene): void {
-    this.hull.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
-    scene.time.delayedCall(HIT_FLASH_MS, () => {
-      this.hull.setTintMode(Phaser.TintModes.MULTIPLY);
+  /** Whether the shield is drawn, for the E2E tests. */
+  get shieldShown(): boolean {
+    return this.shield.visible;
+  }
+
+  /** A short white flash of a part; the shield then shows only while charged. */
+  private flash(part: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+    part.setVisible(true).setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => {
+      part.setTintMode(Phaser.TintModes.MULTIPLY);
       if (this.tint === undefined) {
-        this.hull.clearTint();
+        part.clearTint();
       } else {
-        this.hull.setTint(this.tint);
+        part.setTint(this.tint);
+      }
+      if (part === this.shield) {
+        part.setVisible((this.charges ?? 0) > 0);
       }
     });
   }

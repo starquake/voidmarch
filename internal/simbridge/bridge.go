@@ -6,6 +6,7 @@
 package simbridge
 
 import (
+	"math"
 	"slices"
 
 	"github.com/starquake/voidmarch/internal/sim"
@@ -37,6 +38,8 @@ const (
 	HeaderShots
 	HeaderCharges
 	HeaderExpired
+	HeaderShipShieldCharge
+	HeaderShipSinceHit
 	HeaderSize
 )
 
@@ -121,9 +124,24 @@ func New() *Bridge {
 }
 
 // Advance runs the frame with the input as a command, like
-// [sim.Sandbox.Advance], and writes the state.
-func (b *Bridge) Advance(frameSeconds float64, cmd sim.Command) {
+// [sim.Sandbox.Advance], and writes the state. squadmateDistance is how far
+// the nearest squadmate is, for the shield's formation bonus.
+func (b *Bridge) Advance(frameSeconds float64, cmd sim.Command, squadmateDistance float64) {
+	b.sandbox.SquadmateDistance = squadmateDistance
 	b.write(b.sandbox.AdvanceCommand(frameSeconds, cmd))
+}
+
+// TakeHit applies the projectile in slot hitting the ship, from the side it
+// came from, and reports whether the shield absorbed it.
+func (b *Bridge) TakeHit(slot int) bool {
+	items := b.sandbox.Projectiles.Items()
+	if slot < 0 || slot >= len(items) {
+		return false
+	}
+	absorbed := sim.TakeHit(b.sandbox.Ship, sim.HitFrom(&items[slot]))
+	b.write(sim.FrameEvents{})
+
+	return absorbed
 }
 
 // SetControlMode sets how WASD maps to movement.
@@ -152,6 +170,8 @@ func (b *Bridge) SetLoadout(weapon, engine, shield int) {
 	}
 	l.Engine = pick(sim.Engines(), engine, l.Engine)
 	l.Shield = pick(sim.Shields(), shield, l.Shield)
+	// A swap never adds charges: the new shield holds what's left, up to its strength.
+	s.Shield = math.Min(s.Shield, sim.ShieldStatsOf(l.Shield).Strength)
 	b.write(sim.FrameEvents{})
 }
 
@@ -286,6 +306,7 @@ func (b *Bridge) write(events sim.FrameEvents) {
 	st[HeaderShipEngine] = float64(slices.Index(sim.Engines(), s.Loadout.Engine))
 	st[HeaderShipShield] = float64(slices.Index(sim.Shields(), s.Loadout.Shield))
 	st[HeaderPreviousX], st[HeaderPreviousY] = b.sandbox.Previous.X, b.sandbox.Previous.Y
+	st[HeaderShipShieldCharge], st[HeaderShipSinceHit] = s.Shield, s.SinceHit
 
 	kinds, factions := ProjectileKinds(), Factions()
 	for i, p := range b.sandbox.Projectiles.Items() {

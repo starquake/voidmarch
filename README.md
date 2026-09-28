@@ -45,8 +45,7 @@ The movement, sound and music choices are remembered in the browser. Sound
 starts after the first click or key press.
 
 The sandbox has debug keys until loadouts arrive: **1**, **2** and **3** cycle
-the weapon, engine and shield; **H** cycles the hull damage state; **R**
-switches between free rotation and 16 directions; **F** turns effects on and
+the weapon, engine and shield; **R** switches between free rotation and 16 directions; **F** turns effects on and
 off.
 
 ## Playing together
@@ -87,8 +86,10 @@ squadmates see "you: Attack", and every companion in the squadron follows.
 The home planet is safe. Fly away from it and the Kla'ed come for you: Scouts,
 fast and erratic, go down in two hits; Fighters strafe around you and take
 six. Their weapons animate just before they fire at anyone within range, and
-they leave once nobody is near. Enemy bullets flash your hull but do no
-damage yet; health arrives in the next milestone. Enemies need the server, so
+they leave once nobody is near. Your shield takes hits from the side it
+covers while it has charges, and recharges after a few seconds without one,
+faster with a squadmate close by. Other hits cost the hull a step, which
+heals slowly out of combat. The HUD shows both. Enemies need the server, so
 offline the sandbox stays empty.
 
 Add `?wire=json` to the address to see the game's messages as readable JSON in

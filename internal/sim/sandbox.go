@@ -46,7 +46,10 @@ type Sandbox struct {
 	// drawing between ticks.
 	Previous    Vec
 	ControlMode ControlMode
-	accumulator float64
+	// SquadmateDistance is how far the nearest squadmate is, for the
+	// shield's formation bonus; NoSquadmate when there's none.
+	SquadmateDistance float64
+	accumulator       float64
 }
 
 // NewSandbox returns a ship just below the home planet, with no companions.
@@ -59,6 +62,8 @@ func NewSandbox() *Sandbox {
 		Projectiles: NewPool(projectileCapacity),
 		Previous:    Vec{X: ship.X, Y: ship.Y},
 		ControlMode: ControlShip,
+
+		SquadmateDistance: NoSquadmate,
 	}
 }
 
@@ -121,6 +126,7 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 	}
 	StepShip(s.Ship, cmd, TickSeconds)
 	ApplyWorldEdge(s.Ship, TickSeconds)
+	Recover(s.Ship, TickSeconds, s.SquadmateDistance)
 
 	weapon := StepWeapon(s.Ship, cmd.Fire, TickSeconds)
 	if weapon.ChargeStarted {

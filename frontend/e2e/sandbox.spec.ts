@@ -76,11 +76,10 @@ test('holding the left button fires projectiles', async ({ page }) => {
   await page.mouse.up();
 });
 
-test('debug keys cycle parts, hull, rotation and effects', async ({ page }) => {
+test('debug keys cycle parts, rotation and effects', async ({ page }) => {
   await page.keyboard.press('1');
   await page.keyboard.press('2');
   await page.keyboard.press('3');
-  await page.keyboard.press('h');
   await page.keyboard.press('r');
   await page.keyboard.press('f');
 
@@ -91,7 +90,6 @@ test('debug keys cycle parts, hull, rotation and effects', async ({ page }) => {
 
       return {
         loadout: s.loadout,
-        damage: s.damage,
         rotationSnap: s.rotationSnap,
         effects: s.effects,
         enemyFireGlow: s.enemyFireGlow,
@@ -99,7 +97,6 @@ test('debug keys cycle parts, hull, rotation and effects', async ({ page }) => {
     })
     .toEqual({
       loadout: { weapon: 'rockets', engine: 'bigPulse', shield: 'frontAndSide' },
-      damage: 'slightDamage',
       rotationSnap: 16,
       effects: false,
       enemyFireGlow: false,

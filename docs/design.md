@@ -69,6 +69,24 @@ Because the ship faces the mouse, a **front shield blocks projectiles coming fro
 - Shields absorb hits on top of that (tunable per shield type).
 - Health regenerates slowly out of combat (tunable).
 
+As built (#46), in `internal/sim/damage.go`, the same Go code on the server
+and in the browser's WebAssembly:
+
+- A hit from inside the shield's arc, centered on the aim, takes one charge:
+  the front shield holds 3 over 90°, front and side 2 over 180°, round 1 all
+  around. Other hits, and hits with no charge left, cost a hull step.
+- The shield recharges over its `Recharge` seconds once 3 s pass without a
+  hit, twice as fast with a squadmate (a player or companion of the same
+  squadron) within 200 px. After 8 s without a hit the hull heals one step
+  every 10 s.
+- The shield is drawn while it holds a charge and flashes when it takes one;
+  the hull sprite shows the hits taken and flashes on each. Everyone draws
+  everyone's, from `ShipState.shield` and `damage`.
+- Each browser counts the hits on its own ship. The hub fires every enemy
+  volley itself, from the seed it sends, and counts the hits on the
+  companions it flies. Bullets that touch another player's ship end there on
+  every screen, for the picture only.
+
 ## 5. Going down (death without setbacks)
 
 - At 0 health the ship is **downed**: it stays as the "very damaged" sprite, drifting slowly, unable to shoot.
@@ -167,7 +185,7 @@ As built in milestone 2 (#3):
 - **Protocol**: WebSocket at `/ws`, Protocol Buffers (`proto/voidmarch/v1/messages.proto`) in binary frames, or protobuf JSON in text frames per connection for debugging.
 - **Ships**: each client sends its ship's state 20 times a second; the server keeps the latest and sends everyone a snapshot of the others every tick. Clients draw other ships 100 ms in the past, blended between snapshots.
 - **Shots**: a shot is one message; the server stamps it with its tick and relays it; every client simulates the projectile from that spawn (position is a pure function of spawn and age), on the same delayed timeline as the ships.
-- **Enemies** (milestone 3, #4): the server runs them at the tick rate and sends their positions in each snapshot; clients draw them on the same 100 ms delayed timeline. A shot is one `EnemyFired` message (enemy, tick, seed, angle), announced 6 ticks ahead: clients animate the weapon from then, and at the tick expand the seed into bullets from the enemy's position in that tick's snapshot, with the same seeded pattern (`frontend/src/sim/patterns.ts`). Clients skip volleys from enemies more than 800 px away, which they could neither see nor be hit by. A client that sees its own shot touch an enemy sends a `Hit` (damage capped at 12); the server applies it, tells the others the shot ended (`ShotEnded`), and announces `EnemyDestroyed` when the HP runs out. Both carry the tick of the hit, so the others see them on the same delayed timeline as the shot and the enemy. Each client checks enemy bullets against its own ship.
+- **Enemies** (milestone 3, #4): the server runs them at the tick rate and sends their positions in each snapshot; clients draw them on the same 100 ms delayed timeline. A shot is one `EnemyFired` message (enemy, tick, seed, angle), announced 6 ticks ahead: clients animate the weapon from then, and at the tick expand the seed into bullets from the enemy's position in that tick's snapshot, with the same seeded pattern (`frontend/src/sim/patterns.ts`). Clients skip volleys from enemies more than 800 px away, which they could neither see nor be hit by. A client that sees its own shot touch an enemy sends a `Hit` (damage capped at 12); the server applies it, tells the others the shot ended (`ShotEnded`), and announces `EnemyDestroyed` when the HP runs out. Both carry the tick of the hit, so the others see them on the same delayed timeline as the shot and the enemy. Each client checks enemy bullets against its own ship; since #46 the hub also fires each volley, from the enemy's position at the volley's tick, and checks it against the companions.
 - **Players**: name and token in memory until persistence arrives with unlocks; a client whose token the server forgot is asked for a name again. At most 16 players; a player silent for 10 s is removed (a hidden tab keeps sending, #57); a client too slow to keep up is dropped rather than slowing the others.
 
 ### Persistent state (at minimum)
@@ -292,5 +310,5 @@ As built (#27), single-player companions:
 - **Seats:** G asks the server for a companion. The server grants the lowest free number up to 3, only at the home planet, to a player in a squadron with fewer than 4 ships, or refuses with a reason shown in the HUD. Development servers keep the same rules, so what's tested is what's played (@starquake, 2026-09-28; this reversed an earlier exception that lifted the limits there).
 - **On the wire** (#51): the hub flies each companion with its brain, following its owner's latest state, as the seat `<playerId>/<n>`. Everyone, its owner included, gets it in snapshots as a player with an `owner_id`, drawn on the delayed timeline like any other ship. The hub fires its shots as remote shots under the seat, tests them against its own enemies and credits a kill to the seat. Orders go to the hub, which gives them to every companion in the squadron after each one's reaction time. A dismissed companion leaves like a player, and a reconnect keeps them.
 - **The world counts them:** enemies target companions and spawn around them like players, and they count toward the 16 seats. A human joining a full world displaces the newest companion.
-- **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; enemy bullets flash them. Their shots sound like other players'.
+- **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; the hub counts enemy bullets against them like any ship's, shield first (#46). Their shots sound like other players'.
 - **Orders:** hold Q for a ring of the orders around the cursor, tap Q to repeat the last. The ring (#35) is a small circle on a dark disc: each order is its Void-pack icon with its label under it, modes in blue and one-shots in gold. The wing's mode is marked, the wing is named in the centre, and the pointed-at wedge is lit. The HUD shows the wing's mode, with the latest notice on its own line. Hold here takes the point under the cursor. Focus takes the enemy under the cursor, else the one the player last hit (within 3 s), else the nearest within 120 px: small ships move too fast to point at (#39).

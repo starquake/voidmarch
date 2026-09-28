@@ -41,6 +41,10 @@ export interface Ship {
   readonly loadout: Readonly<Loadout>;
   /** Hits taken: an index into DAMAGE_STATES. */
   readonly damage: number;
+  /** Shield charges left, fractional while recharging. */
+  readonly shield: number;
+  /** Seconds since the last hit, absorbed or not. */
+  readonly sinceHit: number;
   readonly cooldown: number;
   readonly charging: number;
   readonly nextMuzzle: number;
@@ -116,7 +120,16 @@ interface Exports {
   mem?: WebAssembly.Memory;
   statePointer(): number;
   scratchPointer(): number;
-  advance(frameSeconds: number, moveX: number, moveY: number, aimX: number, aimY: number, fire: number): void;
+  advance(
+    frameSeconds: number,
+    moveX: number,
+    moveY: number,
+    aimX: number,
+    aimY: number,
+    fire: number,
+    squadmateDistance: number,
+  ): void;
+  takeHit(slot: number): number;
   setControlMode(screen: number): void;
   placeShip(x: number, y: number): void;
   setLoadout(weapon: number, engine: number, shield: number): void;
@@ -176,6 +189,8 @@ export class Sandbox {
       thrusting: false,
       loadout: { weapon: WEAPONS[0], engine: ENGINES[0], shield: SHIELDS[0] },
       damage: 0,
+      shield: 0,
+      sinceHit: 0,
       cooldown: 0,
       charging: 0,
       nextMuzzle: 0,
@@ -201,12 +216,23 @@ export class Sandbox {
     this.exports.setControlMode(mode === 'screen' ? 1 : 0);
   }
 
-  /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
-  advance(frameSeconds: number, input: InputSnapshot): FrameEvents {
+  /**
+   * Runs as many fixed ticks as frameSeconds covers, using the same input for
+   * each; the nearest squadmate's distance decides the shield's formation bonus.
+   */
+  advance(frameSeconds: number, input: InputSnapshot, squadmateDistance = Infinity): FrameEvents {
     const cmd = toCommand(input);
-    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0);
+    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance);
 
     return this.read();
+  }
+
+  /** Applies the hit of the projectile in slot to the ship; true when the shield took it. */
+  takeHit(slot: number): boolean {
+    const absorbed = this.exports.takeHit(slot) !== 0;
+    this.read();
+
+    return absorbed;
   }
 
   /** Puts the ship at (x, y) at rest, as a spawn or a takeover does. */
@@ -335,6 +361,8 @@ export class Sandbox {
     ship.charging = get(LAYOUT.shipCharging);
     ship.nextMuzzle = get(LAYOUT.shipNextMuzzle);
     ship.damage = get(LAYOUT.shipDamage);
+    ship.shield = get(LAYOUT.shipShieldCharge);
+    ship.sinceHit = get(LAYOUT.shipSinceHit);
     ship.rotationSnap = get(LAYOUT.shipRotationSnap);
     ship.loadout.weapon = at(WEAPONS, get(LAYOUT.shipWeapon), WEAPONS[0]);
     ship.loadout.engine = at(ENGINES, get(LAYOUT.shipEngine), ENGINES[0]);

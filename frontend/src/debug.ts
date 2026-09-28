@@ -16,6 +16,9 @@ export interface DebugState {
   ship: { x: number; y: number; angle: number; thrusting: boolean };
   loadout: Loadout;
   damage: DamageState;
+  /** Shield charges left, fractional while recharging, and whether the shield is drawn. */
+  shield: number;
+  shieldShown: boolean;
   rotationSnap: number;
   controlMode: ControlMode;
   effects: boolean;

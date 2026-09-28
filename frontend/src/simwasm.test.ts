@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { SHIP_RADIUS, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
+import { SHIP_RADIUS, TICK_RATE, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
 import type { InputSnapshot } from './sim/input.ts';
 import { Sandbox, instantiate, isWeapon, type GoRuntime } from './simwasm.ts';
 
@@ -95,6 +95,35 @@ test('the ship can be placed, damaged and snapped', async () => {
   s.setDamage(2);
   s.setRotationSnap(16);
   assert.deepEqual([s.ship.damage, s.ship.rotationSnap], [2, 16]);
+});
+
+test('a hit in front takes a shield charge, one from behind a hull step', async () => {
+  const s = await sim();
+  s.advance(TICK_SECONDS, input());
+  assert.equal(s.ship.shield, 3);
+  // The ship faces up, toward the pointer: the front shield covers above it.
+  const front = s.projectiles.spawn({ kind: 'klaedBullet', x: 0, y: 100, angle: Math.PI / 2 }, { faction: 'enemy' });
+  assert.equal(s.takeHit(front.slot), true);
+  assert.deepEqual([s.ship.shield, s.ship.damage, s.ship.sinceHit], [2, 0, 0]);
+  const behind = s.projectiles.spawn({ kind: 'klaedBullet', x: 0, y: 220, angle: -Math.PI / 2 }, { faction: 'enemy' });
+  assert.equal(s.takeHit(behind.slot), false);
+  assert.deepEqual([s.ship.shield, s.ship.damage], [2, 1]);
+});
+
+test('a squadmate near recharges the shield faster', async () => {
+  const recharged = async (squadmateDistance: number): Promise<number> => {
+    const s = await sim();
+    const bullet = s.projectiles.spawn({ kind: 'klaedBullet', x: 0, y: 100, angle: Math.PI / 2 }, { faction: 'enemy' });
+    s.takeHit(bullet.slot);
+    for (let t = 0; t < 4 * TICK_RATE; t++) {
+      s.advance(TICK_SECONDS, input(), squadmateDistance);
+    }
+
+    return s.ship.shield;
+  };
+  const alone = await recharged(Infinity);
+  assert.ok(alone > 2 && alone < 3, `alone: ${String(alone)}`);
+  assert.equal(await recharged(50), 3);
 });
 
 test('remote shots keep their owner and id, and end by them', async () => {

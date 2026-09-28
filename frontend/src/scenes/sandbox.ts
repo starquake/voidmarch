@@ -23,7 +23,7 @@ import {
 } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
-import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, nextInCycle, type DamageState } from '../sim/loadout.ts';
+import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle } from '../sim/loadout.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   ENEMY_FIRE_GLOW_COLOUR,
@@ -143,7 +143,6 @@ export class SandboxScene extends Phaser.Scene {
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
   private moveKeys!: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
-  private damage: DamageState = 'fullHealth';
   private effects = true;
   private shotsFired = 0;
   private hudUpdatedAt = 0;
@@ -184,7 +183,9 @@ export class SandboxScene extends Phaser.Scene {
       scene: this.scene.key,
       ship: { x: 0, y: 0, angle: 0, thrusting: false },
       loadout: this.sim.ship.loadout,
-      damage: this.damage,
+      damage: 'fullHealth',
+      shield: 0,
+      shieldShown: false,
       rotationSnap: 0,
       controlMode: this.sim.controlMode,
       effects: this.effects,
@@ -213,7 +214,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   override update(time: number, deltaMs: number): void {
-    const events = this.sim.advance(deltaMs / 1000, this.readInput());
+    const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance);
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== undefined) {
@@ -436,11 +437,6 @@ export class SandboxScene extends Phaser.Scene {
         this.audio.toggleMusic();
         saveAudioSettings(this.audioSettings);
         this.updateHud();
-        break;
-      case 'KeyH':
-        this.damage = nextInCycle(DAMAGE_STATES, this.damage);
-        this.sim.setDamage(DAMAGE_STATES.indexOf(this.damage));
-        this.ship.setDamage(ship.damage);
         break;
       case 'KeyC':
         this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
@@ -698,6 +694,8 @@ export class SandboxScene extends Phaser.Scene {
     const { ship, previous, alpha } = this.sim;
     this.ship.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
     this.ship.setThrusting(ship.thrusting);
+    this.ship.setDamage(ship.damage);
+    this.ship.setShield(ship.shield);
     this.animateWeapon(events);
   }
 
@@ -764,9 +762,6 @@ export class SandboxScene extends Phaser.Scene {
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
     }
-    if (net.hitsOnMe.length > 0) {
-      this.ship.flash(this);
-    }
   }
 
   /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
@@ -784,11 +779,11 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private updateHud(): void {
-    const { loadout, rotationSnap } = this.sim.ship;
+    const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
-      `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
+      `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · H hull · R rotation · F effects',
+      'WASD move · mouse aim · hold left button to fire · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       this.netStatus(),
       this.squadronStatus(),
     ]);
@@ -848,7 +843,9 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.ship.y = ship.y;
     this.debug.ship.angle = ship.angle;
     this.debug.ship.thrusting = ship.thrusting;
-    this.debug.damage = this.damage;
+    this.debug.damage = damageState(ship.damage);
+    this.debug.shield = ship.shield;
+    this.debug.shieldShown = this.ship.shieldShown;
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;

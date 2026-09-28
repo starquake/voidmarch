@@ -474,6 +474,39 @@ func TestCompanions_ClientsCantShootForThem(t *testing.T) {
 	}
 }
 
+func TestCompanions_EnemyBulletsWearThemDown(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	// Stealth: the companion never fires back, so the enemies keep shooting.
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
+		Mode: pb.CompanionMode_COMPANION_MODE_STEALTH,
+	}}})
+
+	var full, worn *pb.ShipState
+	outThere(t, a, tick, func(snap *pb.Snapshot, _ []*pb.ServerMessage) bool {
+		for _, p := range snap.GetPlayers() {
+			if p.GetPlayerId() != "a/1" {
+				continue
+			}
+			if full == nil {
+				full = p.GetState()
+			}
+			if p.GetState().GetShield() < full.GetShield() || p.GetState().GetDamage() > 0 {
+				worn = p.GetState()
+			}
+		}
+
+		return worn != nil
+	})
+	if full.GetShield() <= 0 {
+		t.Errorf("a/1's shield at first = %v, want charged", full.GetShield())
+	}
+}
+
 // nextHangar reads s's messages until a squadron list and returns the ships
 // waiting in the hangar.
 func nextHangar(t *testing.T, s *Session) uint32 {

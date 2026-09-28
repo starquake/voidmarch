@@ -28,8 +28,21 @@ func scratchPointer() int32 {
 }
 
 //go:wasmexport advance
-func advance(frameSeconds, moveX, moveY, aimX, aimY float64, fire int32) {
-	bridge.Advance(frameSeconds, sim.Command{MoveX: moveX, MoveY: moveY, AimX: aimX, AimY: aimY, Fire: fire != 0})
+func advance(frameSeconds, moveX, moveY, aimX, aimY float64, fire int32, squadmateDistance float64) {
+	bridge.Advance(
+		frameSeconds,
+		sim.Command{MoveX: moveX, MoveY: moveY, AimX: aimX, AimY: aimY, Fire: fire != 0},
+		squadmateDistance,
+	)
+}
+
+//go:wasmexport takeHit
+func takeHit(slot int32) int32 {
+	if bridge.TakeHit(int(slot)) {
+		return 1
+	}
+
+	return 0
 }
 
 //go:wasmexport setControlMode

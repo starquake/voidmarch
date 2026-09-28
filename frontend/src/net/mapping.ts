@@ -61,6 +61,7 @@ export interface RemoteShip {
   thrusting: boolean;
   loadout: Loadout;
   damage: number;
+  shield: number;
 }
 
 /** The local ship as its wire state. */
@@ -78,6 +79,7 @@ export function toShipState(ship: Ship): ShipState {
       shield: SHIELDS[ship.loadout.shield],
     },
     damage: ship.damage,
+    shield: ship.shield,
   });
 }
 
@@ -96,6 +98,7 @@ export function fromShipState(state: ShipState): RemoteShip {
       shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield,
     },
     damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
+    shield: state.shield,
   };
 }
 

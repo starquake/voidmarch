@@ -91,6 +91,13 @@ export declare type ShipState = Message<"voidmarch.v1.ShipState"> & {
    * @generated from field: uint32 damage = 8;
    */
   damage: number;
+
+  /**
+   * Shield charges left, fractional while recharging (#46).
+   *
+   * @generated from field: float shield = 9;
+   */
+  shield: number;
 };
 
 /**
