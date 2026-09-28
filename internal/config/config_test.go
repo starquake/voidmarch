@@ -31,17 +31,21 @@ func TestParse_Defaults(t *testing.T) {
 	if got, want := cfg.Addr(), ":8080"; got != want {
 		t.Errorf("cfg.Addr() = %q, want %q", got, want)
 	}
+	if got, want := cfg.PoolStart, PoolStartDefault; got != want {
+		t.Errorf("cfg.PoolStart = %d, want %d", got, want)
+	}
 }
 
 func TestParse_Values(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := Parse(envFunc(map[string]string{
-		"APP_ENV":  "development",
-		"HOST":     "127.0.0.1",
-		"PORT":     "9000",
-		"WEB_DIR":  "internal/web/static",
-		"WIRE_LOG": "true",
+		"APP_ENV":    "development",
+		"HOST":       "127.0.0.1",
+		"PORT":       "9000",
+		"WEB_DIR":    "internal/web/static",
+		"WIRE_LOG":   "true",
+		"POOL_START": "0",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -58,6 +62,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := cfg.WireLog, true; got != want {
 		t.Errorf("cfg.WireLog = %t, want %t", got, want)
+	}
+	if got, want := cfg.PoolStart, 0; got != want {
+		t.Errorf("cfg.PoolStart = %d, want %d", got, want)
 	}
 }
 
@@ -87,6 +94,8 @@ func TestParse_Errors(t *testing.T) {
 			env:  map[string]string{"WIRE_LOG": "loud"},
 			want: ErrInvalidWireLog,
 		},
+		{name: "pool start not a number", env: map[string]string{"POOL_START": "many"}, want: ErrInvalidPoolStart},
+		{name: "pool start negative", env: map[string]string{"POOL_START": "-1"}, want: ErrInvalidPoolStart},
 	}
 
 	for _, tc := range tests {
