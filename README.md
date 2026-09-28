@@ -34,6 +34,9 @@ make server
 | A / D | Strafe left / right |
 | Mouse | Aim |
 | Left button (hold) | Fire |
+| G | Summon a companion (at the home planet) |
+| Q (hold) | Order ring: point at an order and let go |
+| Q (tap) | Repeat the last order |
 | C | Switch to screen-relative movement (W is up the screen) and back |
 | M | Sound on/off |
 | N | Music on/off |
@@ -53,6 +56,21 @@ visit you pick a name; your browser remembers it. Other players show up with
 their name under their ship, in their own colour. Up to 16 players fit; the
 17th sees "the frontier is full, try again soon". Without a connection the
 game keeps running on its own and reconnects when it can.
+
+## Companions
+
+Playing alone, press **G** at the home planet to summon a companion, up to
+three: AI wingmates that fly in formation with you, in your colour. Hold **Q**
+for a ring of orders, point at one and let go; tap Q to repeat the last. An
+order goes to the companion under the cursor when you press Q, or to all of
+them. The orders are stances (Escort, Aggressive, Defensive, Hold here), fire
+discipline (Weapons free, Return fire, Hold fire), Spend or Conserve, Support
+first, and the one-shots Focus target, Shield me, Regroup and Go home.
+
+Other players see your companions as ships of yours. Companions count toward
+the 16 seats, so a player joining a full world sends the newest companion
+home. On a development server (`APP_ENV=development`) the limits are lifted:
+up to 15 companions, summoned anywhere.
 
 ## Enemies
 

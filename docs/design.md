@@ -267,3 +267,11 @@ As built so far (#26): the brain is `think` in `frontend/src/sim/brain.ts`, a pu
 - **Falling back:** badly damaged, a defensive or conserving companion falls back into a tight formation. Until health exists (milestone 4), the damage state stands in for it.
 - **Conserve:** the big space gun holds its volleys for Support Ships and focus targets.
 - **Not yet built:** Revive and Collect come with milestones 4 and 5. Support Ship priority ranks targets, but has no effect until Support Ships exist.
+
+As built (#27), single-player companions:
+
+- **Seats:** G asks the server for a companion. The server grants the lowest free number up to 3, only at the home planet and with fewer than 4 ships in the wing, or refuses with a reason shown in the HUD. A development server lifts all three limits.
+- **On the wire:** the owner's client flies each companion with its brain in the sim, and sends its state with the owner's, as the seat `<playerId>/<n>`. Others get it in their snapshots as a player with an `owner_id`. Its shots and hits carry its number, so a kill is credited to the seat. A dismissed companion leaves like a player, and a reconnect keeps them.
+- **The world counts them:** enemies target companions and spawn around them like players, and they count toward the 16 seats. A human joining a full world displaces the newest companion.
+- **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; enemy bullets flash them. Their shots sound like other players'.
+- **Orders:** hold Q for a ring of the orders around the cursor, stretched wide so the labels don't collide; tap Q to repeat the last. Hold here takes the point under the cursor, and focus the enemy under it.

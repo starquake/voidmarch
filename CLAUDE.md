@@ -79,6 +79,12 @@ pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
   turns a companion's view and orders into the same `ShipCommand` the keyboard
   makes, pure and seeded, so its behaviour is unit-tested in Node like the rest
   of `sim/`.
+- **Companions are seats** (`internal/game/companions.go`): the server grants
+  `Summon`, and a companion is then the seat `<playerId>/<n>`, flown by its
+  owner's client (`Sandbox.companions`) and sent as `CompanionState`. Shots and
+  hits carry `companion` (0 is the player's own ship). Seats count toward
+  `MaxPlayers`; `WithDevelopment()` (on with `APP_ENV=development`, so in E2E)
+  lifts the companion limits.
 - **E2E runs everyone on one server**: each test's page is a registered player
   (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
   Assert on your own state (`shotsFired`, `ship`), never on shared counts.
