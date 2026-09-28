@@ -141,6 +141,13 @@ export class Connection {
     }
   }
 
+  /** Joins the named squadron, or starts a new one when name is empty. */
+  sendChooseSquadron(name: string): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'chooseSquadron', value: { name } } }));
+    }
+  }
+
   /** Asks the server for a companion. */
   sendSummon(): void {
     if (this.welcomed) {

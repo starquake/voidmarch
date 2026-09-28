@@ -585,6 +585,10 @@ export class NetPlay {
     this.colour = welcome.colour;
     this.companionLimit = welcome.companionLimit;
     this.reconcileCompanions(welcome.companions);
+    // Everyone flies in a squadron; for now a player starts their own.
+    if (welcome.squadron === '') {
+      this.connection.sendChooseSquadron('');
+    }
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);

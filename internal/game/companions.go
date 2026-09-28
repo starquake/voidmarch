@@ -13,8 +13,6 @@ import (
 const (
 	// companionLimit is how many companions a player may have at once.
 	companionLimit = 3
-	// wingCap is the most ships in one wing, companions included.
-	wingCap = 4
 
 	decimal = 10
 )
@@ -72,6 +70,7 @@ func (h *Hub) summon(owner string, m *member) {
 	}
 	h.nextGrant++
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, lastSeen: h.tick}
+	h.broadcastSquadrons()
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
 		CompanionGranted: &pb.CompanionGranted{
 			Companion: number,
@@ -91,39 +90,13 @@ func (h *Hub) summonRefusal(m *member) string {
 	case m.state == nil ||
 		math.Hypot(float64(m.state.GetX()), float64(m.state.GetY())) > safeRadius:
 		return "summon companions at the home planet"
-	case h.wingSize(m) >= wingCap:
-		return "your wing is full"
+	case h.squadrons[m.squadron] == nil:
+		return "pick a squadron first"
+	case h.squadronShips(h.squadrons[m.squadron]) >= squadronCap:
+		return "your squadron is full"
 	}
 
 	return ""
-}
-
-// wingSize counts the ships within a screen of the owner: the owner, all of
-// their companions, and everyone else's ships nearby.
-func (h *Hub) wingSize(owner *member) int {
-	n := 1 + len(owner.companions)
-	near := func(s *pb.ShipState) bool {
-		return s != nil &&
-			math.Hypot(
-				float64(s.GetX()-owner.state.GetX()),
-				float64(s.GetY()-owner.state.GetY()),
-			) < nearRadius
-	}
-	for _, m := range h.members {
-		if m == owner {
-			continue
-		}
-		if near(m.state) {
-			n++
-		}
-		for _, c := range m.companions {
-			if near(c.state) {
-				n++
-			}
-		}
-	}
-
-	return n
 }
 
 // companionState updates a companion's ship. A state for a companion the
@@ -168,6 +141,7 @@ func (h *Hub) dismiss(owner string, m *member, number uint32) {
 	}
 	delete(m.companions, number)
 	h.broadcast(left(seatID(owner, number)), owner)
+	h.broadcastSquadrons()
 }
 
 // displaceNewestCompanion frees a seat for a joining human: the newest
@@ -212,6 +186,7 @@ func (h *Hub) companionSnapshots(viewer string) []*pb.PlayerSnapshot {
 				Colour:   m.colour,
 				State:    c.state,
 				OwnerId:  owner,
+				Squadron: m.squadron,
 			})
 		}
 	}
