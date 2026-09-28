@@ -21,6 +21,8 @@ export interface DebugState {
   enemies: EnemyDebug[];
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed: number;
+  /** The id of the last enemy this player shot down. */
+  lastEnemyDestroyed: number | undefined;
   hitsTaken: number;
   audio: {
     muted: boolean;
