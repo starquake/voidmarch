@@ -223,3 +223,9 @@ export const BRAIN_ATTACK_DISTANCE = 130;
 export const BRAIN_FIRE_CONE = 0.2;
 /** A companion's aim wobbles by up to this many radians, from its seed. */
 export const BRAIN_AIM_JITTER = 0.04;
+/** From this damage state on (an index into DAMAGE_STATES), defensive or conserving companions fall back. */
+export const BRAIN_BADLY_DAMAGED = 3;
+/** Going home is done this close to the home planet, inside the server's 300 px safe zone. */
+export const BRAIN_HOME_RADIUS = 250;
+/** Shielding the owner, a companion keeps this far out toward the attackers. */
+export const BRAIN_SHIELD_DISTANCE = 45;

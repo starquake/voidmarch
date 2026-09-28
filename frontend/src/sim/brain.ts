@@ -7,10 +7,14 @@ import {
   BRAIN_AIM_JITTER,
   BRAIN_ARRIVE_SECONDS,
   BRAIN_ATTACK_DISTANCE,
+  BRAIN_BADLY_DAMAGED,
   BRAIN_ESCORT_RANGE,
   BRAIN_FIRE_CONE,
+  BRAIN_HOME_RADIUS,
+  BRAIN_IN_FORMATION,
   BRAIN_LEASH,
   BRAIN_LOOK_AHEAD,
+  BRAIN_SHIELD_DISTANCE,
   BRAIN_TIGHT_FORMATION,
   ENGINE_STATS,
   FORMATION_SLOTS,
@@ -224,12 +228,95 @@ function attackGoal(self: Ship, target: BrainEnemy): Goal {
   };
 }
 
+/** Attackers near the owner: the fire a shielding companion blocks. */
+function attackersNearOwner(view: BrainView): BrainEnemy[] {
+  return view.enemies.filter((e) => e.attackedWing && distance(e, view.owner) <= BRAIN_ESCORT_RANGE);
+}
+
+/** Between the owner and the attackers' average position, moving with the owner. */
+function shieldGoal(view: BrainView, attackers: readonly BrainEnemy[]): Goal {
+  const { owner } = view;
+  const cx = attackers.reduce((sum, e) => sum + e.x, 0) / attackers.length;
+  const cy = attackers.reduce((sum, e) => sum + e.y, 0) / attackers.length;
+  const toward = Math.atan2(cy - owner.y, cx - owner.x);
+
+  return {
+    point: {
+      x: owner.x + BRAIN_SHIELD_DISTANCE * Math.cos(toward),
+      y: owner.y + BRAIN_SHIELD_DISTANCE * Math.sin(toward),
+    },
+    velocity: { x: owner.vx, y: owner.vy },
+  };
+}
+
+/** Where to fly this tick: the one-shot's goal first, then falling back, hunting, or the stance. */
+function chooseGoal(view: BrainView, orders: Orders, target: BrainEnemy | undefined): Goal {
+  const { self, owner } = view;
+  const oneShot = orders.oneShot;
+  switch (oneShot?.kind) {
+    case 'regroup':
+      return { point: formationPoint(owner, view.slot), velocity: { x: owner.vx, y: owner.vy } };
+    case 'goHome':
+      return { point: { x: 0, y: 0 }, velocity: STILL };
+    case 'shieldMe': {
+      const attackers = attackersNearOwner(view);
+      if (attackers.length > 0) {
+        return shieldGoal(view, attackers);
+      }
+      break;
+    }
+    case 'focus':
+      if (target !== undefined) {
+        return attackGoal(self, target);
+      }
+      break;
+    case undefined:
+      break;
+  }
+  const fallingBack =
+    self.damage >= BRAIN_BADLY_DAMAGED && (orders.stance === 'defensive' || orders.resources === 'conserve');
+  if (fallingBack) {
+    return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: { x: owner.vx, y: owner.vy } };
+  }
+  if (target !== undefined && orders.stance === 'aggressive') {
+    return attackGoal(self, target);
+  }
+
+  return stanceGoal(view, orders);
+}
+
+/** Whether the one-shot order is finished. */
+function oneShotDone(view: BrainView, orders: Orders, target: BrainEnemy | undefined): boolean {
+  switch (orders.oneShot?.kind) {
+    case 'focus':
+      return target === undefined;
+    case 'regroup':
+      return distance(view.self, formationPoint(view.owner, view.slot)) <= BRAIN_IN_FORMATION;
+    case 'goHome':
+      return Math.hypot(view.self.x, view.self.y) <= BRAIN_HOME_RADIUS;
+    case 'shieldMe':
+      return attackersNearOwner(view).length === 0;
+    case undefined:
+      return false;
+  }
+}
+
+/** Conserving, the big space gun saves its volleys for Support Ships and focus targets. */
+function holdsVolley(self: Ship, orders: Orders, target: BrainEnemy): boolean {
+  return (
+    orders.resources === 'conserve' &&
+    self.loadout.weapon === 'bigSpaceGun' &&
+    orders.oneShot?.kind !== 'focus' &&
+    !SUPPORT_KINDS.includes(target.kind)
+  );
+}
+
 /** Decides what a companion does this tick; random wobbles its aim. */
 export function think(view: BrainView, orders: Orders, random: () => number): BrainStep {
   const { self, owner } = view;
-  const target = chooseTarget(view, orders);
-  const hunting = target !== undefined && (orders.stance === 'aggressive' || orders.oneShot?.kind === 'focus');
-  const goal = hunting ? attackGoal(self, target) : stanceGoal(view, orders);
+  // Regrouping disengages: no targets until back in formation.
+  const target = orders.oneShot?.kind === 'regroup' ? undefined : chooseTarget(view, orders);
+  const goal = chooseGoal(view, orders, target);
   const move = arrive(self, goal.point, goal.velocity);
 
   let aim: Vec;
@@ -242,10 +329,14 @@ export function think(view: BrainView, orders: Orders, random: () => number): Br
     const wobble = (random() * 2 - 1) * BRAIN_AIM_JITTER;
     const reach = distance(self, target);
     aim = { x: self.x + reach * Math.cos(toTarget + wobble), y: self.y + reach * Math.sin(toTarget + wobble) };
-    fire = reach <= weaponRange(self) && Math.abs(wrapAngle(self.angle - toTarget)) <= BRAIN_FIRE_CONE;
+    fire =
+      reach <= weaponRange(self) &&
+      Math.abs(wrapAngle(self.angle - toTarget)) <= BRAIN_FIRE_CONE &&
+      !holdsVolley(self, orders, target);
   }
-  const focus = orders.oneShot;
-  const done = focus?.kind === 'focus' && target === undefined;
 
-  return { command: { moveX: move.x, moveY: move.y, aimX: aim.x, aimY: aim.y, fire }, done };
+  return {
+    command: { moveX: move.x, moveY: move.y, aimX: aim.x, aimY: aim.y, fire },
+    done: oneShotDone(view, orders, target),
+  };
 }

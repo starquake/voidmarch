@@ -5,7 +5,15 @@ import { DEFAULT_ORDERS, formationPoint, think, type BrainEnemy, type Orders } f
 import type { ShipCommand } from './input.ts';
 import { seededRandom } from './math.ts';
 import { createShip, stepShip, type Ship } from './ship.ts';
-import { BRAIN_IN_FORMATION, BRAIN_TIGHT_FORMATION, FORMATION_SLOTS, TICK_SECONDS } from './tuning.ts';
+import {
+  BRAIN_BADLY_DAMAGED,
+  BRAIN_HOME_RADIUS,
+  BRAIN_IN_FORMATION,
+  BRAIN_SHIELD_DISTANCE,
+  BRAIN_TIGHT_FORMATION,
+  FORMATION_SLOTS,
+  TICK_SECONDS,
+} from './tuning.ts';
 
 const still: ShipCommand = { moveX: 0, moveY: 0, aimX: 0, aimY: -1000, fire: false };
 
@@ -203,4 +211,73 @@ test('Support Ship priority changes nothing until Support Ships exist', () => {
   const { self, owner } = facing(-40, 40, 100, -100);
   const enemies = [enemy(1, 100, -100), enemy(2, -150, -100, { kind: 'fighter' })];
   assert.deepEqual(decide(self, owner, enemies, { supportFirst: true }), decide(self, owner, enemies));
+});
+
+/** Flies a companion under orders until its one-shot is done; returns the seconds it took, or Infinity. */
+function untilDone(self: Ship, owner: Ship, orders: Orders, enemies: BrainEnemy[] = [], limit = 8): number {
+  const random = seededRandom(11);
+  for (let t = 0; t < limit; t += TICK_SECONDS) {
+    const step = think({ self, owner, slot: 0, enemies }, orders, random);
+    if (step.done) {
+      return t;
+    }
+    stepShip(self, step.command, TICK_SECONDS);
+  }
+
+  return Infinity;
+}
+
+test('regroup disengages: no shooting, back to its slot, then done', () => {
+  const { self, owner } = facing(250, -250, 300, -300);
+  const orders: Orders = { ...DEFAULT_ORDERS, stance: 'aggressive', oneShot: { kind: 'regroup' } };
+  const scout = enemy(1, 300, -300, { attackedWing: true });
+  assert.equal(decide(self, owner, [scout], orders).command.fire, false);
+  assert.ok(untilDone(self, owner, orders, [scout]) < 4);
+  assert.ok(distance(self, formationPoint(owner, 0)) <= BRAIN_IN_FORMATION);
+});
+
+test('go home flies to the home planet and is done inside the safe zone', () => {
+  const self = createShip(900, -400);
+  const owner = createShip(900, -350);
+  const orders: Orders = { ...DEFAULT_ORDERS, oneShot: { kind: 'goHome' } };
+  assert.ok(untilDone(self, owner, orders) < 8);
+  assert.ok(Math.hypot(self.x, self.y) <= BRAIN_HOME_RADIUS);
+});
+
+test('shield me puts the companion between its owner and the attackers', () => {
+  const self = createShip(-40, 40);
+  const owner = createShip(0, 0);
+  const orders: Orders = { ...DEFAULT_ORDERS, oneShot: { kind: 'shieldMe' } };
+  const attackers = [enemy(1, 150, -200, { attackedWing: true }), enemy(2, -150, -200, { attackedWing: true })];
+  fly(self, owner, 3, { orders, enemies: attackers });
+  assert.ok(distance(self, { x: 0, y: -BRAIN_SHIELD_DISTANCE }) < BRAIN_IN_FORMATION, 'straight toward the attackers');
+  assert.equal(decide(self, owner, attackers, orders).done, false);
+  assert.equal(decide(self, owner, [enemy(3, 100, -100)], orders).done, true, 'done once nobody attacks');
+});
+
+test('conserving, the big space gun saves its volley for a focus target', () => {
+  const { self, owner } = facing(-40, 40, 100, -100);
+  self.loadout.weapon = 'bigSpaceGun';
+  const scout = enemy(1, 100, -100);
+  assert.equal(decide(self, owner, [scout], { resources: 'spend' }).command.fire, true);
+  assert.equal(decide(self, owner, [scout], { resources: 'conserve' }).command.fire, false);
+  const focus = { resources: 'conserve' as const, oneShot: { kind: 'focus' as const, enemyId: 1 } };
+  assert.equal(decide(self, owner, [scout], focus).command.fire, true);
+
+  self.loadout.weapon = 'autoCannon';
+  assert.equal(decide(self, owner, [scout], { resources: 'conserve' }).command.fire, true, 'other weapons fire as usual');
+});
+
+test('badly damaged, a conserving or defensive companion falls back instead of hunting', () => {
+  const target = enemy(1, 250, -300, { attackedWing: true });
+  const hunt = (orders: Partial<Orders>): number => {
+    const self = createShip(-40, 40);
+    self.damage = BRAIN_BADLY_DAMAGED;
+    const owner = createShip(0, 0);
+    fly(self, owner, 3, { orders: { ...DEFAULT_ORDERS, stance: 'aggressive', ...orders }, enemies: [target] });
+
+    return distance(self, owner);
+  };
+  assert.ok(hunt({ resources: 'spend' }) > 200, 'spending, it fights on');
+  assert.ok(hunt({ resources: 'conserve' }) < 60, 'conserving, it stays close');
 });
