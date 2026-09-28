@@ -33,10 +33,11 @@ test('pointing at an item from the centre picks it, all the way around the ring'
   });
 });
 
-test('the ring is wider than tall', () => {
-  const right = itemPosition(ORDER_ITEMS.length / 4, 100);
-  const top = itemPosition(0, 100);
-  assert.ok(right.x > -top.y);
+test('the ring is a circle: every item sits at the same distance', () => {
+  for (const [i] of ORDER_ITEMS.entries()) {
+    const at = itemPosition(i, 100);
+    assert.ok(Math.abs(Math.hypot(at.x, at.y) - 100) < 1e-9);
+  }
 });
 
 test('the first item is at the top, and the dead zone picks nothing', () => {

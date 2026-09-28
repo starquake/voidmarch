@@ -2,7 +2,17 @@ import Phaser from 'phaser';
 
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { wireFormatFrom } from '../net/codec.ts';
-import { ORDER_ITEMS, applyOrder, chooseFocus, describeOrders, itemPosition, pickItem, type OrderItem } from '../ordermenu.ts';
+import {
+  ORDER_ITEMS,
+  RING_ASPECT,
+  applyOrder,
+  chooseFocus,
+  describeOrders,
+  itemPosition,
+  modeOf,
+  pickItem,
+  type OrderItem,
+} from '../ordermenu.ts';
 import {
   clearToken,
   loadAudioSettings,
@@ -56,10 +66,35 @@ const HUD_MARGIN_PX = 8;
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
 /** The order ring's height radius and its dead centre, in CSS pixels. */
-const ORDER_RING_PX = 110;
+const ORDER_RING_PX = 88;
 const ORDER_DEAD_ZONE_PX = 24;
-const ORDER_TEXT = '#d8f8ff';
-const ORDER_PICKED_TEXT = '#ffe08a';
+/** The ring's colours: modes and one-shots apart, the picked item white. */
+const ORDER_COLOURS: Readonly<Record<OrderItem['kind'], number>> = { mode: 0x8fd8ff, oneShot: 0xffe08a };
+const ORDER_PICKED_TEXT = '#ffffff';
+const ORDER_BACKDROP = 0x05030a;
+const ORDER_BACKDROP_ALPHA = 0.72;
+/** How far past the items' circle the backdrop reaches, in CSS pixels. */
+const ORDER_BACKDROP_PAD = 40;
+/** Each item is its icon with the label under it: offsets from the item's point, in CSS pixels. */
+const ORDER_ICON_RISE = 10;
+const ORDER_LABEL_DROP = 12;
+
+/**
+ * A Void-pack sprite beside each order (#35), scaled per sprite: the ship
+ * parts sit small in mostly empty 48 and 64 px frames.
+ */
+const ORDER_ICONS: Readonly<Record<string, { key: string; frame?: number; dim?: boolean; scale: number }>> = {
+  Escort: { key: keys.hull('fullHealth'), scale: 1 },
+  Attack: { key: keys.weapon('rockets'), scale: 1.1 },
+  Guard: { key: keys.shield('front'), scale: 0.9 },
+  'Hold here': { key: keys.engine('base'), scale: 1.2 },
+  Stealth: { key: keys.weapon('autoCannon'), dim: true, scale: 1.1 },
+  Focus: { key: keys.projectile('bigSpaceGun'), frame: 3, scale: 1.3 },
+  Regroup: { key: keys.flamePowering('base'), frame: 2, scale: 1.4 },
+  'Go home': { key: keys.planet, scale: 0.35 },
+};
+
+const hex = (colour: number): string => `#${colour.toString(16).padStart(6, '0')}`;
 
 /** Q held down: where the pointer was. */
 interface OrderPress {
@@ -68,7 +103,18 @@ interface OrderPress {
   screenY: number;
   worldX: number;
   worldY: number;
+  /** The ring, once open: its labels, and its backdrop, icons and centre. */
   labels: Phaser.GameObjects.Text[] | undefined;
+  backdrop: Phaser.GameObjects.Graphics | undefined;
+  extras: Phaser.GameObjects.GameObject[];
+}
+
+/** Removes everything the ring drew. */
+function destroyRing(press: OrderPress): void {
+  for (const object of [...(press.labels ?? []), ...press.extras]) {
+    object.destroy();
+  }
+  press.backdrop?.destroy();
 }
 
 interface Background {
@@ -405,6 +451,8 @@ export class SandboxScene extends Phaser.Scene {
       worldX: world.x,
       worldY: world.y,
       labels: undefined,
+      backdrop: undefined,
+      extras: [],
     };
   }
 
@@ -414,23 +462,91 @@ export class SandboxScene extends Phaser.Scene {
     if (press === undefined || time - press.downAt < ORDER_HOLD_MS) {
       return;
     }
+    press.labels ??= this.openOrderRing(press);
+    const picked = this.pickedOrder(press);
+    this.drawRingBackdrop(press, picked);
+    press.labels.forEach((label, i) => {
+      const item = ORDER_ITEMS[i];
+      label.setColor(i === picked || item === undefined ? ORDER_PICKED_TEXT : hex(ORDER_COLOURS[item.kind]));
+      label.setScale(i === picked ? 1.15 : 1);
+    });
+  }
+
+  /** Lays out the ring: a label and its pack icon per order, and the wing's mode in the centre. */
+  private openOrderRing(press: OrderPress): Phaser.GameObjects.Text[] {
     const dpr = this.dpr();
-    press.labels ??= ORDER_ITEMS.map((item, i) => {
+    const style = { fontFamily: 'monospace', fontSize: `${String(HUD_FONT_PX * dpr)}px` };
+    const first = this.sim.companions[0];
+    const mode = first === undefined ? undefined : modeOf(this.sim.ordersFor(first));
+    press.backdrop = this.add.graphics();
+    this.cameras.main.ignore(press.backdrop);
+    const labels = ORDER_ITEMS.map((item, i) => {
       const at = itemPosition(i, ORDER_RING_PX * dpr);
+      const x = press.screenX + at.x;
+      const y = press.screenY + at.y + ORDER_LABEL_DROP * dpr;
+      // A dot marks the mode the wing is in.
+      const inForce = item.kind === 'mode' && item.mode === mode;
       const label = this.add
-        .text(press.screenX + at.x, press.screenY + at.y, item.label, {
-          fontFamily: 'monospace',
-          fontSize: `${String(HUD_FONT_PX * dpr)}px`,
-          color: ORDER_TEXT,
-        })
+        .text(x, y, `${inForce ? '• ' : ''}${item.label}`, { ...style, color: hex(ORDER_COLOURS[item.kind]) })
         .setOrigin(0.5)
         .setShadow(1, 1, '#000000', 0);
       this.cameras.main.ignore(label);
+      const icon = ORDER_ICONS[item.label];
+      if (icon !== undefined) {
+        const image = this.add
+          .image(x, press.screenY + at.y - ORDER_ICON_RISE * dpr, icon.key, icon.frame ?? 0)
+          .setScale(icon.scale * dpr);
+        if (icon.dim === true) {
+          image.setTint(0x9a9a9a);
+        }
+        this.cameras.main.ignore(image);
+        press.extras.push(image);
+      }
 
       return label;
     });
-    const picked = this.pickedOrder(press);
-    press.labels.forEach((label, i) => label.setColor(i === picked ? ORDER_PICKED_TEXT : ORDER_TEXT));
+    const count = this.sim.companions.length;
+    const centre = this.add
+      .text(
+        press.screenX,
+        press.screenY,
+        first === undefined ? 'no companions' : `wing (${String(count)})\n${describeOrders(this.sim.ordersFor(first))}`,
+        { ...style, color: '#ffffff', align: 'center' },
+      )
+      .setOrigin(0.5)
+      .setShadow(1, 1, '#000000', 0);
+    this.cameras.main.ignore(centre);
+    press.extras.push(centre);
+
+    return labels;
+  }
+
+  /** The ring's backdrop, with the wedge of the item pointed at lit in its colour. */
+  private drawRingBackdrop(press: OrderPress, picked: number | undefined): void {
+    const g = press.backdrop;
+    if (g === undefined) {
+      return;
+    }
+    const dpr = this.dpr();
+    const rx = (ORDER_RING_PX * RING_ASPECT + ORDER_BACKDROP_PAD) * dpr;
+    const ry = (ORDER_RING_PX + ORDER_BACKDROP_PAD) * dpr;
+    const { screenX: cx, screenY: cy } = press;
+    g.clear();
+    g.fillStyle(ORDER_BACKDROP, ORDER_BACKDROP_ALPHA).fillEllipse(cx, cy, rx * 2, ry * 2);
+    g.lineStyle(dpr, ORDER_COLOURS.mode, 0.35).strokeEllipse(cx, cy, rx * 2, ry * 2);
+    const item = picked === undefined ? undefined : ORDER_ITEMS[picked];
+    if (picked === undefined || item === undefined) {
+      return;
+    }
+    const n = ORDER_ITEMS.length;
+    const mid = -Math.PI / 2 + (picked * Math.PI * 2) / n;
+    const points = [new Phaser.Math.Vector2(cx, cy)];
+    const steps = 8;
+    for (let k = 0; k <= steps; k++) {
+      const a = mid - Math.PI / n + (k * 2 * Math.PI) / n / steps;
+      points.push(new Phaser.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+    }
+    g.fillStyle(ORDER_COLOURS[item.kind], 0.22).fillPoints(points, true);
   }
 
   private pickedOrder(press: OrderPress): number | undefined {
@@ -441,8 +557,8 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Drops a Q press and its ring without giving an order. */
   private closeOrderRing(): void {
-    for (const label of this.orderPress?.labels ?? []) {
-      label.destroy();
+    if (this.orderPress !== undefined) {
+      destroyRing(this.orderPress);
     }
     this.orderPress = undefined;
   }
@@ -465,9 +581,7 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     const picked = this.pickedOrder(press);
-    for (const label of press.labels) {
-      label.destroy();
-    }
+    destroyRing(press);
     const item = picked === undefined ? undefined : ORDER_ITEMS[picked];
     if (item !== undefined) {
       this.giveOrder(item, press);
@@ -673,7 +787,8 @@ export class SandboxScene extends Phaser.Scene {
         : `${String(out)} companion${out === 1 ? '' : 's'} · ${describeOrders(this.sim.ordersFor(first))}`;
     const notice = net.noticeText;
 
-    return notice === undefined ? wing : `${wing} · ${notice}`;
+    // What the wing does, then what just happened, apart: state and feedback don't blur.
+    return notice === undefined ? wing : `${wing}\n→ ${notice}`;
   }
 
   private netStatus(): string {
