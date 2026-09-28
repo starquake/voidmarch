@@ -25,8 +25,9 @@ const (
 	// MaxPlayers is how many players fit in the world at once.
 	MaxPlayers = 16
 	// silenceTicks is how long a player may send nothing before their ship
-	// goes: long enough to ride out a reload or a short network blip.
-	silenceTicks = 3 * TickRate
+	// goes: long enough to ride out a reload, a short network blip, or a
+	// hidden tab whose worker the browser slows too (#57).
+	silenceTicks = 10 * TickRate
 	// sendQueue is how many messages may wait for a slow client before it is
 	// dropped rather than slowing everyone down.
 	sendQueue = 64
