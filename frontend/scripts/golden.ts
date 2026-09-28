@@ -1,10 +1,10 @@
 /**
  * Writes internal/sim/testdata/golden.json: the TypeScript rules run over
  * fixed scenarios, which the Go port (internal/sim) replays and must match.
- * Run with `make golden`; `make golden-check` compares a fresh run with the
- * committed file. An optional argument writes elsewhere.
+ * Run with `make golden`; `make golden-check` (`--check`) compares a fresh
+ * run with the committed file, allowing the last bits of a float.
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 import { DEFAULT_ORDERS, arrive, formationPoint, think, type BrainEnemy, type Orders } from '../src/sim/brain.ts';
 import { ENEMY_KINDS } from '../src/sim/enemies.ts';
@@ -20,7 +20,7 @@ import { ENEMY_BULLET_STATS, TICK_SECONDS, WEAPON_STATS } from '../src/sim/tunin
 import { stepWeapon } from '../src/sim/weapons.ts';
 import { applyWorldEdge } from '../src/sim/world.ts';
 
-const out = process.argv[2] ?? new URL('../../internal/sim/testdata/golden.json', import.meta.url);
+const defaultOut = new URL('../../internal/sim/testdata/golden.json', import.meta.url);
 
 const random = seededRandom(20260928);
 const between = (min: number, max: number): number => min + random() * (max - min);
@@ -235,7 +235,36 @@ const sandboxes = [0, 1].map((variant) => {
   return { controlMode: sandbox.controlMode, frames, trace };
 });
 
-writeFileSync(
-  out,
-  `${JSON.stringify({ math, ships: shipScenarios, weapons, projectiles, hits, worldEdge, patterns, brain, sandboxes, orderSets })}\n`,
-);
+const data = { math, ships: shipScenarios, weapons, projectiles, hits, worldEdge, patterns, brain, sandboxes, orderSets };
+
+/** Where got and want first differ, allowing the last bits of a float to (as Math.sin may across platforms). */
+function firstDifference(got: unknown, want: unknown, path: string): string | undefined {
+  if (typeof got === 'number' && typeof want === 'number') {
+    return Math.abs(got - want) <= 1e-9 * Math.max(1, Math.abs(want)) ? undefined : `${path}: ${String(got)} != ${String(want)}`;
+  }
+  if (typeof got !== 'object' || got === null || typeof want !== 'object' || want === null) {
+    return got === want ? undefined : `${path}: ${JSON.stringify(got)} != ${JSON.stringify(want)}`;
+  }
+  const keys = new Set([...Object.keys(got), ...Object.keys(want)]);
+  for (const key of keys) {
+    const diff = firstDifference((got as Record<string, unknown>)[key], (want as Record<string, unknown>)[key], `${path}.${key}`);
+    if (diff !== undefined) {
+      return diff;
+    }
+  }
+
+  return undefined;
+}
+
+if (process.argv[2] === '--check') {
+  // A JSON round trip, so undefined fields drop out as they do in the file.
+  const fresh: unknown = JSON.parse(JSON.stringify(data));
+  const committed: unknown = JSON.parse(readFileSync(defaultOut, 'utf8'));
+  const diff = firstDifference(fresh, committed, 'golden');
+  if (diff !== undefined) {
+    console.error(`the golden cases are stale (${diff}): change internal/sim to match, then run make golden`);
+    process.exit(1);
+  }
+} else {
+  writeFileSync(process.argv[2] ?? defaultOut, `${JSON.stringify(data)}\n`);
+}

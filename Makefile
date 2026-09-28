@@ -7,7 +7,6 @@ COV_DIR := $(BUILD_DIR)/coverage
 FRONTEND := frontend
 JS_OUT := internal/web/static/js
 JS_DEPS := $(FRONTEND)/node_modules/.package-lock.json
-GOLDEN := internal/sim/testdata/golden.json
 
 GOLANGCI_VERSION := v2.14.0
 GOLANGCI_BIN := $(BIN_DIR)/golangci-lint
@@ -192,14 +191,11 @@ js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh buil
 
 .PHONY: golden
 golden: $(JS_DEPS) ## Record the TypeScript sim's results for internal/sim's parity tests
-	cd $(FRONTEND) && node scripts/golden.ts ../$(GOLDEN)
+	cd $(FRONTEND) && node scripts/golden.ts
 
 .PHONY: golden-check
 golden-check: $(JS_DEPS) ## Fail when the TypeScript sim no longer matches the recorded golden cases
-	@tmp=$$(mktemp -d); \
-	(cd $(FRONTEND) && node scripts/golden.ts "$$tmp/golden.json") && \
-	cmp -s "$$tmp/golden.json" $(GOLDEN) || { echo "the golden cases are stale: change internal/sim to match, then run make golden"; rm -rf "$$tmp"; exit 1; }; \
-	rm -rf "$$tmp"
+	cd $(FRONTEND) && node scripts/golden.ts --check
 
 .PHONY: ts-check
 ts-check: $(JS_DEPS) ## Type-check the TypeScript
