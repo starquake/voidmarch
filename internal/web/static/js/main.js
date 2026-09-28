@@ -1950,6 +1950,8 @@ var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
+var BLOOM_BLUR = 3;
+var EFFECT_ZOOM = 2;
 var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
@@ -1969,6 +1971,7 @@ var SandboxScene = class extends Phaser5.Scene {
   muzzleFlash;
   puff;
   bloom;
+  bloomBlur;
   vignette;
   hudCamera;
   hud;
@@ -2127,7 +2130,9 @@ var SandboxScene = class extends Phaser5.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser5.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]?.parallelFilters;
+    const bloom = Phaser5.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    this.bloom = bloom?.parallelFilters;
+    this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -2228,6 +2233,14 @@ var SandboxScene = class extends Phaser5.Scene {
     const { width, height } = this.scale;
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
+    const effectScale = zoom / EFFECT_ZOOM;
+    if (this.bloomBlur !== void 0) {
+      this.bloomBlur.x = BLOOM_BLUR * effectScale;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale;
+    }
+    if (this.enemyFireGlow !== void 0) {
+      this.enemyFireGlow.scale = effectScale;
+    }
     this.hudCamera.setSize(width, height);
     const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);

@@ -38,6 +38,14 @@ const PARALLAX = [0.05, 0.15, 0.3] as const;
 const BACKGROUND_FPS = 6;
 const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
+/** Bloom's blur reach, in screen pixels at EFFECT_ZOOM. */
+const BLOOM_BLUR = 3;
+/**
+ * Filters work in screen pixels, so their reach is scaled by zoom / EFFECT_ZOOM
+ * to look the same on every screen size and display scaling. 2 is the zoom of
+ * a 1280x720 window, where the effects were tuned.
+ */
+const EFFECT_ZOOM = 2;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
 const HIT_SPARKS = 5;
@@ -66,6 +74,7 @@ export class SandboxScene extends Phaser.Scene {
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
+  private bloomBlur: Phaser.Filters.Blur | undefined;
   private vignette: Phaser.Filters.Vignette | undefined;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
@@ -236,8 +245,9 @@ export class SandboxScene extends Phaser.Scene {
     main.setBackgroundColor('#05030a');
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    this.bloom = Phaser.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: 3, blendAmount: 0.6 })[0]
-      ?.parallelFilters;
+    const bloom = Phaser.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    this.bloom = bloom?.parallelFilters;
+    this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
 
     this.hud = this.add
@@ -350,6 +360,14 @@ export class SandboxScene extends Phaser.Scene {
     // every art pixel a whole number of device pixels.
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
+    const effectScale = zoom / EFFECT_ZOOM;
+    if (this.bloomBlur !== undefined) {
+      this.bloomBlur.x = BLOOM_BLUR * effectScale;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale;
+    }
+    if (this.enemyFireGlow !== undefined) {
+      this.enemyFireGlow.scale = effectScale;
+    }
     this.hudCamera.setSize(width, height);
     const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
