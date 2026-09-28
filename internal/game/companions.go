@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 // Companion rules (docs/design.md, section 13).
@@ -17,32 +18,17 @@ const (
 	decimal = 10
 )
 
-// companion is a seat its owner's client flies with an AI brain.
+// companion is a seat the hub flies with an AI brain (flight.go).
 type companion struct {
 	number uint32
-	state  *pb.ShipState
 	// granted orders companions by age, so the newest is displaced first.
 	granted uint64
-	// lastSeen is the tick of its last state, or of its grant.
-	lastSeen uint32
+	flight  *sim.Companion
 }
 
 // seatID names a companion's seat: "<owner>/<n>".
 func seatID(owner string, number uint32) string {
 	return owner + "/" + strconv.FormatUint(uint64(number), decimal)
-}
-
-// shooterID is who fired: the player, or their companion's seat. A
-// companion the server hasn't granted fires nothing.
-func shooterID(owner string, m *member, companion uint32) (string, bool) {
-	if companion == 0 {
-		return owner, true
-	}
-	if _, ok := m.companions[companion]; !ok {
-		return "", false
-	}
-
-	return seatID(owner, companion), true
 }
 
 // seats counts the humans and companions in the world.
@@ -70,7 +56,13 @@ func (h *Hub) summon(owner string, m *member) {
 	}
 	h.nextGrant++
 	h.hangar--
-	m.companions[number] = &companion{number: number, granted: h.nextGrant, lastSeen: h.tick}
+	flight := m.wing.Add(
+		int(number),
+		float64(m.state.GetX()),
+		float64(m.state.GetY()),
+		h.squadronModeOrders(m),
+	)
+	m.companions[number] = &companion{number: number, granted: h.nextGrant, flight: flight}
 	h.broadcastSquadrons()
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
 		CompanionGranted: &pb.CompanionGranted{
@@ -102,38 +94,6 @@ func (h *Hub) summonRefusal(m *member) string {
 	return ""
 }
 
-// companionState updates a companion's ship. A state for a companion the
-// server doesn't know (lost when the player dropped) dismisses it, so the
-// client stops flying a seat nobody else can see.
-func (h *Hub) companionState(owner string, m *member, msg *pb.CompanionState) {
-	c, ok := m.companions[msg.GetCompanion()]
-	if !ok {
-		h.send(owner, dismissed(msg.GetCompanion()))
-
-		return
-	}
-	c.state = msg.GetState()
-	c.lastSeen = h.tick
-}
-
-// expireCompanions gives back the seats of companions whose states stopped,
-// like a silent player's: a client that no longer flies them (a closed tab,
-// a lost grant) would otherwise hold them forever.
-func (h *Hub) expireCompanions() {
-	for _, owner := range slices.Sorted(maps.Keys(h.members)) {
-		m, ok := h.members[owner]
-		if !ok {
-			continue
-		}
-		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
-			if h.tick-m.companions[number].lastSeen > silenceTicks {
-				h.dismiss(owner, m, number)
-				h.send(owner, dismissed(number))
-			}
-		}
-	}
-}
-
 // dismiss sends a companion home: its seat is given back, its ship docks in
 // the hangar, and everyone else is told it's gone.
 func (h *Hub) dismiss(owner string, m *member, number uint32) {
@@ -154,6 +114,7 @@ func (h *Hub) takeCompanion(owner string, m *member, number uint32) bool {
 		return false
 	}
 	delete(m.companions, number)
+	m.wing.Remove(int(number))
 	h.broadcast(left(seatID(owner, number)), owner)
 
 	return true
@@ -183,24 +144,18 @@ func (h *Hub) displaceNewestCompanion() bool {
 	return true
 }
 
-// companionSnapshots are every companion not owned by viewer, as players.
-func (h *Hub) companionSnapshots(viewer string) []*pb.PlayerSnapshot {
+// companionSnapshots are every companion, their owners' included: the hub
+// flies them all.
+func (h *Hub) companionSnapshots() []*pb.PlayerSnapshot {
 	var out []*pb.PlayerSnapshot
 	for _, owner := range slices.Sorted(maps.Keys(h.members)) {
 		m := h.members[owner]
-		if owner == viewer {
-			continue
-		}
 		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
-			c := m.companions[number]
-			if c.state == nil {
-				continue
-			}
 			out = append(out, &pb.PlayerSnapshot{
 				PlayerId: seatID(owner, number),
 				Name:     m.session.Player.Name,
 				Colour:   m.colour,
-				State:    c.state,
+				State:    companionState(m.companions[number].flight),
 				OwnerId:  owner,
 				Squadron: m.squadron,
 			})

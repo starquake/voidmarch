@@ -131,6 +131,7 @@ func (h *Hub) stepEnemies() {
 		h.steer(e, players)
 		if h.tick-e.lastNear > despawnAfter {
 			delete(h.enemies, id)
+			h.forgetEnemy(id)
 		}
 	}
 }
@@ -139,20 +140,18 @@ func (h *Hub) stepEnemies() {
 // players and their companions alike.
 func (h *Hub) playersOutsideSafeZone() []point {
 	var out []point
-	add := func(s *pb.ShipState) {
-		if s == nil {
-			return
-		}
-		p := point{float64(s.GetX()), float64(s.GetY())}
-		if math.Hypot(p.x, p.y) > safeRadius {
-			out = append(out, p)
+	add := func(x, y float64) {
+		if math.Hypot(x, y) > safeRadius {
+			out = append(out, point{x, y})
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
 		m := h.members[id]
-		add(m.state)
-		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
-			add(m.companions[number].state)
+		if m.state != nil {
+			add(float64(m.state.GetX()), float64(m.state.GetY()))
+		}
+		for _, c := range m.wing.Companions {
+			add(c.Ship.X, c.Ship.Y)
 		}
 	}
 
@@ -333,6 +332,7 @@ func nearest(e *enemy, players []point) (target point, distance float64, found b
 }
 
 func (h *Hub) fire(e *enemy) {
+	h.noteAttack(e)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
 		EnemyId:   e.id,
 		Kind:      e.kind,
@@ -345,25 +345,27 @@ func (h *Hub) fire(e *enemy) {
 	}}}, "")
 }
 
-// hit applies a hit reported by owner's client for shooter (the owner or
-// one of their companions): the shot ends everywhere else, and the enemy is
+// hit applies shooter's shot hitting enemyID: a player's, as their client
+// reports it (except is that player, who ended it already), or a companion's,
+// as the hub tests it. The shot ends everywhere else, and the enemy is
 // destroyed once its hit points run out.
-func (h *Hub) hit(owner, shooter string, hit *pb.Hit) {
-	e, ok := h.enemies[hit.GetEnemyId()]
+func (h *Hub) hit(except, shooter string, enemyID, shotID, damage uint32) {
+	e, ok := h.enemies[enemyID]
 	if !ok {
 		return
 	}
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{
 		PlayerId: shooter,
-		ShotId:   hit.GetShotId(),
+		ShotId:   shotID,
 		Tick:     h.tick,
-	}}}, owner)
+	}}}, except)
 
-	e.hp = damaged(e.hp, hit.GetDamage())
+	e.hp = damaged(e.hp, damage)
 	if e.hp > 0 {
 		return
 	}
 	delete(h.enemies, e.id)
+	h.forgetEnemy(e.id)
 	h.broadcast(
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{
 			EnemyId:    e.id,
