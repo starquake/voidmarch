@@ -2,6 +2,7 @@ package game_test
 
 import (
 	"math"
+	"slices"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/game"
@@ -153,8 +154,69 @@ func TestCompanions_DevelopmentLiftsTheLimits(t *testing.T) {
 		grant(t, a)
 	}
 
-	if _, reason := summonReply(t, a); reason == "" {
-		t.Error("summon past every seat granted, want a refusal")
+	if _, reason := summonReply(t, a); reason != "all your companions are already out" {
+		t.Errorf("summon past the development limit: reason = %q, want the limit", reason)
+	}
+}
+
+func TestCompanions_SeatsAreCapped(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t, WithDevelopment())
+	a, _ := join(t, hub, "a")
+	join(t, hub, "b")
+	a.Send(state(0, 180))
+	for range MaxPlayers - 2 {
+		grant(t, a)
+	}
+
+	if _, reason := summonReply(t, a); reason != "the frontier is full" {
+		t.Errorf("summon with every seat taken: reason = %q, want the frontier is full", reason)
+	}
+}
+
+func TestCompanions_ExpireWhenTheirStatesStop(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := join(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	a.Send(state(0, 180))
+	grant(t, a)
+
+	var dismissedAt *pb.CompanionDismissed
+	for range 4 * TickRate {
+		_, messages := latest(t, a, tick, 1, 0, 180)
+		b.Send(state(0, -180))
+		for _, msg := range messages {
+			if d := msg.GetCompanionDismissed(); d != nil {
+				dismissedAt = d
+			}
+		}
+		if dismissedAt != nil {
+			break
+		}
+	}
+	if dismissedAt == nil {
+		t.Fatal("a companion with no states for 4 s was never dismissed")
+	}
+	if got, want := nextLeft(t, b), "a/1"; got != want {
+		t.Errorf("left = %q, want %q", got, want)
+	}
+}
+
+func TestCompanions_WelcomeListsTheKeptOnes(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	a, _ := join(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	grant(t, a)
+
+	_, welcome := join(t, hub, "a")
+	if got, want := welcome.GetCompanions(), []uint32{1, 2}; !slices.Equal(got, want) {
+		t.Errorf("welcome companions = %v, want %v", got, want)
 	}
 }
 
@@ -312,9 +374,17 @@ func TestCompanions_EnemiesComeForThemAndTheirHitsCount(t *testing.T) {
 	a.Send(companionState(n, 1000, 0))
 	b.Send(state(0, -180))
 
-	// The owner stays home; only the companion is out.
-	snap, _ := latest(t, a, tick, 3*TickRate, 0, 180)
-	drain(b)
+	// The owner stays home; only the companion is out. Everyone keeps
+	// reporting, so nobody goes silent.
+	var snap *pb.Snapshot
+	for range 3 * TickRate {
+		a.Send(companionState(n, 1000, 0))
+		b.Send(state(0, -180))
+		snap, _ = latest(t, a, tick, 1, 0, 180)
+		for next(t, b).GetSnapshot().GetTick() != snap.GetTick() {
+			continue
+		}
+	}
 	var target *pb.EnemyState
 	for _, e := range snap.GetEnemies() {
 		if math.Hypot(float64(e.GetX())-1000, float64(e.GetY())) < 500 {

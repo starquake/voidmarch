@@ -134,6 +134,9 @@ message Welcome {
   bool summon_anywhere = 8;
   // The player's name, for labelling their own companions.
   string name = 9;
+  // The player's companions the server kept (a reconnect), so the client can
+  // fly on with them and give back any it doesn't know.
+  repeated uint32 companions = 10;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -221,8 +224,8 @@ message CompanionRefused {
   string reason = 1;
 }
 
-// CompanionDismissed says the server took a companion's seat back, for a
-// human joining a full world.
+// CompanionDismissed says the server took a companion's seat back: for a
+// human joining a full world, or because its states stopped or never came.
 message CompanionDismissed {
   uint32 companion = 1;
 }

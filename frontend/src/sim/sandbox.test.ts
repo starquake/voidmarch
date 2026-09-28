@@ -132,3 +132,15 @@ test('companions can be removed, and adding a number again replaces it', () => {
     [1],
   );
 });
+
+test("removing a companion ends its shots in flight, and only its", () => {
+  const sandbox = new Sandbox();
+  sandbox.projectiles.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 }, { owner: '2' });
+  sandbox.projectiles.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 }, { owner: '1' });
+  sandbox.projectiles.spawn({ kind: 'autoCannon', x: 0, y: 0, angle: 0 });
+  sandbox.removeCompanion(2);
+  assert.deepEqual(
+    sandbox.projectiles.items.filter((p) => p.active).map((p) => p.owner),
+    ['1', ''],
+  );
+});

@@ -380,6 +380,14 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: string name = 9;
    */
   name: string;
+
+  /**
+   * The player's companions the server kept (a reconnect), so the client can
+   * fly on with them and give back any it doesn't know.
+   *
+   * @generated from field: repeated uint32 companions = 10;
+   */
+  companions: number[];
 };
 
 /**
@@ -718,8 +726,8 @@ export declare type CompanionRefused = Message<"voidmarch.v1.CompanionRefused"> 
 export declare const CompanionRefusedSchema: GenMessage<CompanionRefused>;
 
 /**
- * CompanionDismissed says the server took a companion's seat back, for a
- * human joining a full world.
+ * CompanionDismissed says the server took a companion's seat back: for a
+ * human joining a full world, or because its states stopped or never came.
  *
  * @generated from message voidmarch.v1.CompanionDismissed
  */

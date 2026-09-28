@@ -27,6 +27,8 @@ type companion struct {
 	state  *pb.ShipState
 	// granted orders companions by age, so the newest is displaced first.
 	granted uint64
+	// lastSeen is the tick of its last state, or of its grant.
+	lastSeen uint32
 }
 
 // seatID names a companion's seat: "<owner>/<n>".
@@ -79,7 +81,7 @@ func (h *Hub) summon(owner string, m *member) {
 		number++
 	}
 	h.nextGrant++
-	m.companions[number] = &companion{number: number, granted: h.nextGrant}
+	m.companions[number] = &companion{number: number, granted: h.nextGrant, lastSeen: h.tick}
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
 		CompanionGranted: &pb.CompanionGranted{
 			Companion: number,
@@ -147,10 +149,32 @@ func (h *Hub) companionState(owner string, m *member, msg *pb.CompanionState) {
 		return
 	}
 	c.state = msg.GetState()
+	c.lastSeen = h.tick
+}
+
+// expireCompanions gives back the seats of companions whose states stopped,
+// like a silent player's: a client that no longer flies them (a closed tab,
+// a lost grant) would otherwise hold them forever.
+func (h *Hub) expireCompanions() {
+	for _, owner := range slices.Sorted(maps.Keys(h.members)) {
+		m, ok := h.members[owner]
+		if !ok {
+			continue
+		}
+		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+			if h.tick-m.companions[number].lastSeen > silenceTicks {
+				h.dismiss(owner, m, number)
+				h.send(owner, dismissed(number))
+			}
+		}
+	}
 }
 
 // dismiss gives a companion's seat back, and tells everyone else it's gone.
 func (h *Hub) dismiss(owner string, m *member, number uint32) {
+	if m == nil {
+		return
+	}
 	if _, ok := m.companions[number]; !ok {
 		return
 	}
@@ -174,8 +198,9 @@ func (h *Hub) displaceNewestCompanion() bool {
 	if newest == nil {
 		return false
 	}
-	h.send(owner, dismissed(newest.number))
+	// Free the seat before telling the owner: the send may drop them as too slow.
 	h.dismiss(owner, h.members[owner], newest.number)
+	h.send(owner, dismissed(newest.number))
 
 	return true
 }

@@ -149,9 +149,8 @@ export class NetPlay {
   enemiesDestroyed = 0;
   lastEnemyDestroyed: number | undefined;
   hitsTaken = 0;
-  /** Enemies this player's companions shot down, and enemy bullets that hit them. */
+  /** Enemies this player's companions shot down. */
   companionKills = 0;
-  companionHitsTaken = 0;
   /** How many companions the server allows, and whether outside the safe zone too. */
   companionLimit = 0;
   summonAnywhere = false;
@@ -180,7 +179,9 @@ export class NetPlay {
         },
         shot: (remote) => {
           const shot = remote.shot;
-          if (shot === undefined || !this.remotes.has(remote.playerId)) {
+          // A companion can fire before its first snapshot arrives; its owner is known by then.
+          const owner = remote.playerId.split('/')[0] ?? '';
+          if (shot === undefined || (!this.remotes.has(remote.playerId) && !this.remotes.has(owner))) {
             return;
           }
           this.shots.add(remote.tick, {
@@ -233,8 +234,11 @@ export class NetPlay {
           this.say(reason);
         },
         companionDismissed: (number) => {
-          this.dismissCompanion(number);
-          this.say(`companion ${String(number)} went home`);
+          // Stale states in flight can bring back a dismissal for one already gone.
+          if (this.options.sim.companions.some((c) => c.number === number)) {
+            this.dismissCompanion(number);
+            this.say(`companion ${String(number)} went home`);
+          }
         },
       },
     });
@@ -397,6 +401,25 @@ export class NetPlay {
     });
   }
 
+  /**
+   * After a (re)connect, keeps the companions the server kept. Ones it
+   * dropped (the player went silent) go; ones this client doesn't fly (another
+   * tab's) are given back.
+   */
+  private reconcileCompanions(kept: readonly number[]): void {
+    const flying = this.options.sim.companions.map((c) => c.number);
+    const gone = flying.filter((n) => !kept.includes(n));
+    for (const number of gone) {
+      this.dismissCompanion(number);
+    }
+    if (gone.length > 0) {
+      this.say('your companions went home while you were away');
+    }
+    for (const number of kept.filter((n) => !flying.includes(n))) {
+      this.connection.sendDismiss(number);
+    }
+  }
+
   private dismissCompanion(number: number): void {
     this.options.sim.removeCompanion(number);
     this.companionDrawings.get(number)?.view.destroy();
@@ -478,7 +501,6 @@ export class NetPlay {
           this.hitsTaken++;
           frame.hitsOnMe.push({ x: p.x, y: p.y });
         } else {
-          this.companionHitsTaken++;
           this.companionDrawings.get(hit.id)?.view.flash(this.options.scene);
           frame.enemyHits.push({ x: p.x, y: p.y });
         }
@@ -486,11 +508,11 @@ export class NetPlay {
     }
   }
 
-  /** Whether a point is near the player or one of their companions. */
-  private nearWing(x: number, y: number): boolean {
+  /** Whether a point is within range of the player or one of their companions. */
+  private nearWing(x: number, y: number, range: number): boolean {
     const { ship, companions } = this.options.sim;
 
-    return [ship, ...companions.map((c) => c.ship)].some((s) => Math.hypot(s.x - x, s.y - y) <= BRAIN_ATTACKER_RANGE);
+    return [ship, ...companions.map((c) => c.ship)].some((s) => Math.hypot(s.x - x, s.y - y) <= range);
   }
 
   /**
@@ -503,17 +525,20 @@ export class NetPlay {
       return;
     }
     const origin = enemy.buffer.sample(volley.tick) ?? volley;
-    const ship = this.options.sim.ship;
-    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) > ENEMY_VOLLEY_RANGE) {
+    // Companions can be far from the player (holding a point), and enemies fire at them too.
+    if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
     }
-    if (this.nearWing(origin.x, origin.y)) {
+    if (this.nearWing(origin.x, origin.y, BRAIN_ATTACKER_RANGE)) {
       this.attackers.add(volley.enemyId);
     }
     for (const bullet of enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
     }
-    this.options.audio.enemyShot();
+    const ship = this.options.sim.ship;
+    if (Math.hypot(origin.x - ship.x, origin.y - ship.y) <= ENEMY_VOLLEY_RANGE) {
+      this.options.audio.enemyShot();
+    }
   }
 
   private enemyFired(fired: EnemyFired): void {
@@ -556,6 +581,7 @@ export class NetPlay {
     this.colour = welcome.colour;
     this.companionLimit = welcome.companionLimit;
     this.summonAnywhere = welcome.summonAnywhere;
+    this.reconcileCompanions(welcome.companions);
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);

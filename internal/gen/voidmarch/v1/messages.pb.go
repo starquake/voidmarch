@@ -933,7 +933,10 @@ type Welcome struct {
 	// (development servers, for testing).
 	SummonAnywhere bool `protobuf:"varint,8,opt,name=summon_anywhere,json=summonAnywhere,proto3" json:"summon_anywhere,omitempty"`
 	// The player's name, for labelling their own companions.
-	Name          string `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
+	// The player's companions the server kept (a reconnect), so the client can
+	// fly on with them and give back any it doesn't know.
+	Companions    []uint32 `protobuf:"varint,10,rep,packed,name=companions,proto3" json:"companions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1029,6 +1032,13 @@ func (x *Welcome) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *Welcome) GetCompanions() []uint32 {
+	if x != nil {
+		return x.Companions
+	}
+	return nil
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -1712,8 +1722,8 @@ func (x *CompanionRefused) GetReason() string {
 	return ""
 }
 
-// CompanionDismissed says the server took a companion's seat back, for a
-// human joining a full world.
+// CompanionDismissed says the server took a companion's seat back: for a
+// human joining a full world, or because its states stopped or never came.
 type CompanionDismissed struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
@@ -2069,7 +2079,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x06summon\x18\x05 \x01(\v2\x14.voidmarch.v1.SummonH\x00R\x06summon\x12<\n" +
 	"\tcompanion\x18\x06 \x01(\v2\x1c.voidmarch.v1.CompanionStateH\x00R\tcompanion\x121\n" +
 	"\adismiss\x18\a \x01(\v2\x15.voidmarch.v1.DismissH\x00R\adismissB\x06\n" +
-	"\x04kind\"\x87\x02\n" +
+	"\x04kind\"\xa7\x02\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x16\n" +
 	"\x06colour\x18\x02 \x01(\rR\x06colour\x12\x17\n" +
@@ -2079,7 +2089,11 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\ttick_rate\x18\x06 \x01(\rR\btickRate\x12'\n" +
 	"\x0fcompanion_limit\x18\a \x01(\rR\x0ecompanionLimit\x12'\n" +
 	"\x0fsummon_anywhere\x18\b \x01(\bR\x0esummonAnywhere\x12\x12\n" +
-	"\x04name\x18\t \x01(\tR\x04name\"\xa3\x01\n" +
+	"\x04name\x18\t \x01(\tR\x04name\x12\x1e\n" +
+	"\n" +
+	"companions\x18\n" +
+	" \x03(\rR\n" +
+	"companions\"\xa3\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +

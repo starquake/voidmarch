@@ -72,10 +72,16 @@ export class Sandbox {
     return companion;
   }
 
+  /** Removes a companion, and its shots still in flight, which could no longer be reported. */
   removeCompanion(number: number): void {
     const i = this.companions.findIndex((c) => c.number === number);
     if (i >= 0) {
       this.companions.splice(i, 1);
+    }
+    for (const p of this.projectiles.items) {
+      if (p.faction === 'own' && p.owner === String(number)) {
+        p.active = false;
+      }
     }
   }
 

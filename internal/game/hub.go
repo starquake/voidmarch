@@ -264,6 +264,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 
 		CompanionLimit: uint32(h.companionLimit()), //nolint:gosec // at most MaxPlayers.
 		SummonAnywhere: h.development,
+		Companions:     slices.Sorted(maps.Keys(companions)),
 	}
 
 	return joinResult{session: s, welcome: welcome}
@@ -315,6 +316,7 @@ func (h *Hub) step() {
 		}
 	}
 
+	h.expireCompanions()
 	h.stepEnemies()
 	enemies := h.enemySnapshot()
 

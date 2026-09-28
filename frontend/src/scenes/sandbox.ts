@@ -317,11 +317,17 @@ export class SandboxScene extends Phaser.Scene {
         this.releaseOrders();
       }
     };
+    // Letting go of Q in another window never reaches us: close the ring unused.
+    const onBlur = (): void => {
+      this.closeOrderRing();
+    };
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
     });
   }
 
@@ -392,6 +398,7 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Q down: remember where the pointer is, and the companion under it, if any. */
   private pressOrders(): void {
+    this.closeOrderRing();
     const pointer = this.input.activePointer;
     const world = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
     const under = this.sim.companions.find(
@@ -437,6 +444,14 @@ export class SandboxScene extends Phaser.Scene {
     const pointer = this.input.activePointer;
 
     return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
+  }
+
+  /** Drops a Q press and its ring without giving an order. */
+  private closeOrderRing(): void {
+    for (const label of this.orderPress?.labels ?? []) {
+      label.destroy();
+    }
+    this.orderPress = undefined;
   }
 
   /** Q up: give the item pointed at, or repeat the last order after a tap. */
@@ -668,7 +683,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     switch (net.status) {
       case 'online': {
-        const count = net.others.length;
+        const count = net.others.filter((o) => o.ownerId === '').length;
 
         return `online · ${count === 0 ? 'nobody else here yet' : `${count} other${count === 1 ? '' : 's'} here`}`;
       }
