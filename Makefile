@@ -162,18 +162,21 @@ toolchain-versions: ## Print the pinned TinyGo and Binaryen versions (CI's cache
 	@echo tinygo-$(TINYGO_VERSION)-binaryen-$(BINARYEN_VERSION)
 
 WASM_OUT := internal/web/static/wasm
+# A reactor (c-shared) with no scheduler: each export is a plain call. In
+# command mode every call went through TinyGo's scheduler, about 40 µs each.
+SIM_WASM_FLAGS := -target=wasm -no-debug -buildmode=c-shared -scheduler=none
 
 .PHONY: wasm
 wasm: $(TINYGO_BIN) $(WASM_OPT) simgen ## Build the browser's sim into internal/web/static/wasm with TinyGo
 	@mkdir -p $(WASM_OUT)
-	$(TINYGO) build -target=wasm -no-debug -o $(WASM_OUT)/sim.wasm ./cmd/simwasm
+	$(TINYGO) build $(SIM_WASM_FLAGS) -o $(WASM_OUT)/sim.wasm ./cmd/simwasm
 	cp $(TOOLCHAINS)/tinygo/targets/wasm_exec.js $(WASM_OUT)/wasm_exec.js
 
 .PHONY: wasm-check
 wasm-check: $(TINYGO_BIN) $(WASM_OPT) ## Fail when the committed sim module or its generated TypeScript is stale
 	@tmp=$$(mktemp -d); \
 	go run ./cmd/simgen -o "$$tmp/sim.ts" && \
-	$(TINYGO) build -target=wasm -no-debug -o "$$tmp/sim.wasm" ./cmd/simwasm && \
+	$(TINYGO) build $(SIM_WASM_FLAGS) -o "$$tmp/sim.wasm" ./cmd/simwasm && \
 	cmp -s "$$tmp/sim.ts" $(FRONTEND)/src/sim/rules.gen.ts && \
 	cmp -s "$$tmp/sim.wasm" $(WASM_OUT)/sim.wasm && \
 	cmp -s $(TOOLCHAINS)/tinygo/targets/wasm_exec.js $(WASM_OUT)/wasm_exec.js \
