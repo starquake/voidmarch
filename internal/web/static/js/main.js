@@ -1441,6 +1441,12 @@ function squadronChoices(list) {
   }
   return { choices, full };
 }
+function hangarLine(hangar, atHome) {
+  if (!atHome || hangar === void 0) {
+    return void 0;
+  }
+  return hangar === 0 ? "hangar: empty" : `hangar: ${String(hangar)} ship${hangar === 1 ? "" : "s"}`;
+}
 function pickFirst(choices, last) {
   return choices.find((c) => c.name === last)?.name ?? choices[0]?.name;
 }
@@ -2428,6 +2434,10 @@ var NetPlay = class {
   get noticeText() {
     return this.notice !== void 0 && now() < this.notice.untilMs ? this.notice.text : void 0;
   }
+  /** Companion ships waiting in the shared hangar, once the server has listed them. */
+  get hangar() {
+    return this.squadrons?.hangar;
+  }
   /** The player's squadron as the server last listed it. */
   get squadronInfo() {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
@@ -2454,6 +2464,8 @@ var NetPlay = class {
       this.say("all your companions are already out");
     } else if (Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
       this.say("summon companions at the home planet");
+    } else if (this.hangar === 0) {
+      this.say("the hangar is empty");
     } else {
       this.connection.sendSummon();
     }
@@ -3009,7 +3021,8 @@ var SandboxScene = class extends Phaser5.Scene {
       notice: void 0,
       orderMenuOpen: false,
       squadron: "",
-      squadronScreen: false
+      squadronScreen: false,
+      hangar: void 0
     };
     this.publish();
   }
@@ -3544,6 +3557,11 @@ ${describeOrders(this.sim.ordersFor(first))}`,
       const now2 = doing === void 0 ? "" : ` \xB7 ${doing}`;
       lines.push(`${info.name}: ${info.members.map((m) => m.name).join(", ")}${ai} \xB7 ${modeName(info)}${now2}`);
     }
+    const { ship } = this.sim;
+    const hangar = hangarLine(net.hangar, Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS);
+    if (hangar !== void 0) {
+      lines.push(hangar);
+    }
     const notice = net.noticeText;
     if (notice !== void 0) {
       lines.push(`\u2192 ${notice}`);
@@ -3610,6 +3628,7 @@ ${describeOrders(this.sim.ordersFor(first))}`,
     this.debug.notice = this.net?.noticeText;
     this.debug.orderMenuOpen = this.orderPress?.labels !== void 0;
     this.debug.squadron = this.net?.squadron ?? "";
+    this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     publishDebugState(this.debug);
   }

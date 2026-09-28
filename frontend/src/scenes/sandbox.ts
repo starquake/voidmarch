@@ -32,6 +32,7 @@ import {
   ENEMY_FIRE_GLOW_QUALITY,
   ENEMY_FIRE_GLOW_STRENGTH,
   ROTATION_SNAP_STEPS,
+  SAFE_ZONE_RADIUS,
   VIEW_HEIGHT,
   VIEW_WIDTH,
   WEAPON_STATS,
@@ -39,7 +40,7 @@ import {
 import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
-import { SquadronScreen, modeName } from '../squadrons.ts';
+import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { ShipAudio } from './audio.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
@@ -207,6 +208,7 @@ export class SandboxScene extends Phaser.Scene {
       orderMenuOpen: false,
       squadron: '',
       squadronScreen: false,
+      hangar: undefined,
     };
     this.publish();
   }
@@ -800,6 +802,11 @@ export class SandboxScene extends Phaser.Scene {
       const now = doing === undefined ? '' : ` · ${doing}`;
       lines.push(`${info.name}: ${info.members.map((m) => m.name).join(', ')}${ai} · ${modeName(info)}${now}`);
     }
+    const { ship } = this.sim;
+    const hangar = hangarLine(net.hangar, Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS);
+    if (hangar !== undefined) {
+      lines.push(hangar);
+    }
     const notice = net.noticeText;
     if (notice !== undefined) {
       lines.push(`→ ${notice}`);
@@ -870,6 +877,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.notice = this.net?.noticeText;
     this.debug.orderMenuOpen = this.orderPress?.labels !== undefined;
     this.debug.squadron = this.net?.squadron ?? '';
+    this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     publishDebugState(this.debug);
   }

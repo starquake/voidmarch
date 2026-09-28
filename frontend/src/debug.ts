@@ -48,6 +48,8 @@ export interface DebugState {
   /** The player's squadron, "" before choosing, and whether the join screen is up. */
   squadron: string;
   squadronScreen: boolean;
+  /** Companion ships waiting in the shared hangar, once the server has listed them. */
+  hangar: number | undefined;
   audio: {
     muted: boolean;
     music: boolean;

@@ -333,6 +333,11 @@ export class NetPlay {
     return this.notice !== undefined && now() < this.notice.untilMs ? this.notice.text : undefined;
   }
 
+  /** Companion ships waiting in the shared hangar, once the server has listed them. */
+  get hangar(): number | undefined {
+    return this.squadrons?.hangar;
+  }
+
   /** The player's squadron as the server last listed it. */
   get squadronInfo(): SquadronInfo | undefined {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
@@ -361,6 +366,8 @@ export class NetPlay {
       this.say('all your companions are already out');
     } else if (Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
       this.say('summon companions at the home planet');
+    } else if (this.hangar === 0) {
+      this.say('the hangar is empty');
     } else {
       this.connection.sendSummon();
     }
