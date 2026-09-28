@@ -34,6 +34,19 @@ func seatID(owner string, number uint32) string {
 	return owner + "/" + strconv.FormatUint(uint64(number), decimal)
 }
 
+// shooterID is who fired: the player, or their companion's seat. A
+// companion the server hasn't granted fires nothing.
+func shooterID(owner string, m *member, companion uint32) (string, bool) {
+	if companion == 0 {
+		return owner, true
+	}
+	if _, ok := m.companions[companion]; !ok {
+		return "", false
+	}
+
+	return seatID(owner, companion), true
+}
+
 // seats counts the humans and companions in the world.
 func (h *Hub) seats() int {
 	n := len(h.members)

@@ -135,16 +135,24 @@ func (h *Hub) stepEnemies() {
 	}
 }
 
+// playersOutsideSafeZone are the ships enemies spawn around and target:
+// players and their companions alike.
 func (h *Hub) playersOutsideSafeZone() []point {
 	var out []point
-	for _, id := range slices.Sorted(maps.Keys(h.members)) {
-		m := h.members[id]
-		if m.state == nil {
-			continue
+	add := func(s *pb.ShipState) {
+		if s == nil {
+			return
 		}
-		p := point{float64(m.state.GetX()), float64(m.state.GetY())}
+		p := point{float64(s.GetX()), float64(s.GetY())}
 		if math.Hypot(p.x, p.y) > safeRadius {
 			out = append(out, p)
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(h.members)) {
+		m := h.members[id]
+		add(m.state)
+		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+			add(m.companions[number].state)
 		}
 	}
 
@@ -337,18 +345,19 @@ func (h *Hub) fire(e *enemy) {
 	}}}, "")
 }
 
-// hit applies a player's reported hit: the shot ends everywhere, and the
-// enemy is destroyed once its hit points run out.
-func (h *Hub) hit(from string, hit *pb.Hit) {
+// hit applies a hit reported by owner's client for shooter (the owner or
+// one of their companions): the shot ends everywhere else, and the enemy is
+// destroyed once its hit points run out.
+func (h *Hub) hit(owner, shooter string, hit *pb.Hit) {
 	e, ok := h.enemies[hit.GetEnemyId()]
 	if !ok {
 		return
 	}
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{
-		PlayerId: from,
+		PlayerId: shooter,
 		ShotId:   hit.GetShotId(),
 		Tick:     h.tick,
-	}}}, from)
+	}}}, owner)
 
 	e.hp = damaged(e.hp, hit.GetDamage())
 	if e.hp > 0 {
@@ -359,7 +368,7 @@ func (h *Hub) hit(from string, hit *pb.Hit) {
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{
 			EnemyId:    e.id,
 			Kind:       e.kind,
-			ByPlayerId: from,
+			ByPlayerId: shooter,
 			Tick:       h.tick,
 			X:          float32(e.x),
 			Y:          float32(e.y),

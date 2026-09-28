@@ -279,7 +279,9 @@ func (h *Hub) handleMessage(in inbound) {
 	case *pb.ClientMessage_State:
 		m.state = kind.State
 	case *pb.ClientMessage_Hit:
-		h.hit(in.session.Player.ID, kind.Hit)
+		if shooter, ok := shooterID(in.session.Player.ID, m, kind.Hit.GetCompanion()); ok {
+			h.hit(in.session.Player.ID, shooter, kind.Hit)
+		}
 	case *pb.ClientMessage_Summon:
 		h.summon(in.session.Player.ID, m)
 	case *pb.ClientMessage_Companion:
@@ -287,8 +289,12 @@ func (h *Hub) handleMessage(in inbound) {
 	case *pb.ClientMessage_Dismiss:
 		h.dismiss(in.session.Player.ID, m, kind.Dismiss.GetCompanion())
 	case *pb.ClientMessage_Shot:
+		shooter, ok := shooterID(in.session.Player.ID, m, kind.Shot.GetCompanion())
+		if !ok {
+			return
+		}
 		shot := &pb.ServerMessage{Kind: &pb.ServerMessage_Shot{Shot: &pb.RemoteShot{
-			PlayerId: in.session.Player.ID,
+			PlayerId: shooter,
 			Tick:     h.tick,
 			Shot:     kind.Shot,
 		}}}

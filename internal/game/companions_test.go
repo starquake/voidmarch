@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"math"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/game"
@@ -271,5 +272,77 @@ func TestCompanions_HumansDisplaceTheNewest(t *testing.T) {
 
 			return
 		}
+	}
+}
+
+func companionShot(companion, id uint32) *pb.ClientMessage {
+	return &pb.ClientMessage{Kind: &pb.ClientMessage_Shot{Shot: &pb.ShotFired{
+		Id: id, Companion: companion, Weapon: pb.Weapon_WEAPON_AUTO_CANNON,
+	}}}
+}
+
+func TestCompanions_ShotsRelayUnderTheirSeat(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	a, _ := join(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	a.Send(state(0, 180))
+	n := grant(t, a)
+	a.Send(companionShot(2, 1))
+	a.Send(companionShot(n, 7))
+
+	shot := nextShot(t, b)
+	if got, want := shot.GetPlayerId(), "a/1"; got != want {
+		t.Errorf("shot from %q, want %q (companion 2 was never granted)", got, want)
+	}
+	if got, want := shot.GetShot().GetId(), uint32(7); got != want {
+		t.Errorf("shot id = %d, want %d", got, want)
+	}
+}
+
+func TestCompanions_EnemiesComeForThemAndTheirHitsCount(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := join(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	a.Send(state(0, 180))
+	n := grant(t, a)
+	a.Send(companionState(n, 1000, 0))
+	b.Send(state(0, -180))
+
+	// The owner stays home; only the companion is out.
+	snap, _ := latest(t, a, tick, 3*TickRate, 0, 180)
+	drain(b)
+	var target *pb.EnemyState
+	for _, e := range snap.GetEnemies() {
+		if math.Hypot(float64(e.GetX())-1000, float64(e.GetY())) < 500 {
+			target = e
+		}
+	}
+	if target == nil {
+		t.Fatalf("enemies = %v, want one near the companion at (1000, 0)", snap.GetEnemies())
+	}
+
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Hit{Hit: &pb.Hit{
+		EnemyId: target.GetEnemyId(), ShotId: 7, Damage: 12, Companion: n,
+	}}})
+	var ended *pb.ShotEnded
+	var destroyed *pb.EnemyDestroyed
+	for ended == nil || destroyed == nil {
+		msg := next(t, b)
+		if e := msg.GetShotEnded(); e != nil {
+			ended = e
+		}
+		if d := msg.GetEnemyDestroyed(); d != nil {
+			destroyed = d
+		}
+	}
+	if got, want := ended.GetPlayerId(), "a/1"; got != want {
+		t.Errorf("shot ended for %q, want %q", got, want)
+	}
+	if got, want := destroyed.GetByPlayerId(), "a/1"; got != want {
+		t.Errorf("destroyed by %q, want %q", got, want)
 	}
 }
