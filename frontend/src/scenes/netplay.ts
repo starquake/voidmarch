@@ -1,11 +1,22 @@
 import type Phaser from 'phaser';
 
-import type { CompanionGranted, EnemyDestroyed, EnemyFired, Snapshot, Welcome } from '../gen/voidmarch/v1/messages_pb.js';
+import type {
+  CompanionGranted,
+  EnemyDestroyed,
+  EnemyFired,
+  Snapshot,
+  SquadronJoined,
+  Squadrons,
+  Welcome,
+} from '../gen/voidmarch/v1/messages_pb.js';
 import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
 import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interpolation.ts';
-import { fromEnemyKind, fromShipState, fromWeapon, type RemoteShip } from '../net/mapping.ts';
+import { fromCompanionMode, fromEnemyKind, fromShipState, fromWeapon, type RemoteShip } from '../net/mapping.ts';
+import { ORDER_ITEMS, applyOrder, type Mode } from '../ordermenu.ts';
+import { loadLastSquadron, saveLastSquadron } from '../settings.ts';
+import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import type { BrainEnemy } from '../sim/brain.ts';
@@ -72,6 +83,8 @@ export interface NetPlayOptions {
   labelResolution: () => number;
   /** The server forgot the token (it restarted); the player registers again. */
   onUnknownToken: () => void;
+  /** Where the player picks a squadron when there's one to pick. */
+  squadronScreen: SquadronScreen;
 }
 
 interface Enemy {
@@ -156,6 +169,11 @@ export class NetPlay {
   /** How many companions the server allows each player. */
   companionLimit = 0;
   private name = '';
+  /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
+  squadrons: Squadrons | undefined;
+  squadron = '';
+  /** The squadron's mode, which the player's companions follow. */
+  private squadronMode: Mode = 'escort';
   private colour = 0xffffff;
   private readonly companionDrawings = new Map<number, CompanionDrawing>();
   /** Enemies that fired near the wing, which defensive orders and return fire answer. */
@@ -233,6 +251,21 @@ export class NetPlay {
         },
         companionRefused: (reason) => {
           this.say(reason);
+        },
+        squadrons: (list) => {
+          this.squadrons = list;
+          if (options.squadronScreen.open) {
+            options.squadronScreen.update(list);
+          }
+        },
+        squadronJoined: (joined) => {
+          this.squadronJoined(joined);
+        },
+        squadronRefused: (reason) => {
+          options.squadronScreen.showError(reason);
+        },
+        squadronOrdered: () => {
+          // Callouts and orders from squadmates arrive with squadron play.
         },
         companionDismissed: (number) => {
           // Stale states in flight can bring back a dismissal for one already gone.
@@ -421,6 +454,49 @@ export class NetPlay {
     }
   }
 
+  /**
+   * Everyone flies in a squadron: with squadrons to choose from the player
+   * picks on the join screen, and with none they start their own.
+   */
+  private pickSquadron(list: Squadrons | undefined): void {
+    if (list === undefined || squadronChoices(list).choices.length === 0) {
+      this.connection.sendChooseSquadron('');
+
+      return;
+    }
+    this.options.squadronScreen.show(list, loadLastSquadron(), (name) => {
+      this.connection.sendChooseSquadron(name);
+    });
+  }
+
+  /** In a squadron now: its companions take its mode; a takeover puts the ship where the companion was. */
+  private squadronJoined(joined: SquadronJoined): void {
+    this.options.squadronScreen.hide();
+    this.squadron = joined.name;
+    saveLastSquadron(joined.name);
+    this.squadronMode = fromCompanionMode(joined.mode) ?? 'escort';
+    if (joined.tookOver) {
+      const { ship, previous } = this.options.sim;
+      ship.x = previous.x = joined.x;
+      ship.y = previous.y = joined.y;
+      ship.vx = 0;
+      ship.vy = 0;
+    }
+    for (const c of this.options.sim.companions) {
+      this.followMode(c);
+    }
+  }
+
+  /** Sets a companion to the squadron's mode. */
+  private followMode(companion: (typeof this.options.sim.companions)[number]): void {
+    const item = ORDER_ITEMS.find((i) => i.kind === 'mode' && i.mode === this.squadronMode);
+    const { ship } = this.options.sim;
+    const orders = item && applyOrder(item, companion.orders, { pointX: ship.x, pointY: ship.y, focusEnemyId: undefined });
+    if (orders !== undefined) {
+      companion.orders = orders;
+    }
+  }
+
   private dismissCompanion(number: number): void {
     this.options.sim.removeCompanion(number);
     this.companionDrawings.get(number)?.view.destroy();
@@ -585,9 +661,10 @@ export class NetPlay {
     this.colour = welcome.colour;
     this.companionLimit = welcome.companionLimit;
     this.reconcileCompanions(welcome.companions);
-    // Everyone flies in a squadron; for now a player starts their own.
+    this.squadrons = welcome.squadrons;
+    this.squadron = welcome.squadron;
     if (welcome.squadron === '') {
-      this.connection.sendChooseSquadron('');
+      this.pickSquadron(welcome.squadrons);
     }
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;

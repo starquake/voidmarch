@@ -45,6 +45,9 @@ export interface DebugState {
   notice: string | undefined;
   /** Whether the Q order ring is showing. */
   orderMenuOpen: boolean;
+  /** The player's squadron, "" before choosing, and whether the join screen is up. */
+  squadron: string;
+  squadronScreen: boolean;
   audio: {
     muted: boolean;
     music: boolean;

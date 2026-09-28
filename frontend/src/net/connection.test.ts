@@ -99,6 +99,10 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     companionGranted: (g) => log.events.push(`granted ${g.companion}`),
     companionRefused: (reason) => log.events.push(`refused ${reason}`),
     companionDismissed: (n) => log.events.push(`dismissed ${n}`),
+    squadrons: (list) => log.events.push(`squadrons ${String(list.squadrons.length)}`),
+    squadronJoined: (j) => log.events.push(`joined ${j.name}`),
+    squadronRefused: (reason) => log.events.push(`squadron refused ${reason}`),
+    squadronOrdered: (o) => log.events.push(`ordered by ${o.playerId}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',

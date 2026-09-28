@@ -98,3 +98,23 @@ export function clearToken(store: Pick<Storage, 'removeItem'> | undefined = brow
     // Nothing to forget where storage is denied.
   }
 }
+
+const SQUADRON_KEY = 'voidmarch.squadron';
+
+/** The squadron the player flew in last, to pick it again on the join screen. */
+export function loadLastSquadron(store: Store | undefined = browserStorage()): string | undefined {
+  try {
+    return store?.getItem(SQUADRON_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Remembers the player's squadron in this browser; a denied write is ignored. */
+export function saveLastSquadron(name: string, store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(SQUADRON_KEY, name);
+  } catch {
+    // Private windows can refuse storage; the join screen then picks the first.
+  }
+}

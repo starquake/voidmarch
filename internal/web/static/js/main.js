@@ -488,6 +488,10 @@ var ShieldSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 2);
 var Shield = /* @__PURE__ */ tsEnum(ShieldSchema);
 var EnemyKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 3);
 var EnemyKind = /* @__PURE__ */ tsEnum(EnemyKindSchema);
+var CompanionModeSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 4);
+var CompanionMode = /* @__PURE__ */ tsEnum(CompanionModeSchema);
+var CompanionOneShotSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 5);
+var CompanionOneShot = /* @__PURE__ */ tsEnum(CompanionOneShotSchema);
 
 // src/net/codec.ts
 function wireFormatFrom(search) {
@@ -1052,6 +1056,20 @@ function clearToken(store = browserStorage()) {
   } catch {
   }
 }
+var SQUADRON_KEY = "voidmarch.squadron";
+function loadLastSquadron(store = browserStorage()) {
+  try {
+    return store?.getItem(SQUADRON_KEY) ?? void 0;
+  } catch {
+    return void 0;
+  }
+}
+function saveLastSquadron(name, store = browserStorage()) {
+  try {
+    store?.setItem(SQUADRON_KEY, name);
+  } catch {
+  }
+}
 
 // src/sim/ship.ts
 function createShip(x, y, loadout = DEFAULT_LOADOUT) {
@@ -1315,6 +1333,209 @@ function integerZoom(viewportWidth, viewportHeight, targetWidth, targetHeight) {
   const fit = Math.floor(Math.min(viewportWidth / targetWidth, viewportHeight / targetHeight));
   return Math.max(MIN_ZOOM, fit);
 }
+
+// src/net/mapping.ts
+import { create } from "./vendor/protobuf.js";
+var WEAPONS2 = {
+  autoCannon: Weapon.AUTO_CANNON,
+  rockets: Weapon.ROCKETS,
+  bigSpaceGun: Weapon.BIG_SPACE_GUN,
+  zapper: Weapon.ZAPPER
+};
+var ENGINES2 = {
+  base: Engine.BASE,
+  bigPulse: Engine.BIG_PULSE,
+  burst: Engine.BURST,
+  supercharged: Engine.SUPERCHARGED
+};
+var SHIELDS2 = {
+  front: Shield.FRONT,
+  frontAndSide: Shield.FRONT_AND_SIDE,
+  round: Shield.ROUND,
+  invincibility: Shield.INVINCIBILITY
+};
+function reverse(map) {
+  return new Map(Object.entries(map).map(([k, v]) => [v, k]));
+}
+var WEAPON_IDS = reverse(WEAPONS2);
+var ENGINE_IDS = reverse(ENGINES2);
+var SHIELD_IDS = reverse(SHIELDS2);
+var toWeapon = (id) => WEAPONS2[id];
+var fromEnemyKind = (kind) => kind === EnemyKind.FIGHTER ? "fighter" : "scout";
+var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
+function toShipState(ship) {
+  return create(ShipStateSchema, {
+    x: ship.x,
+    y: ship.y,
+    vx: ship.vx,
+    vy: ship.vy,
+    angle: ship.angle,
+    thrusting: ship.thrusting,
+    loadout: {
+      weapon: WEAPONS2[ship.loadout.weapon],
+      engine: ENGINES2[ship.loadout.engine],
+      shield: SHIELDS2[ship.loadout.shield]
+    },
+    damage: ship.damage
+  });
+}
+function fromShipState(state) {
+  const loadout = state.loadout;
+  return {
+    x: state.x,
+    y: state.y,
+    angle: state.angle,
+    thrusting: state.thrusting,
+    loadout: {
+      weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
+      engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
+      shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield
+    },
+    damage: Math.min(state.damage, DAMAGE_STATES.length - 1)
+  };
+}
+var MODES = {
+  escort: CompanionMode.ESCORT,
+  attack: CompanionMode.ATTACK,
+  guard: CompanionMode.GUARD,
+  hold: CompanionMode.HOLD,
+  stealth: CompanionMode.STEALTH
+};
+var fromCompanionMode = (mode) => Object.keys(MODES).find((m) => MODES[m] === mode);
+var ONE_SHOTS = {
+  focus: CompanionOneShot.FOCUS,
+  regroup: CompanionOneShot.REGROUP,
+  goHome: CompanionOneShot.GO_HOME
+};
+
+// src/squadrons.ts
+var SQUADRON_CAP = 4;
+function modeName(info) {
+  const mode = fromCompanionMode(info.mode) ?? "escort";
+  return ORDER_ITEMS.find((i) => i.kind === "mode" && i.mode === mode)?.label ?? "Escort";
+}
+function squadronChoices(list) {
+  const choices = [];
+  const full = [];
+  for (const info of list.squadrons) {
+    const players = info.members.map((m) => m.name);
+    const companions = info.members.reduce((n, m) => n + m.companions, 0);
+    if (players.length >= SQUADRON_CAP) {
+      full.push(info.name);
+      continue;
+    }
+    const ships = Math.min(SQUADRON_CAP, players.length + companions);
+    const shown = ships - players.length;
+    const free = SQUADRON_CAP - ships;
+    choices.push({
+      name: info.name,
+      players,
+      companions,
+      seats: "\u25A0".repeat(players.length) + "\u25A3".repeat(shown) + "\u25A1".repeat(free),
+      note: free === 0 ? "you take over one of the companions" : `${String(free)} seat${free === 1 ? "" : "s"} free`,
+      mode: modeName(info)
+    });
+  }
+  return { choices, full };
+}
+function pickFirst(choices, last) {
+  return choices.find((c) => c.name === last)?.name ?? choices[0]?.name;
+}
+var SquadronScreen = class {
+  form;
+  list;
+  full;
+  next;
+  error;
+  picked;
+  choose = () => void 0;
+  constructor(doc = document) {
+    this.form = doc.querySelector("#squadron-form");
+    this.list = doc.querySelector("#squadron-list");
+    this.full = doc.querySelector("#squadron-full");
+    this.next = doc.querySelector("#squadron-next");
+    this.error = doc.querySelector("#squadron-error");
+    this.form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.choose(this.picked ?? "");
+    });
+    doc.querySelector("#squadron-start")?.addEventListener("click", () => {
+      this.choose("");
+    });
+  }
+  get open() {
+    return this.form !== null && !this.form.hidden;
+  }
+  show(squadrons, last, choose) {
+    this.choose = choose;
+    this.picked = pickFirst(squadronChoices(squadrons).choices, last);
+    if (this.form !== null) {
+      this.form.hidden = false;
+    }
+    this.update(squadrons);
+  }
+  /** Redraws the list, keeping the pick while its squadron is still there. */
+  update(squadrons) {
+    const { choices, full } = squadronChoices(squadrons);
+    if (!choices.some((c) => c.name === this.picked)) {
+      this.picked = choices[0]?.name;
+    }
+    if (this.next !== null) {
+      this.next.textContent = squadrons.nextName;
+    }
+    if (this.full !== null) {
+      this.full.textContent = full.length === 0 ? "" : `Full: ${full.join(", ")}.`;
+    }
+    this.list?.replaceChildren(...choices.map((c) => this.row(c)));
+    if (this.open) {
+      this.list?.querySelector(".picked button")?.focus();
+    }
+  }
+  showError(reason) {
+    if (this.error !== null) {
+      this.error.textContent = reason;
+    }
+  }
+  hide() {
+    if (this.form !== null) {
+      this.form.hidden = true;
+    }
+    if (this.error !== null) {
+      this.error.textContent = "";
+    }
+  }
+  row(c) {
+    const doc = this.list?.ownerDocument ?? document;
+    const row = doc.createElement("div");
+    row.className = c.name === this.picked ? "squadron picked" : "squadron";
+    const name = doc.createElement("span");
+    name.className = "name";
+    name.textContent = c.name;
+    const who = doc.createElement("span");
+    who.className = "who";
+    who.textContent = c.players.join(", ");
+    if (c.companions > 0) {
+      const ai = doc.createElement("span");
+      ai.className = "ai";
+      ai.textContent = ` + ${String(c.companions)} companion${c.companions === 1 ? "" : "s"}`;
+      who.append(ai);
+    }
+    const join = doc.createElement("button");
+    join.type = "button";
+    join.textContent = "Join";
+    join.addEventListener("click", () => {
+      this.choose(c.name);
+    });
+    const seats = doc.createElement("span");
+    seats.className = "seats-pips";
+    seats.textContent = c.seats;
+    const note = doc.createElement("span");
+    note.className = "note";
+    note.textContent = `${c.note} \xB7 orders: ${c.mode}`;
+    row.append(name, who, join, seats, note);
+    return row;
+  }
+};
 
 // src/weaponframes.ts
 var HOLD_SECONDS = 0.6;
@@ -1581,69 +1802,6 @@ var ServerClock = class _ServerClock {
 
 // src/net/connection.ts
 import { create as create2 } from "./vendor/protobuf.js";
-
-// src/net/mapping.ts
-import { create } from "./vendor/protobuf.js";
-var WEAPONS2 = {
-  autoCannon: Weapon.AUTO_CANNON,
-  rockets: Weapon.ROCKETS,
-  bigSpaceGun: Weapon.BIG_SPACE_GUN,
-  zapper: Weapon.ZAPPER
-};
-var ENGINES2 = {
-  base: Engine.BASE,
-  bigPulse: Engine.BIG_PULSE,
-  burst: Engine.BURST,
-  supercharged: Engine.SUPERCHARGED
-};
-var SHIELDS2 = {
-  front: Shield.FRONT,
-  frontAndSide: Shield.FRONT_AND_SIDE,
-  round: Shield.ROUND,
-  invincibility: Shield.INVINCIBILITY
-};
-function reverse(map) {
-  return new Map(Object.entries(map).map(([k, v]) => [v, k]));
-}
-var WEAPON_IDS = reverse(WEAPONS2);
-var ENGINE_IDS = reverse(ENGINES2);
-var SHIELD_IDS = reverse(SHIELDS2);
-var toWeapon = (id) => WEAPONS2[id];
-var fromEnemyKind = (kind) => kind === EnemyKind.FIGHTER ? "fighter" : "scout";
-var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
-function toShipState(ship) {
-  return create(ShipStateSchema, {
-    x: ship.x,
-    y: ship.y,
-    vx: ship.vx,
-    vy: ship.vy,
-    angle: ship.angle,
-    thrusting: ship.thrusting,
-    loadout: {
-      weapon: WEAPONS2[ship.loadout.weapon],
-      engine: ENGINES2[ship.loadout.engine],
-      shield: SHIELDS2[ship.loadout.shield]
-    },
-    damage: ship.damage
-  });
-}
-function fromShipState(state) {
-  const loadout = state.loadout;
-  return {
-    x: state.x,
-    y: state.y,
-    angle: state.angle,
-    thrusting: state.thrusting,
-    loadout: {
-      weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
-      engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
-      shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield
-    },
-    damage: Math.min(state.damage, DAMAGE_STATES.length - 1)
-  };
-}
-
-// src/net/connection.ts
 var CLOSE_UNKNOWN_TOKEN = 4001;
 var CLOSE_TRY_AGAIN_LATER = 1013;
 var BACKOFF_MS = [1e3, 2e3, 4e3, 8e3];
@@ -1705,6 +1863,12 @@ var Connection = class {
   sendChooseSquadron(name) {
     if (this.welcomed) {
       this.send(create2(ClientMessageSchema, { kind: { case: "chooseSquadron", value: { name } } }));
+    }
+  }
+  /** Gives the squadron an order, which the server passes to the squadmates. */
+  sendSquadronOrder(order) {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "squadronOrder", value: order } }));
     }
   }
   /** Asks the server for a companion. */
@@ -1805,6 +1969,18 @@ var Connection = class {
         break;
       case "companionDismissed":
         events.companionDismissed(message.kind.value.companion);
+        break;
+      case "squadrons":
+        events.squadrons(message.kind.value);
+        break;
+      case "squadronJoined":
+        events.squadronJoined(message.kind.value);
+        break;
+      case "squadronRefused":
+        events.squadronRefused(message.kind.value.reason);
+        break;
+      case "squadronOrdered":
+        events.squadronOrdered(message.kind.value);
         break;
       default:
     }
@@ -2110,6 +2286,11 @@ var NetPlay = class {
   /** How many companions the server allows each player. */
   companionLimit = 0;
   name = "";
+  /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
+  squadrons;
+  squadron = "";
+  /** The squadron's mode, which the player's companions follow. */
+  squadronMode = "escort";
   colour = 16777215;
   companionDrawings = /* @__PURE__ */ new Map();
   /** Enemies that fired near the wing, which defensive orders and return fire answer. */
@@ -2185,6 +2366,20 @@ var NetPlay = class {
         },
         companionRefused: (reason) => {
           this.say(reason);
+        },
+        squadrons: (list) => {
+          this.squadrons = list;
+          if (options.squadronScreen.open) {
+            options.squadronScreen.update(list);
+          }
+        },
+        squadronJoined: (joined) => {
+          this.squadronJoined(joined);
+        },
+        squadronRefused: (reason) => {
+          options.squadronScreen.showError(reason);
+        },
+        squadronOrdered: () => {
         },
         companionDismissed: (number) => {
           if (this.options.sim.companions.some((c) => c.number === number)) {
@@ -2354,6 +2549,45 @@ var NetPlay = class {
       this.connection.sendDismiss(number);
     }
   }
+  /**
+   * Everyone flies in a squadron: with squadrons to choose from the player
+   * picks on the join screen, and with none they start their own.
+   */
+  pickSquadron(list) {
+    if (list === void 0 || squadronChoices(list).choices.length === 0) {
+      this.connection.sendChooseSquadron("");
+      return;
+    }
+    this.options.squadronScreen.show(list, loadLastSquadron(), (name) => {
+      this.connection.sendChooseSquadron(name);
+    });
+  }
+  /** In a squadron now: its companions take its mode; a takeover puts the ship where the companion was. */
+  squadronJoined(joined) {
+    this.options.squadronScreen.hide();
+    this.squadron = joined.name;
+    saveLastSquadron(joined.name);
+    this.squadronMode = fromCompanionMode(joined.mode) ?? "escort";
+    if (joined.tookOver) {
+      const { ship, previous } = this.options.sim;
+      ship.x = previous.x = joined.x;
+      ship.y = previous.y = joined.y;
+      ship.vx = 0;
+      ship.vy = 0;
+    }
+    for (const c of this.options.sim.companions) {
+      this.followMode(c);
+    }
+  }
+  /** Sets a companion to the squadron's mode. */
+  followMode(companion) {
+    const item = ORDER_ITEMS.find((i) => i.kind === "mode" && i.mode === this.squadronMode);
+    const { ship } = this.options.sim;
+    const orders = item && applyOrder(item, companion.orders, { pointX: ship.x, pointY: ship.y, focusEnemyId: void 0 });
+    if (orders !== void 0) {
+      companion.orders = orders;
+    }
+  }
   dismissCompanion(number) {
     this.options.sim.removeCompanion(number);
     this.companionDrawings.get(number)?.view.destroy();
@@ -2506,8 +2740,10 @@ var NetPlay = class {
     this.colour = welcome.colour;
     this.companionLimit = welcome.companionLimit;
     this.reconcileCompanions(welcome.companions);
+    this.squadrons = welcome.squadrons;
+    this.squadron = welcome.squadron;
     if (welcome.squadron === "") {
-      this.connection.sendChooseSquadron("");
+      this.pickSquadron(welcome.squadrons);
     }
     this.clock = new ServerClock(welcome.tickRate);
     this.tickRate = welcome.tickRate;
@@ -2697,7 +2933,9 @@ var SandboxScene = class extends Phaser5.Scene {
       companions: [],
       companionKills: 0,
       notice: void 0,
-      orderMenuOpen: false
+      orderMenuOpen: false,
+      squadron: "",
+      squadronScreen: false
     };
     this.publish();
   }
@@ -2751,7 +2989,8 @@ var SandboxScene = class extends Phaser5.Scene {
       onUnknownToken: () => {
         clearToken();
         window.location.reload();
-      }
+      },
+      squadronScreen: new SquadronScreen()
     });
     this.net.start();
     this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => this.net?.stop());
@@ -3281,6 +3520,8 @@ ${describeOrders(this.sim.ordersFor(first))}`,
     this.debug.companionKills = this.net?.companionKills ?? 0;
     this.debug.notice = this.net?.noticeText;
     this.debug.orderMenuOpen = this.orderPress?.labels !== void 0;
+    this.debug.squadron = this.net?.squadron ?? "";
+    this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     publishDebugState(this.debug);
   }
 };

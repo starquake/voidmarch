@@ -39,6 +39,7 @@ import {
 import { isWeapon } from '../sim/projectiles.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
+import { SquadronScreen } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { ShipAudio } from './audio.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
@@ -204,6 +205,8 @@ export class SandboxScene extends Phaser.Scene {
       companionKills: 0,
       notice: undefined,
       orderMenuOpen: false,
+      squadron: '',
+      squadronScreen: false,
     };
     this.publish();
   }
@@ -263,6 +266,7 @@ export class SandboxScene extends Phaser.Scene {
         clearToken();
         window.location.reload();
       },
+      squadronScreen: new SquadronScreen(),
     });
     this.net.start();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.net?.stop());
@@ -852,6 +856,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.companionKills = this.net?.companionKills ?? 0;
     this.debug.notice = this.net?.noticeText;
     this.debug.orderMenuOpen = this.orderPress?.labels !== undefined;
+    this.debug.squadron = this.net?.squadron ?? '';
+    this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     publishDebugState(this.debug);
   }
 }

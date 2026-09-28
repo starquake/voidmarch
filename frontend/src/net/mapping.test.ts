@@ -3,10 +3,21 @@ import { test } from 'node:test';
 
 import { create } from '@bufbuild/protobuf';
 
-import { EnemyKind, ShipStateSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
+import { CompanionMode, CompanionOneShot, EnemyKind, ShipStateSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
+import { MODES } from '../ordermenu.ts';
 import { ENGINES, SHIELDS, WEAPONS } from '../sim/loadout.ts';
 import { createShip } from '../sim/ship.ts';
-import { fromEnemyKind, fromShipState, fromWeapon, toShipState, toWeapon } from './mapping.ts';
+import {
+  fromCompanionMode,
+  fromCompanionOneShot,
+  fromEnemyKind,
+  fromShipState,
+  fromWeapon,
+  toCompanionMode,
+  toCompanionOneShot,
+  toShipState,
+  toWeapon,
+} from './mapping.ts';
 
 test('every loadout survives the round trip through the wire', () => {
   for (const weapon of WEAPONS) {
@@ -40,4 +51,15 @@ test('enemy kinds map from the wire', () => {
   assert.equal(fromEnemyKind(EnemyKind.SCOUT), 'scout');
   assert.equal(fromEnemyKind(EnemyKind.FIGHTER), 'fighter');
   assert.equal(fromEnemyKind(EnemyKind.UNSPECIFIED), 'scout');
+});
+
+test('modes and one-shots round-trip through the wire', () => {
+  for (const mode of MODES) {
+    assert.equal(fromCompanionMode(toCompanionMode(mode)), mode);
+  }
+  for (const oneShot of ['focus', 'regroup', 'goHome'] as const) {
+    assert.equal(fromCompanionOneShot(toCompanionOneShot(oneShot)), oneShot);
+  }
+  assert.equal(fromCompanionMode(CompanionMode.UNSPECIFIED), undefined);
+  assert.equal(fromCompanionOneShot(CompanionOneShot.UNSPECIFIED), undefined);
 });

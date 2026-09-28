@@ -68,3 +68,79 @@ body {
   margin: 0;
   color: #ff9a8a;
 }
+
+/* The squadron join screen (#42), in the name screen's style. */
+.squadron-screen {
+  width: min(34rem, calc(100% - 2rem));
+}
+
+.squadron-screen h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: normal;
+  color: #8fd8ff;
+}
+
+.squadron-why {
+  margin: 0;
+  font-size: 13px;
+  color: #b4ff8c;
+}
+
+.squadron {
+  display: grid;
+  grid-template-columns: 7rem 1fr auto;
+  gap: 0.2rem 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #3a2f55;
+  background: #120c1f;
+}
+
+.squadron.picked {
+  border-color: #fff08a;
+}
+
+.squadron .name {
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+}
+
+.squadron .ai {
+  color: #8fd8ff;
+}
+
+.squadron button {
+  grid-row: span 2;
+}
+
+.squadron .seats-pips {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: #8fd8ff;
+}
+
+.squadron .note {
+  font-size: 12px;
+  color: #b9a0ff;
+}
+
+#squadron-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.squadron-full {
+  margin: 0;
+  font-size: 12px;
+  color: #6d6488;
+}
+
+.squadron-new {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed #8fd8ff;
+}
