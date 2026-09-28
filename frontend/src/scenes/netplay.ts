@@ -125,6 +125,7 @@ export class NetPlay {
   private tickRate = 20;
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed = 0;
+  lastEnemyDestroyed: number | undefined;
   hitsTaken = 0;
   private clock = new ServerClock(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
@@ -391,6 +392,7 @@ export class NetPlay {
     enemy.view.destroy(true);
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
+      this.lastEnemyDestroyed = destroyed.enemyId;
     }
   }
 

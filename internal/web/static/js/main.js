@@ -1618,6 +1618,7 @@ var NetPlay = class {
   tickRate = 20;
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed = 0;
+  lastEnemyDestroyed;
   hitsTaken = 0;
   clock = new ServerClock(20);
   shots = new TimedQueue(20);
@@ -1866,6 +1867,7 @@ var NetPlay = class {
     enemy.view.destroy(true);
     if (destroyed.byPlayerId === this.playerId) {
       this.enemiesDestroyed++;
+      this.lastEnemyDestroyed = destroyed.enemyId;
     }
   }
   welcome(welcome) {
@@ -2012,6 +2014,7 @@ var SandboxScene = class extends Phaser5.Scene {
       net: { status: "offline", playerId: void 0, others: [] },
       enemies: [],
       enemiesDestroyed: 0,
+      lastEnemyDestroyed: void 0,
       hitsTaken: 0
     };
     this.publish();
@@ -2350,6 +2353,7 @@ var SandboxScene = class extends Phaser5.Scene {
     this.debug.net.others = this.net?.others ?? [];
     this.debug.enemies = this.net?.enemyList ?? [];
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
+    this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
     publishDebugState(this.debug);
   }
