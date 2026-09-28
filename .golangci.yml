@@ -166,6 +166,15 @@ linters:
       - path: (_test\.go|internal/testutil/|test/)
         linters:
           - gosec
+      # The tunables are literal data by design, one table per part
+      # (CLAUDE.md: "Tunables live in tuning, not scattered as literals").
+      - path: internal/sim/tuning\.go
+        linters:
+          - mnd
+      - path: internal/sim/tuning\.go
+        text: add-constant
+        linters:
+          - revive
       - path: _test\.go
         linters:
           - dupl
