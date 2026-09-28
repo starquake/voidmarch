@@ -12,6 +12,15 @@ GOLANGCI_VERSION := v2.14.0
 GOLANGCI_BIN := $(BIN_DIR)/golangci-lint
 BUF_VERSION := v1.73.0
 BUF_BIN := $(BIN_DIR)/buf
+# Compiles internal/sim to WebAssembly for the browser (#53). Toolchains
+# unpack under a _ directory, which ./... skips: TinyGo ships Go sources.
+TOOLCHAINS := $(BUILD_DIR)/_toolchains
+TINYGO_VERSION := 0.42.0
+TINYGO_BIN := $(TOOLCHAINS)/tinygo/bin/tinygo
+# TinyGo runs Binaryen's wasm-opt on every WebAssembly build.
+BINARYEN_VERSION := version_133
+WASM_OPT := $(TOOLCHAINS)/binaryen/bin/wasm-opt
+TINYGO := WASMOPT=$(abspath $(WASM_OPT)) $(TINYGO_BIN)
 # Built from the version tools/go.mod requires.
 PROTOC_GEN_GO := $(BIN_DIR)/protoc-gen-go
 
@@ -19,13 +28,14 @@ UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 UNAME_M := $(shell uname -m)
 ARCH := $(if $(filter x86_64,$(UNAME_M)),amd64,$(if $(filter aarch64,$(UNAME_M)),arm64,$(UNAME_M)))
 BUF_ASSET := buf-$(shell uname -s)-$(UNAME_M)
+BINARYEN_ASSET := binaryen-$(BINARYEN_VERSION)-$(UNAME_M)-$(if $(filter darwin,$(UNAME_S)),macos,linux).tar.gz
 
 # A downloaded tool records its version beside the binary; a mismatch with the
 # pin deletes the binary so the next run fetches the pinned one. Skipped for
 # `make -n`.
 MAKE_DRY_RUN := $(if $(filter-out -%,$(firstword $(MAKEFLAGS))),$(findstring n,$(firstword $(MAKEFLAGS))))
 toolpin = $(if $(MAKE_DRY_RUN),,$(shell [ "$$(cat $(1).version 2>/dev/null)" = "$(2)" ] || rm -f $(1)))
-TOOLPIN_CHECKED := $(call toolpin,$(GOLANGCI_BIN),$(GOLANGCI_VERSION))$(call toolpin,$(BUF_BIN),$(BUF_VERSION))
+TOOLPIN_CHECKED := $(call toolpin,$(GOLANGCI_BIN),$(GOLANGCI_VERSION))$(call toolpin,$(BUF_BIN),$(BUF_VERSION))$(call toolpin,$(TINYGO_BIN),$(TINYGO_VERSION))$(call toolpin,$(WASM_OPT),$(BINARYEN_VERSION))
 
 VERSION_PKG := github.com/starquake/voidmarch/internal/version
 VERSION_LDFLAGS := -X $(VERSION_PKG).Version=$(shell cat VERSION 2>/dev/null) \
@@ -39,7 +49,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check build test-coverage ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check golden-check build test-coverage test-tinygo ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -130,6 +140,34 @@ proto-check: $(PROTO_TOOLS) ## Fail when the committed generated code is stale
 		|| { echo "generated code is stale: run make proto"; rm -rf "$$tmp"; exit 1; }; \
 	rm -rf "$$tmp"
 
+# --- Game rules ---------------------------------------------------------------
+
+$(TINYGO_BIN):
+	@rm -rf $(TOOLCHAINS)/tinygo && mkdir -p $(TOOLCHAINS)
+	curl -sSfL --retry 5 --retry-delay 2 --retry-all-errors \
+		https://github.com/tinygo-org/tinygo/releases/download/v$(TINYGO_VERSION)/tinygo$(TINYGO_VERSION).$(UNAME_S)-$(ARCH).tar.gz \
+		| tar -xz -C $(TOOLCHAINS)
+	@echo $(TINYGO_VERSION) > $@.version
+
+$(WASM_OPT):
+	@rm -rf $(TOOLCHAINS)/binaryen $(TOOLCHAINS)/binaryen-$(BINARYEN_VERSION) && mkdir -p $(TOOLCHAINS)
+	curl -sSfL --retry 5 --retry-delay 2 --retry-all-errors \
+		https://github.com/WebAssembly/binaryen/releases/download/$(BINARYEN_VERSION)/$(BINARYEN_ASSET) \
+		| tar -xz -C $(TOOLCHAINS)
+	mv $(TOOLCHAINS)/binaryen-$(BINARYEN_VERSION) $(TOOLCHAINS)/binaryen
+	@echo $(BINARYEN_VERSION) > $@.version
+
+.PHONY: toolchain-versions
+toolchain-versions: ## Print the pinned TinyGo and Binaryen versions (CI's cache key)
+	@echo tinygo-$(TINYGO_VERSION)-binaryen-$(BINARYEN_VERSION)
+
+.PHONY: test-tinygo
+test-tinygo: $(TINYGO_BIN) $(WASM_OPT) ## Run internal/sim's tests compiled by TinyGo, as the browser will run the rules
+	@tmp=$$(mktemp -d); \
+	$(TINYGO) test -c -target=wasip1 -o "$$tmp/sim.wasm" ./internal/sim && \
+	node --disable-warning=ExperimentalWarning $(FRONTEND)/scripts/wasi-test.ts "$$tmp/sim.wasm" internal/sim; \
+	status=$$?; rm -rf "$$tmp"; exit $$status
+
 # --- Frontend -----------------------------------------------------------------
 
 $(JS_DEPS): $(FRONTEND)/package.json $(FRONTEND)/package-lock.json
@@ -150,6 +188,14 @@ js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh buil
 	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp") >/dev/null && \
 	diff -r "$$tmp" $(JS_OUT) || { echo "the committed bundle is stale: run make js"; rm -rf "$$tmp"; exit 1; }; \
 	rm -rf "$$tmp"
+
+.PHONY: golden
+golden: $(JS_DEPS) ## Record the TypeScript sim's results for internal/sim's parity tests
+	cd $(FRONTEND) && node scripts/golden.ts
+
+.PHONY: golden-check
+golden-check: $(JS_DEPS) ## Fail when the TypeScript sim no longer matches the recorded golden cases
+	cd $(FRONTEND) && node scripts/golden.ts --check
 
 .PHONY: ts-check
 ts-check: $(JS_DEPS) ## Type-check the TypeScript
