@@ -226,8 +226,9 @@ Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney'
 Companions are AI-flown wingmates. They make playing alone, or with one friend, feel like playing with the group, and real players replace them as they come online.
 
 - **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The owner's client simulates its companions (the trust model, §9), and on the wire they are players with an owner.
-- **How many:** up to 3 per player, and at most 4 ships per wing (players within one screen of each other), companions included.
-- **Summoning** happens at the home planet, alongside the loadout change. The owner picks each companion's loadout from their own unlocked parts.
+- **How many:** up to 3 per player, and at most 4 ships per wing (players within one screen of each other), companions included. Companions are full seats: they count toward the 16-player cap, and a human joining a full world takes one over or displaces one, so the group, and its difficulty, stays the same whoever flies each ship.
+- **Summoning** happens at the home planet, alongside the loadout change. The owner picks each companion's loadout from their own unlocked parts. Until the loadout change exists (milestone 5), G summons one inside the safe zone.
+- **For testing**, development servers lift the limits: one player can summon up to the free seats, anywhere, with no wing cap.
 - **Looks:** the Main Ship sprites, tinted per owner. Orders and names are HUD text; no new art.
 
 ### Joining and leaving
@@ -256,3 +257,12 @@ Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last ord
 | Targets | **Focus my target** (one-shot), **Support Ships first** (toggle) |
 | Team | **Revive** (one-shot), **Shield me** (one-shot), **Collect** pickups (toggle) |
 | Movement | **Regroup** (one-shot), **Go home** (one-shot) |
+
+As built so far (#26): the brain is `think` in `frontend/src/sim/brain.ts`, a pure function from what a companion sees (its own ship, its owner, its formation slot, the enemies as drawn and whether each has attacked the wing) and its orders to a move, aim and fire command, plus whether a one-shot order is done. It is seeded, so every scenario is reproducible, and its distances live in `frontend/src/sim/tuning.ts`.
+
+- **Moving:** it steers toward the velocity that closes on its goal and brakes on arrival, so it holds formation even with the owner at full speed.
+- **Targets:** escorting and defending, enemies within 300 px of the owner; aggressive, within a 450 px leash, the weakest first. Defensive and return fire shoot only enemies that have attacked the wing.
+- **Firing:** only within the weapon's reach and when facing within 0.2 rad of the target.
+- **Falling back:** badly damaged, a defensive or conserving companion falls back into a tight formation. Until health exists (milestone 4), the damage state stands in for it.
+- **Conserve:** the big space gun holds its volleys for Support Ships and focus targets.
+- **Not yet built:** Revive and Collect come with milestones 4 and 5. Support Ship priority ranks targets, but has no effect until Support Ships exist.
