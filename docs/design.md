@@ -247,7 +247,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 
 ### Orders
 
-Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last order. Orders go to all companions, or to one when the cursor is on it. There is no ammo or consumable in the game, so the "use it or save it" choices are about shields, health, big shots and enemy attention.
+Hold **Q** for a radial menu picked with the mouse; tap Q to repeat the last order. Every order goes to the whole wing, and a companion summoned later joins the wing's standing orders (#39; this replaced ordering one companion under the cursor). There is no ammo or consumable in the game, so the "use it or save it" choices are about shields, health, big shots and enemy attention.
 
 | Group | Orders |
 |---|---|
@@ -273,4 +273,4 @@ As built (#27), single-player companions:
 - **On the wire:** the owner's client flies each companion with its brain in the sim, and sends its state with the owner's, as the seat `<playerId>/<n>`. Others get it in their snapshots as a player with an `owner_id`. Its shots and hits carry its number, so a kill is credited to the seat. A dismissed companion leaves like a player. A companion whose states stop for 3 s (a closed tab, a lost grant) is dismissed, like a silent player. A reconnect keeps them: `Welcome` lists the ones the server kept, and the client drops the rest (it was dropped for silence meanwhile) and gives back any it doesn't fly (another tab's).
 - **The world counts them:** enemies target companions and spawn around them like players, and they count toward the 16 seats. A human joining a full world displaces the newest companion.
 - **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; enemy bullets flash them. Their shots sound like other players'.
-- **Orders:** hold Q for a ring of the orders around the cursor, stretched wide so the labels don't collide; tap Q to repeat the last. Hold here takes the point under the cursor, and focus the enemy under it.
+- **Orders:** hold Q for a ring of the orders around the cursor, stretched wide so the labels don't collide; tap Q to repeat the last. Hold here takes the point under the cursor. Focus takes the enemy under the cursor, else the one the player last hit (within 3 s), else the nearest within 120 px: small ships move too fast to point at (#39).
