@@ -503,6 +503,21 @@ function decodeServer(data) {
   return fromBinary(ServerMessageSchema, data instanceof Uint8Array ? data : new Uint8Array(data));
 }
 
+// src/sim/enemies.ts
+var ENEMY_BULLET = {
+  scout: "klaedBullet",
+  fighter: "klaedBigBullet"
+};
+var ENEMY_RADIUS = {
+  scout: 11,
+  fighter: 12
+};
+var ENEMY_HP = {
+  scout: 2,
+  fighter: 6
+};
+var SUPPORT_KINDS = [];
+
 // src/sim/math.ts
 var TAU = Math.PI * 2;
 function wrapAngle(angle) {
@@ -541,199 +556,6 @@ function seededRandom(seed) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-
-// src/ordermenu.ts
-var ORDER_ITEMS = [
-  { kind: "stance", stance: "escort", label: "Escort" },
-  { kind: "stance", stance: "aggressive", label: "Aggressive" },
-  { kind: "stance", stance: "defensive", label: "Defensive" },
-  { kind: "stance", stance: "hold", label: "Hold here" },
-  { kind: "oneShot", oneShot: "focus", label: "Focus target" },
-  { kind: "oneShot", oneShot: "shieldMe", label: "Shield me" },
-  { kind: "oneShot", oneShot: "regroup", label: "Regroup" },
-  { kind: "oneShot", oneShot: "goHome", label: "Go home" },
-  { kind: "fire", fire: "free", label: "Weapons free" },
-  { kind: "fire", fire: "return", label: "Return fire" },
-  { kind: "fire", fire: "hold", label: "Hold fire" },
-  { kind: "resources", resources: "spend", label: "Spend" },
-  { kind: "resources", resources: "conserve", label: "Conserve" },
-  { kind: "supportFirst", label: "Support first" }
-];
-var RING_ASPECT = 1.7;
-function itemPosition(index, radius, count = ORDER_ITEMS.length) {
-  const angle = -Math.PI / 2 + index * TAU / count;
-  return { x: Math.cos(angle) * radius * RING_ASPECT, y: Math.sin(angle) * radius };
-}
-function pickItem(dx, dy, deadZone, count = ORDER_ITEMS.length) {
-  const x = dx / RING_ASPECT;
-  if (Math.hypot(x, dy) < deadZone) {
-    return void 0;
-  }
-  const fromTop = Math.atan2(dy, x) + Math.PI / 2;
-  return (Math.round(fromTop * count / TAU) % count + count) % count;
-}
-function applyOrder(item, orders, context) {
-  switch (item.kind) {
-    case "stance":
-      return item.stance === "hold" ? { ...orders, stance: "hold", holdX: context.pointX, holdY: context.pointY, oneShot: void 0 } : { ...orders, stance: item.stance, oneShot: void 0 };
-    case "fire":
-      return { ...orders, fire: item.fire };
-    case "resources":
-      return { ...orders, resources: item.resources };
-    case "supportFirst":
-      return { ...orders, supportFirst: !orders.supportFirst };
-    case "oneShot":
-      if (item.oneShot === "focus") {
-        return context.focusEnemyId === void 0 ? void 0 : { ...orders, oneShot: { kind: "focus", enemyId: context.focusEnemyId } };
-      }
-      return { ...orders, oneShot: { kind: item.oneShot } };
-  }
-}
-var STANCE_LABELS = {
-  escort: "escort",
-  aggressive: "aggressive",
-  defensive: "defensive",
-  hold: "holding"
-};
-var FIRE_LABELS = {
-  free: "weapons free",
-  return: "return fire",
-  hold: "hold fire"
-};
-var ONE_SHOT_LABELS = {
-  focus: "focusing",
-  regroup: "regrouping",
-  goHome: "going home",
-  shieldMe: "shielding you"
-};
-function describeOrders(orders) {
-  const parts = [STANCE_LABELS[orders.stance], FIRE_LABELS[orders.fire], orders.resources];
-  if (orders.supportFirst) {
-    parts.push("support first");
-  }
-  if (orders.oneShot !== void 0) {
-    parts.push(ONE_SHOT_LABELS[orders.oneShot.kind]);
-  }
-  return parts.join(" \xB7 ");
-}
-var FOCUS_PICK_RADIUS = 30;
-var FOCUS_WIDE_RADIUS = 120;
-var FOCUS_LAST_HIT_MS = 3e3;
-function nearestWithin(items, x, y, radius) {
-  let best;
-  let bestDistance = radius;
-  for (const item of items) {
-    const d = Math.hypot(item.x - x, item.y - y);
-    if (d <= bestDistance) {
-      best = item;
-      bestDistance = d;
-    }
-  }
-  return best;
-}
-function chooseFocus(enemies, x, y, lastHit, nowMs) {
-  const under = nearestWithin(enemies, x, y, FOCUS_PICK_RADIUS);
-  if (under !== void 0) {
-    return under.id;
-  }
-  if (lastHit !== void 0 && nowMs - lastHit.atMs <= FOCUS_LAST_HIT_MS && enemies.some((e) => e.id === lastHit.id)) {
-    return lastHit.id;
-  }
-  return nearestWithin(enemies, x, y, FOCUS_WIDE_RADIUS)?.id;
-}
-
-// src/sim/input.ts
-var CONTROL_MODES = ["ship", "screen"];
-function toCommand(input) {
-  const move = normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up));
-  return { moveX: move.x, moveY: move.y, aimX: input.pointerX, aimY: input.pointerY, fire: input.fire };
-}
-function relativeTo(cmd, angle) {
-  const move = rotateOffset(-cmd.moveY, cmd.moveX, angle);
-  return { ...cmd, moveX: move.x, moveY: move.y };
-}
-
-// src/settings.ts
-var CONTROL_MODE_KEY = "voidmarch.controlMode";
-function browserStorage() {
-  try {
-    return window.localStorage;
-  } catch {
-    return void 0;
-  }
-}
-function loadControlMode(store = browserStorage()) {
-  try {
-    const saved = store?.getItem(CONTROL_MODE_KEY);
-    return CONTROL_MODES.find((mode) => mode === saved) ?? "ship";
-  } catch {
-    return "ship";
-  }
-}
-function saveControlMode(mode, store = browserStorage()) {
-  try {
-    store?.setItem(CONTROL_MODE_KEY, mode);
-  } catch {
-  }
-}
-var AUDIO_KEY = "voidmarch.audio";
-var DEFAULT_AUDIO = { muted: false, music: true };
-function loadAudioSettings(store = browserStorage()) {
-  try {
-    const parsed = JSON.parse(store?.getItem(AUDIO_KEY) ?? "null");
-    if (typeof parsed !== "object" || parsed === null) {
-      return { ...DEFAULT_AUDIO };
-    }
-    const saved = parsed;
-    return {
-      muted: typeof saved.muted === "boolean" ? saved.muted : DEFAULT_AUDIO.muted,
-      music: typeof saved.music === "boolean" ? saved.music : DEFAULT_AUDIO.music
-    };
-  } catch {
-    return { ...DEFAULT_AUDIO };
-  }
-}
-function saveAudioSettings(settings, store = browserStorage()) {
-  try {
-    store?.setItem(AUDIO_KEY, JSON.stringify(settings));
-  } catch {
-  }
-}
-var TOKEN_KEY = "voidmarch.token";
-function loadToken(store = browserStorage()) {
-  try {
-    return store?.getItem(TOKEN_KEY) ?? void 0;
-  } catch {
-    return void 0;
-  }
-}
-function saveToken(token, store = browserStorage()) {
-  try {
-    store?.setItem(TOKEN_KEY, token);
-  } catch {
-  }
-}
-function clearToken(store = browserStorage()) {
-  try {
-    store?.removeItem(TOKEN_KEY);
-  } catch {
-  }
-}
-
-// src/sim/enemies.ts
-var ENEMY_BULLET = {
-  scout: "klaedBullet",
-  fighter: "klaedBigBullet"
-};
-var ENEMY_RADIUS = {
-  scout: 11,
-  fighter: 12
-};
-var ENEMY_HP = {
-  scout: 2,
-  fighter: 6
-};
-var SUPPORT_KINDS = [];
 
 // src/sim/projectiles.ts
 function isWeapon(kind) {
@@ -901,8 +723,10 @@ function stanceGoal(view, orders) {
   switch (orders.stance) {
     case "hold":
       return { point: { x: orders.holdX, y: orders.holdY }, velocity: STILL };
-    case "defensive":
-      return { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
+    case "defensive": {
+      const attackers = attackersNearOwner(view);
+      return attackers.length > 0 ? shieldGoal(view, attackers) : { point: formationPoint(owner, view.slot, BRAIN_TIGHT_FORMATION), velocity: moving };
+    }
     case "escort":
     case "aggressive":
       return { point: formationPoint(owner, view.slot), velocity: moving };
@@ -1043,6 +867,190 @@ function think(view, orders, random) {
     command: { moveX: move.x, moveY: move.y, aimX: aim.x, aimY: aim.y, fire },
     done: oneShotDone(view, orders, target)
   };
+}
+
+// src/ordermenu.ts
+var ORDER_ITEMS = [
+  { kind: "mode", mode: "escort", label: "Escort" },
+  { kind: "mode", mode: "attack", label: "Attack" },
+  { kind: "mode", mode: "guard", label: "Guard" },
+  { kind: "mode", mode: "hold", label: "Hold here" },
+  { kind: "mode", mode: "stealth", label: "Stealth" },
+  { kind: "oneShot", oneShot: "focus", label: "Focus" },
+  { kind: "oneShot", oneShot: "regroup", label: "Regroup" },
+  { kind: "oneShot", oneShot: "goHome", label: "Go home" }
+];
+var MODE_ORDERS = {
+  // Formation on the owner, shooting anything near.
+  escort: { stance: "escort", fire: "free", resources: "spend", supportFirst: false },
+  // Hunt around the owner, big shots at will, Support Ships first.
+  attack: { stance: "aggressive", fire: "free", resources: "spend", supportFirst: true },
+  // Tight, between the owner and the fire, answering attackers only, falling back when hurt.
+  guard: { stance: "defensive", fire: "return", resources: "conserve", supportFirst: false },
+  // Stay at a point and shoot what comes in range.
+  hold: { stance: "hold", fire: "free", resources: "spend", supportFirst: false },
+  // Follow and never fire: sneak past, don't wake a boss.
+  stealth: { stance: "escort", fire: "hold", resources: "conserve", supportFirst: false }
+};
+function modeOf(orders) {
+  switch (orders.stance) {
+    case "aggressive":
+      return "attack";
+    case "defensive":
+      return "guard";
+    case "hold":
+      return "hold";
+    case "escort":
+      return orders.fire === "hold" ? "stealth" : "escort";
+  }
+}
+var RING_ASPECT = 1.7;
+function itemPosition(index, radius, count = ORDER_ITEMS.length) {
+  const angle = -Math.PI / 2 + index * TAU / count;
+  return { x: Math.cos(angle) * radius * RING_ASPECT, y: Math.sin(angle) * radius };
+}
+function pickItem(dx, dy, deadZone, count = ORDER_ITEMS.length) {
+  const x = dx / RING_ASPECT;
+  if (Math.hypot(x, dy) < deadZone) {
+    return void 0;
+  }
+  const fromTop = Math.atan2(dy, x) + Math.PI / 2;
+  return (Math.round(fromTop * count / TAU) % count + count) % count;
+}
+function applyOrder(item, orders, context) {
+  if (item.kind === "mode") {
+    return {
+      ...DEFAULT_ORDERS,
+      ...MODE_ORDERS[item.mode],
+      holdX: item.mode === "hold" ? context.pointX : orders.holdX,
+      holdY: item.mode === "hold" ? context.pointY : orders.holdY,
+      oneShot: void 0
+    };
+  }
+  if (item.oneShot === "focus") {
+    return context.focusEnemyId === void 0 ? void 0 : { ...orders, oneShot: { kind: "focus", enemyId: context.focusEnemyId } };
+  }
+  return { ...orders, oneShot: { kind: item.oneShot } };
+}
+var MODE_LABELS = {
+  escort: "Escort",
+  attack: "Attack",
+  guard: "Guard",
+  hold: "Holding",
+  stealth: "Stealth"
+};
+var ONE_SHOT_LABELS = {
+  focus: "focusing",
+  regroup: "regrouping",
+  goHome: "going home",
+  shieldMe: "shielding you"
+};
+function describeOrders(orders) {
+  const mode = MODE_LABELS[modeOf(orders)];
+  return orders.oneShot === void 0 ? mode : `${mode} \xB7 ${ONE_SHOT_LABELS[orders.oneShot.kind]}`;
+}
+var FOCUS_PICK_RADIUS = 30;
+var FOCUS_WIDE_RADIUS = 120;
+var FOCUS_LAST_HIT_MS = 3e3;
+function nearestWithin(items, x, y, radius) {
+  let best;
+  let bestDistance = radius;
+  for (const item of items) {
+    const d = Math.hypot(item.x - x, item.y - y);
+    if (d <= bestDistance) {
+      best = item;
+      bestDistance = d;
+    }
+  }
+  return best;
+}
+function chooseFocus(enemies, x, y, lastHit, nowMs) {
+  const under = nearestWithin(enemies, x, y, FOCUS_PICK_RADIUS);
+  if (under !== void 0) {
+    return under.id;
+  }
+  if (lastHit !== void 0 && nowMs - lastHit.atMs <= FOCUS_LAST_HIT_MS && enemies.some((e) => e.id === lastHit.id)) {
+    return lastHit.id;
+  }
+  return nearestWithin(enemies, x, y, FOCUS_WIDE_RADIUS)?.id;
+}
+
+// src/sim/input.ts
+var CONTROL_MODES = ["ship", "screen"];
+function toCommand(input) {
+  const move = normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up));
+  return { moveX: move.x, moveY: move.y, aimX: input.pointerX, aimY: input.pointerY, fire: input.fire };
+}
+function relativeTo(cmd, angle) {
+  const move = rotateOffset(-cmd.moveY, cmd.moveX, angle);
+  return { ...cmd, moveX: move.x, moveY: move.y };
+}
+
+// src/settings.ts
+var CONTROL_MODE_KEY = "voidmarch.controlMode";
+function browserStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return void 0;
+  }
+}
+function loadControlMode(store = browserStorage()) {
+  try {
+    const saved = store?.getItem(CONTROL_MODE_KEY);
+    return CONTROL_MODES.find((mode) => mode === saved) ?? "ship";
+  } catch {
+    return "ship";
+  }
+}
+function saveControlMode(mode, store = browserStorage()) {
+  try {
+    store?.setItem(CONTROL_MODE_KEY, mode);
+  } catch {
+  }
+}
+var AUDIO_KEY = "voidmarch.audio";
+var DEFAULT_AUDIO = { muted: false, music: true };
+function loadAudioSettings(store = browserStorage()) {
+  try {
+    const parsed = JSON.parse(store?.getItem(AUDIO_KEY) ?? "null");
+    if (typeof parsed !== "object" || parsed === null) {
+      return { ...DEFAULT_AUDIO };
+    }
+    const saved = parsed;
+    return {
+      muted: typeof saved.muted === "boolean" ? saved.muted : DEFAULT_AUDIO.muted,
+      music: typeof saved.music === "boolean" ? saved.music : DEFAULT_AUDIO.music
+    };
+  } catch {
+    return { ...DEFAULT_AUDIO };
+  }
+}
+function saveAudioSettings(settings, store = browserStorage()) {
+  try {
+    store?.setItem(AUDIO_KEY, JSON.stringify(settings));
+  } catch {
+  }
+}
+var TOKEN_KEY = "voidmarch.token";
+function loadToken(store = browserStorage()) {
+  try {
+    return store?.getItem(TOKEN_KEY) ?? void 0;
+  } catch {
+    return void 0;
+  }
+}
+function saveToken(token, store = browserStorage()) {
+  try {
+    store?.setItem(TOKEN_KEY, token);
+  } catch {
+  }
+}
+function clearToken(store = browserStorage()) {
+  try {
+    store?.removeItem(TOKEN_KEY);
+  } catch {
+  }
 }
 
 // src/sim/ship.ts
