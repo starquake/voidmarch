@@ -192,3 +192,40 @@ export const ENEMY_SOUND_RANGE = 400;
 export const SHIP_RADIUS = 12;
 /** A projectile's own size when testing hits, in art pixels. */
 export const SHOT_RADIUS = 3;
+
+/** An offset from a ship in art pixels: forward along its facing, and to its right. */
+export interface Offset {
+  forward: number;
+  right: number;
+}
+
+/** Companion formation slots, behind and beside the owner, turning with the owner's facing. */
+export const FORMATION_SLOTS: readonly Offset[] = [
+  { forward: -45, right: -40 },
+  { forward: -45, right: 40 },
+  { forward: -85, right: 0 },
+];
+/** A companion aims for the speed that would reach its goal in this long, so it brakes on arrival. */
+export const BRAIN_ARRIVE_SECONDS = 0.35;
+/** The defensive stance pulls the formation in to this fraction of its size. */
+export const BRAIN_TIGHT_FORMATION = 0.6;
+/** A companion this close to its slot, in art pixels, is in formation. */
+export const BRAIN_IN_FORMATION = 16;
+/** Where a companion looks when nothing needs shooting: this far ahead along the owner's facing. */
+export const BRAIN_LOOK_AHEAD = 200;
+/** Escorting and defending companions shoot enemies this close to their owner. */
+export const BRAIN_ESCORT_RANGE = 300;
+/** Aggressive companions hunt enemies this close to their owner, and no farther. */
+export const BRAIN_LEASH = 450;
+/** A hunting companion closes to this distance from its target. */
+export const BRAIN_ATTACK_DISTANCE = 130;
+/** A companion fires only when facing within this many radians of its target. */
+export const BRAIN_FIRE_CONE = 0.2;
+/** A companion's aim wobbles by up to this many radians, from its seed. */
+export const BRAIN_AIM_JITTER = 0.04;
+/** From this damage state on (an index into DAMAGE_STATES), defensive or conserving companions fall back. */
+export const BRAIN_BADLY_DAMAGED = 3;
+/** Going home is done this close to the home planet, inside the server's 300 px safe zone. */
+export const BRAIN_HOME_RADIUS = 250;
+/** Shielding the owner, a companion keeps this far out toward the attackers. */
+export const BRAIN_SHIELD_DISTANCE = 45;

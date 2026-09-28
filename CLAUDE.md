@@ -75,6 +75,10 @@ pins. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
   never streamed: `EnemyFired` carries a seed, and `frontend/src/sim/patterns.ts`
   expands it identically on every client. Hub tests use `WithSeed` and step the
   hub by hand, so enemy behaviour is deterministic.
+- **Companion brains are sim code** (`frontend/src/sim/brain.ts`): `think`
+  turns a companion's view and orders into the same `ShipCommand` the keyboard
+  makes, pure and seeded, so its behaviour is unit-tested in Node like the rest
+  of `sim/`.
 - **E2E runs everyone on one server**: each test's page is a registered player
   (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
   Assert on your own state (`shotsFired`, `ship`), never on shared counts.
