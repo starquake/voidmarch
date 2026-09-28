@@ -97,7 +97,7 @@ Each faction uses its 8 ship classes in these roles:
 
 As built in milestone 3 (#4), Kla'ed fodder only:
 
-- **Spawning**: the server keeps about 3 enemies around each player outside the safe zone (300 px around the home planet), spawning one a second just out of view (380–460 px away); 40% are Fighters. An enemy with no player outside the safe zone within 800 px for 30 s leaves. Enemies are pushed out of the safe zone.
+- **Spawning**: the server keeps enemies around each player outside the safe zone (300 px around the home planet): 2 for every ship within 500 px, never fewer than 3, so a solo player meets 3, a pair 4 and a wing of 4 about 8 (#25). Companions will count as ships. It spawns one a second just out of view (380–460 px away); 40% are Fighters. An enemy with no player outside the safe zone within 800 px for 30 s leaves. Enemies are pushed out of the safe zone.
 - **Scout**: 2 HP, fast (150 px/s), wanders erratically and closes to about 90 px; fires one small bullet.
 - **Fighter**: 6 HP, slower (95 px/s), strafes around its target at about 170 px; fires one big bullet.
 - **Firing**: enemies come for the nearest player within 500 px, the whole spawn ring, and fire once within 340 px, where their bullets still reach, every so many ticks with jitter; every volley is telegraphed by the weapon animating for 300 ms before the bullets leave; bullets are slow enough to dodge (110–130 px/s), aimed with a small seeded spread. Enemy shots have their own soft laser (Kenney `laserSmall_004`).

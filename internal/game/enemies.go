@@ -11,8 +11,11 @@ import (
 // Spawning, in world pixels and ticks. The view is 640x360 art pixels, so
 // its half-diagonal is about 367: enemies appear just outside it.
 const (
-	enemiesPerPlayer = 3
-	maxEnemies       = MaxPlayers * enemiesPerPlayer
+	// Around each player the hub keeps enemiesPerShip for every ship nearby,
+	// never fewer than enemiesMinimum, so a wing meets more than one ship alone.
+	enemiesMinimum   = 3
+	enemiesPerShip   = 2
+	maxEnemies       = MaxPlayers * enemiesMinimum
 	spawnEvery       = TickRate
 	spawnMinDistance = 380
 	spawnMaxDistance = 460
@@ -150,7 +153,8 @@ func (h *Hub) playersOutsideSafeZone() []point {
 
 func (h *Hub) spawnEnemies(players []point) {
 	for _, p := range players {
-		if len(h.enemies) >= maxEnemies || h.enemiesNear(p, nearRadius) >= enemiesPerPlayer {
+		want := max(enemiesMinimum, enemiesPerShip*shipsNear(p, players))
+		if len(h.enemies) >= maxEnemies || h.enemiesNear(p, nearRadius) >= want {
 			continue
 		}
 		for range spawnAttempts {
@@ -188,6 +192,18 @@ func (h *Hub) addEnemy(x, y float64) {
 		lastNear: h.tick,
 		strafe:   strafe,
 	}
+}
+
+// shipsNear counts the ships within nearRadius of p, p's own included.
+func shipsNear(p point, ships []point) int {
+	n := 0
+	for _, s := range ships {
+		if math.Hypot(s.x-p.x, s.y-p.y) < nearRadius {
+			n++
+		}
+	}
+
+	return n
 }
 
 func (h *Hub) enemiesNear(p point, radius float64) int {

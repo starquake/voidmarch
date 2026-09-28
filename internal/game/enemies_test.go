@@ -88,6 +88,48 @@ func TestEnemies_SpawnAroundPlayersJustOutOfView(t *testing.T) {
 	}
 }
 
+func TestEnemies_WingsMeetMoreEnemies(t *testing.T) {
+	t.Parallel()
+
+	near := func(snap *pb.Snapshot) int {
+		n := 0
+		for _, e := range snap.GetEnemies() {
+			if math.Hypot(float64(e.GetX())-1015, float64(e.GetY())-15) < 500 {
+				n++
+			}
+		}
+
+		return n
+	}
+
+	hub, tick := testHub(t)
+	ids := []string{"a", "b", "c", "d"}
+	wing := make([]*Session, 0, len(ids))
+	for _, id := range ids {
+		s, _ := join(t, hub, id)
+		wing = append(wing, s)
+	}
+	a := wing[0]
+	spots := [][2]float32{{1000, 0}, {1030, 0}, {1000, 30}, {1030, 30}}
+	var snap *pb.Snapshot
+	for range 15 * TickRate {
+		for i, s := range wing[1:] {
+			s.Send(state(spots[i+1][0], spots[i+1][1]))
+		}
+		snap, _ = latest(t, a, tick, 1, spots[0][0], spots[0][1])
+		for _, s := range wing[1:] {
+			drain(s)
+		}
+	}
+
+	if got := near(snap); got <= 3 || got > 8 {
+		t.Errorf(
+			"a wing of 4 has %d enemies near, want more than a solo player's 3 and at most 8",
+			got,
+		)
+	}
+}
+
 func TestEnemies_NoSpawnsInTheSafeZone(t *testing.T) {
 	t.Parallel()
 
