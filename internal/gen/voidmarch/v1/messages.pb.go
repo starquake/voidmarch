@@ -456,12 +456,14 @@ func (x *Hello) GetToken() string {
 type ShotFired struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique per player, so a hit can end the shot everywhere.
-	Id            uint32  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Weapon        Weapon  `protobuf:"varint,2,opt,name=weapon,proto3,enum=voidmarch.v1.Weapon" json:"weapon,omitempty"`
-	Muzzle        uint32  `protobuf:"varint,3,opt,name=muzzle,proto3" json:"muzzle,omitempty"`
-	X             float32 `protobuf:"fixed32,4,opt,name=x,proto3" json:"x,omitempty"`
-	Y             float32 `protobuf:"fixed32,5,opt,name=y,proto3" json:"y,omitempty"`
-	Angle         float32 `protobuf:"fixed32,6,opt,name=angle,proto3" json:"angle,omitempty"`
+	Id     uint32  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Weapon Weapon  `protobuf:"varint,2,opt,name=weapon,proto3,enum=voidmarch.v1.Weapon" json:"weapon,omitempty"`
+	Muzzle uint32  `protobuf:"varint,3,opt,name=muzzle,proto3" json:"muzzle,omitempty"`
+	X      float32 `protobuf:"fixed32,4,opt,name=x,proto3" json:"x,omitempty"`
+	Y      float32 `protobuf:"fixed32,5,opt,name=y,proto3" json:"y,omitempty"`
+	Angle  float32 `protobuf:"fixed32,6,opt,name=angle,proto3" json:"angle,omitempty"`
+	// 0 for the player's own ship, n for their companion n.
+	Companion     uint32 `protobuf:"varint,7,opt,name=companion,proto3" json:"companion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -538,13 +540,22 @@ func (x *ShotFired) GetAngle() float32 {
 	return 0
 }
 
+func (x *ShotFired) GetCompanion() uint32 {
+	if x != nil {
+		return x.Companion
+	}
+	return 0
+}
+
 // Hit reports that one of the player's shots hit an enemy; the client is
 // trusted for it (docs/design.md, section 9).
 type Hit struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EnemyId       uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
-	ShotId        uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
-	Damage        uint32                 `protobuf:"varint,3,opt,name=damage,proto3" json:"damage,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	EnemyId uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
+	ShotId  uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
+	Damage  uint32                 `protobuf:"varint,3,opt,name=damage,proto3" json:"damage,omitempty"`
+	// 0 for the player's own ship, n for their companion n.
+	Companion     uint32 `protobuf:"varint,4,opt,name=companion,proto3" json:"companion,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -600,6 +611,149 @@ func (x *Hit) GetDamage() uint32 {
 	return 0
 }
 
+func (x *Hit) GetCompanion() uint32 {
+	if x != nil {
+		return x.Companion
+	}
+	return 0
+}
+
+// Summon asks for a companion seat (docs/design.md, section 13).
+type Summon struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Summon) Reset() {
+	*x = Summon{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Summon) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Summon) ProtoMessage() {}
+
+func (x *Summon) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Summon.ProtoReflect.Descriptor instead.
+func (*Summon) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{5}
+}
+
+// CompanionState is one of the player's companions, simulated by their client
+// like their own ship.
+type CompanionState struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
+	State         *ShipState             `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompanionState) Reset() {
+	*x = CompanionState{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompanionState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompanionState) ProtoMessage() {}
+
+func (x *CompanionState) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompanionState.ProtoReflect.Descriptor instead.
+func (*CompanionState) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *CompanionState) GetCompanion() uint32 {
+	if x != nil {
+		return x.Companion
+	}
+	return 0
+}
+
+func (x *CompanionState) GetState() *ShipState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+// Dismiss gives a companion's seat back.
+type Dismiss struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Dismiss) Reset() {
+	*x = Dismiss{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Dismiss) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Dismiss) ProtoMessage() {}
+
+func (x *Dismiss) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Dismiss.ProtoReflect.Descriptor instead.
+func (*Dismiss) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Dismiss) GetCompanion() uint32 {
+	if x != nil {
+		return x.Companion
+	}
+	return 0
+}
+
 // ClientMessage is everything a browser sends.
 type ClientMessage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -609,6 +763,9 @@ type ClientMessage struct {
 	//	*ClientMessage_State
 	//	*ClientMessage_Shot
 	//	*ClientMessage_Hit
+	//	*ClientMessage_Summon
+	//	*ClientMessage_Companion
+	//	*ClientMessage_Dismiss
 	Kind          isClientMessage_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -616,7 +773,7 @@ type ClientMessage struct {
 
 func (x *ClientMessage) Reset() {
 	*x = ClientMessage{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[5]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -628,7 +785,7 @@ func (x *ClientMessage) String() string {
 func (*ClientMessage) ProtoMessage() {}
 
 func (x *ClientMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[5]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -641,7 +798,7 @@ func (x *ClientMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientMessage.ProtoReflect.Descriptor instead.
 func (*ClientMessage) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{5}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ClientMessage) GetKind() isClientMessage_Kind {
@@ -687,6 +844,33 @@ func (x *ClientMessage) GetHit() *Hit {
 	return nil
 }
 
+func (x *ClientMessage) GetSummon() *Summon {
+	if x != nil {
+		if x, ok := x.Kind.(*ClientMessage_Summon); ok {
+			return x.Summon
+		}
+	}
+	return nil
+}
+
+func (x *ClientMessage) GetCompanion() *CompanionState {
+	if x != nil {
+		if x, ok := x.Kind.(*ClientMessage_Companion); ok {
+			return x.Companion
+		}
+	}
+	return nil
+}
+
+func (x *ClientMessage) GetDismiss() *Dismiss {
+	if x != nil {
+		if x, ok := x.Kind.(*ClientMessage_Dismiss); ok {
+			return x.Dismiss
+		}
+	}
+	return nil
+}
+
 type isClientMessage_Kind interface {
 	isClientMessage_Kind()
 }
@@ -707,6 +891,18 @@ type ClientMessage_Hit struct {
 	Hit *Hit `protobuf:"bytes,4,opt,name=hit,proto3,oneof"`
 }
 
+type ClientMessage_Summon struct {
+	Summon *Summon `protobuf:"bytes,5,opt,name=summon,proto3,oneof"`
+}
+
+type ClientMessage_Companion struct {
+	Companion *CompanionState `protobuf:"bytes,6,opt,name=companion,proto3,oneof"`
+}
+
+type ClientMessage_Dismiss struct {
+	Dismiss *Dismiss `protobuf:"bytes,7,opt,name=dismiss,proto3,oneof"`
+}
+
 func (*ClientMessage_Hello) isClientMessage_Kind() {}
 
 func (*ClientMessage_State) isClientMessage_Kind() {}
@@ -715,23 +911,34 @@ func (*ClientMessage_Shot) isClientMessage_Kind() {}
 
 func (*ClientMessage_Hit) isClientMessage_Kind() {}
 
+func (*ClientMessage_Summon) isClientMessage_Kind() {}
+
+func (*ClientMessage_Companion) isClientMessage_Kind() {}
+
+func (*ClientMessage_Dismiss) isClientMessage_Kind() {}
+
 // Welcome answers Hello: who you are and where to appear.
 type Welcome struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	PlayerId string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
 	// The player's name colour as 0xRRGGBB.
-	Colour        uint32  `protobuf:"varint,2,opt,name=colour,proto3" json:"colour,omitempty"`
-	SpawnX        float32 `protobuf:"fixed32,3,opt,name=spawn_x,json=spawnX,proto3" json:"spawn_x,omitempty"`
-	SpawnY        float32 `protobuf:"fixed32,4,opt,name=spawn_y,json=spawnY,proto3" json:"spawn_y,omitempty"`
-	Tick          uint32  `protobuf:"varint,5,opt,name=tick,proto3" json:"tick,omitempty"`
-	TickRate      uint32  `protobuf:"varint,6,opt,name=tick_rate,json=tickRate,proto3" json:"tick_rate,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Colour   uint32  `protobuf:"varint,2,opt,name=colour,proto3" json:"colour,omitempty"`
+	SpawnX   float32 `protobuf:"fixed32,3,opt,name=spawn_x,json=spawnX,proto3" json:"spawn_x,omitempty"`
+	SpawnY   float32 `protobuf:"fixed32,4,opt,name=spawn_y,json=spawnY,proto3" json:"spawn_y,omitempty"`
+	Tick     uint32  `protobuf:"varint,5,opt,name=tick,proto3" json:"tick,omitempty"`
+	TickRate uint32  `protobuf:"varint,6,opt,name=tick_rate,json=tickRate,proto3" json:"tick_rate,omitempty"`
+	// How many companions the player may have at once.
+	CompanionLimit uint32 `protobuf:"varint,7,opt,name=companion_limit,json=companionLimit,proto3" json:"companion_limit,omitempty"`
+	// Companions may be summoned anywhere, not only at the home planet
+	// (development servers, for testing).
+	SummonAnywhere bool `protobuf:"varint,8,opt,name=summon_anywhere,json=summonAnywhere,proto3" json:"summon_anywhere,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Welcome) Reset() {
 	*x = Welcome{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[6]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -743,7 +950,7 @@ func (x *Welcome) String() string {
 func (*Welcome) ProtoMessage() {}
 
 func (x *Welcome) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[6]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -756,7 +963,7 @@ func (x *Welcome) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Welcome.ProtoReflect.Descriptor instead.
 func (*Welcome) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{6}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Welcome) GetPlayerId() string {
@@ -801,20 +1008,37 @@ func (x *Welcome) GetTickRate() uint32 {
 	return 0
 }
 
+func (x *Welcome) GetCompanionLimit() uint32 {
+	if x != nil {
+		return x.CompanionLimit
+	}
+	return 0
+}
+
+func (x *Welcome) GetSummonAnywhere() bool {
+	if x != nil {
+		return x.SummonAnywhere
+	}
+	return false
+}
+
 // PlayerSnapshot is one other player at a tick.
 type PlayerSnapshot struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PlayerId      string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Colour        uint32                 `protobuf:"varint,3,opt,name=colour,proto3" json:"colour,omitempty"`
-	State         *ShipState             `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	PlayerId string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Colour   uint32                 `protobuf:"varint,3,opt,name=colour,proto3" json:"colour,omitempty"`
+	State    *ShipState             `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	// Set for a companion: the player who owns it. Its player_id is the seat,
+	// "<owner_id>/<n>", and name and colour are its owner's.
+	OwnerId       string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PlayerSnapshot) Reset() {
 	*x = PlayerSnapshot{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[7]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -826,7 +1050,7 @@ func (x *PlayerSnapshot) String() string {
 func (*PlayerSnapshot) ProtoMessage() {}
 
 func (x *PlayerSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[7]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -839,7 +1063,7 @@ func (x *PlayerSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerSnapshot.ProtoReflect.Descriptor instead.
 func (*PlayerSnapshot) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{7}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *PlayerSnapshot) GetPlayerId() string {
@@ -870,6 +1094,13 @@ func (x *PlayerSnapshot) GetState() *ShipState {
 	return nil
 }
 
+func (x *PlayerSnapshot) GetOwnerId() string {
+	if x != nil {
+		return x.OwnerId
+	}
+	return ""
+}
+
 // EnemyState is one enemy at a tick; the server moves enemies.
 type EnemyState struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -885,7 +1116,7 @@ type EnemyState struct {
 
 func (x *EnemyState) Reset() {
 	*x = EnemyState{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[8]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -897,7 +1128,7 @@ func (x *EnemyState) String() string {
 func (*EnemyState) ProtoMessage() {}
 
 func (x *EnemyState) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[8]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -910,7 +1141,7 @@ func (x *EnemyState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnemyState.ProtoReflect.Descriptor instead.
 func (*EnemyState) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{8}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *EnemyState) GetEnemyId() uint32 {
@@ -960,7 +1191,7 @@ type Snapshot struct {
 
 func (x *Snapshot) Reset() {
 	*x = Snapshot{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[9]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -972,7 +1203,7 @@ func (x *Snapshot) String() string {
 func (*Snapshot) ProtoMessage() {}
 
 func (x *Snapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[9]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -985,7 +1216,7 @@ func (x *Snapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Snapshot.ProtoReflect.Descriptor instead.
 func (*Snapshot) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{9}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Snapshot) GetTick() uint32 {
@@ -1029,7 +1260,7 @@ type EnemyFired struct {
 
 func (x *EnemyFired) Reset() {
 	*x = EnemyFired{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[10]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +1272,7 @@ func (x *EnemyFired) String() string {
 func (*EnemyFired) ProtoMessage() {}
 
 func (x *EnemyFired) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[10]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +1285,7 @@ func (x *EnemyFired) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnemyFired.ProtoReflect.Descriptor instead.
 func (*EnemyFired) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{10}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *EnemyFired) GetEnemyId() uint32 {
@@ -1128,7 +1359,7 @@ type EnemyDestroyed struct {
 
 func (x *EnemyDestroyed) Reset() {
 	*x = EnemyDestroyed{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[11]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1140,7 +1371,7 @@ func (x *EnemyDestroyed) String() string {
 func (*EnemyDestroyed) ProtoMessage() {}
 
 func (x *EnemyDestroyed) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[11]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1153,7 +1384,7 @@ func (x *EnemyDestroyed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnemyDestroyed.ProtoReflect.Descriptor instead.
 func (*EnemyDestroyed) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{11}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *EnemyDestroyed) GetEnemyId() uint32 {
@@ -1211,7 +1442,7 @@ type ShotEnded struct {
 
 func (x *ShotEnded) Reset() {
 	*x = ShotEnded{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[12]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1223,7 +1454,7 @@ func (x *ShotEnded) String() string {
 func (*ShotEnded) ProtoMessage() {}
 
 func (x *ShotEnded) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[12]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1236,7 +1467,7 @@ func (x *ShotEnded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShotEnded.ProtoReflect.Descriptor instead.
 func (*ShotEnded) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{12}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ShotEnded) GetPlayerId() string {
@@ -1272,7 +1503,7 @@ type RemoteShot struct {
 
 func (x *RemoteShot) Reset() {
 	*x = RemoteShot{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[13]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1284,7 +1515,7 @@ func (x *RemoteShot) String() string {
 func (*RemoteShot) ProtoMessage() {}
 
 func (x *RemoteShot) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[13]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1297,7 +1528,7 @@ func (x *RemoteShot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteShot.ProtoReflect.Descriptor instead.
 func (*RemoteShot) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{13}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RemoteShot) GetPlayerId() string {
@@ -1331,7 +1562,7 @@ type PlayerLeft struct {
 
 func (x *PlayerLeft) Reset() {
 	*x = PlayerLeft{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[14]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1343,7 +1574,7 @@ func (x *PlayerLeft) String() string {
 func (*PlayerLeft) ProtoMessage() {}
 
 func (x *PlayerLeft) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[14]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1356,7 +1587,7 @@ func (x *PlayerLeft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerLeft.ProtoReflect.Descriptor instead.
 func (*PlayerLeft) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{14}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PlayerLeft) GetPlayerId() string {
@@ -1364,6 +1595,158 @@ func (x *PlayerLeft) GetPlayerId() string {
 		return x.PlayerId
 	}
 	return ""
+}
+
+// CompanionGranted answers Summon: the companion's number and where to put it.
+type CompanionGranted struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
+	X             float32                `protobuf:"fixed32,2,opt,name=x,proto3" json:"x,omitempty"`
+	Y             float32                `protobuf:"fixed32,3,opt,name=y,proto3" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompanionGranted) Reset() {
+	*x = CompanionGranted{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompanionGranted) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompanionGranted) ProtoMessage() {}
+
+func (x *CompanionGranted) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompanionGranted.ProtoReflect.Descriptor instead.
+func (*CompanionGranted) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *CompanionGranted) GetCompanion() uint32 {
+	if x != nil {
+		return x.Companion
+	}
+	return 0
+}
+
+func (x *CompanionGranted) GetX() float32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *CompanionGranted) GetY() float32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+// CompanionRefused answers Summon when no companion can come.
+type CompanionRefused struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Reason        string                 `protobuf:"bytes,1,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompanionRefused) Reset() {
+	*x = CompanionRefused{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompanionRefused) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompanionRefused) ProtoMessage() {}
+
+func (x *CompanionRefused) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompanionRefused.ProtoReflect.Descriptor instead.
+func (*CompanionRefused) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *CompanionRefused) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// CompanionDismissed says the server took a companion's seat back, for a
+// human joining a full world.
+type CompanionDismissed struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Companion     uint32                 `protobuf:"varint,1,opt,name=companion,proto3" json:"companion,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompanionDismissed) Reset() {
+	*x = CompanionDismissed{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompanionDismissed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompanionDismissed) ProtoMessage() {}
+
+func (x *CompanionDismissed) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompanionDismissed.ProtoReflect.Descriptor instead.
+func (*CompanionDismissed) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CompanionDismissed) GetCompanion() uint32 {
+	if x != nil {
+		return x.Companion
+	}
+	return 0
 }
 
 // Full says the frontier has no room; the server closes the connection after it.
@@ -1375,7 +1758,7 @@ type Full struct {
 
 func (x *Full) Reset() {
 	*x = Full{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[15]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1387,7 +1770,7 @@ func (x *Full) String() string {
 func (*Full) ProtoMessage() {}
 
 func (x *Full) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[15]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1400,7 +1783,7 @@ func (x *Full) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Full.ProtoReflect.Descriptor instead.
 func (*Full) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{15}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{21}
 }
 
 // ServerMessage is everything the server sends.
@@ -1416,6 +1799,9 @@ type ServerMessage struct {
 	//	*ServerMessage_EnemyFired
 	//	*ServerMessage_EnemyDestroyed
 	//	*ServerMessage_ShotEnded
+	//	*ServerMessage_CompanionGranted
+	//	*ServerMessage_CompanionRefused
+	//	*ServerMessage_CompanionDismissed
 	Kind          isServerMessage_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1423,7 +1809,7 @@ type ServerMessage struct {
 
 func (x *ServerMessage) Reset() {
 	*x = ServerMessage{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[16]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1435,7 +1821,7 @@ func (x *ServerMessage) String() string {
 func (*ServerMessage) ProtoMessage() {}
 
 func (x *ServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[16]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1448,7 +1834,7 @@ func (x *ServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
 func (*ServerMessage) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{16}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ServerMessage) GetKind() isServerMessage_Kind {
@@ -1530,6 +1916,33 @@ func (x *ServerMessage) GetShotEnded() *ShotEnded {
 	return nil
 }
 
+func (x *ServerMessage) GetCompanionGranted() *CompanionGranted {
+	if x != nil {
+		if x, ok := x.Kind.(*ServerMessage_CompanionGranted); ok {
+			return x.CompanionGranted
+		}
+	}
+	return nil
+}
+
+func (x *ServerMessage) GetCompanionRefused() *CompanionRefused {
+	if x != nil {
+		if x, ok := x.Kind.(*ServerMessage_CompanionRefused); ok {
+			return x.CompanionRefused
+		}
+	}
+	return nil
+}
+
+func (x *ServerMessage) GetCompanionDismissed() *CompanionDismissed {
+	if x != nil {
+		if x, ok := x.Kind.(*ServerMessage_CompanionDismissed); ok {
+			return x.CompanionDismissed
+		}
+	}
+	return nil
+}
+
 type isServerMessage_Kind interface {
 	isServerMessage_Kind()
 }
@@ -1566,6 +1979,18 @@ type ServerMessage_ShotEnded struct {
 	ShotEnded *ShotEnded `protobuf:"bytes,8,opt,name=shot_ended,json=shotEnded,proto3,oneof"`
 }
 
+type ServerMessage_CompanionGranted struct {
+	CompanionGranted *CompanionGranted `protobuf:"bytes,9,opt,name=companion_granted,json=companionGranted,proto3,oneof"`
+}
+
+type ServerMessage_CompanionRefused struct {
+	CompanionRefused *CompanionRefused `protobuf:"bytes,10,opt,name=companion_refused,json=companionRefused,proto3,oneof"`
+}
+
+type ServerMessage_CompanionDismissed struct {
+	CompanionDismissed *CompanionDismissed `protobuf:"bytes,11,opt,name=companion_dismissed,json=companionDismissed,proto3,oneof"`
+}
+
 func (*ServerMessage_Welcome) isServerMessage_Kind() {}
 
 func (*ServerMessage_Snapshot) isServerMessage_Kind() {}
@@ -1581,6 +2006,12 @@ func (*ServerMessage_EnemyFired) isServerMessage_Kind() {}
 func (*ServerMessage_EnemyDestroyed) isServerMessage_Kind() {}
 
 func (*ServerMessage_ShotEnded) isServerMessage_Kind() {}
+
+func (*ServerMessage_CompanionGranted) isServerMessage_Kind() {}
+
+func (*ServerMessage_CompanionRefused) isServerMessage_Kind() {}
+
+func (*ServerMessage_CompanionDismissed) isServerMessage_Kind() {}
 
 var File_voidmarch_v1_messages_proto protoreflect.FileDescriptor
 
@@ -1601,36 +2032,50 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\aloadout\x18\a \x01(\v2\x15.voidmarch.v1.LoadoutR\aloadout\x12\x16\n" +
 	"\x06damage\x18\b \x01(\rR\x06damage\"\x1d\n" +
 	"\x05Hello\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x93\x01\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"\xb1\x01\n" +
 	"\tShotFired\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12,\n" +
 	"\x06weapon\x18\x02 \x01(\x0e2\x14.voidmarch.v1.WeaponR\x06weapon\x12\x16\n" +
 	"\x06muzzle\x18\x03 \x01(\rR\x06muzzle\x12\f\n" +
 	"\x01x\x18\x04 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x05 \x01(\x02R\x01y\x12\x14\n" +
-	"\x05angle\x18\x06 \x01(\x02R\x05angle\"Q\n" +
+	"\x05angle\x18\x06 \x01(\x02R\x05angle\x12\x1c\n" +
+	"\tcompanion\x18\a \x01(\rR\tcompanion\"o\n" +
 	"\x03Hit\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12\x17\n" +
 	"\ashot_id\x18\x02 \x01(\rR\x06shotId\x12\x16\n" +
-	"\x06damage\x18\x03 \x01(\rR\x06damage\"\xcb\x01\n" +
+	"\x06damage\x18\x03 \x01(\rR\x06damage\x12\x1c\n" +
+	"\tcompanion\x18\x04 \x01(\rR\tcompanion\"\b\n" +
+	"\x06Summon\"]\n" +
+	"\x0eCompanionState\x12\x1c\n" +
+	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12-\n" +
+	"\x05state\x18\x02 \x01(\v2\x17.voidmarch.v1.ShipStateR\x05state\"'\n" +
+	"\aDismiss\x12\x1c\n" +
+	"\tcompanion\x18\x01 \x01(\rR\tcompanion\"\xec\x02\n" +
 	"\rClientMessage\x12+\n" +
 	"\x05hello\x18\x01 \x01(\v2\x13.voidmarch.v1.HelloH\x00R\x05hello\x12/\n" +
 	"\x05state\x18\x02 \x01(\v2\x17.voidmarch.v1.ShipStateH\x00R\x05state\x12-\n" +
 	"\x04shot\x18\x03 \x01(\v2\x17.voidmarch.v1.ShotFiredH\x00R\x04shot\x12%\n" +
-	"\x03hit\x18\x04 \x01(\v2\x11.voidmarch.v1.HitH\x00R\x03hitB\x06\n" +
-	"\x04kind\"\xa1\x01\n" +
+	"\x03hit\x18\x04 \x01(\v2\x11.voidmarch.v1.HitH\x00R\x03hit\x12.\n" +
+	"\x06summon\x18\x05 \x01(\v2\x14.voidmarch.v1.SummonH\x00R\x06summon\x12<\n" +
+	"\tcompanion\x18\x06 \x01(\v2\x1c.voidmarch.v1.CompanionStateH\x00R\tcompanion\x121\n" +
+	"\adismiss\x18\a \x01(\v2\x15.voidmarch.v1.DismissH\x00R\adismissB\x06\n" +
+	"\x04kind\"\xf3\x01\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x16\n" +
 	"\x06colour\x18\x02 \x01(\rR\x06colour\x12\x17\n" +
 	"\aspawn_x\x18\x03 \x01(\x02R\x06spawnX\x12\x17\n" +
 	"\aspawn_y\x18\x04 \x01(\x02R\x06spawnY\x12\x12\n" +
 	"\x04tick\x18\x05 \x01(\rR\x04tick\x12\x1b\n" +
-	"\ttick_rate\x18\x06 \x01(\rR\btickRate\"\x88\x01\n" +
+	"\ttick_rate\x18\x06 \x01(\rR\btickRate\x12'\n" +
+	"\x0fcompanion_limit\x18\a \x01(\rR\x0ecompanionLimit\x12'\n" +
+	"\x0fsummon_anywhere\x18\b \x01(\bR\x0esummonAnywhere\"\xa3\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
 	"\x06colour\x18\x03 \x01(\rR\x06colour\x12-\n" +
-	"\x05state\x18\x04 \x01(\v2\x17.voidmarch.v1.ShipStateR\x05state\"\x86\x01\n" +
+	"\x05state\x18\x04 \x01(\v2\x17.voidmarch.v1.ShipStateR\x05state\x12\x19\n" +
+	"\bowner_id\x18\x05 \x01(\tR\aownerId\"\x86\x01\n" +
 	"\n" +
 	"EnemyState\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -1672,8 +2117,16 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x04shot\x18\x03 \x01(\v2\x17.voidmarch.v1.ShotFiredR\x04shot\")\n" +
 	"\n" +
 	"PlayerLeft\x12\x1b\n" +
-	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\"\x06\n" +
-	"\x04Full\"\xca\x03\n" +
+	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\"L\n" +
+	"\x10CompanionGranted\x12\x1c\n" +
+	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12\f\n" +
+	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +
+	"\x01y\x18\x03 \x01(\x02R\x01y\"*\n" +
+	"\x10CompanionRefused\x12\x16\n" +
+	"\x06reason\x18\x01 \x01(\tR\x06reason\"2\n" +
+	"\x12CompanionDismissed\x12\x1c\n" +
+	"\tcompanion\x18\x01 \x01(\rR\tcompanion\"\x06\n" +
+	"\x04Full\"\xbd\x05\n" +
 	"\rServerMessage\x121\n" +
 	"\awelcome\x18\x01 \x01(\v2\x15.voidmarch.v1.WelcomeH\x00R\awelcome\x124\n" +
 	"\bsnapshot\x18\x02 \x01(\v2\x16.voidmarch.v1.SnapshotH\x00R\bsnapshot\x12.\n" +
@@ -1684,7 +2137,11 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"enemyFired\x12G\n" +
 	"\x0fenemy_destroyed\x18\a \x01(\v2\x1c.voidmarch.v1.EnemyDestroyedH\x00R\x0eenemyDestroyed\x128\n" +
 	"\n" +
-	"shot_ended\x18\b \x01(\v2\x17.voidmarch.v1.ShotEndedH\x00R\tshotEndedB\x06\n" +
+	"shot_ended\x18\b \x01(\v2\x17.voidmarch.v1.ShotEndedH\x00R\tshotEnded\x12M\n" +
+	"\x11companion_granted\x18\t \x01(\v2\x1e.voidmarch.v1.CompanionGrantedH\x00R\x10companionGranted\x12M\n" +
+	"\x11companion_refused\x18\n" +
+	" \x01(\v2\x1e.voidmarch.v1.CompanionRefusedH\x00R\x10companionRefused\x12S\n" +
+	"\x13companion_dismissed\x18\v \x01(\v2 .voidmarch.v1.CompanionDismissedH\x00R\x12companionDismissedB\x06\n" +
 	"\x04kind*y\n" +
 	"\x06Weapon\x12\x16\n" +
 	"\x12WEAPON_UNSPECIFIED\x10\x00\x12\x16\n" +
@@ -1722,29 +2179,35 @@ func file_voidmarch_v1_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_voidmarch_v1_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_voidmarch_v1_messages_proto_goTypes = []any{
-	(Weapon)(0),            // 0: voidmarch.v1.Weapon
-	(Engine)(0),            // 1: voidmarch.v1.Engine
-	(Shield)(0),            // 2: voidmarch.v1.Shield
-	(EnemyKind)(0),         // 3: voidmarch.v1.EnemyKind
-	(*Loadout)(nil),        // 4: voidmarch.v1.Loadout
-	(*ShipState)(nil),      // 5: voidmarch.v1.ShipState
-	(*Hello)(nil),          // 6: voidmarch.v1.Hello
-	(*ShotFired)(nil),      // 7: voidmarch.v1.ShotFired
-	(*Hit)(nil),            // 8: voidmarch.v1.Hit
-	(*ClientMessage)(nil),  // 9: voidmarch.v1.ClientMessage
-	(*Welcome)(nil),        // 10: voidmarch.v1.Welcome
-	(*PlayerSnapshot)(nil), // 11: voidmarch.v1.PlayerSnapshot
-	(*EnemyState)(nil),     // 12: voidmarch.v1.EnemyState
-	(*Snapshot)(nil),       // 13: voidmarch.v1.Snapshot
-	(*EnemyFired)(nil),     // 14: voidmarch.v1.EnemyFired
-	(*EnemyDestroyed)(nil), // 15: voidmarch.v1.EnemyDestroyed
-	(*ShotEnded)(nil),      // 16: voidmarch.v1.ShotEnded
-	(*RemoteShot)(nil),     // 17: voidmarch.v1.RemoteShot
-	(*PlayerLeft)(nil),     // 18: voidmarch.v1.PlayerLeft
-	(*Full)(nil),           // 19: voidmarch.v1.Full
-	(*ServerMessage)(nil),  // 20: voidmarch.v1.ServerMessage
+	(Weapon)(0),                // 0: voidmarch.v1.Weapon
+	(Engine)(0),                // 1: voidmarch.v1.Engine
+	(Shield)(0),                // 2: voidmarch.v1.Shield
+	(EnemyKind)(0),             // 3: voidmarch.v1.EnemyKind
+	(*Loadout)(nil),            // 4: voidmarch.v1.Loadout
+	(*ShipState)(nil),          // 5: voidmarch.v1.ShipState
+	(*Hello)(nil),              // 6: voidmarch.v1.Hello
+	(*ShotFired)(nil),          // 7: voidmarch.v1.ShotFired
+	(*Hit)(nil),                // 8: voidmarch.v1.Hit
+	(*Summon)(nil),             // 9: voidmarch.v1.Summon
+	(*CompanionState)(nil),     // 10: voidmarch.v1.CompanionState
+	(*Dismiss)(nil),            // 11: voidmarch.v1.Dismiss
+	(*ClientMessage)(nil),      // 12: voidmarch.v1.ClientMessage
+	(*Welcome)(nil),            // 13: voidmarch.v1.Welcome
+	(*PlayerSnapshot)(nil),     // 14: voidmarch.v1.PlayerSnapshot
+	(*EnemyState)(nil),         // 15: voidmarch.v1.EnemyState
+	(*Snapshot)(nil),           // 16: voidmarch.v1.Snapshot
+	(*EnemyFired)(nil),         // 17: voidmarch.v1.EnemyFired
+	(*EnemyDestroyed)(nil),     // 18: voidmarch.v1.EnemyDestroyed
+	(*ShotEnded)(nil),          // 19: voidmarch.v1.ShotEnded
+	(*RemoteShot)(nil),         // 20: voidmarch.v1.RemoteShot
+	(*PlayerLeft)(nil),         // 21: voidmarch.v1.PlayerLeft
+	(*CompanionGranted)(nil),   // 22: voidmarch.v1.CompanionGranted
+	(*CompanionRefused)(nil),   // 23: voidmarch.v1.CompanionRefused
+	(*CompanionDismissed)(nil), // 24: voidmarch.v1.CompanionDismissed
+	(*Full)(nil),               // 25: voidmarch.v1.Full
+	(*ServerMessage)(nil),      // 26: voidmarch.v1.ServerMessage
 }
 var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	0,  // 0: voidmarch.v1.Loadout.weapon:type_name -> voidmarch.v1.Weapon
@@ -1752,30 +2215,37 @@ var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	2,  // 2: voidmarch.v1.Loadout.shield:type_name -> voidmarch.v1.Shield
 	4,  // 3: voidmarch.v1.ShipState.loadout:type_name -> voidmarch.v1.Loadout
 	0,  // 4: voidmarch.v1.ShotFired.weapon:type_name -> voidmarch.v1.Weapon
-	6,  // 5: voidmarch.v1.ClientMessage.hello:type_name -> voidmarch.v1.Hello
-	5,  // 6: voidmarch.v1.ClientMessage.state:type_name -> voidmarch.v1.ShipState
-	7,  // 7: voidmarch.v1.ClientMessage.shot:type_name -> voidmarch.v1.ShotFired
-	8,  // 8: voidmarch.v1.ClientMessage.hit:type_name -> voidmarch.v1.Hit
-	5,  // 9: voidmarch.v1.PlayerSnapshot.state:type_name -> voidmarch.v1.ShipState
-	3,  // 10: voidmarch.v1.EnemyState.kind:type_name -> voidmarch.v1.EnemyKind
-	11, // 11: voidmarch.v1.Snapshot.players:type_name -> voidmarch.v1.PlayerSnapshot
-	12, // 12: voidmarch.v1.Snapshot.enemies:type_name -> voidmarch.v1.EnemyState
-	3,  // 13: voidmarch.v1.EnemyFired.kind:type_name -> voidmarch.v1.EnemyKind
-	3,  // 14: voidmarch.v1.EnemyDestroyed.kind:type_name -> voidmarch.v1.EnemyKind
-	7,  // 15: voidmarch.v1.RemoteShot.shot:type_name -> voidmarch.v1.ShotFired
-	10, // 16: voidmarch.v1.ServerMessage.welcome:type_name -> voidmarch.v1.Welcome
-	13, // 17: voidmarch.v1.ServerMessage.snapshot:type_name -> voidmarch.v1.Snapshot
-	17, // 18: voidmarch.v1.ServerMessage.shot:type_name -> voidmarch.v1.RemoteShot
-	18, // 19: voidmarch.v1.ServerMessage.left:type_name -> voidmarch.v1.PlayerLeft
-	19, // 20: voidmarch.v1.ServerMessage.full:type_name -> voidmarch.v1.Full
-	14, // 21: voidmarch.v1.ServerMessage.enemy_fired:type_name -> voidmarch.v1.EnemyFired
-	15, // 22: voidmarch.v1.ServerMessage.enemy_destroyed:type_name -> voidmarch.v1.EnemyDestroyed
-	16, // 23: voidmarch.v1.ServerMessage.shot_ended:type_name -> voidmarch.v1.ShotEnded
-	24, // [24:24] is the sub-list for method output_type
-	24, // [24:24] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	5,  // 5: voidmarch.v1.CompanionState.state:type_name -> voidmarch.v1.ShipState
+	6,  // 6: voidmarch.v1.ClientMessage.hello:type_name -> voidmarch.v1.Hello
+	5,  // 7: voidmarch.v1.ClientMessage.state:type_name -> voidmarch.v1.ShipState
+	7,  // 8: voidmarch.v1.ClientMessage.shot:type_name -> voidmarch.v1.ShotFired
+	8,  // 9: voidmarch.v1.ClientMessage.hit:type_name -> voidmarch.v1.Hit
+	9,  // 10: voidmarch.v1.ClientMessage.summon:type_name -> voidmarch.v1.Summon
+	10, // 11: voidmarch.v1.ClientMessage.companion:type_name -> voidmarch.v1.CompanionState
+	11, // 12: voidmarch.v1.ClientMessage.dismiss:type_name -> voidmarch.v1.Dismiss
+	5,  // 13: voidmarch.v1.PlayerSnapshot.state:type_name -> voidmarch.v1.ShipState
+	3,  // 14: voidmarch.v1.EnemyState.kind:type_name -> voidmarch.v1.EnemyKind
+	14, // 15: voidmarch.v1.Snapshot.players:type_name -> voidmarch.v1.PlayerSnapshot
+	15, // 16: voidmarch.v1.Snapshot.enemies:type_name -> voidmarch.v1.EnemyState
+	3,  // 17: voidmarch.v1.EnemyFired.kind:type_name -> voidmarch.v1.EnemyKind
+	3,  // 18: voidmarch.v1.EnemyDestroyed.kind:type_name -> voidmarch.v1.EnemyKind
+	7,  // 19: voidmarch.v1.RemoteShot.shot:type_name -> voidmarch.v1.ShotFired
+	13, // 20: voidmarch.v1.ServerMessage.welcome:type_name -> voidmarch.v1.Welcome
+	16, // 21: voidmarch.v1.ServerMessage.snapshot:type_name -> voidmarch.v1.Snapshot
+	20, // 22: voidmarch.v1.ServerMessage.shot:type_name -> voidmarch.v1.RemoteShot
+	21, // 23: voidmarch.v1.ServerMessage.left:type_name -> voidmarch.v1.PlayerLeft
+	25, // 24: voidmarch.v1.ServerMessage.full:type_name -> voidmarch.v1.Full
+	17, // 25: voidmarch.v1.ServerMessage.enemy_fired:type_name -> voidmarch.v1.EnemyFired
+	18, // 26: voidmarch.v1.ServerMessage.enemy_destroyed:type_name -> voidmarch.v1.EnemyDestroyed
+	19, // 27: voidmarch.v1.ServerMessage.shot_ended:type_name -> voidmarch.v1.ShotEnded
+	22, // 28: voidmarch.v1.ServerMessage.companion_granted:type_name -> voidmarch.v1.CompanionGranted
+	23, // 29: voidmarch.v1.ServerMessage.companion_refused:type_name -> voidmarch.v1.CompanionRefused
+	24, // 30: voidmarch.v1.ServerMessage.companion_dismissed:type_name -> voidmarch.v1.CompanionDismissed
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_voidmarch_v1_messages_proto_init() }
@@ -1783,13 +2253,16 @@ func file_voidmarch_v1_messages_proto_init() {
 	if File_voidmarch_v1_messages_proto != nil {
 		return
 	}
-	file_voidmarch_v1_messages_proto_msgTypes[5].OneofWrappers = []any{
+	file_voidmarch_v1_messages_proto_msgTypes[8].OneofWrappers = []any{
 		(*ClientMessage_Hello)(nil),
 		(*ClientMessage_State)(nil),
 		(*ClientMessage_Shot)(nil),
 		(*ClientMessage_Hit)(nil),
+		(*ClientMessage_Summon)(nil),
+		(*ClientMessage_Companion)(nil),
+		(*ClientMessage_Dismiss)(nil),
 	}
-	file_voidmarch_v1_messages_proto_msgTypes[16].OneofWrappers = []any{
+	file_voidmarch_v1_messages_proto_msgTypes[22].OneofWrappers = []any{
 		(*ServerMessage_Welcome)(nil),
 		(*ServerMessage_Snapshot)(nil),
 		(*ServerMessage_Shot)(nil),
@@ -1798,6 +2271,9 @@ func file_voidmarch_v1_messages_proto_init() {
 		(*ServerMessage_EnemyFired)(nil),
 		(*ServerMessage_EnemyDestroyed)(nil),
 		(*ServerMessage_ShotEnded)(nil),
+		(*ServerMessage_CompanionGranted)(nil),
+		(*ServerMessage_CompanionRefused)(nil),
+		(*ServerMessage_CompanionDismissed)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1805,7 +2281,7 @@ func file_voidmarch_v1_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_voidmarch_v1_messages_proto_rawDesc), len(file_voidmarch_v1_messages_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   17,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

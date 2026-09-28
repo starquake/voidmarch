@@ -76,6 +76,8 @@ message ShotFired {
   float x = 4;
   float y = 5;
   float angle = 6;
+  // 0 for the player's own ship, n for their companion n.
+  uint32 companion = 7;
 }
 
 // Hit reports that one of the player's shots hit an enemy; the client is
@@ -84,6 +86,23 @@ message Hit {
   uint32 enemy_id = 1;
   uint32 shot_id = 2;
   uint32 damage = 3;
+  // 0 for the player's own ship, n for their companion n.
+  uint32 companion = 4;
+}
+
+// Summon asks for a companion seat (docs/design.md, section 13).
+message Summon {}
+
+// CompanionState is one of the player's companions, simulated by their client
+// like their own ship.
+message CompanionState {
+  uint32 companion = 1;
+  ShipState state = 2;
+}
+
+// Dismiss gives a companion's seat back.
+message Dismiss {
+  uint32 companion = 1;
 }
 
 // ClientMessage is everything a browser sends.
@@ -93,6 +112,9 @@ message ClientMessage {
     ShipState state = 2;
     ShotFired shot = 3;
     Hit hit = 4;
+    Summon summon = 5;
+    CompanionState companion = 6;
+    Dismiss dismiss = 7;
   }
 }
 
@@ -105,6 +127,11 @@ message Welcome {
   float spawn_y = 4;
   uint32 tick = 5;
   uint32 tick_rate = 6;
+  // How many companions the player may have at once.
+  uint32 companion_limit = 7;
+  // Companions may be summoned anywhere, not only at the home planet
+  // (development servers, for testing).
+  bool summon_anywhere = 8;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -113,6 +140,9 @@ message PlayerSnapshot {
   string name = 2;
   uint32 colour = 3;
   ShipState state = 4;
+  // Set for a companion: the player who owns it. Its player_id is the seat,
+  // "<owner_id>/<n>", and name and colour are its owner's.
+  string owner_id = 5;
 }
 
 // EnemyState is one enemy at a tick; the server moves enemies.
@@ -177,6 +207,24 @@ message PlayerLeft {
   string player_id = 1;
 }
 
+// CompanionGranted answers Summon: the companion's number and where to put it.
+message CompanionGranted {
+  uint32 companion = 1;
+  float x = 2;
+  float y = 3;
+}
+
+// CompanionRefused answers Summon when no companion can come.
+message CompanionRefused {
+  string reason = 1;
+}
+
+// CompanionDismissed says the server took a companion's seat back, for a
+// human joining a full world.
+message CompanionDismissed {
+  uint32 companion = 1;
+}
+
 // Full says the frontier has no room; the server closes the connection after it.
 message Full {}
 
@@ -191,5 +239,8 @@ message ServerMessage {
     EnemyFired enemy_fired = 6;
     EnemyDestroyed enemy_destroyed = 7;
     ShotEnded shot_ended = 8;
+    CompanionGranted companion_granted = 9;
+    CompanionRefused companion_refused = 10;
+    CompanionDismissed companion_dismissed = 11;
   }
 }

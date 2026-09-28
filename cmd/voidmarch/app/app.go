@@ -63,7 +63,11 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		}
 	}
 
-	hub := game.NewHub(logger)
+	var hubOpts []game.HubOption
+	if cfg.AppEnvironment == config.AppEnvironmentDevelopment {
+		hubOpts = append(hubOpts, game.WithDevelopment())
+	}
+	hub := game.NewHub(logger, hubOpts...)
 	ticker := time.NewTicker(time.Second / game.TickRate)
 	defer ticker.Stop()
 	hubDone := make(chan struct{})

@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"math/rand/v2"
+	"slices"
 	"time"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -96,10 +98,11 @@ type joinResult struct {
 }
 
 type member struct {
-	session  *Session
-	colour   uint32
-	state    *pb.ShipState
-	lastSeen uint32
+	session    *Session
+	colour     uint32
+	state      *pb.ShipState
+	lastSeen   uint32
+	companions map[uint32]*companion
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -116,14 +119,18 @@ type Hub struct {
 	enemies   map[uint32]*enemy
 	nextEnemy uint32
 	rng       *rand.Rand
+	// development lifts the companion limits, for testing alone.
+	development bool
+	nextGrant   uint64
 }
 
 // HubOption configures a [Hub].
 type HubOption func(*hubOptions)
 
 type hubOptions struct {
-	seed   uint64
-	seeded bool
+	seed        uint64
+	seeded      bool
+	development bool
 }
 
 // WithSeed makes the hub's randomness (spawns, steering, fire timing)
@@ -131,6 +138,14 @@ type hubOptions struct {
 func WithSeed(seed uint64) HubOption {
 	return func(o *hubOptions) {
 		o.seed, o.seeded = seed, true
+	}
+}
+
+// WithDevelopment lifts the companion limits, so one player can fill the
+// world with companions anywhere to test multiplayer alone.
+func WithDevelopment() HubOption {
+	return func(o *hubOptions) {
+		o.development = true
 	}
 }
 
@@ -150,6 +165,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		members:  make(map[string]*member),
 		enemies:  make(map[uint32]*enemy),
 		rng:      newRand(o),
+
+		development: o.development,
 	}
 }
 
@@ -210,10 +227,13 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 }
 
 func (h *Hub) handleJoin(player players.Player) joinResult {
+	// A player who is back (a reconnect, a second tab) keeps their companions.
+	companions := make(map[uint32]*companion)
 	if old, ok := h.members[player.ID]; ok {
+		companions = old.companions
 		close(old.session.queue)
 		delete(h.members, player.ID)
-	} else if len(h.members) >= MaxPlayers {
+	} else if h.seats() >= MaxPlayers && !h.displaceNewestCompanion() {
 		return joinResult{err: ErrFull}
 	}
 
@@ -221,7 +241,12 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	s := &Session{Player: player, Out: out, queue: out, hub: h}
 	colour := h.freeColour()
 	spawnX, spawnY := h.freeSpawn()
-	h.members[player.ID] = &member{session: s, colour: colour, lastSeen: h.tick}
+	h.members[player.ID] = &member{
+		session:    s,
+		colour:     colour,
+		lastSeen:   h.tick,
+		companions: companions,
+	}
 	h.logger.Info(
 		"player joined",
 		slog.String("playerId", player.ID),
@@ -235,6 +260,9 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		SpawnY:   spawnY,
 		Tick:     h.tick,
 		TickRate: TickRate,
+
+		CompanionLimit: uint32(h.companionLimit()), //nolint:gosec // at most MaxPlayers.
+		SummonAnywhere: h.development,
 	}
 
 	return joinResult{session: s, welcome: welcome}
@@ -252,6 +280,12 @@ func (h *Hub) handleMessage(in inbound) {
 		m.state = kind.State
 	case *pb.ClientMessage_Hit:
 		h.hit(in.session.Player.ID, kind.Hit)
+	case *pb.ClientMessage_Summon:
+		h.summon(in.session.Player.ID, m)
+	case *pb.ClientMessage_Companion:
+		h.companionState(in.session.Player.ID, m, kind.Companion)
+	case *pb.ClientMessage_Dismiss:
+		h.dismiss(in.session.Player.ID, m, kind.Dismiss.GetCompanion())
 	case *pb.ClientMessage_Shot:
 		shot := &pb.ServerMessage{Kind: &pb.ServerMessage_Shot{Shot: &pb.RemoteShot{
 			PlayerId: in.session.Player.ID,
@@ -290,6 +324,7 @@ func (h *Hub) step() {
 				State:    other.state,
 			})
 		}
+		snapshot.Players = append(snapshot.Players, h.companionSnapshots(id)...)
 		h.send(id, &pb.ServerMessage{Kind: &pb.ServerMessage_Snapshot{Snapshot: snapshot}})
 	}
 }
@@ -316,17 +351,19 @@ func (h *Hub) send(id string, msg *pb.ServerMessage) {
 	}
 }
 
-// drop removes a member and tells everyone else their ship is gone.
+// drop removes a member and tells everyone else their ship, and their
+// companions, are gone.
 func (h *Hub) drop(id, reason string) {
-	if _, ok := h.members[id]; !ok {
+	m, ok := h.members[id]
+	if !ok {
 		return
 	}
 	h.remove(id)
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
-	h.broadcast(
-		&pb.ServerMessage{Kind: &pb.ServerMessage_Left{Left: &pb.PlayerLeft{PlayerId: id}}},
-		"",
-	)
+	for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+		h.broadcast(left(seatID(id, number)), "")
+	}
+	h.broadcast(left(id), "")
 }
 
 func (h *Hub) remove(id string) {
