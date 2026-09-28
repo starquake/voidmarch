@@ -19,7 +19,8 @@ board.
   port, for the server natively and, from #53, the browser through TinyGo.
   Until #53 removes the TypeScript copy, a rule change goes in both, `make
   golden` records the TypeScript's results in
-  `internal/sim/testdata/golden.json`, and the Go tests must match them.
+  `internal/sim/testdata/golden.json`, and the Go tests must match them;
+  `make golden-check` fails when the TypeScript has moved on without it.
   `make test-tinygo` runs the Go tests compiled by TinyGo, so nothing TinyGo
   can't build or computes differently slips in.
 
