@@ -230,9 +230,9 @@ func TestSetLoadout_ASwapNeverAddsCharges(t *testing.T) {
 	}
 }
 
-// body writes a body into b's Scratch at index i for Bump.
-func body(b *Bridge, i int, o sim.Body, key, side float64) {
-	copy(b.Scratch[i*BumpSize:], []float64{o.X, o.Y, o.Radius, o.VX, o.VY, key, side})
+// body writes a body into b's Scratch at index i for Bump, on side +1.
+func body(b *Bridge, i int, o sim.Body, key float64) {
+	copy(b.Scratch[i*BumpSize:], []float64{o.X, o.Y, o.Radius, o.VX, o.VY, key, 1})
 }
 
 func TestBump_PushesTheShipOut(t *testing.T) {
@@ -240,8 +240,8 @@ func TestBump_PushesTheShipOut(t *testing.T) {
 
 	b := New()
 	x, y := b.State[HeaderShipX], b.State[HeaderShipY]
-	body(b, 0, sim.Body{X: x + 20, Y: y, Radius: sim.ShipRadius}, 1, 1)
-	body(b, 1, sim.Body{X: x + 500, Y: y, Radius: sim.ShipRadius}, 2, 1)
+	body(b, 0, sim.Body{X: x + 20, Y: y, Radius: sim.ShipRadius}, 1)
+	body(b, 1, sim.Body{X: x + 500, Y: y, Radius: sim.ShipRadius}, 2)
 	if rams := b.Bump(2); rams != 0 {
 		t.Errorf("Bump() = %d rams, want 0 for a ship at rest", rams)
 	}
@@ -261,13 +261,7 @@ func TestBump_ARamHurtsOncePerCooldown(t *testing.T) {
 	x, y := b.State[HeaderShipX], b.State[HeaderShipY]
 	// A body rushing up into the ship from behind, where the front shield doesn't cover.
 	ram := func() int {
-		body(
-			b,
-			0,
-			sim.Body{X: x, Y: y + 20, Radius: sim.ShipRadius, VX: 0, VY: -sim.RammingSpeed},
-			7,
-			1,
-		)
+		body(b, 0, sim.Body{X: x, Y: y + 20, Radius: sim.ShipRadius, VY: -sim.RammingSpeed}, 7)
 
 		return b.Bump(1)
 	}
@@ -462,5 +456,25 @@ func TestAdvance_AFriendNearRevives(t *testing.T) {
 	}
 	if got := b.State[HeaderShipRevive]; got < 0.4 || got > 0.6 {
 		t.Errorf("revive after half the time with a friend near = %v, want about 0.5", got)
+	}
+}
+
+func TestBump_AGentleBodyOnlyPushes(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
+	x, y := b.State[HeaderShipX], b.State[HeaderShipY]
+	body(b, 0, sim.Body{X: x, Y: y + 20, Radius: sim.ShipRadius, VY: -2 * sim.RammingSpeed}, 3)
+	b.Scratch[BumpSize-1] = 1
+	if rams := b.Bump(1); rams != 0 || b.State[HeaderShipDamage] != 0 {
+		t.Errorf(
+			"a gentle body rushing in: %d rams, damage %v; want a push only",
+			rams,
+			b.State[HeaderShipDamage],
+		)
+	}
+	if b.State[HeaderShipY] >= y {
+		t.Errorf("ship y %v, want pushed up from %v", b.State[HeaderShipY], y)
 	}
 }

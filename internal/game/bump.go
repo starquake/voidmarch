@@ -16,8 +16,17 @@ type bumper struct {
 	// ship is set for a companion, enemy for an enemy; neither for a player.
 	ship  *sim.Ship
 	enemy *enemy
-	// seat is a companion's seat, credited with the enemies it rams.
-	seat string
+	// seat is a companion's seat, credited with the enemies it rams, and
+	// owner its player.
+	seat  string
+	owner string
+}
+
+// gentle reports whether a and b are a player and one of their own
+// companions: they only push each other, never ram (#68).
+func gentle(a, b *bumper) bool {
+	return (a.owner != "" && a.owner == b.key && b.ship == nil && b.enemy == nil) ||
+		(b.owner != "" && b.owner == a.key && a.ship == nil && a.enemy == nil)
 }
 
 func (b *bumper) movable() bool { return b.ship != nil || b.enemy != nil }
@@ -82,7 +91,7 @@ func (h *Hub) bumpers() []bumper {
 			seat := seatID(id, uint32(c.Number)) //nolint:gosec // companion numbers are small.
 			out = append(
 				out,
-				bumper{key: seat, body: sim.ShipBody(c.Ship), ship: c.Ship, seat: seat},
+				bumper{key: seat, body: sim.ShipBody(c.Ship), ship: c.Ship, seat: seat, owner: id},
 			)
 		}
 	}
@@ -125,7 +134,7 @@ func (h *Hub) bump(a, b *bumper, now float64) {
 	if b.movable() {
 		b.body = sim.Apart(b.body, back, share)
 	}
-	if !c.Hurts() || !h.rams.Ready(ramPair{a.key, b.key}, now) {
+	if gentle(a, b) || !c.Hurts() || !h.rams.Ready(ramPair{a.key, b.key}, now) {
 		return
 	}
 	h.rammed(a, b, c)

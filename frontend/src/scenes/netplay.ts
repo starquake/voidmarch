@@ -611,7 +611,9 @@ export class NetPlay {
       const s = remote.drawn;
       if (s !== undefined && s.damage < MAX_DAMAGE) {
         const side = this.playerId !== undefined && this.playerId < id ? 1 : -1;
-        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side });
+        // A player's own companions only push them (#68).
+        const gentle = remote.ownerId !== '' && remote.ownerId === this.playerId;
+        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side, gentle });
         rammed.push(undefined);
       }
     }

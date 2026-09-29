@@ -51,12 +51,15 @@ const (
 	BrainArriveSeconds = 0.35
 	// BrainTightFormation is the fraction of its size the defensive stance
 	// pulls the formation in to.
-	BrainTightFormation = 0.6
+	BrainTightFormation = 0.75
 	// BrainInFormation: a companion this close to its slot is in formation.
 	BrainInFormation = 16
 	// BrainSpacing is how far, center to center, a companion keeps from other
 	// friendly ships where it can: ships touch at 24 and bump (#48).
 	BrainSpacing = 40
+	// BrainOwnerSpacing is how far a companion keeps from its owner, farther
+	// than from others: they fly together and brake together (#68).
+	BrainOwnerSpacing = 70
 	// BrainSplitTurn is the turn, in radians, between the ways companions on
 	// one point leave it, by formation slot: the golden angle.
 	BrainSplitTurn = 2.39996
@@ -85,7 +88,7 @@ const (
 	BrainHomeRadius = 250
 	// BrainShieldDistance: shielding the owner, a companion keeps this far out
 	// toward the attackers.
-	BrainShieldDistance = 45
+	BrainShieldDistance = BrainOwnerSpacing
 	// BrainReactionMin and BrainReactionMax bound how late, in seconds, each
 	// companion reacts, picked per companion from its seed, so a wing doesn't
 	// move in lockstep.
@@ -319,8 +322,8 @@ func ShieldStatsOf(id ShieldID) ShieldStats {
 // turning with the owner's facing.
 func FormationSlots() []Offset {
 	return []Offset{
-		{Forward: -45, Right: -40},
-		{Forward: -45, Right: 40},
-		{Forward: -85},
+		{Forward: -68, Right: -60},
+		{Forward: -68, Right: 60},
+		{Forward: -128},
 	}
 }

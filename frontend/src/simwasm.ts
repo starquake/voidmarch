@@ -142,6 +142,8 @@ export interface BumpBody {
   key: number;
   /** +1 or -1: which way along x the ship goes when both sit on one point. */
   side: number;
+  /** Set when it only pushes, never rams: the player's own companions (#68). */
+  gentle?: boolean;
 }
 
 /** The exports of cmd/simwasm. */
@@ -401,7 +403,7 @@ export class Sandbox {
     for (let i = 0; i < n; i++) {
       const b = bodies[i];
       if (b !== undefined) {
-        scratch.set([b.x, b.y, b.radius, b.vx, b.vy, b.key, b.side], i * LAYOUT.bumpSize);
+        scratch.set([b.x, b.y, b.radius, b.vx, b.vy, b.key, b.side, b.gentle === true ? 1 : 0], i * LAYOUT.bumpSize);
       }
     }
     const count = this.exports.bump(n);

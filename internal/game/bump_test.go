@@ -30,23 +30,48 @@ func TestBump_ACompanionLeavesItsOwnersShip(t *testing.T) {
 	}
 }
 
-func TestBump_APlayerRammingACompanionHurtsIt(t *testing.T) {
+// ramCompanion has rammer rush into a's companion from beside it, and
+// returns the companion's state before and after.
+func ramCompanion(t *testing.T, a, rammer *Session, tick func(int)) (before, after *pb.ShipState) {
+	t.Helper()
+
+	before = snapshotPlayers(t, a, tick)["a/1"].GetState()
+	x, y := before.GetX()-2*sim.ShipRadius+4, before.GetY()
+	rammer.Send(moving(x, y, 3*float32(sim.RammingSpeed), 0))
+
+	return before, snapshotPlayers(t, a, tick)["a/1"].GetState()
+}
+
+func TestBump_ItsOwnerOnlyPushesACompanion(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
-	c := snapshotPlayers(t, a, tick)["a/1"].GetState()
-
-	// a rushes into its companion from beside it.
-	x, y := c.GetX()-2*sim.ShipRadius+4, c.GetY()
-	a.Send(moving(x, y, 3*float32(sim.RammingSpeed), 0))
-	hurt := snapshotPlayers(t, a, tick)["a/1"].GetState()
-	if hurt.GetShield() >= c.GetShield() && hurt.GetDamage() <= c.GetDamage() {
+	before, after := ramCompanion(t, a, a, tick)
+	if after.GetShield() != before.GetShield() || after.GetDamage() != before.GetDamage() {
 		t.Errorf(
-			"a/1 after the ram: shield %v, damage %v; want less shield or more damage than %v, %v",
-			hurt.GetShield(), hurt.GetDamage(), c.GetShield(), c.GetDamage(),
+			"a/1 rammed by its owner: shield %v, damage %v; want %v, %v, untouched (#68)",
+			after.GetShield(), after.GetDamage(), before.GetShield(), before.GetDamage(),
+		)
+	}
+}
+
+func TestBump_AnotherPlayerRammingACompanionHurtsIt(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
+	a.Send(state(0, 180))
+	b.Send(state(0, -180))
+	grant(t, a)
+	before, after := ramCompanion(t, a, b, tick)
+	if after.GetShield() >= before.GetShield() && after.GetDamage() <= before.GetDamage() {
+		t.Errorf(
+			"a/1 rammed by b: shield %v, damage %v; want less shield or more damage than %v, %v",
+			after.GetShield(), after.GetDamage(), before.GetShield(), before.GetDamage(),
 		)
 	}
 }

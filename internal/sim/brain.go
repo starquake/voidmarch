@@ -417,23 +417,55 @@ func reviveSpot(self *Ship, downed Vec) Vec {
 
 // spaced is the goal point moved away from each friend closer than
 // BrainSpacing, by how much closer it is, so companions sent to one place
-// spread out instead of bumping.
+// spread out instead of bumping; and out of BrainOwnerSpacing around its
+// owner, who it flies and brakes with. A downed owner is left out: the
+// companion comes close to revive them.
 func spaced(view *BrainView, point Vec) Vec {
-	self := view.Self
 	for _, f := range view.Friends {
-		dx, dy := self.X-f.X, self.Y-f.Y
-		d := math.Hypot(dx, dy)
-		if d >= BrainSpacing {
-			continue
-		}
-		if d == 0 {
+		point = awayFrom(view, point, f.X, f.Y, BrainSpacing)
+	}
+	if !view.Owner.Downed {
+		point = outside(view, point, view.Owner.X, view.Owner.Y, BrainOwnerSpacing)
+	}
+
+	return point
+}
+
+// outside is point moved out to room from (x, y) when it's closer, along the
+// line from there to it; a point right on (x, y) goes toward the companion.
+func outside(view *BrainView, point Vec, x, y, room float64) Vec {
+	dx, dy := point.X-x, point.Y-y
+	d := math.Hypot(dx, dy)
+	if d >= room {
+		return point
+	}
+	if d == 0 {
+		dx, dy = view.Self.X-x, view.Self.Y-y
+		if d = math.Hypot(dx, dy); d == 0 {
 			turn := float64(view.Slot) * BrainSplitTurn
 			dx, dy, d = math.Cos(turn), math.Sin(turn), 1
 		}
-		push := BrainSpacing - d
-		point.X += dx / d * push
-		point.Y += dy / d * push
 	}
+
+	return Vec{X: x + dx/d*room, Y: y + dy/d*room}
+}
+
+// awayFrom is point moved away from (x, y) by how much closer than room the
+// companion is to it.
+func awayFrom(view *BrainView, point Vec, x, y, room float64) Vec {
+	self := view.Self
+	dx, dy := self.X-x, self.Y-y
+	d := math.Hypot(dx, dy)
+	if d >= room {
+		return point
+	}
+	if d == 0 {
+		turn := float64(view.Slot) * BrainSplitTurn
+		dx, dy, d = math.Cos(turn), math.Sin(turn), 1
+	}
+	push := room - d
+	point.X += dx / d * push
+	point.Y += dy / d * push
 
 	return point
 }
