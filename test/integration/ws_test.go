@@ -21,7 +21,13 @@ type wsPlayer struct {
 func connect(t *testing.T, baseURL, name string) (*wsPlayer, *pb.Welcome) {
 	t.Helper()
 
-	token := registerPlayer(t, baseURL, name)
+	return joinAs(t, baseURL, registerPlayer(t, baseURL, name))
+}
+
+// joinAs connects with a token registered earlier.
+func joinAs(t *testing.T, baseURL, token string) (*wsPlayer, *pb.Welcome) {
+	t.Helper()
+
 	wsURL := "ws" + strings.TrimPrefix(baseURL, "http") + "/ws"
 	//nolint:bodyclose // coder/websocket closes the handshake response body itself.
 	conn, _, err := websocket.Dial(t.Context(), wsURL, nil)
