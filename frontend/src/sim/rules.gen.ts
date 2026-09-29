@@ -82,7 +82,7 @@ export const WEAPON_STATS = {
     lifetime: 0.6666666666666666,
     muzzles: [{ forward: 16, right: 0 }],
     alternate: false,
-    shake: 0.004,
+    shake: 0.002,
   },
   zapper: {
     interval: 0.24,

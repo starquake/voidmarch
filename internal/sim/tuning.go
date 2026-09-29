@@ -279,7 +279,7 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 			Charge:   0.45,
 			Damage:   12,
 			Muzzles:  []Offset{{Forward: 16}},
-			Shake:    0.004,
+			Shake:    0.002,
 			Burst:    Burst{Shards: 8, Damage: 2},
 		}
 	case WeaponZapper:

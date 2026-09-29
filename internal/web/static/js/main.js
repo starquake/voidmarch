@@ -192,7 +192,7 @@ var WEAPON_STATS = {
     lifetime: 0.6666666666666666,
     muzzles: [{ forward: 16, right: 0 }],
     alternate: false,
-    shake: 4e-3
+    shake: 2e-3
   },
   zapper: {
     interval: 0.24,
