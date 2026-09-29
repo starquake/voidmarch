@@ -4,10 +4,13 @@
  * generated into rules.gen.ts and passed on here.
  */
 export {
+  BRAIN_SPACING,
   ENGINE_STATS,
+  HOME_SPAWN_Y,
   MAX_DAMAGE,
   MAX_TICKS_PER_FRAME,
   RAM_DAMAGE,
+  RESPAWN_DELAY,
   SAFE_ZONE_RADIUS,
   SHIP_RADIUS,
   TICK_RATE,

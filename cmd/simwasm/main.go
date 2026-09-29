@@ -28,12 +28,26 @@ func scratchPointer() int32 {
 }
 
 //go:wasmexport advance
-func advance(frameSeconds, moveX, moveY, aimX, aimY float64, fire int32, squadmateDistance float64) {
+func advance(
+	frameSeconds, moveX, moveY, aimX, aimY float64,
+	fire int32,
+	squadmateDistance, friendDistance float64,
+) {
 	bridge.Advance(
 		frameSeconds,
 		sim.Command{MoveX: moveX, MoveY: moveY, AimX: aimX, AimY: aimY, Fire: fire != 0},
 		squadmateDistance,
+		friendDistance,
 	)
+}
+
+//go:wasmexport respawn
+func respawn(x, y float64) int32 {
+	if bridge.Respawn(x, y) {
+		return 1
+	}
+
+	return 0
 }
 
 //go:wasmexport takeHit

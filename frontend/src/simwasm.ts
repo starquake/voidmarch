@@ -9,7 +9,9 @@ import {
   ENGINES,
   FACTIONS,
   LAYOUT,
+  MAX_DAMAGE,
   PROJECTILE_KINDS,
+  RESPAWN_DELAY,
   SHIELDS,
   WEAPONS,
   type EnemyKind,
@@ -45,6 +47,10 @@ export interface Ship {
   readonly shield: number;
   /** Seconds since the last hit, absorbed or not. */
   readonly sinceHit: number;
+  /** Seconds down, 0 while up (#47). */
+  readonly downFor: number;
+  /** A downed ship's revive progress, from 0 to 1. */
+  readonly revive: number;
   readonly cooldown: number;
   readonly charging: number;
   readonly nextMuzzle: number;
@@ -153,7 +159,9 @@ interface Exports {
     aimY: number,
     fire: number,
     squadmateDistance: number,
+    friendDistance: number,
   ): void;
+  respawn(x: number, y: number): number;
   takeHit(from: number): number;
   shipScan(stepSeconds: number, n: number): number;
   setControlMode(screen: number): void;
@@ -217,6 +225,8 @@ export class Sandbox {
       damage: 0,
       shield: 0,
       sinceHit: 0,
+      downFor: 0,
+      revive: 0,
       cooldown: 0,
       charging: 0,
       nextMuzzle: 0,
@@ -244,11 +254,12 @@ export class Sandbox {
 
   /**
    * Runs as many fixed ticks as frameSeconds covers, using the same input for
-   * each; the nearest squadmate's distance decides the shield's formation bonus.
+   * each. The nearest squadmate that is up decides the shield's formation
+   * bonus, and it or any friendly ship that is up revives a downed ship.
    */
-  advance(frameSeconds: number, input: InputSnapshot, squadmateDistance = Infinity): FrameEvents {
+  advance(frameSeconds: number, input: InputSnapshot, squadmateDistance = Infinity, friendDistance = Infinity): FrameEvents {
     const cmd = toCommand(input);
-    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance);
+    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance, friendDistance);
 
     return this.read();
   }
@@ -259,6 +270,24 @@ export class Sandbox {
     this.read();
 
     return absorbed;
+  }
+
+  /** Whether the ship is down (#47). */
+  get downed(): boolean {
+    return this.ship.damage >= MAX_DAMAGE;
+  }
+
+  /** Whether the downed ship's player may respawn yet. */
+  get canRespawn(): boolean {
+    return this.downed && this.ship.downFor >= RESPAWN_DELAY;
+  }
+
+  /** Brings the downed ship back at (x, y), whole, once its player may; true when it did. */
+  respawn(x: number, y: number): boolean {
+    const done = this.exports.respawn(x, y) !== 0;
+    this.read();
+
+    return done;
   }
 
   /** Puts the ship at (x, y) at rest, as a spawn or a takeover does. */
@@ -453,6 +482,8 @@ export class Sandbox {
     ship.damage = get(LAYOUT.shipDamage);
     ship.shield = get(LAYOUT.shipShieldCharge);
     ship.sinceHit = get(LAYOUT.shipSinceHit);
+    ship.downFor = get(LAYOUT.shipDownFor);
+    ship.revive = get(LAYOUT.shipRevive);
     ship.rotationSnap = get(LAYOUT.shipRotationSnap);
     ship.loadout.weapon = at(WEAPONS, get(LAYOUT.shipWeapon), WEAPONS[0]);
     ship.loadout.engine = at(ENGINES, get(LAYOUT.shipEngine), ENGINES[0]);

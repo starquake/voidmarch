@@ -124,7 +124,7 @@ func (w *Wing) Observe(owner Mover) {
 // keeping clear of its wingmates and the others (other players' ships and
 // their companions), and returns the shots they fired. Observe first: a wing that has
 // never seen its owner holds still.
-func (w *Wing) Step(enemies []BrainEnemy, others []Vec) []CompanionShot {
+func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 	if len(w.ownerTrail) == 0 {
 		return nil
 	}
@@ -140,18 +140,27 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Vec) []CompanionShot {
 		}
 		// It sees its owner as they were its reaction time ago.
 		seen := w.ownerTrail[max(0, len(w.ownerTrail)-1-c.ReactionTicks)]
-		step := Think(
-			BrainView{
-				Self: c.Ship, Owner: seen, Slot: slot, Enemies: enemies,
-				Friends: w.friendsOf(c, others),
-			},
-			c.Orders,
-			c.Random,
-		)
-		if step.Done {
-			c.Orders.OneShot = OneShot{}
+		friends := w.friendsOf(c, others)
+		var step BrainStep
+		if c.Ship.Downed() {
+			Drift(c.Ship, TickSeconds)
+		} else {
+			step = Think(
+				BrainView{
+					Self:    c.Ship,
+					Owner:   seen,
+					Slot:    slot,
+					Enemies: enemies,
+					Friends: friends,
+				},
+				c.Orders,
+				c.Random,
+			)
+			if step.Done {
+				c.Orders.OneShot = OneShot{}
+			}
+			StepShip(c.Ship, step.Command, TickSeconds)
 		}
-		StepShip(c.Ship, step.Command, TickSeconds)
 		ApplyWorldEdge(c.Ship, TickSeconds)
 		// Its owner is a squadmate: flying with them gives the formation bonus.
 		Recover(
@@ -159,6 +168,10 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Vec) []CompanionShot {
 			TickSeconds,
 			math.Hypot(c.Ship.X-seen.X, c.Ship.Y-seen.Y),
 		)
+		// Its owner can revive it too, as a squadmate.
+		owner := Friend{X: seen.X, Y: seen.Y, Squadmate: true, Downed: seen.Downed}
+		friend, squadmate := Helpers(c.Ship.X, c.Ship.Y, append(friends, owner))
+		ReviveStep(c.Ship, TickSeconds, friend, squadmate)
 		for _, shot := range StepWeapon(c.Ship, step.Command.Fire, TickSeconds).Shots {
 			shots = append(shots, CompanionShot{ShotSpawn: shot, Companion: c.Number})
 		}
@@ -169,12 +182,14 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Vec) []CompanionShot {
 
 // friendsOf are the ships c keeps clear of: the others and its wingmates.
 // Its owner isn't one: the formation already keeps it at a distance.
-func (w *Wing) friendsOf(c *Companion, others []Vec) []Vec {
-	friends := make([]Vec, 0, len(others)+len(w.Companions))
+func (w *Wing) friendsOf(c *Companion, others []Friend) []Friend {
+	friends := make([]Friend, 0, len(others)+len(w.Companions)+1)
 	friends = append(friends, others...)
 	for _, mate := range w.Companions {
 		if mate != c {
-			friends = append(friends, Vec{X: mate.Ship.X, Y: mate.Ship.Y})
+			friends = append(friends, Friend{
+				X: mate.Ship.X, Y: mate.Ship.Y, Squadmate: true, Downed: mate.Ship.Downed(),
+			})
 		}
 	}
 

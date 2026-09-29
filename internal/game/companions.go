@@ -120,6 +120,20 @@ func (h *Hub) takeCompanion(owner string, m *member, number uint32) bool {
 	return true
 }
 
+// sendLostCompanionsHome docks every companion down for
+// sim.CompanionLostSeconds unrevived in the hangar, and tells its owner.
+func (h *Hub) sendLostCompanionsHome() {
+	for _, owner := range slices.Sorted(maps.Keys(h.members)) {
+		m := h.members[owner]
+		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+			if m.companions[number].flight.Ship.DownFor >= sim.CompanionLostSeconds {
+				h.dismiss(owner, m, number)
+				h.send(owner, dismissed(number))
+			}
+		}
+	}
+}
+
 // displaceNewestCompanion frees a seat for a joining human: the newest
 // companion in the world goes, held for the joiner rather than docked, and
 // its owner is told. It reports whether one was found.

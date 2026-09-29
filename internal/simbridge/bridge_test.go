@@ -34,7 +34,12 @@ func TestAdvance_MovesAndReportsShots(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds*3, sim.Command{MoveY: -1, AimY: -1000, Fire: true}, sim.NoSquadmate)
+	b.Advance(
+		sim.TickSeconds*3,
+		sim.Command{MoveY: -1, AimY: -1000, Fire: true},
+		sim.NoSquadmate,
+		sim.NoSquadmate,
+	)
 	if got := b.State[HeaderTicks]; got != 3 {
 		t.Errorf("ticks = %v, want 3", got)
 	}
@@ -64,7 +69,12 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 
 	b := New()
 	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), -1, -1)
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000, Fire: true}, sim.NoSquadmate)
+	b.Advance(
+		sim.TickSeconds,
+		sim.Command{AimY: -1000, Fire: true},
+		sim.NoSquadmate,
+		sim.NoSquadmate,
+	)
 	if b.State[HeaderCharges] != 1 ||
 		b.State[ChargesOffset] != index(sim.Weapons(), sim.WeaponBigSpaceGun) {
 		t.Errorf("charges = %v, want the big space gun's", b.State[HeaderCharges])
@@ -72,7 +82,7 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 
 	b = New()
 	b.Spawn(0, 0, 0, 0, 0, 10, 0)
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	if b.State[HeaderExpired] != 1 {
 		t.Errorf("expired = %v, want the spawned-old shot", b.State[HeaderExpired])
 	}
@@ -116,7 +126,12 @@ func TestControlMode(t *testing.T) {
 	b := New()
 	b.SetControlMode(sim.ControlScreen)
 	for range 30 {
-		b.Advance(sim.TickSeconds, sim.Command{MoveY: -1, AimX: 10_000, AimY: 160}, sim.NoSquadmate)
+		b.Advance(
+			sim.TickSeconds,
+			sim.Command{MoveY: -1, AimX: 10_000, AimY: 160},
+			sim.NoSquadmate,
+			sim.NoSquadmate,
+		)
 	}
 	if math.Abs(b.State[HeaderShipX]) > 1e-9 || b.State[HeaderShipY] >= 140 {
 		t.Errorf(
@@ -176,7 +191,12 @@ func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds*3, sim.Command{AimY: -1000, Fire: true}, sim.NoSquadmate)
+	b.Advance(
+		sim.TickSeconds*3,
+		sim.Command{AimY: -1000, Fire: true},
+		sim.NoSquadmate,
+		sim.NoSquadmate,
+	)
 	if b.State[HeaderShipCooldown] <= 0 || b.State[HeaderShipNextMuzzle] == 0 {
 		t.Fatalf(
 			"after firing: cooldown %v, next muzzle %v, want both set",
@@ -237,7 +257,7 @@ func TestBump_ARamHurtsOncePerCooldown(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	x, y := b.State[HeaderShipX], b.State[HeaderShipY]
 	// A body rushing up into the ship from behind, where the front shield doesn't cover.
 	ram := func() int {
@@ -261,7 +281,7 @@ func TestBump_ARamHurtsOncePerCooldown(t *testing.T) {
 		t.Errorf("a second ram at once = %d rams, want 0 within the cooldown", rams)
 	}
 	for range int(sim.RammingCooldown*sim.TickRate) + 1 {
-		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	}
 	x, y = b.State[HeaderShipX], b.State[HeaderShipY]
 	if rams := ram(); rams != 1 {
@@ -295,7 +315,7 @@ func TestHitScan(t *testing.T) {
 	hitting := b.Spawn(0, own, -20, 0, 0, 0, 0)
 	missing := b.Spawn(0, own, -20, 100, 0, 0, 0)
 	bullet := b.Spawn(4, enemy, -20, 0, 0, 0, 0)
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	copy(b.Scratch[:], []float64{0, 0, 10})
 
 	if got := b.HitScan(own, sim.TickSeconds, 1); got != 1 {
@@ -319,7 +339,7 @@ func TestShipScan(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	x, y, angle := b.State[HeaderShipX], b.State[HeaderShipY], b.State[HeaderShipAngle]
 	enemy := slices.Index(Factions(), sim.FactionEnemy)
 	kind := sim.ProjectileKind(sim.KlaedBullet)
@@ -352,7 +372,7 @@ func TestTakeHit(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	full := b.State[HeaderShipShieldCharge]
 	if !b.TakeHit(-math.Pi/2) || b.State[HeaderShipShieldCharge] != full-1 ||
 		b.State[HeaderShipDamage] != 0 {
@@ -372,16 +392,21 @@ func TestAdvance_FormationBonus(t *testing.T) {
 
 	alone, together := New(), New()
 	for _, b := range []*Bridge{alone, together} {
-		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 		b.TakeHit(-math.Pi / 2)
 		// A frame covers at most a few ticks, so wait out the delay tick by tick.
 		for range int(sim.ShieldRechargeDelay/sim.TickSeconds) + 1 {
-			b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+			b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 		}
 	}
 	for range 30 {
-		alone.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
-		together.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.FormationRadius)
+		alone.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
+		together.Advance(
+			sim.TickSeconds,
+			sim.Command{AimY: -1000},
+			sim.FormationRadius,
+			sim.NoSquadmate,
+		)
 	}
 	if together.State[HeaderShipShieldCharge] <= alone.State[HeaderShipShieldCharge] {
 		t.Errorf(
@@ -389,5 +414,53 @@ func TestAdvance_FormationBonus(t *testing.T) {
 			together.State[HeaderShipShieldCharge],
 			alone.State[HeaderShipShieldCharge],
 		)
+	}
+}
+
+func TestRespawn(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	if b.Respawn(0, 0) {
+		t.Fatal("a ship that is up respawned")
+	}
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
+	for range sim.MaxDamage {
+		b.TakeHit(math.Pi / 2)
+	}
+	if b.Respawn(0, 0) {
+		t.Fatal("respawned the moment it went down")
+	}
+	for range int(sim.RespawnDelay/sim.TickSeconds) + 1 {
+		b.Advance(sim.TickSeconds, sim.Command{}, sim.NoSquadmate, sim.NoSquadmate)
+	}
+	if got := b.State[HeaderShipDownFor]; got < sim.RespawnDelay {
+		t.Fatalf("down for %v s, want at least %v", got, sim.RespawnDelay)
+	}
+	if !b.Respawn(0, sim.HomeSpawnY) {
+		t.Fatal("couldn't respawn after the delay")
+	}
+	if b.State[HeaderShipDamage] != 0 || b.State[HeaderShipDownFor] != 0 ||
+		b.State[HeaderShipY] != sim.HomeSpawnY || b.State[HeaderPreviousY] != sim.HomeSpawnY {
+		t.Errorf(
+			"respawned: damage %v, down for %v, y %v, previous y %v; want whole at home",
+			b.State[HeaderShipDamage], b.State[HeaderShipDownFor],
+			b.State[HeaderShipY], b.State[HeaderPreviousY],
+		)
+	}
+}
+
+func TestAdvance_AFriendNearRevives(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	for range sim.MaxDamage {
+		b.TakeHit(math.Pi / 2)
+	}
+	for range int(sim.ReviveSeconds/sim.TickSeconds) / 2 {
+		b.Advance(sim.TickSeconds, sim.Command{}, sim.NoSquadmate, 20)
+	}
+	if got := b.State[HeaderShipRevive]; got < 0.4 || got > 0.6 {
+		t.Errorf("revive after half the time with a friend near = %v, want about 0.5", got)
 	}
 }

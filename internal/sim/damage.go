@@ -7,6 +7,9 @@ import "math"
 // that side and has a charge, else the hull does. It reports whether the
 // shield absorbed it.
 func TakeHit(ship *Ship, fromAngle float64) bool {
+	if ship.Downed() {
+		return false
+	}
 	ship.SinceHit = 0
 	ship.hullRegen = 0
 	shield := ShieldStatsOf(ship.Loadout.Shield)
@@ -16,6 +19,9 @@ func TakeHit(ship *Ship, fromAngle float64) bool {
 		return true
 	}
 	ship.Damage = min(ship.Damage+1, MaxDamage)
+	if ship.Downed() {
+		ship.Shield, ship.DownFor, ship.Revive = 0, 0, 0
+	}
 
 	return false
 }
@@ -25,6 +31,9 @@ func TakeHit(ship *Ship, fromAngle float64) bool {
 // squadmateDistance away within FormationRadius, and later the hull heals a
 // step at a time.
 func Recover(ship *Ship, dt, squadmateDistance float64) {
+	if ship.Downed() {
+		return
+	}
 	ship.SinceHit += dt
 	// Only the part of dt past a delay counts, however long the step.
 	past := func(delay float64) float64 {

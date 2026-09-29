@@ -72,6 +72,9 @@ func writeTunables(w writer) {
 	w("export const SAFE_ZONE_RADIUS = %d;\n", sim.SafeZoneRadius)
 	w("export const SHIP_RADIUS = %d;\n", sim.ShipRadius)
 	w("export const MAX_DAMAGE = %d;\n", sim.MaxDamage)
+	w("export const RESPAWN_DELAY = %s;\n", num(sim.RespawnDelay))
+	w("export const HOME_SPAWN_Y = %d;\n", sim.HomeSpawnY)
+	w("export const BRAIN_SPACING = %d;\n", sim.BrainSpacing)
 	w("export const RAM_DAMAGE = %d;\n", sim.RammingDamage)
 	w("export const RAM_SPEED = %s;\n\n", num(sim.RammingSpeed))
 
@@ -164,6 +167,8 @@ func writeLayout(w writer) {
 		{"shipShield", simbridge.HeaderShipShield},
 		{"shipShieldCharge", simbridge.HeaderShipShieldCharge},
 		{"shipSinceHit", simbridge.HeaderShipSinceHit},
+		{"shipDownFor", simbridge.HeaderShipDownFor},
+		{"shipRevive", simbridge.HeaderShipRevive},
 		{"previousX", simbridge.HeaderPreviousX},
 		{"previousY", simbridge.HeaderPreviousY},
 		{"shots", simbridge.HeaderShots},

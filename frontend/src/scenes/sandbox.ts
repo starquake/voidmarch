@@ -30,6 +30,9 @@ import {
   ENEMY_FIRE_GLOW_DISTANCE,
   ENEMY_FIRE_GLOW_QUALITY,
   ENEMY_FIRE_GLOW_STRENGTH,
+  BRAIN_SPACING,
+  HOME_SPAWN_Y,
+  RESPAWN_DELAY,
   ROTATION_SNAP_STEPS,
   SAFE_ZONE_RADIUS,
   VIEW_HEIGHT,
@@ -63,6 +66,11 @@ const HIT_SPARKS = 5;
 /** HUD text size and margin in CSS pixels; scaled to device pixels on resize. */
 const HUD_FONT_PX = 12;
 const HUD_MARGIN_PX = 8;
+/** The "You're down" panel (#47): its text size, padding and height on screen, in CSS pixels and a fraction of the height. */
+const DOWN_PANEL_FONT_PX = 14;
+const DOWN_PANEL_PADDING_X = 12;
+const DOWN_PANEL_PADDING_Y = 8;
+const DOWN_PANEL_Y = 0.8;
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
 /** The order ring's height radius and its dead center, in CSS pixels. */
@@ -142,6 +150,11 @@ export class SandboxScene extends Phaser.Scene {
   private vignette: Phaser.Filters.Vignette | undefined;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
+  private downPanel!: Phaser.GameObjects.Text;
+  /** Whether the ship was down last frame and was respawned since, to count revives. */
+  private wasDown = false;
+  private respawned = false;
+  private revives = 0;
   private moveKeys!: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
   private effects = true;
   private shotsFired = 0;
@@ -202,6 +215,12 @@ export class SandboxScene extends Phaser.Scene {
       enemyFireGlow: false,
       hitsTaken: 0,
       rams: 0,
+      downed: false,
+      revive: 0,
+      canRespawn: false,
+      downLabel: undefined,
+      revives: 0,
+      downPanel: undefined,
       companions: [],
       companionKills: 0,
       notice: undefined,
@@ -215,9 +234,11 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   override update(time: number, deltaMs: number): void {
-    const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance);
+    const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     const net = this.net?.update(events);
     this.drawShip(events);
+    this.countRevive();
+    this.updateDownPanel();
     if (net !== undefined) {
       this.showHits(net);
     }
@@ -297,7 +318,7 @@ export class SandboxScene extends Phaser.Scene {
   private stepHidden(deltaMs: number): void {
     const { pointerX, pointerY } = this.readInput();
     const idle = { up: false, down: false, left: false, right: false, pointerX, pointerY, fire: false };
-    this.net?.update(this.sim.advance(deltaMs / 1000, idle));
+    this.net?.update(this.sim.advance(deltaMs / 1000, idle, this.net.squadmateDistance, this.net.friendDistance));
     this.publish();
   }
 
@@ -358,6 +379,18 @@ export class SandboxScene extends Phaser.Scene {
       .text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' })
       .setShadow(1, 1, '#000000', 0);
     main.ignore(this.hud);
+    this.downPanel = this.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
+        color: '#d8f8ff',
+        align: 'center',
+        backgroundColor: '#05030acc',
+      })
+      .setOrigin(0.5, 0)
+      .setShadow(1, 1, '#000000', 0)
+      .setVisible(false);
+    main.ignore(this.downPanel);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -424,6 +457,12 @@ export class SandboxScene extends Phaser.Scene {
         this.sim.setLoadout({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
         this.applyLoadout();
         this.audio.shieldSwitched();
+        break;
+      case 'KeyH':
+        this.respawn(false);
+        break;
+      case 'KeyJ':
+        this.respawn(true);
         break;
       case 'KeyG':
         this.net?.summon();
@@ -671,6 +710,10 @@ export class SandboxScene extends Phaser.Scene {
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
+    this.downPanel
+      .setFontSize(DOWN_PANEL_FONT_PX * dpr)
+      .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
+      .setPosition(width / 2, height * DOWN_PANEL_Y);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -697,7 +740,49 @@ export class SandboxScene extends Phaser.Scene {
     this.ship.setThrusting(ship.thrusting);
     this.ship.setDamage(ship.damage);
     this.ship.setShield(ship.shield);
+    this.ship.setDown(this.sim.downed, ship.revive, this.cameras.main.zoom);
     this.animateWeapon(events);
+  }
+
+  /** While the ship is down: how to get back, respawning once it may (#47). */
+  private updateDownPanel(): void {
+    if (!this.sim.downed) {
+      this.downPanel.setVisible(false);
+
+      return;
+    }
+    const beside = this.net?.nearestSquadmate();
+    const choices = this.sim.canRespawn
+      ? `[H] respawn at home${beside === undefined ? '' : `      [J] respawn beside ${beside.name}`}`
+      : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
+    const text = ["You're down", '', choices, 'or stay: a friend close by revives you'].join('\n');
+    if (this.downPanel.text !== text) {
+      this.downPanel.setText(text);
+    }
+    this.downPanel.setVisible(true);
+  }
+
+  /** Respawns at home, or beside the nearest squadmate that is up, once the ship may. */
+  private respawn(beside: boolean): void {
+    if (!beside) {
+      this.respawned = this.sim.respawn(0, HOME_SPAWN_Y) || this.respawned;
+
+      return;
+    }
+    const mate = this.net?.nearestSquadmate();
+    if (mate !== undefined) {
+      this.respawned = this.sim.respawn(mate.x + BRAIN_SPACING, mate.y) || this.respawned;
+    }
+  }
+
+  /** Counts the ship coming back up without a respawn: a friend revived it. */
+  private countRevive(): void {
+    const down = this.sim.downed;
+    if (this.wasDown && !down && !this.respawned) {
+      this.revives++;
+    }
+    this.wasDown = down;
+    this.respawned = false;
   }
 
   private animateWeapon(events: FrameEvents): void {
@@ -784,7 +869,7 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
+      'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       this.netStatus(),
       this.squadronStatus(),
     ]);
@@ -870,6 +955,12 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
     this.debug.rams = this.net?.rams ?? 0;
+    this.debug.downed = this.sim.downed;
+    this.debug.revive = ship.revive;
+    this.debug.canRespawn = this.sim.canRespawn;
+    this.debug.downLabel = this.ship.downText;
+    this.debug.revives = this.revives;
+    this.debug.downPanel = this.downPanel.visible ? this.downPanel.text : undefined;
     this.debug.companions = (this.net?.others ?? [])
       .filter((o) => o.ownerId !== '' && o.ownerId === this.net?.playerId)
       .map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));

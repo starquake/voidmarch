@@ -96,7 +96,7 @@ func TestWing_KeepsClearOfOtherShips(t *testing.T) {
 		crowded.Observe(Mover{X: -300})
 		alone.Step(nil, nil)
 		// Another player parked just left of the hold point.
-		crowded.Step(nil, []Vec{{X: 180, Y: 0}})
+		crowded.Step(nil, []Friend{{X: 180, Y: 0}})
 	}
 	if nudged.Ship.X <= lone.Ship.X {
 		t.Errorf(

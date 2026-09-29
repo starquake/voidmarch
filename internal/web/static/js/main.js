@@ -145,6 +145,10 @@ var WORLD_HALF_SIZE = 2e3;
 var WORLD_EDGE_BAND = 200;
 var SAFE_ZONE_RADIUS = 300;
 var SHIP_RADIUS = 12;
+var MAX_DAMAGE = 3;
+var RESPAWN_DELAY = 3;
+var HOME_SPAWN_Y = 160;
+var BRAIN_SPACING = 40;
 var RAM_DAMAGE = 2;
 var SHIELD_STATS = {
   front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
@@ -223,13 +227,15 @@ var LAYOUT = {
   shipShield: 15,
   shipShieldCharge: 21,
   shipSinceHit: 22,
+  shipDownFor: 23,
+  shipRevive: 24,
   previousX: 16,
   previousY: 17,
   shots: 18,
   charges: 19,
   expired: 20,
   projectileCapacity: 256,
-  poolOffset: 23,
+  poolOffset: 25,
   projectileSize: 8,
   projectileActive: 0,
   projectileKind: 1,
@@ -239,7 +245,7 @@ var LAYOUT = {
   projectileAngle: 5,
   projectileAge: 6,
   projectileShotId: 7,
-  shotsOffset: 2071,
+  shotsOffset: 2073,
   shotSize: 6,
   shotId: 0,
   shotWeapon: 1,
@@ -247,14 +253,14 @@ var LAYOUT = {
   shotX: 3,
   shotY: 4,
   shotAngle: 5,
-  chargesOffset: 2131,
-  expiredOffset: 2136,
+  chargesOffset: 2133,
+  expiredOffset: 2138,
   expiredSize: 4,
   expiredKind: 0,
   expiredFaction: 1,
   expiredX: 2,
   expiredY: 3,
-  stateSize: 3160,
+  stateSize: 3162,
   maxTargets: 128,
   shipTargetSize: 5,
   bumpSize: 7,
@@ -567,7 +573,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIqMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNEg4KBnNoaWVsZBgJIAEoAiIWCgVIZWxsbxINCgV0b2tlbhgBIAEoCSKFAQoJU2hvdEZpcmVkEgoKAmlkGAEgASgNEiQKBndlYXBvbhgCIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SDgoGbXV6emxlGAMgASgNEgkKAXgYBCABKAISCQoBeRgFIAEoAhINCgVhbmdsZRgGIAEoAhIRCgljb21wYW5pb24YByABKA0iTwoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNEhUKCWNvbXBhbmlvbhgEIAEoDUICGAEiCAoGU3VtbW9uIk8KDkNvbXBhbmlvblN0YXRlEhEKCWNvbXBhbmlvbhgBIAEoDRImCgVzdGF0ZRgCIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGU6AhgBIh4KDkNob29zZVNxdWFkcm9uEgwKBG5hbWUYASABKAkimgEKDVNxdWFkcm9uT3JkZXISKQoEbW9kZRgBIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEjAKCG9uZV9zaG90GAIgASgOMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbk9uZVNob3QSCQoBeBgDIAEoAhIJCgF5GAQgASgCEhYKDmZvY3VzX2VuZW15X2lkGAUgASgNIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIqsDCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjUKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUICGAFIABIoCgdkaXNtaXNzGAcgASgLMhUudm9pZG1hcmNoLnYxLkRpc21pc3NIABI3Cg9jaG9vc2Vfc3F1YWRyb24YCCABKAsyHC52b2lkbWFyY2gudjEuQ2hvb3NlU3F1YWRyb25IABI1Cg5zcXVhZHJvbl9vcmRlchgJIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVySABCBgoEa2luZCL+AQoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCUoECAgQCVIPc3VtbW9uX2FueXdoZXJlIowBCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVjb2xvchgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkSEAoIc3F1YWRyb24YBiABKAkiRQoOU3F1YWRyb25NZW1iZXISEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKY29tcGFuaW9ucxgDIAEoDSJ2CgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZSJdCglTcXVhZHJvbnMSLQoJc3F1YWRyb25zGAEgAygLMhoudm9pZG1hcmNoLnYxLlNxdWFkcm9uSW5mbxIRCgluZXh0X25hbWUYAiABKAkSDgoGaGFuZ2FyGAMgASgNInIKDlNxdWFkcm9uSm9pbmVkEgwKBG5hbWUYASABKAkSKQoEbW9kZRgCIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEhEKCXRvb2tfb3ZlchgDIAEoCBIJCgF4GAQgASgCEgkKAXkYBSABKAIiIQoPU3F1YWRyb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSJeCg9TcXVhZHJvbk9yZGVyZWQSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSKgoFb3JkZXIYAyABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlciKCAQoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAISCgoCdngYBiABKAISCgoCdnkYByABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSI5ChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNEhAKCHRha2VuX2J5GAIgASgJIgYKBEZ1bGwilgYKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSAASLAoJc3F1YWRyb25zGAwgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9uc0gAEjcKD3NxdWFkcm9uX2pvaW5lZBgNIAEoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbkpvaW5lZEgAEjkKEHNxdWFkcm9uX3JlZnVzZWQYDiABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25SZWZ1c2VkSAASOQoQc3F1YWRyb25fb3JkZXJlZBgPIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAIqtAEKDUNvbXBhbmlvbk1vZGUSHgoaQ09NUEFOSU9OX01PREVfVU5TUEVDSUZJRUQQABIZChVDT01QQU5JT05fTU9ERV9FU0NPUlQQARIZChVDT01QQU5JT05fTU9ERV9BVFRBQ0sQAhIYChRDT01QQU5JT05fTU9ERV9HVUFSRBADEhcKE0NPTVBBTklPTl9NT0RFX0hPTEQQBBIaChZDT01QQU5JT05fTU9ERV9TVEVBTFRIEAUqlAEKEENvbXBhbmlvbk9uZVNob3QSIgoeQ09NUEFOSU9OX09ORV9TSE9UX1VOU1BFQ0lGSUVEEAASHAoYQ09NUEFOSU9OX09ORV9TSE9UX0ZPQ1VTEAESHgoaQ09NUEFOSU9OX09ORV9TSE9UX1JFR1JPVVAQAhIeChpDT01QQU5JT05fT05FX1NIT1RfR09fSE9NRRADQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIrMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNEg4KBnNoaWVsZBgJIAEoAhIOCgZyZXZpdmUYCiABKAIiFgoFSGVsbG8SDQoFdG9rZW4YASABKAkihQEKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAISEQoJY29tcGFuaW9uGAcgASgNIk8KA0hpdBIQCghlbmVteV9pZBgBIAEoDRIPCgdzaG90X2lkGAIgASgNEg4KBmRhbWFnZRgDIAEoDRIVCgljb21wYW5pb24YBCABKA1CAhgBIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSKrAwoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAQgYKBGtpbmQi/gEKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg0KBWNvbG9yGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDRIXCg9jb21wYW5pb25fbGltaXQYByABKA0SDAoEbmFtZRgJIAEoCRISCgpjb21wYW5pb25zGAogAygNEioKCXNxdWFkcm9ucxgLIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnMSEAoIc3F1YWRyb24YDCABKAlKBAgIEAlSD3N1bW1vbl9hbnl3aGVyZSKMAQoOUGxheWVyU25hcHNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFY29sb3IYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlEhAKCG93bmVyX2lkGAUgASgJEhAKCHNxdWFkcm9uGAYgASgJIkUKDlNxdWFkcm9uTWVtYmVyEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCmNvbXBhbmlvbnMYAyABKA0idgoMU3F1YWRyb25JbmZvEgwKBG5hbWUYASABKAkSLQoHbWVtYmVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbk1lbWJlchIpCgRtb2RlGAMgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUiXQoJU3F1YWRyb25zEi0KCXNxdWFkcm9ucxgBIAMoCzIaLnZvaWRtYXJjaC52MS5TcXVhZHJvbkluZm8SEQoJbmV4dF9uYW1lGAIgASgJEg4KBmhhbmdhchgDIAEoDSJyCg5TcXVhZHJvbkpvaW5lZBIMCgRuYW1lGAEgASgJEikKBG1vZGUYAiABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIRCgl0b29rX292ZXIYAyABKAgSCQoBeBgEIAEoAhIJCgF5GAUgASgCIiEKD1NxdWFkcm9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiXgoPU3F1YWRyb25PcmRlcmVkEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEioKBW9yZGVyGAMgASgLMhsudm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXIiggEKCkVuZW15U3RhdGUSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEg0KBWFuZ2xlGAUgASgCEgoKAnZ4GAYgASgCEgoKAnZ5GAcgASgCInIKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUimgEKCkVuZW15RmlyZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSDAoEdGljaxgDIAEoDRIMCgRzZWVkGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAhINCgVhbmdsZRgHIAEoAhISCgp3YXJuX3RpY2tzGAggASgNIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiPQoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSI7ChBDb21wYW5pb25HcmFudGVkEhEKCWNvbXBhbmlvbhgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAIiIgoQQ29tcGFuaW9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiOQoSQ29tcGFuaW9uRGlzbWlzc2VkEhEKCWNvbXBhbmlvbhgBIAEoDRIQCgh0YWtlbl9ieRgCIAEoCSIGCgRGdWxsIpYGCg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSAASOwoRY29tcGFuaW9uX2dyYW50ZWQYCSABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uR3JhbnRlZEgAEjsKEWNvbXBhbmlvbl9yZWZ1c2VkGAogASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvblJlZnVzZWRIABI/ChNjb21wYW5pb25fZGlzbWlzc2VkGAsgASgLMiAudm9pZG1hcmNoLnYxLkNvbXBhbmlvbkRpc21pc3NlZEgAEiwKCXNxdWFkcm9ucxgMIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnNIABI3Cg9zcXVhZHJvbl9qb2luZWQYDSABKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25Kb2luZWRIABI5ChBzcXVhZHJvbl9yZWZ1c2VkGA4gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uUmVmdXNlZEgAEjkKEHNxdWFkcm9uX29yZGVyZWQYDyABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlcmVkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACKrQBCg1Db21wYW5pb25Nb2RlEh4KGkNPTVBBTklPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGQoVQ09NUEFOSU9OX01PREVfRVNDT1JUEAESGQoVQ09NUEFOSU9OX01PREVfQVRUQUNLEAISGAoUQ09NUEFOSU9OX01PREVfR1VBUkQQAxIXChNDT01QQU5JT05fTU9ERV9IT0xEEAQSGgoWQ09NUEFOSU9OX01PREVfU1RFQUxUSBAFKpQBChBDb21wYW5pb25PbmVTaG90EiIKHkNPTVBBTklPTl9PTkVfU0hPVF9VTlNQRUNJRklFRBAAEhwKGENPTVBBTklPTl9PTkVfU0hPVF9GT0NVUxABEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9SRUdST1VQEAISHgoaQ09NUEFOSU9OX09ORV9TSE9UX0dPX0hPTUUQA0JGWkRnaXRodWIuY29tL3N0YXJxdWFrZS92b2lkbWFyY2gvaW50ZXJuYWwvZ2VuL3ZvaWRtYXJjaC92MTt2b2lkbWFyY2h2MWIGcHJvdG8z");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 10);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 30);
@@ -641,7 +647,8 @@ function toShipState(ship) {
       shield: SHIELDS2[ship.loadout.shield]
     },
     damage: ship.damage,
-    shield: ship.shield
+    shield: ship.shield,
+    revive: ship.revive
   });
 }
 function fromShipState(state) {
@@ -659,7 +666,8 @@ function fromShipState(state) {
       shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield
     },
     damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
-    shield: state.shield
+    shield: state.shield,
+    revive: state.revive
   };
 }
 var MODES = {
@@ -871,6 +879,8 @@ var Sandbox = class {
       damage: 0,
       shield: 0,
       sinceHit: 0,
+      downFor: 0,
+      revive: 0,
       cooldown: 0,
       charging: 0,
       nextMuzzle: 0,
@@ -894,11 +904,12 @@ var Sandbox = class {
   }
   /**
    * Runs as many fixed ticks as frameSeconds covers, using the same input for
-   * each; the nearest squadmate's distance decides the shield's formation bonus.
+   * each. The nearest squadmate that is up decides the shield's formation
+   * bonus, and it or any friendly ship that is up revives a downed ship.
    */
-  advance(frameSeconds, input, squadmateDistance = Infinity) {
+  advance(frameSeconds, input, squadmateDistance = Infinity, friendDistance = Infinity) {
     const cmd = toCommand(input);
-    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance);
+    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance, friendDistance);
     return this.read();
   }
   /** Applies a hit on the ship from direction from, as shipScan reports it; true when the shield took it. */
@@ -906,6 +917,20 @@ var Sandbox = class {
     const absorbed = this.exports.takeHit(from) !== 0;
     this.read();
     return absorbed;
+  }
+  /** Whether the ship is down (#47). */
+  get downed() {
+    return this.ship.damage >= MAX_DAMAGE;
+  }
+  /** Whether the downed ship's player may respawn yet. */
+  get canRespawn() {
+    return this.downed && this.ship.downFor >= RESPAWN_DELAY;
+  }
+  /** Brings the downed ship back at (x, y), whole, once its player may; true when it did. */
+  respawn(x, y) {
+    const done = this.exports.respawn(x, y) !== 0;
+    this.read();
+    return done;
   }
   /** Puts the ship at (x, y) at rest, as a spawn or a takeover does. */
   placeShip(x, y) {
@@ -1073,6 +1098,8 @@ var Sandbox = class {
     ship.damage = get(LAYOUT.shipDamage);
     ship.shield = get(LAYOUT.shipShieldCharge);
     ship.sinceHit = get(LAYOUT.shipSinceHit);
+    ship.downFor = get(LAYOUT.shipDownFor);
+    ship.revive = get(LAYOUT.shipRevive);
     ship.rotationSnap = get(LAYOUT.shipRotationSnap);
     ship.loadout.weapon = at(WEAPONS, get(LAYOUT.shipWeapon), WEAPONS[0]);
     ship.loadout.engine = at(ENGINES, get(LAYOUT.shipEngine), ENGINES[0]);
@@ -1904,6 +1931,9 @@ import Phaser3 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
 var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
+var DOWN_OFFSET = 18;
+var DOWN_UNDER_NAME = 36;
+var DOWN_COLOR = "#ffd27a";
 var ShipView = class {
   root;
   scene;
@@ -1913,6 +1943,8 @@ var ShipView = class {
   hull;
   shield;
   label;
+  downLabel;
+  layer;
   loadout;
   tint;
   thrusting = false;
@@ -1921,6 +1953,7 @@ var ShipView = class {
   charges;
   constructor(scene, layer, x, y) {
     this.scene = scene;
+    this.layer = layer;
     this.engine = scene.add.image(0, 0, keys.engine("base"));
     this.flame = scene.add.sprite(0, 0, keys.flameIdle("base"));
     this.hull = scene.add.image(0, 0, keys.hull("fullHealth"));
@@ -1996,6 +2029,27 @@ var ShipView = class {
   place(x, y, angle) {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
+    this.downLabel?.setPosition(x, y + (this.label === void 0 ? DOWN_OFFSET : DOWN_UNDER_NAME));
+  }
+  /** Shows DOWN under a downed ship, with its revive progress once it has some; gone when it's up (#47). */
+  setDown(down, revive, resolution) {
+    if (!down) {
+      this.downLabel?.destroy();
+      this.downLabel = void 0;
+      return;
+    }
+    const text = revive > 0 ? `DOWN \xB7 reviving ${String(Math.floor(revive * 100))}%` : "DOWN";
+    if (this.downLabel === void 0) {
+      this.downLabel = this.scene.add.text(0, 0, text, { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+      this.layer.add(this.downLabel);
+      this.place(this.root.x, this.root.y, this.root.rotation - SPRITE_FACING);
+    } else if (this.downLabel.text !== text) {
+      this.downLabel.setText(text);
+    }
+  }
+  /** Whether DOWN is shown, and its text, for the E2E tests. */
+  get downText() {
+    return this.downLabel?.text;
   }
   /** Whether the shield is drawn, for the E2E tests. */
   get shieldShown() {
@@ -2019,6 +2073,7 @@ var ShipView = class {
   destroy() {
     this.root.destroy();
     this.label?.destroy();
+    this.downLabel?.destroy();
   }
 };
 
@@ -2295,6 +2350,7 @@ var NetPlay = class {
       remote.view.setLoadout(ship.loadout);
       remote.view.setDamage(ship.damage);
       remote.view.setShield(ship.shield);
+      remote.view.setDown(ship.damage >= MAX_DAMAGE, ship.revive, this.options.labelResolution());
       remote.view.setThrusting(ship.thrusting);
       remote.view.place(ship.x, ship.y, ship.angle);
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
@@ -2397,9 +2453,35 @@ var NetPlay = class {
   }
   /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
   get squadmateDistance() {
+    return this.nearestUp((r) => this.isSquadmate(r))?.distance ?? Infinity;
+  }
+  /** How far the nearest friendly ship that is up is, for revives; Infinity for none. */
+  get friendDistance() {
+    return this.nearestUp(() => true)?.distance ?? Infinity;
+  }
+  /** The nearest squadmate that is up, by its label, for a respawn beside them (#47). */
+  nearestSquadmate() {
+    return this.nearestUp((r) => this.isSquadmate(r));
+  }
+  isSquadmate(r) {
+    return this.squadron !== "" && r.squadron === this.squadron;
+  }
+  /** The nearest other ship that is up and which picks, as drawn, and how far it is. */
+  nearestUp(which) {
     const { ship } = this.options.sim;
-    const squadmates = [...this.remotes.values()].filter((r) => this.squadron !== "" && r.squadron === this.squadron);
-    return Math.min(Infinity, ...squadmates.map((r) => Math.hypot(r.view.root.x - ship.x, r.view.root.y - ship.y)));
+    let best;
+    for (const [id, r] of this.remotes) {
+      const s = r.drawn;
+      if (s === void 0 || s.damage >= MAX_DAMAGE || !which(r)) {
+        continue;
+      }
+      const distance = Math.hypot(s.x - ship.x, s.y - ship.y);
+      if (best === void 0 || distance < best.distance) {
+        const name = r.ownerId === "" ? r.name : `${r.name} ${id.slice(r.ownerId.length + 1)}`;
+        best = { x: s.x, y: s.y, name, distance };
+      }
+    }
+    return best;
   }
   /**
    * The player's shots against enemies as drawn, reported to the server (the
@@ -2418,12 +2500,13 @@ var NetPlay = class {
     }));
     const { sim } = this.options;
     const { ship } = sim;
-    const ships = [
-      { id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield }
-    ];
+    const ships = [];
+    if (!sim.downed) {
+      ships.push({ id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield });
+    }
     for (const r of this.remotes.values()) {
       const s = r.drawn;
-      if (s !== void 0) {
+      if (s !== void 0 && s.damage < MAX_DAMAGE) {
         ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
       }
     }
@@ -2454,11 +2537,14 @@ var NetPlay = class {
    */
   bump(frame) {
     const { sim } = this.options;
+    if (sim.downed) {
+      return;
+    }
     const bodies = [];
     const rammed = [];
     for (const [id, remote] of this.remotes) {
       const s = remote.drawn;
-      if (s !== void 0) {
+      if (s !== void 0 && s.damage < MAX_DAMAGE) {
         const side = this.playerId !== void 0 && this.playerId < id ? 1 : -1;
         bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side });
         rammed.push(void 0);
@@ -2650,6 +2736,10 @@ var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
+var DOWN_PANEL_FONT_PX = 14;
+var DOWN_PANEL_PADDING_X = 12;
+var DOWN_PANEL_PADDING_Y = 8;
+var DOWN_PANEL_Y = 0.8;
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
@@ -2696,6 +2786,11 @@ var SandboxScene = class extends Phaser5.Scene {
   vignette;
   hudCamera;
   hud;
+  downPanel;
+  /** Whether the ship was down last frame and was respawned since, to count revives. */
+  wasDown = false;
+  respawned = false;
+  revives = 0;
   moveKeys;
   effects = true;
   shotsFired = 0;
@@ -2753,6 +2848,12 @@ var SandboxScene = class extends Phaser5.Scene {
       enemyFireGlow: false,
       hitsTaken: 0,
       rams: 0,
+      downed: false,
+      revive: 0,
+      canRespawn: false,
+      downLabel: void 0,
+      revives: 0,
+      downPanel: void 0,
       companions: [],
       companionKills: 0,
       notice: void 0,
@@ -2765,9 +2866,11 @@ var SandboxScene = class extends Phaser5.Scene {
     this.publish();
   }
   update(time, deltaMs) {
-    const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.squadmateDistance);
+    const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     const net = this.net?.update(events);
     this.drawShip(events);
+    this.countRevive();
+    this.updateDownPanel();
     if (net !== void 0) {
       this.showHits(net);
     }
@@ -2840,7 +2943,7 @@ var SandboxScene = class extends Phaser5.Scene {
   stepHidden(deltaMs) {
     const { pointerX, pointerY } = this.readInput();
     const idle = { up: false, down: false, left: false, right: false, pointerX, pointerY, fire: false };
-    this.net?.update(this.sim.advance(deltaMs / 1e3, idle));
+    this.net?.update(this.sim.advance(deltaMs / 1e3, idle, this.net.squadmateDistance, this.net.friendDistance));
     this.publish();
   }
   createProjectiles() {
@@ -2894,6 +2997,14 @@ var SandboxScene = class extends Phaser5.Scene {
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
+    this.downPanel = this.add.text(0, 0, "", {
+      fontFamily: "monospace",
+      fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
+      color: "#d8f8ff",
+      align: "center",
+      backgroundColor: "#05030acc"
+    }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
+    main.ignore(this.downPanel);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -2954,6 +3065,12 @@ var SandboxScene = class extends Phaser5.Scene {
         this.sim.setLoadout({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
         this.applyLoadout();
         this.audio.shieldSwitched();
+        break;
+      case "KeyH":
+        this.respawn(false);
+        break;
+      case "KeyJ":
+        this.respawn(true);
         break;
       case "KeyG":
         this.net?.summon();
@@ -3173,6 +3290,7 @@ ${modeName(info)}`,
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
+    this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -3196,7 +3314,42 @@ ${modeName(info)}`,
     this.ship.setThrusting(ship.thrusting);
     this.ship.setDamage(ship.damage);
     this.ship.setShield(ship.shield);
+    this.ship.setDown(this.sim.downed, ship.revive, this.cameras.main.zoom);
     this.animateWeapon(events);
+  }
+  /** While the ship is down: how to get back, respawning once it may (#47). */
+  updateDownPanel() {
+    if (!this.sim.downed) {
+      this.downPanel.setVisible(false);
+      return;
+    }
+    const beside = this.net?.nearestSquadmate();
+    const choices = this.sim.canRespawn ? `[H] respawn at home${beside === void 0 ? "" : `      [J] respawn beside ${beside.name}`}` : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
+    const text = ["You're down", "", choices, "or stay: a friend close by revives you"].join("\n");
+    if (this.downPanel.text !== text) {
+      this.downPanel.setText(text);
+    }
+    this.downPanel.setVisible(true);
+  }
+  /** Respawns at home, or beside the nearest squadmate that is up, once the ship may. */
+  respawn(beside) {
+    if (!beside) {
+      this.respawned = this.sim.respawn(0, HOME_SPAWN_Y) || this.respawned;
+      return;
+    }
+    const mate = this.net?.nearestSquadmate();
+    if (mate !== void 0) {
+      this.respawned = this.sim.respawn(mate.x + BRAIN_SPACING, mate.y) || this.respawned;
+    }
+  }
+  /** Counts the ship coming back up without a respawn: a friend revived it. */
+  countRevive() {
+    const down = this.sim.downed;
+    if (this.wasDown && !down && !this.respawned) {
+      this.revives++;
+    }
+    this.wasDown = down;
+    this.respawned = false;
   }
   animateWeapon(events) {
     const now2 = this.time.now / 1e3;
@@ -3276,7 +3429,7 @@ ${modeName(info)}`,
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -3357,6 +3510,12 @@ ${modeName(info)}`,
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
     this.debug.rams = this.net?.rams ?? 0;
+    this.debug.downed = this.sim.downed;
+    this.debug.revive = ship.revive;
+    this.debug.canRespawn = this.sim.canRespawn;
+    this.debug.downLabel = this.ship.downText;
+    this.debug.revives = this.revives;
+    this.debug.downPanel = this.downPanel.visible ? this.downPanel.text : void 0;
     this.debug.companions = (this.net?.others ?? []).filter((o) => o.ownerId !== "" && o.ownerId === this.net?.playerId).map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));
     this.debug.squadronMode = this.net?.squadronInfo === void 0 ? void 0 : modeName(this.net.squadronInfo);
     this.debug.companionKills = this.net?.companionKills ?? 0;

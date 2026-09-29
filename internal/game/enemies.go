@@ -137,7 +137,7 @@ func (h *Hub) stepEnemies() {
 }
 
 // playersOutsideSafeZone are the ships enemies spawn around and target:
-// players and their companions alike.
+// players and their companions alike, while they're up (#47).
 func (h *Hub) playersOutsideSafeZone() []point {
 	var out []point
 	add := func(x, y float64) {
@@ -147,11 +147,13 @@ func (h *Hub) playersOutsideSafeZone() []point {
 	}
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
 		m := h.members[id]
-		if m.state != nil {
+		if m.state != nil && !downed(m.state) {
 			add(float64(m.state.GetX()), float64(m.state.GetY()))
 		}
 		for _, c := range m.wing.Companions {
-			add(c.Ship.X, c.Ship.Y)
+			if !c.Ship.Downed() {
+				add(c.Ship.X, c.Ship.Y)
+			}
 		}
 	}
 

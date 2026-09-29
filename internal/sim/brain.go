@@ -82,6 +82,8 @@ type Mover struct {
 	VX    float64 `json:"vx"`
 	VY    float64 `json:"vy"`
 	Angle float64 `json:"angle"`
+	// Downed is set while the ship is down (#47).
+	Downed bool `json:"downed,omitempty"`
 }
 
 // BrainEnemy is an enemy as a companion sees it.
@@ -103,7 +105,16 @@ type BrainView struct {
 	Enemies []BrainEnemy
 	// Friends are the other friendly ships it keeps BrainSpacing from: its
 	// wingmates and other players' ships.
-	Friends []Vec
+	Friends []Friend
+}
+
+// Friend is another friendly ship as a companion sees it.
+type Friend struct {
+	X, Y float64
+	// Squadmate is set for a ship of the companion's squadron.
+	Squadmate bool
+	// Downed is set while the ship is down (#47).
+	Downed bool
 }
 
 // BrainStep is one decision: the command for this tick, and whether the
@@ -347,6 +358,9 @@ func chooseGoal(view *BrainView, orders *Orders, target *BrainEnemy) goal {
 		fallthrough
 	default:
 	}
+	if downed, ok := downedSquadmate(view, orders); ok {
+		return goal{point: reviveSpot(view.Self, downed)}
+	}
 	fallingBack := view.Self.Damage >= BrainBadlyDamaged &&
 		(orders.Stance == StanceDefensive || orders.Resources == ResourcesConserve)
 	if fallingBack {
@@ -360,6 +374,45 @@ func chooseGoal(view *BrainView, orders *Orders, target *BrainEnemy) goal {
 	}
 
 	return stanceGoal(view, orders)
+}
+
+// downedSquadmate is the nearest downed squadmate within BrainReviveRange,
+// its owner included, for a companion that isn't holding a point or staying
+// out of sight.
+func downedSquadmate(view *BrainView, orders *Orders) (Vec, bool) {
+	if mode := ModeOf(*orders); mode == ModeHold || mode == ModeStealth {
+		return Vec{}, false
+	}
+	self := view.Self
+	var nearest Vec
+	best := math.Inf(1)
+	consider := func(x, y float64) {
+		if d := distance(self.X, self.Y, x, y); d <= BrainReviveRange && d < best {
+			nearest, best = Vec{X: x, Y: y}, d
+		}
+	}
+	if view.Owner.Downed {
+		consider(view.Owner.X, view.Owner.Y)
+	}
+	for _, f := range view.Friends {
+		if f.Squadmate && f.Downed {
+			consider(f.X, f.Y)
+		}
+	}
+
+	return nearest, best <= BrainReviveRange
+}
+
+// reviveSpot is where a companion hovers to revive a downed ship: on its
+// own side of it, BrainSpacing out, inside ReviveRadius.
+func reviveSpot(self *Ship, downed Vec) Vec {
+	dx, dy := self.X-downed.X, self.Y-downed.Y
+	d := math.Hypot(dx, dy)
+	if d == 0 {
+		dx, dy, d = 1, 0, 1
+	}
+
+	return Vec{X: downed.X + dx/d*BrainSpacing, Y: downed.Y + dy/d*BrainSpacing}
 }
 
 // spaced is the goal point moved away from each friend closer than

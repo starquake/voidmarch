@@ -39,19 +39,27 @@ func (h *Hub) flyCompanions() {
 }
 
 // othersThan are the ships of every member but id and their companions,
-// which id's companions keep clear of.
-func (h *Hub) othersThan(id string) []sim.Vec {
-	var out []sim.Vec
+// which id's companions keep clear of, revive, and are revived by.
+func (h *Hub) othersThan(id string) []sim.Friend {
+	squadron := h.members[id].squadron
+	var out []sim.Friend
 	for _, other := range slices.Sorted(maps.Keys(h.members)) {
 		if other == id {
 			continue
 		}
 		m := h.members[other]
+		mate := squadron != "" && m.squadron == squadron
 		if m.state != nil {
-			out = append(out, sim.Vec{X: float64(m.state.GetX()), Y: float64(m.state.GetY())})
+			out = append(out, sim.Friend{
+				X: float64(m.state.GetX()), Y: float64(m.state.GetY()),
+				Squadmate: mate, Downed: downed(m.state),
+			})
 		}
 		for _, c := range m.wing.Companions {
-			out = append(out, sim.Vec{X: c.Ship.X, Y: c.Ship.Y})
+			out = append(
+				out,
+				sim.Friend{X: c.Ship.X, Y: c.Ship.Y, Squadmate: mate, Downed: c.Ship.Downed()},
+			)
 		}
 	}
 
@@ -214,8 +222,11 @@ func (h *Hub) companionTargets() ([]sim.ShipTarget, []*sim.Ship) {
 	var ships []*sim.Ship
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
 		for _, c := range h.members[id].wing.Companions {
-			targets = append(targets, sim.TargetOf(c.Ship))
-			ships = append(ships, c.Ship)
+			// Bullets pass a downed ship (#47).
+			if !c.Ship.Downed() {
+				targets = append(targets, sim.TargetOf(c.Ship))
+				ships = append(ships, c.Ship)
+			}
 		}
 	}
 
@@ -299,17 +310,24 @@ func companionState(c *sim.Companion) *pb.ShipState {
 		},
 		Damage: uint32(s.Damage), //nolint:gosec // hits taken, 0 to 3.
 		Shield: float32(s.Shield),
+		Revive: float32(s.Revive),
 	}
 }
 
 func mover(s *pb.ShipState) sim.Mover {
 	return sim.Mover{
-		X:     float64(s.GetX()),
-		Y:     float64(s.GetY()),
-		VX:    float64(s.GetVx()),
-		VY:    float64(s.GetVy()),
-		Angle: float64(s.GetAngle()),
+		X:      float64(s.GetX()),
+		Y:      float64(s.GetY()),
+		VX:     float64(s.GetVx()),
+		VY:     float64(s.GetVy()),
+		Angle:  float64(s.GetAngle()),
+		Downed: downed(s),
 	}
+}
+
+// downed reports whether a player's reported ship is down (#47).
+func downed(s *pb.ShipState) bool {
+	return s.GetDamage() >= sim.MaxDamage
 }
 
 func simEnemyKind(kind pb.EnemyKind) sim.EnemyKind {
