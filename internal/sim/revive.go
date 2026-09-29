@@ -18,8 +18,8 @@ func Drift(s *Ship, dt float64) {
 // ReviveStep advances a downed ship's revive by dt seconds, given how far
 // the nearest friendly ship that is up and the nearest such squadmate are:
 // either within ReviveRadius revives it, a squadmate faster. With nobody
-// near, the progress holds. A revived ship is back one hull step above
-// down. It reports whether the ship came back up.
+// near, the progress drains, so a helper has to stay. A revived ship is back
+// one hull step above down. It reports whether the ship came back up.
 func ReviveStep(s *Ship, dt, friendDistance, squadmateDistance float64) bool {
 	if !s.Downed() {
 		s.DownFor, s.Revive = 0, 0
@@ -33,6 +33,7 @@ func ReviveStep(s *Ship, dt, friendDistance, squadmateDistance float64) bool {
 	case friendDistance <= ReviveRadius:
 		s.Revive += dt / ReviveSeconds
 	default:
+		s.Revive = math.Max(0, s.Revive-dt/ReviveSeconds)
 	}
 	if s.Revive < 1 {
 		return false

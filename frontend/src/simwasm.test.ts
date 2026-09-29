@@ -178,8 +178,8 @@ test('a friend near revives a downed ship, one hull step up', async () => {
   for (let i = 0; i < MAX_DAMAGE; i++) {
     s.takeHit(Math.PI / 2);
   }
-  // A squadmate 30 px away revives in 1.5 s.
-  for (let t = 0; t < 2 * TICK_RATE; t++) {
+  // A squadmate 30 px away revives in 3 s.
+  for (let t = 0; t < 4 * TICK_RATE; t++) {
     s.advance(TICK_SECONDS, input(), 30, 30);
   }
   assert.equal(s.downed, false);

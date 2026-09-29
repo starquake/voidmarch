@@ -124,9 +124,10 @@ const (
 	// distance still reaches.
 	ReviveRadius = 60
 	// ReviveSeconds is how long a friend nearby takes to revive a downed
-	// ship; a squadmate takes ReviveSquadmateSeconds.
-	ReviveSeconds          float64 = 3
-	ReviveSquadmateSeconds float64 = 1.5
+	// ship, and how long its progress takes to drain with nobody near; a
+	// squadmate takes ReviveSquadmateSeconds.
+	ReviveSeconds          float64 = 5
+	ReviveSquadmateSeconds float64 = 3
 	// RespawnDelay is the seconds after going down before its player may
 	// respawn.
 	RespawnDelay float64 = 3

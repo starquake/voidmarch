@@ -125,7 +125,7 @@ As built (#48), in `internal/sim/bump.go`: ships and enemies don't overlap.
 As built (#47), in `internal/sim/revive.go`, the same Go code in the browser and on the server:
 
 - **Down** at 3 hull hits: the ship keeps the very-damaged hull, loses its shield and drifts. It can't thrust or fire, and it isn't hit, bumped or targeted: bullets pass it and enemies ignore it. It doesn't heal on its own.
-- **Revive:** a friendly ship that is up within 60 px (center to center) fills the revive bar in 3 s, a squadmate in 1.5 s; with nobody near, the bar holds. The ship comes back one hull step up ("damaged"), with its shield recharging as usual. Everyone sees `DOWN · reviving N%` under a downed ship (`ShipState.revive`).
+- **Revive:** a friendly ship that is up within 60 px (center to center) fills the revive bar in 5 s, a squadmate in 3 s; with nobody near, the bar drains back at the friend rate, so a helper has to stay (@starquake, 2026-09-29: "Isn't it too easy right now?"). The ship comes back one hull step up ("damaged"), with its shield recharging as usual. Everyone sees `DOWN · reviving N%` under a downed ship (`ShipState.revive`).
 - **Respawn:** 3 s after going down, the downed player gets a panel: **H** respawns at home, **J** beside the nearest squadmate that is up, both with a whole hull and a full shield. Waiting for a revive stays possible.
 - **Companions** fly to a downed squadmate within 400 px, their owner included, and hover 40 px beside it until it's up, in every mode but Hold and Stealth. A downed companion is revived the same way (its owner counts as a squadmate); after 30 s down it goes home to the hangar, and its owner is told.
 

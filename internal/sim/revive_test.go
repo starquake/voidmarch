@@ -95,6 +95,32 @@ func TestReviveStep(t *testing.T) {
 	}
 }
 
+func TestReviveStep_DrainsWithNobodyNear(t *testing.T) {
+	t.Parallel()
+
+	s := downed()
+	for range int(ReviveSeconds / 2 / TickSeconds) {
+		ReviveStep(s, TickSeconds, 10, NoSquadmate)
+	}
+	half := s.Revive
+	for range int(ReviveSeconds / 4 / TickSeconds) {
+		ReviveStep(s, TickSeconds, NoSquadmate, NoSquadmate)
+	}
+	if math.Abs(s.Revive-half/2) > 0.02 {
+		t.Errorf(
+			"after a quarter of ReviveSeconds alone, progress %v, want about half of %v",
+			s.Revive,
+			half,
+		)
+	}
+	for range int(ReviveSeconds / TickSeconds) {
+		ReviveStep(s, TickSeconds, NoSquadmate, NoSquadmate)
+	}
+	if s.Revive != 0 {
+		t.Errorf("long alone, progress %v, want 0", s.Revive)
+	}
+}
+
 func TestReviveStep_UpShipsReset(t *testing.T) {
 	t.Parallel()
 
