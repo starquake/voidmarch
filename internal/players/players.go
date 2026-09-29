@@ -19,8 +19,11 @@ import (
 const (
 	// MaxNameLength is the longest name, in characters.
 	MaxNameLength = 16
-	idBytes       = 8
-	tokenBytes    = 16
+	// UnusedLifetime is how long a registration that never connects is kept
+	// (#19).
+	UnusedLifetime = 24 * time.Hour
+	idBytes        = 8
+	tokenBytes     = 16
 )
 
 // ErrInvalidName is returned for an empty, too long or oddly spelled name.
@@ -104,6 +107,24 @@ func (s *Store) Touch(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+// Expire deletes the registrations that never connected within
+// UnusedLifetime, and returns how many went.
+func (s *Store) Expire(ctx context.Context) (int, error) {
+	res, err := s.db.ExecContext(ctx,
+		"DELETE FROM players WHERE last_seen_at IS NULL AND created_at <= ?",
+		s.now().Add(-UnusedLifetime).Unix(),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("error expiring players: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("error counting expired players: %w", err)
+	}
+
+	return int(n), nil
 }
 
 // hashToken is what the database keeps of a token, so a copy of the file

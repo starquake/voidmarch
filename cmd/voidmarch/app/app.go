@@ -23,6 +23,9 @@ import (
 	"github.com/starquake/voidmarch/internal/web"
 )
 
+// expiryInterval is how often unused registrations are cleared (#19).
+const expiryInterval = time.Hour
+
 // fleetSaveTimeout bounds a save of the fleet, so a stuck disk can't hold up
 // shutdown for long.
 const fleetSaveTimeout = 5 * time.Second
@@ -64,18 +67,13 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 	// Deferred first, so it closes after the hub and the HTTP server stop.
 	defer func() { _ = db.Close() }()
 
-	if ln == nil {
-		ln, err = (&net.ListenConfig{}).Listen(signalCtx, "tcp", cfg.Addr())
-		if err != nil {
-			msg := "error listening"
-			logger.ErrorContext(
-				signalCtx,
-				msg,
-				slog.String("addr", cfg.Addr()),
-				slog.Any("err", err),
-			)
+	playerStore := players.NewStore(db)
+	stopExpiry := startExpiry(signalCtx, logger, playerStore)
+	defer stopExpiry()
 
-			return fmt.Errorf("%s on %s: %w", msg, cfg.Addr(), err)
+	if ln == nil {
+		if ln, err = listen(signalCtx, logger, cfg); err != nil {
+			return err
 		}
 	}
 
@@ -100,9 +98,59 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 	// still closes its sessions.
 	defer func() { <-hubDone }()
 
-	svc := server.Services{Players: players.NewStore(db), Hub: hub}
+	svc := server.Services{Players: playerStore, Hub: hub}
 
 	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static, svc), logger)
+}
+
+// listen opens the configured address.
+func listen(ctx context.Context, logger *slog.Logger, cfg *config.Config) (net.Listener, error) {
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.Addr())
+	if err != nil {
+		msg := "error listening"
+		logger.ErrorContext(ctx, msg, slog.String("addr", cfg.Addr()), slog.Any("err", err))
+
+		return nil, fmt.Errorf("%s on %s: %w", msg, cfg.Addr(), err)
+	}
+
+	return ln, nil
+}
+
+// startExpiry runs expireUnused in the background and returns the function
+// that stops it and waits, so returning early doesn't wait for a signal.
+func startExpiry(ctx context.Context, logger *slog.Logger, playerStore *players.Store) func() {
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		expireUnused(ctx, logger, playerStore)
+	}()
+
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+// expireUnused clears the registrations that never connected, now and every
+// expiryInterval, until ctx is canceled.
+func expireUnused(ctx context.Context, logger *slog.Logger, playerStore *players.Store) {
+	ticker := time.NewTicker(expiryInterval)
+	defer ticker.Stop()
+	for {
+		n, err := playerStore.Expire(ctx)
+		if err != nil && ctx.Err() == nil {
+			logger.ErrorContext(ctx, "error expiring players", slog.Any("err", err))
+		}
+		if n > 0 {
+			logger.InfoContext(ctx, "unused registrations expired", slog.Int("players", n))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // fleetStart is the saved fleet, or poolStart on a fresh database.

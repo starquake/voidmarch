@@ -176,3 +176,41 @@ func TestStore_Touch(t *testing.T) {
 		t.Errorf("last_seen_at = %d, want %d", got, want)
 	}
 }
+
+func TestStore_Expire(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	store := NewStore(testutil.OpenDB(t), WithClock(func() time.Time { return now }))
+	register := func(name string) (Player, string) {
+		t.Helper()
+		player, token, err := store.Register(t.Context(), name)
+		if err != nil {
+			t.Fatalf("Register(%q) error = %v", name, err)
+		}
+
+		return player, token
+	}
+	_, unused := register("Unused")
+	played, playedToken := register("Played")
+	if err := store.Touch(t.Context(), played.ID); err != nil {
+		t.Fatalf("Touch() error = %v", err)
+	}
+	now = now.Add(UnusedLifetime - time.Second)
+	_, fresh := register("Fresh")
+
+	now = now.Add(time.Second)
+	n, err := store.Expire(t.Context())
+	if err != nil {
+		t.Fatalf("Expire() error = %v", err)
+	}
+	if got, want := n, 1; got != want {
+		t.Errorf("Expire() = %d, want %d", got, want)
+	}
+	for token, want := range map[string]bool{unused: false, playedToken: true, fresh: true} {
+		_, ok, err := store.ByToken(t.Context(), token)
+		if err != nil || ok != want {
+			t.Errorf("ByToken() after Expire = _, %t, %v, want %t, nil", ok, err, want)
+		}
+	}
+}
