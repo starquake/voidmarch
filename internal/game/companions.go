@@ -31,10 +31,14 @@ func seatID(owner string, number uint32) string {
 	return owner + "/" + strconv.FormatUint(uint64(number), decimal)
 }
 
-// seats counts the humans and companions in the world.
+// seats counts the humans and companions in the world; a player who
+// dropped holds no seat, though their companions flying home do.
 func (h *Hub) seats() int {
-	n := len(h.members)
+	n := 0
 	for _, m := range h.members {
+		if !m.gone {
+			n++
+		}
 		n += len(m.companions)
 	}
 

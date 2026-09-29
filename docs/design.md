@@ -292,6 +292,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
   - A downed companion can't be taken over.
 - **The squadron cap holds.** A human joining a squadron at 4 ships takes over its newest companion (never one mid-revive, once revive exists).
 - **Dropping out mid-fight** leaves an AI in the seat, owned by the nearest friend, until the fight ends.
+- As built (#28, trimmed by @starquake: "Trim it"): a dropped player's ship leaves at once, but their companions fly on as seats under the order Go home, from where the player was last seen. Each docks in the hangar on reaching the safe zone, or 60 s after the drop. A player back before then gets them back: they drop Go home and rejoin the squadron's mode once the player picks a squadron. The dropped player holds no seat meanwhile, their companions do. The seat in the AI's hands, and the squadron flying home, are set aside.
 
 ### Squadrons
 

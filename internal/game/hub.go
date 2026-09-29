@@ -28,6 +28,9 @@ const (
 	// goes: long enough to ride out a reload, a short network blip, or a
 	// hidden tab whose worker the browser slows too (#57).
 	silenceTicks = 10 * TickRate
+	// homingTicks is how long a dropped player's companions fly home before
+	// they dock anyway (#28).
+	homingTicks = 60 * TickRate
 	// sendQueue is how many messages may wait for a slow client before it is
 	// dropped rather than slowing everyone down.
 	sendQueue = 64
@@ -116,6 +119,12 @@ type member struct {
 	// joining; they go back to the hangar when the player leaves, so joining
 	// never adds ships to it.
 	held int
+	// gone is set once the player dropped while companions were out: the
+	// member stays only for them, flying home from where the player was
+	// last seen, until homeBy (#28).
+	gone   bool
+	last   sim.Mover
+	homeBy uint32
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -267,7 +276,14 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		companions, wing, attackers = old.companions, old.wing, old.attackers
 		squadron = old.squadron
 		held = old.held
-		close(old.session.queue)
+		if old.gone {
+			// Back in time: the companions heading home turn back to them.
+			for _, c := range wing.Companions {
+				c.Orders.OneShot, c.Pending = sim.OneShot{}, nil
+			}
+		} else {
+			close(old.session.queue)
+		}
 		delete(h.members, player.ID)
 	} else if h.seats() >= MaxPlayers {
 		if !h.displaceNewestCompanion() {
@@ -316,7 +332,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 
 func (h *Hub) handleMessage(in inbound) {
 	m, ok := h.members[in.session.Player.ID]
-	if !ok || m.session != in.session {
+	if !ok || m.session != in.session || m.gone {
 		return
 	}
 	m.lastSeen = h.tick
@@ -358,7 +374,7 @@ func (h *Hub) step() {
 	h.tick++
 
 	for id, m := range h.members {
-		if h.tick-m.lastSeen > silenceTicks {
+		if !m.gone && h.tick-m.lastSeen > silenceTicks {
 			h.drop(id, "silent")
 		}
 	}
@@ -367,11 +383,15 @@ func (h *Hub) step() {
 	h.fireVolleys()
 	h.flyCompanions()
 	h.sendLostCompanionsHome()
+	h.dockHomingCompanions()
 	h.bumpShips()
 	enemies := h.enemySnapshot()
 	companions := h.companionSnapshots()
 
-	for id := range h.members {
+	for id, m := range h.members {
+		if m.gone {
+			continue
+		}
 		snapshot := &pb.Snapshot{Tick: h.tick, Enemies: enemies}
 		for otherID, other := range h.members {
 			if otherID == id || other.state == nil {
@@ -402,7 +422,7 @@ func (h *Hub) broadcast(msg *pb.ServerMessage, except string) {
 // send queues msg for one member, dropping them if their queue is full.
 func (h *Hub) send(id string, msg *pb.ServerMessage) {
 	m, ok := h.members[id]
-	if !ok {
+	if !ok || m.gone {
 		return
 	}
 	select {
@@ -412,27 +432,69 @@ func (h *Hub) send(id string, msg *pb.ServerMessage) {
 	}
 }
 
-// drop removes a member and tells everyone else their ship, and their
-// companions, are gone.
+// drop takes a player's ship out of the world and tells everyone. Their
+// companions stay, flying home (#28): the member stays as gone until they've
+// docked, or the player is back.
 func (h *Hub) drop(id, reason string) {
 	m, ok := h.members[id]
-	if !ok {
+	if !ok || m.gone {
 		return
 	}
-	h.remove(id)
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
-	for _, number := range slices.Sorted(maps.Keys(m.companions)) {
-		h.broadcast(left(seatID(id, number)), "")
-		h.hangar++
-	}
 	h.hangar += m.held
-	h.broadcast(left(id), "")
+	m.held = 0
+	h.broadcast(left(id), id)
 	h.leaveSquadron(id, m)
+	if len(m.companions) == 0 {
+		h.remove(id)
+	} else {
+		h.sendHome(m)
+	}
 	h.broadcastSquadrons()
 }
 
+// sendHome turns a dropped player's companions home, flying on from where
+// the player was last seen.
+func (h *Hub) sendHome(m *member) {
+	close(m.session.queue)
+	m.gone = true
+	m.homeBy = h.tick + homingTicks
+	if m.state != nil {
+		m.last = mover(m.state)
+		m.last.Downed = false
+	}
+	m.state = nil
+	for _, c := range m.wing.Companions {
+		c.Orders, _ = sim.WithOneShot(sim.OneShotGoHome, c.Orders, 0)
+		c.Pending = nil
+	}
+}
+
+// dockHomingCompanions docks each companion of a dropped player in the
+// hangar once it's home, in the safe zone, or homingTicks after the drop,
+// and lets the player go with the last of them.
+func (h *Hub) dockHomingCompanions() {
+	for _, id := range slices.Sorted(maps.Keys(h.members)) {
+		m := h.members[id]
+		if !m.gone {
+			continue
+		}
+		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+			s := m.companions[number].flight.Ship
+			if h.tick >= m.homeBy || math.Hypot(s.X, s.Y) <= safeRadius {
+				h.dismiss(id, m, number)
+			}
+		}
+		if len(m.companions) == 0 {
+			delete(h.members, id)
+		}
+	}
+}
+
 func (h *Hub) remove(id string) {
-	close(h.members[id].session.queue)
+	if m := h.members[id]; !m.gone {
+		close(m.session.queue)
+	}
 	delete(h.members, id)
 }
 
