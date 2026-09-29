@@ -178,8 +178,15 @@ test('a big space gun ball fired at nothing bursts into a star when it runs out'
   await page.mouse.down();
   await expect.poll(async () => (await state(page)).shotsFired).toBeGreaterThan(0);
   await page.mouse.up();
-  // It flies 240 px, then bursts into 8 shards (#72).
+  // It flies 200 px, then bursts into 8 shards (#72).
   await expect
     .poll(async () => (await state(page)).ownShards, { message: 'the ball bursts', timeout: 10_000, intervals: [50] })
     .toBe(8);
+  // The camera shakes once per burst, not on firing.
+  await expect
+    .poll(async () => {
+      const s = await state(page);
+      return s.shakes === s.shotsFired;
+    })
+    .toBe(true);
 });

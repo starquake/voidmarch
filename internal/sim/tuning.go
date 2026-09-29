@@ -226,7 +226,7 @@ type WeaponStats struct {
 	Muzzles []Offset
 	// Alternate fires one muzzle per shot in turn instead of all at once.
 	Alternate bool
-	// Shake is the camera shake per shot, 0 for none.
+	// Shake is the camera shake when one of our own shots bursts, 0 for none.
 	Shake float64
 	// Seek steers its shots toward enemies (#72); zero for straight shots.
 	Seek Seek
@@ -274,12 +274,12 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 		}
 	case WeaponBigSpaceGun:
 		return WeaponStats{
-			Speed: 300, MaxSpeed: 300, Lifetime: 0.8,
+			Speed: 300, MaxSpeed: 300, Lifetime: 2.0 / 3,
 			Interval: 0.9,
 			Charge:   0.45,
 			Damage:   12,
 			Muzzles:  []Offset{{Forward: 16}},
-			Shake:    0.006,
+			Shake:    0.004,
 			Burst:    Burst{Shards: 8, Damage: 2},
 		}
 	case WeaponZapper:

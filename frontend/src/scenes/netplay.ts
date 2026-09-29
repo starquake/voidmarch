@@ -134,6 +134,8 @@ interface EnemyVolley {
 export interface NetFrame {
   enemyHits: { x: number; y: number }[];
   hitsOnMe: { x: number; y: number }[];
+  /** Our own shots that burst on a hit this frame. */
+  ownBursts: WeaponId[];
 }
 
 /** An enemy as the E2E tests see it. */
@@ -366,7 +368,7 @@ export class NetPlay {
    * their shots, and test hits. Returns where hits landed.
    */
   update(events: FrameEvents): NetFrame {
-    const frame: NetFrame = { enemyHits: [], hitsOnMe: [] };
+    const frame: NetFrame = { enemyHits: [], hitsOnMe: [], ownBursts: [] };
     const nowMs = now();
     const seconds = nowMs / 1000;
     this.connection.sendState(this.options.sim.ship, nowMs);
@@ -601,6 +603,7 @@ export class NetPlay {
       frame.enemyHits.push({ x: p.x, y: p.y });
       if (p.kind === 'bigSpaceGun' && !goesOn) {
         sim.burst(p.kind, 'own', p.x, p.y, p.shotId, this.playerId ?? '', p.slot);
+        frame.ownBursts.push(p.kind);
       }
     }
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {

@@ -285,7 +285,7 @@ func TestBigSpaceGun_BurstsAfterAShortFlight(t *testing.T) {
 	t.Parallel()
 
 	stats := ProjectileStatsOf(ProjectileKind(WeaponBigSpaceGun))
-	if got, want := Traveled(stats, stats.Lifetime), 240.0; math.Abs(got-want) > 1e-9 {
+	if got, want := Traveled(stats, stats.Lifetime), 200.0; math.Abs(got-want) > 1e-9 {
 		t.Errorf("a ball flies %v px before it bursts, want %v", got, want)
 	}
 }

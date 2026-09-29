@@ -189,10 +189,10 @@ var WEAPON_STATS = {
     charge: 0.45,
     damage: 12,
     speed: 300,
-    lifetime: 0.8,
+    lifetime: 0.6666666666666666,
     muzzles: [{ forward: 16, right: 0 }],
     alternate: false,
-    shake: 6e-3
+    shake: 4e-3
   },
   zapper: {
     interval: 0.24,
@@ -2410,7 +2410,7 @@ var NetPlay = class {
    * their shots, and test hits. Returns where hits landed.
    */
   update(events) {
-    const frame = { enemyHits: [], hitsOnMe: [] };
+    const frame = { enemyHits: [], hitsOnMe: [], ownBursts: [] };
     const nowMs = now();
     const seconds = nowMs / 1e3;
     this.connection.sendState(this.options.sim.ship, nowMs);
@@ -2617,6 +2617,7 @@ var NetPlay = class {
       frame.enemyHits.push({ x: p.x, y: p.y });
       if (p.kind === "bigSpaceGun" && !goesOn) {
         sim.burst(p.kind, "own", p.x, p.y, p.shotId, this.playerId ?? "", p.slot);
+        frame.ownBursts.push(p.kind);
       }
     }
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
@@ -2939,6 +2940,7 @@ var SandboxScene = class extends Phaser5.Scene {
       effects: this.effects,
       projectiles: 0,
       ownShards: 0,
+      shakes: 0,
       shotsFired: 0,
       zoom: 1,
       fps: 0,
@@ -3512,13 +3514,20 @@ ${modeName(info)}`,
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      const shake = WEAPON_STATS[shot.weapon].shake;
-      if (shake > 0) {
-        this.cameras.main.shake(120, shake);
-      }
     }
     for (const p of events.expired) {
       this.puff.explode(4, p.x, p.y);
+      if (p.faction === "own" && isWeapon(p.kind)) {
+        this.shakeFor(p.kind);
+      }
+    }
+  }
+  /** Our own shot bursting shakes the camera, if its weapon does. */
+  shakeFor(weapon) {
+    const shake = WEAPON_STATS[weapon].shake;
+    if (this.effects && shake > 0) {
+      this.cameras.main.shake(120, shake);
+      this.debug.shakes++;
     }
   }
   /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
@@ -3528,6 +3537,9 @@ ${modeName(info)}`,
     }
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    for (const weapon of net.ownBursts) {
+      this.shakeFor(weapon);
     }
   }
   /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */

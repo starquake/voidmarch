@@ -23,7 +23,7 @@ import {
 } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
-import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle } from '../sim/loadout.ts';
+import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type WeaponId } from '../sim/loadout.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
@@ -206,6 +206,7 @@ export class SandboxScene extends Phaser.Scene {
       effects: this.effects,
       projectiles: 0,
       ownShards: 0,
+      shakes: 0,
       shotsFired: 0,
       zoom: 1,
       fps: 0,
@@ -851,13 +852,21 @@ export class SandboxScene extends Phaser.Scene {
     }
     for (const shot of events.shots) {
       this.muzzleFlash.explode(3, shot.x, shot.y);
-      const shake = WEAPON_STATS[shot.weapon].shake;
-      if (shake > 0) {
-        this.cameras.main.shake(120, shake);
-      }
     }
     for (const p of events.expired) {
       this.puff.explode(4, p.x, p.y);
+      if (p.faction === 'own' && isWeapon(p.kind)) {
+        this.shakeFor(p.kind);
+      }
+    }
+  }
+
+  /** Our own shot bursting shakes the camera, if its weapon does. */
+  private shakeFor(weapon: WeaponId): void {
+    const shake = WEAPON_STATS[weapon].shake;
+    if (this.effects && shake > 0) {
+      this.cameras.main.shake(120, shake);
+      this.debug.shakes++;
     }
   }
 
@@ -868,6 +877,9 @@ export class SandboxScene extends Phaser.Scene {
     }
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    for (const weapon of net.ownBursts) {
+      this.shakeFor(weapon);
     }
   }
 
