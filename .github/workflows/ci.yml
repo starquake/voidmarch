@@ -112,6 +112,9 @@ jobs:
           pactl set-default-sink silent
       - run: npx playwright test --project=${{ matrix.browser }}
         working-directory: frontend
+        # Firefox's own output in the job log, so a crash can be diagnosed (#18).
+        env:
+          DEBUG: ${{ matrix.browser == 'firefox' && 'pw:browser' || '' }}
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
