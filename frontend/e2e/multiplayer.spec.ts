@@ -42,12 +42,12 @@ test('two players see each other fly and shoot', async ({ browser, baseURL }) =>
   const mo = await player(browser, baseURL ?? '', `Mo${suffix}`);
   // Close both when done: an open page keeps rendering WebGL through later specs (#22).
   try {
-    // Mo sees Sanne by name, in a colour.
+    // Mo sees Sanne by name, in a color.
     await expect
       .poll(async () => (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`))
       .toMatchObject({ name: `Sanne${suffix}` });
     const before = (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`);
-    expect(before?.colour).toBeGreaterThan(0);
+    expect(before?.color).toBeGreaterThan(0);
 
     // Sanne flies toward the mouse; Mo sees her ship move.
     await sanne.mouse.move(VIEWPORT.width / 2 + 150, VIEWPORT.height / 2);

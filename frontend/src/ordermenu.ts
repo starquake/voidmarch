@@ -38,7 +38,7 @@ export function itemPosition(index: number, radius: number, count = ORDER_ITEMS.
 }
 
 /**
- * The item the pointer points at from the ring's centre, or undefined inside
+ * The item the pointer points at from the ring's center, or undefined inside
  * the dead zone. It reads the pointer on the ring's own, stretched shape.
  */
 export function pickItem(dx: number, dy: number, deadZone: number, count = ORDER_ITEMS.length): number | undefined {

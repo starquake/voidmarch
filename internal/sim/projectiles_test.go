@@ -13,17 +13,17 @@ func spawnAt(pool *Pool, kind ProjectileKind) *Projectile {
 	return pool.Spawn(ProjectileSpawn{Kind: kind}, SpawnOptions{})
 }
 
-func TestTravelled(t *testing.T) {
+func TestTraveled(t *testing.T) {
 	t.Parallel()
 
 	cannon := WeaponStatsOf(WeaponAutoCannon).ProjectileStats
-	if got, want := Travelled(cannon, 0.5), cannon.Speed*0.5; got != want {
-		t.Errorf("auto cannon: Travelled(0.5) = %v, want %v (linear)", got, want)
+	if got, want := Traveled(cannon, 0.5), cannon.Speed*0.5; got != want {
+		t.Errorf("auto cannon: Traveled(0.5) = %v, want %v (linear)", got, want)
 	}
 
 	rockets := WeaponStatsOf(WeaponRockets).ProjectileStats
-	early := Travelled(rockets, 0.1) - Travelled(rockets, 0)
-	late := Travelled(rockets, 1.1) - Travelled(rockets, 1)
+	early := Traveled(rockets, 0.1) - Traveled(rockets, 0)
+	late := Traveled(rockets, 1.1) - Traveled(rockets, 1)
 	if early >= late || math.Abs(late-rockets.MaxSpeed*0.1) > 1e-6 {
 		t.Errorf(
 			"rockets: early %v, late %v, want accelerating up to %v px/s",

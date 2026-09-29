@@ -73,10 +73,10 @@ type goldenWeaponResult struct {
 }
 
 type goldenProjectile struct {
-	Kind      ProjectileKind `json:"kind"`
-	Origin    [3]float64     `json:"origin"`
-	Travelled [][2]float64   `json:"travelled"`
-	Trace     [][4]float64   `json:"trace"`
+	Kind     ProjectileKind `json:"kind"`
+	Origin   [3]float64     `json:"origin"`
+	Traveled [][2]float64   `json:"traveled"`
+	Trace    [][4]float64   `json:"trace"`
 }
 
 type goldenHit struct {
@@ -258,8 +258,8 @@ func TestGolden_Projectiles(t *testing.T) {
 
 	for _, c := range loadGolden(t).Projectiles {
 		stats := ProjectileStatsOf(c.Kind)
-		for _, tr := range c.Travelled {
-			checkNear(t, string(c.Kind)+" Travelled", []float64{Travelled(stats, tr[0])}, tr[1:])
+		for _, tr := range c.Traveled {
+			checkNear(t, string(c.Kind)+" Traveled", []float64{Traveled(stats, tr[0])}, tr[1:])
 		}
 		pool := NewPool(4)
 		p := pool.Spawn(

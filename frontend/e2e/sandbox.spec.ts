@@ -13,8 +13,8 @@ const state = (page: Page): Promise<DebugState> =>
     return structuredClone(window.voidmarch);
   });
 
-/** The canvas centre, where the camera keeps the ship. */
-const centre = async (page: Page): Promise<{ x: number; y: number }> => {
+/** The canvas center, where the camera keeps the ship. */
+const center = async (page: Page): Promise<{ x: number; y: number }> => {
   const box = await page.locator('#game canvas').boundingBox();
   if (box === null) {
     throw new Error('canvas has no bounding box');
@@ -29,7 +29,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('ship-relative is the default: W flies toward the mouse', async ({ page }) => {
-  const { x, y } = await centre(page);
+  const { x, y } = await center(page);
   await page.mouse.move(x + 150, y);
   await expect.poll(async () => Math.abs((await state(page)).ship.angle)).toBeLessThan(0.2);
 
@@ -45,7 +45,7 @@ test('C switches to screen-relative, and the choice survives a reload', async ({
   await page.keyboard.press('c');
   await expect.poll(async () => (await state(page)).controlMode).toBe('screen');
 
-  const { x, y } = await centre(page);
+  const { x, y } = await center(page);
   await page.mouse.move(x + 150, y);
   const before = await state(page);
   await page.keyboard.down('w');
@@ -58,7 +58,7 @@ test('C switches to screen-relative, and the choice survives a reload', async ({
 });
 
 test('the ship turns to face the mouse', async ({ page }) => {
-  const { x, y } = await centre(page);
+  const { x, y } = await center(page);
 
   await page.mouse.move(x + 120, y);
   await expect.poll(async () => Math.abs((await state(page)).ship.angle)).toBeLessThan(0.2);
@@ -68,7 +68,7 @@ test('the ship turns to face the mouse', async ({ page }) => {
 });
 
 test('holding the left button fires projectiles', async ({ page }) => {
-  const { x, y } = await centre(page);
+  const { x, y } = await center(page);
   await page.mouse.move(x + 120, y);
   await page.mouse.down();
   await expect.poll(async () => (await state(page)).projectiles).toBeGreaterThan(0);
@@ -114,7 +114,7 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
   await page.keyboard.press('1');
   await expect.poll(async () => (await state(page)).loadout.weapon).toBe('bigSpaceGun');
 
-  const { x, y } = await centre(page);
+  const { x, y } = await center(page);
   await page.mouse.move(x + 120, y);
   // Held while sampling: a click shorter than one game frame is never seen.
   await page.mouse.down();
@@ -150,7 +150,7 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
 });
 
 test('music starts after the first input, and M and N are remembered', async ({ page }) => {
-  const { x, y } = await centre(page);
+  const { x, y } = await center(page);
   await page.mouse.click(x + 100, y);
   try {
     await expect.poll(async () => (await state(page)).audio.playingMusic).toMatch(/^music-/);

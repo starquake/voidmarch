@@ -17,7 +17,7 @@ const state = (page: Page): Promise<DebugState> =>
 const OUT_OF_SAFE_ZONE = 340;
 
 /**
- * Points the mouse at a world position, from the ship at the screen centre,
+ * Points the mouse at a world position, from the ship at the screen center,
  * kept inside the viewport so the page sees the pointer.
  */
 async function aimAt(page: Page, s: DebugState, x: number, y: number): Promise<void> {

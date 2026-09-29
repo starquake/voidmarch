@@ -298,8 +298,8 @@ func TestCompanions_OthersSeeThemAsPlayers(t *testing.T) {
 		math.Abs(float64(c.GetState().GetY())-180) > 20 {
 		t.Errorf("a/1 = %v, want owner a, a's name, beside a", c)
 	}
-	if got, want := c.GetColour(), seen["a"].GetColour(); got != want {
-		t.Errorf("colour = %06x, want a's %06x", got, want)
+	if got, want := c.GetColor(), seen["a"].GetColor(); got != want {
+		t.Errorf("color = %06x, want a's %06x", got, want)
 	}
 
 	if _, ok := snapshotPlayers(t, a, tick)["a/1"]; !ok {

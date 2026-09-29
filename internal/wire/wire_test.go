@@ -45,12 +45,12 @@ func messages() []proto.Message {
 		&pb.ClientMessage{Kind: &pb.ClientMessage_State{State: state()}},
 		&pb.ClientMessage{Kind: &pb.ClientMessage_Shot{Shot: shot()}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_Welcome{Welcome: &pb.Welcome{
-			PlayerId: "p1", Colour: 0x8fd8ff, SpawnX: 180, SpawnY: 0, Tick: 42, TickRate: 20,
+			PlayerId: "p1", Color: 0x8fd8ff, SpawnX: 180, SpawnY: 0, Tick: 42, TickRate: 20,
 		}}},
 		&pb.ServerMessage{
 			Kind: &pb.ServerMessage_Snapshot{
 				Snapshot: &pb.Snapshot{Tick: 43, Players: []*pb.PlayerSnapshot{
-					{PlayerId: "p2", Name: "Mo", Colour: 0xffb070, State: state()},
+					{PlayerId: "p2", Name: "Mo", Color: 0xffb070, State: state()},
 				}},
 			},
 		},

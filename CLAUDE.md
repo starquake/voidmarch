@@ -336,5 +336,9 @@ reason, or point at the test that pins it (`// invariant pinned by TestX`).
 
 ## Writing
 
+**Code uses US spelling** (color, behavior, center, gray, traveled):
+identifiers, comments, log messages, UI strings and proto fields
+(@starquake, 2026-09-28, #43). Docs prose is free.
+
 Release notes, README, UI strings, commit messages and PR descriptions are
 plain and factual: say what is there, with neutral verbs, and no selling.

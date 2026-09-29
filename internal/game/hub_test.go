@@ -119,8 +119,8 @@ func TestHub_JoinWelcomes(t *testing.T) {
 	if got, want := first.GetTickRate(), uint32(TickRate); got != want {
 		t.Errorf("TickRate = %d, want %d", got, want)
 	}
-	if first.GetColour() == second.GetColour() {
-		t.Errorf("both players got colour %06x", first.GetColour())
+	if first.GetColor() == second.GetColor() {
+		t.Errorf("both players got color %06x", first.GetColor())
 	}
 	if got, want := first.GetPlayerId(), "a"; got != want {
 		t.Errorf("PlayerId = %q, want %q", got, want)
@@ -263,8 +263,8 @@ func TestHub_LeaveTellsOthers(t *testing.T) {
 	}
 
 	_, again := join(t, hub, "c")
-	if got, want := again.GetColour(), first.GetColour(); got != want {
-		t.Errorf("colour = %06x, want the freed %06x", got, want)
+	if got, want := again.GetColor(), first.GetColor(); got != want {
+		t.Errorf("color = %06x, want the freed %06x", got, want)
 	}
 }
 
@@ -368,7 +368,7 @@ func TestHub_StopClosesSessions(t *testing.T) {
 	}
 }
 
-func TestHub_JoinHonoursContext(t *testing.T) {
+func TestHub_JoinHonorsContext(t *testing.T) {
 	t.Parallel()
 
 	hub := NewHub(slog.New(slog.DiscardHandler))

@@ -72,9 +72,9 @@ type Projectile struct {
 	Y       float64
 }
 
-// Travelled is the distance covered after age seconds, accelerating up to
+// Traveled is the distance covered after age seconds, accelerating up to
 // MaxSpeed.
-func Travelled(stats ProjectileStats, age float64) float64 {
+func Traveled(stats ProjectileStats, age float64) float64 {
 	if stats.Acceleration <= 0 {
 		return stats.Speed * age
 	}
@@ -93,7 +93,7 @@ func Travelled(stats ProjectileStats, age float64) float64 {
 func PositionAt(p *Projectile, age float64) Vec {
 	stats := ProjectileStatsOf(p.Kind)
 	lateral := stats.Zigzag.Amplitude * TriangleWave(age*stats.Zigzag.Frequency)
-	offset := RotateOffset(Travelled(stats, age), lateral, p.Angle)
+	offset := RotateOffset(Traveled(stats, age), lateral, p.Angle)
 
 	return Vec{X: p.OriginX + offset.X, Y: p.OriginY + offset.Y}
 }

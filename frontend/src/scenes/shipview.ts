@@ -12,7 +12,7 @@ export type ShipParent = Phaser.GameObjects.Layer | Phaser.GameObjects.Container
 /** How long a hit flashes the hull or shield white. */
 const HIT_FLASH_MS = 70;
 
-/** Where a name sits below the ship's centre, in art pixels. */
+/** Where a name sits below the ship's center, in art pixels. */
 const LABEL_OFFSET = 26;
 
 /**
@@ -46,14 +46,14 @@ export class ShipView {
     layer.add(this.root);
   }
 
-  /** Shows a name under the ship in the player's colour (0xRRGGBB). */
-  setLabel(scene: Phaser.Scene, layer: ShipParent, name: string, colour: number, resolution: number): void {
+  /** Shows a name under the ship in the player's color (0xRRGGBB). */
+  setLabel(scene: Phaser.Scene, layer: ShipParent, name: string, color: number, resolution: number): void {
     this.label?.destroy();
     this.label = scene.add
       .text(this.root.x, this.root.y + LABEL_OFFSET, name, {
         fontFamily: 'monospace',
         fontSize: '8px',
-        color: `#${colour.toString(16).padStart(6, '0')}`,
+        color: `#${color.toString(16).padStart(6, '0')}`,
         resolution,
       })
       .setOrigin(0.5, 0)
@@ -61,11 +61,11 @@ export class ShipView {
     layer.add(this.label);
   }
 
-  /** Tints every part, for a companion in its owner's colour (0xRRGGBB). */
-  setTint(colour: number): void {
-    this.tint = colour;
+  /** Tints every part, for a companion in its owner's color (0xRRGGBB). */
+  setTint(color: number): void {
+    this.tint = color;
     for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
-      part.setTint(colour).setTintMode(Phaser.TintModes.MULTIPLY);
+      part.setTint(color).setTintMode(Phaser.TintModes.MULTIPLY);
     }
   }
 

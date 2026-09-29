@@ -37,11 +37,11 @@ export const ENEMY_VOLLEY_RANGE = 800;
 export const ENEMY_SOUND_RANGE = 400;
 
 /**
- * Enemy bullets fly on a layer with one glow in this colour (0xRRGGBB), so
+ * Enemy bullets fly on a layer with one glow in this color (0xRRGGBB), so
  * they stand out from the players' shots (#36). Quality is the filter's
  * sample count: a low one keeps software-rendered CI fast.
  */
-export const ENEMY_FIRE_GLOW_COLOUR = 0x3fa8ff;
+export const ENEMY_FIRE_GLOW_COLOR = 0x3fa8ff;
 export const ENEMY_FIRE_GLOW_STRENGTH = 6;
 export const ENEMY_FIRE_GLOW_QUALITY = 3;
 export const ENEMY_FIRE_GLOW_DISTANCE = 4;

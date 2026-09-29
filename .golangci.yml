@@ -153,7 +153,7 @@ linters:
   exclusions:
     # sqlc-generated code under internal/db carries the canonical
     # "Code generated ... DO NOT EDIT." header; lax tells
-    # golangci-lint v2 to honour it and skip the file. Without this
+    # golangci-lint v2 to honor it and skip the file. Without this
     # the generated wrappers spam ~50 godoclint + dupl + errcheck
     # findings on every run, drowning out real issues in the diff.
     generated: lax
