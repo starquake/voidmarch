@@ -17,6 +17,7 @@ import (
 	"github.com/starquake/voidmarch/internal/game"
 	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/server"
+	"github.com/starquake/voidmarch/internal/store"
 	"github.com/starquake/voidmarch/internal/version"
 	"github.com/starquake/voidmarch/internal/web"
 )
@@ -48,6 +49,16 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		return err
 	}
 
+	db, err := store.Open(signalCtx, cfg.DBPath)
+	if err != nil {
+		msg := "error opening database"
+		logger.ErrorContext(signalCtx, msg, slog.Any("err", err))
+
+		return fmt.Errorf("%s: %w", msg, err)
+	}
+	// Deferred first, so it closes after the hub and the HTTP server stop.
+	defer func() { _ = db.Close() }()
+
 	if ln == nil {
 		ln, err = (&net.ListenConfig{}).Listen(signalCtx, "tcp", cfg.Addr())
 		if err != nil {
@@ -75,7 +86,7 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 	// still closes its sessions.
 	defer func() { <-hubDone }()
 
-	svc := server.Services{Players: players.NewStore(), Hub: hub}
+	svc := server.Services{Players: players.NewStore(db), Hub: hub}
 
 	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static, svc), logger)
 }

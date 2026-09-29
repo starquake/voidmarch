@@ -8,6 +8,9 @@ import (
 	"github.com/starquake/voidmarch/internal/handlers"
 )
 
+// errRegisterFailed is what a player sees when the database fails them.
+var errRegisterFailed = errors.New("the server couldn't save your name, try again")
+
 // HandleRegister registers a player by name and returns their id and token,
 // which the browser keeps for the WebSocket's Hello.
 func HandleRegister(logger *slog.Logger, store *Store) http.Handler {
@@ -35,9 +38,15 @@ func HandleRegister(logger *slog.Logger, store *Store) http.Handler {
 			return
 		}
 
-		player, token, err := store.Register(req.Name)
-		if err != nil {
+		player, token, err := store.Register(ctx, req.Name)
+		if errors.Is(err, ErrInvalidName) {
 			writeError(w, r, logger, http.StatusBadRequest, ErrInvalidName)
+
+			return
+		}
+		if err != nil {
+			logger.ErrorContext(ctx, "error registering player", slog.Any("err", err))
+			writeError(w, r, logger, http.StatusInternalServerError, errRegisterFailed)
 
 			return
 		}

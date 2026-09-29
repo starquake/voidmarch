@@ -68,13 +68,22 @@ func (c *connection) serve(ctx context.Context, hub *Hub, store *players.Store) 
 		return
 	}
 
-	player, ok := store.ByToken(hello.GetToken())
+	player, ok, err := store.ByToken(ctx, hello.GetToken())
+	if err != nil {
+		c.logger.ErrorContext(ctx, "error finding player", slog.Any("err", err))
+		_ = c.conn.Close(websocket.StatusInternalError, "server error")
+
+		return
+	}
 	if !ok {
 		_ = c.conn.Close(StatusUnknownToken, "unknown token")
 
 		return
 	}
 	c.player = player.ID
+	if err = store.Touch(ctx, player.ID); err != nil {
+		c.logger.ErrorContext(ctx, "error touching player", slog.Any("err", err))
+	}
 
 	session, welcome, err := hub.Join(ctx, player)
 	if errors.Is(err, ErrFull) {

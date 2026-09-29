@@ -3,6 +3,7 @@ package store_test
 import (
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/store"
@@ -58,6 +59,25 @@ func TestOpen_ReopeningKeepsRowsAndMigratesNothing(t *testing.T) {
 	if !ok || ships != 4 {
 		t.Errorf("Hangar() = %d, %t, want 4, true", ships, ok)
 	}
+}
+
+func TestOpen_ConcurrentOpensMigrateOnce(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "voidmarch.db")
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			db, err := Open(t.Context(), path)
+			if err != nil {
+				t.Errorf("Open() error = %v", err)
+
+				return
+			}
+			_ = db.Close()
+		})
+	}
+	wg.Wait()
 }
 
 func TestOpen_RefusesANewerSchema(t *testing.T) {

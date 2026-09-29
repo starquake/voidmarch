@@ -32,7 +32,9 @@ var (
 // Open opens the database file, creating it if needed, and brings its
 // schema up to date.
 func Open(ctx context.Context, file string) (*sql.DB, error) {
-	query := url.Values{}
+	// Immediate transactions take the write lock up front, so two servers
+	// migrating one file take turns.
+	query := url.Values{"_txlock": {"immediate"}}
 	for _, pragma := range []string{"journal_mode(WAL)", "busy_timeout(5000)", "foreign_keys(1)"} {
 		query.Add("_pragma", pragma)
 	}
@@ -52,65 +54,71 @@ func Open(ctx context.Context, file string) (*sql.DB, error) {
 	return db, nil
 }
 
-// migrate applies the migrations newer than the database's user_version, each
-// in its own transaction.
+// migrate applies the migrations newer than the database's user_version, one
+// transaction each. The version is read inside the transaction, so a
+// migration another connection just applied is never applied twice.
 func migrate(ctx context.Context, db *sql.DB) error {
-	var version int
-	if err := db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
-		return fmt.Errorf("error reading schema version: %w", err)
-	}
-
 	files, err := fs.Glob(migrations, "migrations/*.sql")
 	if err != nil {
 		return fmt.Errorf("error listing migrations: %w", err)
 	}
 	slices.Sort(files)
+
+	for {
+		done, err := step(ctx, db, files)
+		if err != nil {
+			return err
+		}
+		if done {
+			return nil
+		}
+	}
+}
+
+// step applies the next migration, and reports true when none is left.
+func step(ctx context.Context, db *sql.DB, files []string) (bool, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("error starting migration: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var version int
+	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
+		return false, fmt.Errorf("error reading schema version: %w", err)
+	}
 	if version > len(files) {
-		return fmt.Errorf(
+		return false, fmt.Errorf(
 			"%w: schema %d, this server knows %d",
 			ErrNewerSchema,
 			version,
 			len(files),
 		)
 	}
-
-	for i, file := range files[version:] {
-		if err = apply(ctx, db, file, version+i+1); err != nil {
-			return err
-		}
+	if version == len(files) {
+		return true, nil
 	}
 
-	return nil
-}
-
-// apply runs one migration file and records it as schema version.
-func apply(ctx context.Context, db *sql.DB, file string, version int) error {
-	if n, _, _ := strings.Cut(path.Base(file), "_"); n != fmt.Sprintf("%03d", version) {
-		return fmt.Errorf("%w: %s, expected %03d", ErrMigrationOrder, file, version)
+	file := files[version]
+	if n, _, _ := strings.Cut(path.Base(file), "_"); n != fmt.Sprintf("%03d", version+1) {
+		return false, fmt.Errorf("%w: %s, expected %03d", ErrMigrationOrder, file, version+1)
 	}
 	script, err := migrations.ReadFile(file)
 	if err != nil {
-		return fmt.Errorf("error reading %s: %w", file, err)
+		return false, fmt.Errorf("error reading %s: %w", file, err)
 	}
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("error starting %s: %w", file, err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	if _, err = tx.ExecContext(ctx, string(script)); err != nil {
-		return fmt.Errorf("error applying %s: %w", file, err)
+		return false, fmt.Errorf("error applying %s: %w", file, err)
 	}
-	// PRAGMA takes no parameters; version is a number we computed.
-	if _, err = tx.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(version)); err != nil {
-		return fmt.Errorf("error recording %s: %w", file, err)
+	// PRAGMA takes no parameters; the version is a number we computed.
+	if _, err = tx.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(version+1)); err != nil {
+		return false, fmt.Errorf("error recording %s: %w", file, err)
 	}
 	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("error committing %s: %w", file, err)
+		return false, fmt.Errorf("error committing %s: %w", file, err)
 	}
 
-	return nil
+	return false, nil
 }
 
 // Hangar returns the saved hangar count, and false on a fresh database.

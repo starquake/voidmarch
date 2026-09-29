@@ -13,6 +13,7 @@ import (
 	"github.com/starquake/voidmarch/internal/config"
 	"github.com/starquake/voidmarch/internal/players"
 	. "github.com/starquake/voidmarch/internal/server"
+	"github.com/starquake/voidmarch/internal/testutil"
 )
 
 func testFS() fstest.MapFS {
@@ -27,7 +28,12 @@ func newServer(t *testing.T, cfg *config.Config) *httptest.Server {
 	t.Helper()
 
 	srv := httptest.NewServer(
-		New(slog.New(slog.DiscardHandler), cfg, testFS(), Services{Players: players.NewStore()}),
+		New(
+			slog.New(slog.DiscardHandler),
+			cfg,
+			testFS(),
+			Services{Players: players.NewStore(testutil.OpenDB(t))},
+		),
 	)
 	t.Cleanup(srv.Close)
 

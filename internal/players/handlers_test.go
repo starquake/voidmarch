@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/players"
+	"github.com/starquake/voidmarch/internal/testutil"
 )
 
 func register(t *testing.T, store *Store, contentType, body string) *httptest.ResponseRecorder {
@@ -30,7 +31,7 @@ func register(t *testing.T, store *Store, contentType, body string) *httptest.Re
 func TestHandleRegister(t *testing.T) {
 	t.Parallel()
 
-	store := NewStore()
+	store := NewStore(testutil.OpenDB(t))
 	w := register(t, store, "application/json", `{"name":"Sanne"}`)
 
 	if got, want := w.Code, http.StatusCreated; got != want {
@@ -48,7 +49,10 @@ func TestHandleRegister(t *testing.T) {
 		t.Errorf("name = %q, want %q", got, want)
 	}
 
-	player, ok := store.ByToken(res.Token)
+	player, ok, err := store.ByToken(t.Context(), res.Token)
+	if err != nil {
+		t.Fatalf("ByToken() error = %v", err)
+	}
 	if !ok {
 		t.Fatal("the returned token is not in the store")
 	}
@@ -101,7 +105,7 @@ func TestHandleRegister_Errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			w := register(t, NewStore(), tc.contentType, tc.body)
+			w := register(t, NewStore(testutil.OpenDB(t)), tc.contentType, tc.body)
 
 			if got, want := w.Code, tc.wantStatus; got != want {
 				t.Errorf("status = %d, want %d", got, want)
@@ -110,5 +114,20 @@ func TestHandleRegister_Errors(t *testing.T) {
 				t.Errorf("body = %q, should contain %q", got, want)
 			}
 		})
+	}
+}
+
+func TestHandleRegister_DatabaseFailure(t *testing.T) {
+	t.Parallel()
+
+	db := testutil.OpenDB(t)
+	_ = db.Close()
+	w := register(t, NewStore(db), "application/json", `{"name":"Sanne"}`)
+
+	if got, want := w.Code, http.StatusInternalServerError; got != want {
+		t.Errorf("status = %d, want %d", got, want)
+	}
+	if got, want := w.Body.String(), "couldn't save your name"; !strings.Contains(got, want) {
+		t.Errorf("body = %q, should contain %q", got, want)
 	}
 }

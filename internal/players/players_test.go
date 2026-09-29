@@ -5,15 +5,24 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/starquake/voidmarch/internal/players"
+	"github.com/starquake/voidmarch/internal/testutil"
 )
+
+// newStore is a store on a fresh temporary database.
+func newStore(t *testing.T) *Store {
+	t.Helper()
+
+	return NewStore(testutil.OpenDB(t))
+}
 
 func TestStore_Register(t *testing.T) {
 	t.Parallel()
 
-	store := NewStore()
-	player, token, err := store.Register("  Sanne  ")
+	store := newStore(t)
+	player, token, err := store.Register(t.Context(), "  Sanne  ")
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -28,7 +37,10 @@ func TestStore_Register(t *testing.T) {
 		t.Error("player.ID is empty")
 	}
 
-	found, ok := store.ByToken(token)
+	found, ok, err := store.ByToken(t.Context(), token)
+	if err != nil {
+		t.Fatalf("ByToken() error = %v", err)
+	}
 	if got, want := ok, true; got != want {
 		t.Fatalf("ByToken() ok = %t, want %t", got, want)
 	}
@@ -40,12 +52,12 @@ func TestStore_Register(t *testing.T) {
 func TestStore_RegisterGivesDistinctPlayers(t *testing.T) {
 	t.Parallel()
 
-	store := NewStore()
-	a, tokenA, err := store.Register("Mo")
+	store := newStore(t)
+	a, tokenA, err := store.Register(t.Context(), "Mo")
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	b, tokenB, err := store.Register("Mo")
+	b, tokenB, err := store.Register(t.Context(), "Mo")
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -58,8 +70,9 @@ func TestStore_RegisterGivesDistinctPlayers(t *testing.T) {
 func TestStore_ByTokenUnknown(t *testing.T) {
 	t.Parallel()
 
-	if _, ok := NewStore().ByToken("nope"); ok {
-		t.Error("ByToken(unknown) ok = true, want false")
+	_, ok, err := newStore(t).ByToken(t.Context(), "nope")
+	if err != nil || ok {
+		t.Errorf("ByToken(unknown) = _, %t, %v, want false, nil", ok, err)
 	}
 }
 
@@ -70,7 +83,7 @@ func TestStore_RegisterRejectsNames(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			_, _, err := NewStore().Register(name)
+			_, _, err := newStore(t).Register(t.Context(), name)
 			if got, want := err, ErrInvalidName; !errors.Is(got, want) {
 				t.Errorf("Register(%q) error = %v, want %v", name, got, want)
 			}
@@ -85,7 +98,7 @@ func TestStore_RegisterAcceptsNames(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, _, err := NewStore().Register(name); err != nil {
+			if _, _, err := newStore(t).Register(t.Context(), name); err != nil {
 				t.Errorf("Register(%q) error = %v", name, err)
 			}
 		})
@@ -95,20 +108,71 @@ func TestStore_RegisterAcceptsNames(t *testing.T) {
 func TestStore_ConcurrentUse(t *testing.T) {
 	t.Parallel()
 
-	store := NewStore()
+	store := newStore(t)
 	var wg sync.WaitGroup
 	for range 50 {
 		wg.Go(func() {
-			_, token, err := store.Register("Mo")
+			_, token, err := store.Register(t.Context(), "Mo")
 			if err != nil {
 				t.Errorf("Register() error = %v", err)
 
 				return
 			}
-			if _, ok := store.ByToken(token); !ok {
-				t.Error("ByToken() lost a registration")
+			if _, ok, err := store.ByToken(t.Context(), token); err != nil || !ok {
+				t.Errorf("ByToken() = _, %t, %v, lost a registration", ok, err)
 			}
 		})
 	}
 	wg.Wait()
+}
+
+func TestStore_KeepsOnlyATokenHash(t *testing.T) {
+	t.Parallel()
+
+	db := testutil.OpenDB(t)
+	_, token, err := NewStore(db).Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	var n int
+	row := db.QueryRowContext(
+		t.Context(),
+		"SELECT count(*) FROM players WHERE token_hash = ?",
+		token,
+	)
+	if err = row.Scan(&n); err != nil {
+		t.Fatalf("counting: %v", err)
+	}
+	if n != 0 {
+		t.Error("the database holds the token itself")
+	}
+}
+
+func TestStore_Touch(t *testing.T) {
+	t.Parallel()
+
+	db := testutil.OpenDB(t)
+	at := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	store := NewStore(db, WithClock(func() time.Time { return at }))
+	player, _, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if err = store.Touch(t.Context(), player.ID); err != nil {
+		t.Fatalf("Touch() error = %v", err)
+	}
+
+	var seen int64
+	row := db.QueryRowContext(
+		t.Context(),
+		"SELECT last_seen_at FROM players WHERE id = ?",
+		player.ID,
+	)
+	if err = row.Scan(&seen); err != nil {
+		t.Fatalf("reading last_seen_at: %v", err)
+	}
+	if got, want := seen, at.Unix(); got != want {
+		t.Errorf("last_seen_at = %d, want %d", got, want)
+	}
 }

@@ -3,13 +3,17 @@ package testutil
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/starquake/voidmarch/internal/store"
 )
 
 const (
@@ -98,4 +102,18 @@ func WaitForReady(ctx context.Context, t *testing.T, timeout time.Duration, endp
 		case <-ticker.C:
 		}
 	}
+}
+
+// OpenDB opens a migrated database in a temporary file, closed when the test
+// ends.
+func OpenDB(t *testing.T) *sql.DB {
+	t.Helper()
+
+	db, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "voidmarch.db"))
+	if err != nil {
+		t.Fatalf("store.Open() error = %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	return db
 }

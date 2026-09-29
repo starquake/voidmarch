@@ -1,15 +1,17 @@
 // Package players keeps who is who: a name chosen on first visit and the
-// token the browser keeps. It is in memory until persistence arrives with
-// unlocks (see #6); tokens keep their format then.
+// token the browser keeps, in the database (see #76).
 package players
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -30,20 +32,33 @@ type Player struct {
 	Name string
 }
 
-// Store holds the players by token. It is safe for concurrent use.
+// Store holds the players in the database. It is safe for concurrent use.
 type Store struct {
-	mu      sync.RWMutex
-	byToken map[string]Player
+	db  *sql.DB
+	now func() time.Time
 }
 
-// NewStore returns an empty store.
-func NewStore() *Store {
-	return &Store{byToken: make(map[string]Player)}
+// Option configures a Store.
+type Option func(*Store)
+
+// WithClock sets the store's clock, for tests.
+func WithClock(now func() time.Time) Option {
+	return func(s *Store) { s.now = now }
+}
+
+// NewStore returns a store on db, which store.Open has migrated.
+func NewStore(db *sql.DB, opts ...Option) *Store {
+	s := &Store{db: db, now: time.Now}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
 
 // Register adds a player with the given name and returns them with their
 // token. Surrounding spaces are trimmed.
-func (s *Store) Register(name string) (Player, string, error) {
+func (s *Store) Register(ctx context.Context, name string) (Player, string, error) {
 	name = strings.TrimSpace(name)
 	if err := validateName(name); err != nil {
 		return Player{}, "", err
@@ -51,21 +66,52 @@ func (s *Store) Register(name string) (Player, string, error) {
 
 	player := Player{ID: randomHex(idBytes), Name: name}
 	token := randomHex(tokenBytes)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.byToken[token] = player
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO players (id, name, token_hash, created_at) VALUES (?, ?, ?, ?)",
+		player.ID, player.Name, hashToken(token), s.now().Unix(),
+	)
+	if err != nil {
+		return Player{}, "", fmt.Errorf("error registering player: %w", err)
+	}
 
 	return player, token, nil
 }
 
-// ByToken returns the player a token belongs to.
-func (s *Store) ByToken(token string) (Player, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	player, ok := s.byToken[token]
+// ByToken returns the player a token belongs to, and false for a token nobody
+// has.
+func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error) {
+	var player Player
+	err := s.db.QueryRowContext(ctx,
+		"SELECT id, name FROM players WHERE token_hash = ?", hashToken(token),
+	).Scan(&player.ID, &player.Name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Player{}, false, nil
+	}
+	if err != nil {
+		return Player{}, false, fmt.Errorf("error finding player: %w", err)
+	}
 
-	return player, ok
+	return player, true, nil
+}
+
+// Touch records that the player connected now.
+func (s *Store) Touch(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx,
+		"UPDATE players SET last_seen_at = ? WHERE id = ?", s.now().Unix(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("error touching player %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// hashToken is what the database keeps of a token, so a copy of the file
+// can't sign anyone in.
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+
+	return hex.EncodeToString(sum[:])
 }
 
 func validateName(name string) error {

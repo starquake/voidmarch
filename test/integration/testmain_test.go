@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,8 +17,8 @@ import (
 )
 
 // startServer boots the server on an ephemeral port, waits for /healthz and
-// returns its base URL. extraEnv is layered over the defaults. The server is
-// stopped on cleanup.
+// returns its base URL. extraEnv is layered over the defaults, which give
+// each server its own database. The server is stopped on cleanup.
 func startServer(t *testing.T, extraEnv map[string]string) string {
 	t.Helper()
 
@@ -32,6 +33,7 @@ func startServer(t *testing.T, extraEnv map[string]string) string {
 		"APP_ENV": "development",
 		"HOST":    "127.0.0.1",
 		"PORT":    "0",
+		"DB_PATH": filepath.Join(t.TempDir(), "voidmarch.db"),
 	}
 	maps.Copy(env, extraEnv)
 	getenv := func(key string) string { return env[key] }
