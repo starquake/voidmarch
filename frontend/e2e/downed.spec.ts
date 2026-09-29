@@ -83,9 +83,9 @@ async function otherPlayer(browser: Browser, baseURL: string, name: string): Pro
 
 /**
  * Steers page's ship with screen-relative keys toward where target is,
- * holding it within reach, until done says so.
+ * holding it within reach, until done says so or seconds pass.
  */
-async function hoverBy(page: Page, target: Page, reach: number, done: () => Promise<boolean>): Promise<void> {
+async function hoverBy(page: Page, target: Page, reach: number, seconds: number, done: () => Promise<boolean>): Promise<void> {
   const held = new Set<string>();
   const hold = async (keys: string[]): Promise<void> => {
     for (const key of held) {
@@ -101,12 +101,14 @@ async function hoverBy(page: Page, target: Page, reach: number, done: () => Prom
       }
     }
   };
-  const deadline = Date.now() + 60_000;
+  const deadline = Date.now() + seconds * 1000;
   while (!(await done())) {
-    if (Date.now() > deadline) {
-      throw new Error('never got there in time');
-    }
     const [me, them] = await Promise.all([state(page), state(target)]);
+    if (Date.now() > deadline) {
+      const show = (s: DebugState): string =>
+        `(${s.ship.x.toFixed(0)}, ${s.ship.y.toFixed(0)}) ${s.damage}${s.downed ? ` down, revive ${s.revive.toFixed(2)}` : ''}`;
+      throw new Error(`gave up after ${String(seconds)} s: hovering ship at ${show(me)}, target at ${show(them)}`);
+    }
     const dx = them.ship.x - me.ship.x;
     const dy = them.ship.y - me.ship.y;
     const keys: string[] = [];
@@ -139,8 +141,9 @@ test('a squadmate hovering next to a downed player revives it', async ({ page, b
     await expect.poll(async () => (await state(mo)).controlMode).toBe('screen');
 
     await goDown(page);
-    // Mo flies over and stays close: a squadmate revives in 1.5 s.
-    await hoverBy(mo, page, 35, async () => (await state(page)).revives > 0);
+    // Mo sets off only now, fresh: flying out alongside, enemy fire tends to
+    // take both down. A squadmate close by revives in 1.5 s.
+    await hoverBy(mo, page, 35, 120, async () => (await state(page)).revives > 0);
     const up = await state(page);
     expect(up.revives).toBeGreaterThan(0);
   } finally {
