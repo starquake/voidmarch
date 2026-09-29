@@ -366,6 +366,7 @@ func (h *Hub) step() {
 	h.stepEnemies()
 	h.fireVolleys()
 	h.flyCompanions()
+	h.sendLostCompanionsHome()
 	h.bumpShips()
 	enemies := h.enemySnapshot()
 	companions := h.companionSnapshots()

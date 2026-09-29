@@ -36,6 +36,7 @@ import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarge
 import {
   ENEMY_SOUND_RANGE,
   ENEMY_VOLLEY_RANGE,
+  MAX_DAMAGE,
   RAM_DAMAGE,
   SAFE_ZONE_RADIUS,
   SHIP_RADIUS,
@@ -389,6 +390,7 @@ export class NetPlay {
       remote.view.setLoadout(ship.loadout);
       remote.view.setDamage(ship.damage);
       remote.view.setShield(ship.shield);
+      remote.view.setDown(ship.damage >= MAX_DAMAGE, ship.revive, this.options.labelResolution());
       remote.view.setThrusting(ship.thrusting);
       remote.view.place(ship.x, ship.y, ship.angle);
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
@@ -506,10 +508,40 @@ export class NetPlay {
 
   /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
   get squadmateDistance(): number {
-    const { ship } = this.options.sim;
-    const squadmates = [...this.remotes.values()].filter((r) => this.squadron !== '' && r.squadron === this.squadron);
+    return this.nearestUp((r) => this.isSquadmate(r))?.distance ?? Infinity;
+  }
 
-    return Math.min(Infinity, ...squadmates.map((r) => Math.hypot(r.view.root.x - ship.x, r.view.root.y - ship.y)));
+  /** How far the nearest friendly ship that is up is, for revives; Infinity for none. */
+  get friendDistance(): number {
+    return this.nearestUp(() => true)?.distance ?? Infinity;
+  }
+
+  /** The nearest squadmate that is up, by its label, for a respawn beside them (#47). */
+  nearestSquadmate(): { x: number; y: number; name: string } | undefined {
+    return this.nearestUp((r) => this.isSquadmate(r));
+  }
+
+  private isSquadmate(r: Remote): boolean {
+    return this.squadron !== '' && r.squadron === this.squadron;
+  }
+
+  /** The nearest other ship that is up and which picks, as drawn, and how far it is. */
+  private nearestUp(which: (r: Remote) => boolean): { x: number; y: number; name: string; distance: number } | undefined {
+    const { ship } = this.options.sim;
+    let best: { x: number; y: number; name: string; distance: number } | undefined;
+    for (const [id, r] of this.remotes) {
+      const s = r.drawn;
+      if (s === undefined || s.damage >= MAX_DAMAGE || !which(r)) {
+        continue;
+      }
+      const distance = Math.hypot(s.x - ship.x, s.y - ship.y);
+      if (best === undefined || distance < best.distance) {
+        const name = r.ownerId === '' ? r.name : `${r.name} ${id.slice(r.ownerId.length + 1)}`;
+        best = { x: s.x, y: s.y, name, distance };
+      }
+    }
+
+    return best;
   }
 
   /**
@@ -530,12 +562,14 @@ export class NetPlay {
     const { sim } = this.options;
     // The player's own ship, then everyone else's as drawn.
     const { ship } = sim;
-    const ships: ShipTarget<number>[] = [
-      { id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield },
-    ];
+    // Bullets pass downed ships (#47).
+    const ships: ShipTarget<number>[] = [];
+    if (!sim.downed) {
+      ships.push({ id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield });
+    }
     for (const r of this.remotes.values()) {
       const s = r.drawn;
-      if (s !== undefined) {
+      if (s !== undefined && s.damage < MAX_DAMAGE) {
         ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
       }
     }
@@ -567,11 +601,15 @@ export class NetPlay {
    */
   private bump(frame: NetFrame): void {
     const { sim } = this.options;
+    // A downed ship doesn't bump (#47).
+    if (sim.downed) {
+      return;
+    }
     const bodies: BumpBody[] = [];
     const rammed: (number | undefined)[] = [];
     for (const [id, remote] of this.remotes) {
       const s = remote.drawn;
-      if (s !== undefined) {
+      if (s !== undefined && s.damage < MAX_DAMAGE) {
         const side = this.playerId !== undefined && this.playerId < id ? 1 : -1;
         bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side });
         rammed.push(undefined);

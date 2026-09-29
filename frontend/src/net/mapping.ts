@@ -64,6 +64,8 @@ export interface RemoteShip {
   loadout: Loadout;
   damage: number;
   shield: number;
+  /** A downed ship's revive progress, from 0 to 1. */
+  revive: number;
 }
 
 /** The local ship as its wire state. */
@@ -82,6 +84,7 @@ export function toShipState(ship: Ship): ShipState {
     },
     damage: ship.damage,
     shield: ship.shield,
+    revive: ship.revive,
   });
 }
 
@@ -103,6 +106,7 @@ export function fromShipState(state: ShipState): RemoteShip {
     },
     damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
     shield: state.shield,
+    revive: state.revive,
   };
 }
 

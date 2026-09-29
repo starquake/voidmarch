@@ -98,6 +98,13 @@ export declare type ShipState = Message<"voidmarch.v1.ShipState"> & {
    * @generated from field: float shield = 9;
    */
   shield: number;
+
+  /**
+   * A downed ship's revive progress, from 0 to 1 (#47).
+   *
+   * @generated from field: float revive = 10;
+   */
+  revive: number;
 };
 
 /**

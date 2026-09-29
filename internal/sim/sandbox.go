@@ -47,15 +47,17 @@ type Sandbox struct {
 	Previous    Vec
 	ControlMode ControlMode
 	// SquadmateDistance is how far the nearest squadmate is, for the
-	// shield's formation bonus; NoSquadmate when there's none.
+	// shield's formation bonus and revives; NoSquadmate when there's none.
 	SquadmateDistance float64
-	accumulator       float64
+	// FriendDistance is how far the nearest friendly ship that is up is, for
+	// revives; NoSquadmate when there's none.
+	FriendDistance float64
+	accumulator    float64
 }
 
 // NewSandbox returns a ship just below the home planet, with no companions.
 func NewSandbox() *Sandbox {
-	const startY = 160
-	ship := NewShip(0, startY, DefaultLoadout())
+	ship := NewShip(0, HomeSpawnY, DefaultLoadout())
 
 	return &Sandbox{
 		Ship:        ship,
@@ -64,6 +66,7 @@ func NewSandbox() *Sandbox {
 		ControlMode: ControlShip,
 
 		SquadmateDistance: NoSquadmate,
+		FriendDistance:    NoSquadmate,
 	}
 }
 
@@ -124,9 +127,15 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 	if s.ControlMode == ControlShip {
 		cmd = RelativeTo(screenCmd, s.Ship.Angle)
 	}
-	StepShip(s.Ship, cmd, TickSeconds)
+	if s.Ship.Downed() {
+		cmd = Command{}
+		Drift(s.Ship, TickSeconds)
+	} else {
+		StepShip(s.Ship, cmd, TickSeconds)
+	}
 	ApplyWorldEdge(s.Ship, TickSeconds)
 	Recover(s.Ship, TickSeconds, s.SquadmateDistance)
+	ReviveStep(s.Ship, TickSeconds, s.FriendDistance, s.SquadmateDistance)
 
 	weapon := StepWeapon(s.Ship, cmd.Fire, TickSeconds)
 	if weapon.ChargeStarted {

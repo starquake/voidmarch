@@ -32,6 +32,8 @@ const createShip = (x: number, y: number): Ship => ({
   damage: 0,
   shield: 3,
   sinceHit: 0,
+  downFor: 0,
+  revive: 0,
   cooldown: 0,
   charging: 0,
   nextMuzzle: 0,

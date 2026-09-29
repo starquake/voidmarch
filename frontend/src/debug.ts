@@ -38,6 +38,15 @@ export interface DebugState {
   hitsTaken: number;
   /** Rams the ship made or took. */
   rams: number;
+  /** Whether the ship is down, its revive progress, and whether its player may respawn (#47). */
+  downed: boolean;
+  revive: number;
+  canRespawn: boolean;
+  /** The DOWN label under the ship and the respawn panel, as shown. */
+  downLabel: string | undefined;
+  /** Times a friend revived the ship. */
+  revives: number;
+  downPanel: string | undefined;
   companions: CompanionDebug[];
   /** Enemies the player's companions shot down. */
   companionKills: number;

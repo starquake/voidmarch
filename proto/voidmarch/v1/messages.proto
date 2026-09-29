@@ -62,6 +62,8 @@ message ShipState {
   uint32 damage = 8;
   // Shield charges left, fractional while recharging (#46).
   float shield = 9;
+  // A downed ship's revive progress, from 0 to 1 (#47).
+  float revive = 10;
 }
 
 // Hello is the first message on a connection.

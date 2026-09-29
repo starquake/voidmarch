@@ -61,12 +61,13 @@ func (h *Hub) bumpShips() {
 	h.rams.Forget(now)
 }
 
-// bumpers are every ship and enemy in a fixed order.
+// bumpers are every ship that is up and every enemy, in a fixed order: a
+// downed ship doesn't bump (#47).
 func (h *Hub) bumpers() []bumper {
 	var out []bumper
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
 		m := h.members[id]
-		if m.state != nil {
+		if m.state != nil && !downed(m.state) {
 			s := m.state
 			out = append(out, bumper{key: id, body: sim.Body{
 				X: float64(s.GetX()), Y: float64(s.GetY()),
@@ -75,6 +76,9 @@ func (h *Hub) bumpers() []bumper {
 			}})
 		}
 		for _, c := range m.wing.Companions {
+			if c.Ship.Downed() {
+				continue
+			}
 			seat := seatID(id, uint32(c.Number)) //nolint:gosec // companion numbers are small.
 			out = append(
 				out,

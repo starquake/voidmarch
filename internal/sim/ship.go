@@ -97,6 +97,10 @@ type Ship struct {
 	Shield float64
 	// SinceHit is the seconds since the ship was last hit.
 	SinceHit float64
+	// DownFor is the seconds the ship has been down; 0 while it's up (#47).
+	DownFor float64
+	// Revive is a downed ship's revive progress, from 0 to 1.
+	Revive float64
 	// hullRegen counts toward the next hull step healed.
 	hullRegen float64
 }
@@ -113,7 +117,7 @@ func NewShip(x, y float64, loadout Loadout) *Ship {
 
 // Mover is where a ship is and how it moves, as another ship sees it.
 func (s *Ship) Mover() Mover {
-	return Mover{X: s.X, Y: s.Y, VX: s.VX, VY: s.VY, Angle: s.Angle}
+	return Mover{X: s.X, Y: s.Y, VX: s.VX, VY: s.VY, Angle: s.Angle, Downed: s.Downed()}
 }
 
 // StepShip advances the ship's movement and aim by dt seconds.

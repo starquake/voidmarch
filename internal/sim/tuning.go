@@ -116,6 +116,30 @@ const (
 	NoSquadmate = math.MaxFloat64
 )
 
+// Going down (#47): a ship out of hull drifts until a friend revives it or
+// its player respawns.
+const (
+	// ReviveRadius is how close, center to center, a friendly ship must stay
+	// to revive a downed one: past BrainSpacing, so a companion keeping its
+	// distance still reaches.
+	ReviveRadius = 60
+	// ReviveSeconds is how long a friend nearby takes to revive a downed
+	// ship; a squadmate takes ReviveSquadmateSeconds.
+	ReviveSeconds          float64 = 3
+	ReviveSquadmateSeconds float64 = 1.5
+	// RespawnDelay is the seconds after going down before its player may
+	// respawn.
+	RespawnDelay float64 = 3
+	// CompanionLostSeconds: a companion down this long unrevived goes home
+	// to the hangar.
+	CompanionLostSeconds float64 = 30
+	// BrainReviveRange: a companion goes to revive a downed squadmate this
+	// close to it.
+	BrainReviveRange = 400
+	// HomeSpawnY is where a ship starts and respawns, below the home planet.
+	HomeSpawnY = 160
+)
+
 // Bumping (#48): ships and enemies push apart, and a fast collision hurts.
 const (
 	// RammingSpeed is the closing speed, in px/s, from which a collision is a ram.

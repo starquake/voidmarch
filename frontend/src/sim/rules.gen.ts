@@ -32,6 +32,9 @@ export const WORLD_EDGE_BAND = 200;
 export const SAFE_ZONE_RADIUS = 300;
 export const SHIP_RADIUS = 12;
 export const MAX_DAMAGE = 3;
+export const RESPAWN_DELAY = 3;
+export const HOME_SPAWN_Y = 160;
+export const BRAIN_SPACING = 40;
 export const RAM_DAMAGE = 2;
 export const RAM_SPEED = 120;
 
@@ -118,13 +121,15 @@ export const LAYOUT = {
   shipShield: 15,
   shipShieldCharge: 21,
   shipSinceHit: 22,
+  shipDownFor: 23,
+  shipRevive: 24,
   previousX: 16,
   previousY: 17,
   shots: 18,
   charges: 19,
   expired: 20,
   projectileCapacity: 256,
-  poolOffset: 23,
+  poolOffset: 25,
   projectileSize: 8,
   projectileActive: 0,
   projectileKind: 1,
@@ -134,7 +139,7 @@ export const LAYOUT = {
   projectileAngle: 5,
   projectileAge: 6,
   projectileShotId: 7,
-  shotsOffset: 2071,
+  shotsOffset: 2073,
   shotSize: 6,
   shotId: 0,
   shotWeapon: 1,
@@ -142,14 +147,14 @@ export const LAYOUT = {
   shotX: 3,
   shotY: 4,
   shotAngle: 5,
-  chargesOffset: 2131,
-  expiredOffset: 2136,
+  chargesOffset: 2133,
+  expiredOffset: 2138,
   expiredSize: 4,
   expiredKind: 0,
   expiredFaction: 1,
   expiredX: 2,
   expiredY: 3,
-  stateSize: 3160,
+  stateSize: 3162,
   maxTargets: 128,
   shipTargetSize: 5,
   bumpSize: 7,

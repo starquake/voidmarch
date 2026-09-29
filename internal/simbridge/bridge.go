@@ -40,6 +40,8 @@ const (
 	HeaderExpired
 	HeaderShipShieldCharge
 	HeaderShipSinceHit
+	HeaderShipDownFor
+	HeaderShipRevive
 	HeaderSize
 )
 
@@ -152,9 +154,15 @@ func New() *Bridge {
 
 // Advance runs the frame with the input as a command, like
 // [sim.Sandbox.Advance], and writes the state. squadmateDistance is how far
-// the nearest squadmate is, for the shield's formation bonus.
-func (b *Bridge) Advance(frameSeconds float64, cmd sim.Command, squadmateDistance float64) {
+// the nearest squadmate that is up is, for the shield's formation bonus and
+// revives, and friendDistance the nearest friendly ship that is up.
+func (b *Bridge) Advance(
+	frameSeconds float64,
+	cmd sim.Command,
+	squadmateDistance, friendDistance float64,
+) {
 	b.sandbox.SquadmateDistance = squadmateDistance
+	b.sandbox.FriendDistance = friendDistance
 	events := b.sandbox.AdvanceCommand(frameSeconds, cmd)
 	b.clock += float64(events.Ticks) * sim.TickSeconds
 	b.write(events)
@@ -218,6 +226,20 @@ func (b *Bridge) PlaceShip(x, y float64) {
 	s.X, s.Y, s.VX, s.VY = x, y, 0, 0
 	b.sandbox.Previous = sim.Vec{X: x, Y: y}
 	b.write(sim.FrameEvents{})
+}
+
+// Respawn brings a downed ship back at (x, y) with a whole hull and a full
+// shield, once its player may, and reports whether it did.
+func (b *Bridge) Respawn(x, y float64) bool {
+	s := b.sandbox.Ship
+	if !sim.CanRespawn(s) {
+		return false
+	}
+	sim.Respawn(s, x, y)
+	b.sandbox.Previous = sim.Vec{X: x, Y: y}
+	b.write(sim.FrameEvents{})
+
+	return true
 }
 
 // SetLoadout fits the parts at the indexes of [sim.Weapons], [sim.Engines]
@@ -410,6 +432,7 @@ func (b *Bridge) write(events sim.FrameEvents) {
 	st[HeaderShipShield] = float64(slices.Index(sim.Shields(), s.Loadout.Shield))
 	st[HeaderPreviousX], st[HeaderPreviousY] = b.sandbox.Previous.X, b.sandbox.Previous.Y
 	st[HeaderShipShieldCharge], st[HeaderShipSinceHit] = s.Shield, s.SinceHit
+	st[HeaderShipDownFor], st[HeaderShipRevive] = s.DownFor, s.Revive
 
 	kinds, factions := ProjectileKinds(), Factions()
 	for i, p := range b.sandbox.Projectiles.Items() {

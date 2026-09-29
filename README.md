@@ -90,7 +90,10 @@ they leave once nobody is near. Your shield takes hits from the side it
 covers while it has charges, and recharges after a few seconds without one,
 faster with a squadmate close by. Other hits cost the hull a step, which
 heals slowly out of combat. The HUD shows both. Ships and enemies bump
-apart, and a fast collision is a ram that hurts both sides. Enemies need the server, so
+apart, and a fast collision is a ram that hurts both sides. Three hull hits
+and you're down: you drift until a friend hovers beside you to revive you,
+or after 3 s you respawn with **H** at home or **J** beside a squadmate.
+Enemies need the server, so
 offline the sandbox stays empty.
 
 Add `?wire=json` to the address to see the game's messages as readable JSON in

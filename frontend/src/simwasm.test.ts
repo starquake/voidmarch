@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { RAM_SPEED, SHIP_RADIUS, TICK_RATE, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
+import { HOME_SPAWN_Y, MAX_DAMAGE, RAM_SPEED, RESPAWN_DELAY, SHIP_RADIUS, TICK_RATE, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
 import type { InputSnapshot } from './sim/input.ts';
 import { Sandbox, instantiate, isWeapon, type GoRuntime } from './simwasm.ts';
 
@@ -151,6 +151,39 @@ test('bumping pushes the ship out, and a ram hurts once per cooldown', async () 
   assert.deepEqual(s.bump([ramming]), [{ index: 0, absorbed: false }]);
   assert.equal(s.ship.damage, 1);
   assert.deepEqual(s.bump([{ ...ramming, y: s.ship.y + 20 }]), []);
+});
+
+test('three hull hits take the ship down; it respawns whole after the delay', async () => {
+  const s = await sim();
+  s.advance(TICK_SECONDS, input());
+  for (let i = 0; i < MAX_DAMAGE; i++) {
+    s.takeHit(Math.PI / 2);
+  }
+  assert.equal(s.downed, true);
+  assert.equal(s.ship.shield, 0);
+  assert.equal(s.respawn(0, HOME_SPAWN_Y), false);
+  // Down, it ignores the controls.
+  s.advance(TICK_SECONDS, input({ up: true, fire: true }));
+  assert.equal(s.ship.thrusting, false);
+  for (let t = 0; t <= RESPAWN_DELAY * TICK_RATE; t++) {
+    s.advance(TICK_SECONDS, input());
+  }
+  assert.equal(s.canRespawn, true);
+  assert.equal(s.respawn(0, HOME_SPAWN_Y), true);
+  assert.deepEqual([s.downed, s.ship.damage, s.ship.shield, s.ship.y], [false, 0, 3, HOME_SPAWN_Y]);
+});
+
+test('a friend near revives a downed ship, one hull step up', async () => {
+  const s = await sim();
+  for (let i = 0; i < MAX_DAMAGE; i++) {
+    s.takeHit(Math.PI / 2);
+  }
+  // A squadmate 30 px away revives in 1.5 s.
+  for (let t = 0; t < 2 * TICK_RATE; t++) {
+    s.advance(TICK_SECONDS, input(), 30, 30);
+  }
+  assert.equal(s.downed, false);
+  assert.equal(s.ship.damage, MAX_DAMAGE - 1);
 });
 
 test('remote shots keep their owner and id, and end by them', async () => {

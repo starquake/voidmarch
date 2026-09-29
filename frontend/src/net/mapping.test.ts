@@ -31,6 +31,8 @@ const createShip = (x: number, y: number): Ship => ({
   damage: 0,
   shield: 3,
   sinceHit: 0,
+  downFor: 0,
+  revive: 0,
   cooldown: 0,
   charging: 0,
   nextMuzzle: 0,
@@ -41,9 +43,9 @@ test('every loadout survives the round trip through the wire', () => {
   for (const weapon of WEAPONS) {
     for (const engine of ENGINES) {
       for (const shield of SHIELDS) {
-        const ship = { ...createShip(12, -3), loadout: { weapon, engine, shield }, angle: 1.5, thrusting: true, damage: 2, shield: 1.5 };
+        const ship = { ...createShip(12, -3), loadout: { weapon, engine, shield }, angle: 1.5, thrusting: true, damage: 2, shield: 1.5, revive: 0 };
         const remote = fromShipState(toShipState(ship));
-        assert.deepEqual(remote, { x: 12, y: -3, vx: 0, vy: 0, angle: 1.5, thrusting: true, loadout: { weapon, engine, shield }, damage: 2, shield: 1.5 });
+        assert.deepEqual(remote, { x: 12, y: -3, vx: 0, vy: 0, angle: 1.5, thrusting: true, loadout: { weapon, engine, shield }, damage: 2, shield: 1.5, revive: 0 });
       }
     }
   }
