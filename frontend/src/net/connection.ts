@@ -190,9 +190,10 @@ export class Connection {
   }
 
   /** Reports that one of our shots hit an enemy; the server trusts it. */
-  sendHit(enemyId: number, shotId: number, damage: number): void {
+  /** Reports a hit on an enemy: by a shot, a shard of its burst, or a ram (shot 0); goesOn when a piercing shot carries on (#72). */
+  sendHit(enemyId: number, shotId: number, damage: number, shard = 0, goesOn = false): void {
     if (this.welcomed) {
-      this.send(create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage } } }));
+      this.send(create(ClientMessageSchema, { kind: { case: 'hit', value: { enemyId, shotId, damage, shard, goesOn } } }));
     }
   }
 

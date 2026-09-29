@@ -166,3 +166,27 @@ test('music starts after the first input, and M and N are remembered', async ({ 
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
   expect((await state(page)).audio).toMatchObject({ muted: true, music: false });
 });
+
+test('a big space gun ball fired at nothing bursts into a star when it runs out', async ({ page }) => {
+  await page.keyboard.press('1');
+  await page.keyboard.press('1');
+  await expect.poll(async () => (await state(page)).loadout.weapon).toBe('bigSpaceGun');
+
+  const { x, y } = await center(page);
+  await page.mouse.move(x + 120, y);
+  // Held through the charge, so the ball leaves.
+  await page.mouse.down();
+  await expect.poll(async () => (await state(page)).shotsFired).toBeGreaterThan(0);
+  await page.mouse.up();
+  // It flies 150 px, then bursts into 8 shards (#72).
+  await expect
+    .poll(async () => (await state(page)).ownShards, { message: 'the ball bursts', timeout: 10_000, intervals: [50] })
+    .toBe(8);
+  // The camera shakes once per burst, not on firing.
+  await expect
+    .poll(async () => {
+      const s = await state(page);
+      return s.shakes === s.shotsFired;
+    })
+    .toBe(true);
+});

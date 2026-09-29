@@ -20,7 +20,8 @@ const tolerance = 1e-9
 // and shots were re-recorded from Go when companions began keeping apart
 // (#48): their three companions start 30 px apart. The brain cases'
 // formation points and commands, and those traces again, were re-recorded
-// when the formation widened and companions kept clear of their owner (#68).
+// when the formation widened and companions kept clear of their owner (#68); the rockets'
+// weapon cases were, when rockets began seeking at a lower damage rate (#72).
 type golden struct {
 	Math        goldenMath         `json:"math"`
 	Ships       []goldenShip       `json:"ships"`

@@ -186,6 +186,52 @@ test('a friend near revives a downed ship, one hull step up', async () => {
   assert.equal(s.ship.damage, MAX_DAMAGE - 1);
 });
 
+test('a big space gun ball bursts into the same star on every screen, its shards ended by number', async () => {
+  const mine = await sim();
+  const theirs = await sim();
+  const own = mine.burst('bigSpaceGun', 'own', 10, 20, 7, 'sanne');
+  const remote = theirs.burst('bigSpaceGun', 'remote', 10, 20, 7, 'sanne');
+  assert.equal(own.length, 8);
+  assert.deepEqual(
+    own.map((p) => [p.kind, p.shard, p.shotId, p.angle]),
+    remote.map((p) => [p.kind, p.shard, p.shotId, p.angle]),
+  );
+  assert.deepEqual(own.map((p) => p.shard), [1, 2, 3, 4, 5, 6, 7, 8]);
+  // Ending shard 3 of Sanne's shot 7 leaves the others flying.
+  assert.equal(theirs.projectiles.end('sanne', 7, 3)?.shard, 3);
+  assert.equal(theirs.projectiles.activeCount, 7);
+  assert.notDeepEqual(
+    (await sim()).burst('bigSpaceGun', 'own', 10, 20, 7, 'mo').map((p) => p.angle),
+    own.map((p) => p.angle),
+  );
+  assert.deepEqual(mine.burst('zapper', 'own', 0, 0, 1, 'sanne'), []);
+});
+
+test('a rocket steers toward an enemy ahead', async () => {
+  const s = await sim();
+  const rocket = s.projectiles.spawn({ kind: 'rockets', x: 0, y: 0, angle: 0 });
+  s.steer('own', TICK_SECONDS, [{ id: 1, x: 200, y: -100, radius: 10 }]);
+  assert.ok(rocket.angle < 0, `angle ${String(rocket.angle)}, want turned up toward the enemy`);
+});
+
+test('a zapper shot pierces two enemies and ends on the third', async () => {
+  const s = await sim();
+  s.projectiles.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 }, { ageSeconds: 0.2 });
+  const row = [11, 12, 13].map((id) => ({ id, x: 0, y: 0, radius: 200 }));
+  const goesOn = [0, 1, 2].map(() => s.hitScan('own', 0.2, row)[0]?.goesOn);
+  assert.deepEqual(goesOn, [true, true, false]);
+});
+
+test('a projectile that runs out names its shot and owner', async () => {
+  const s = await sim();
+  s.projectiles.spawn({ kind: 'bigSpaceGun', x: 0, y: 0, angle: 0 }, { faction: 'remote', owner: 'mo', shotId: 9, ageSeconds: 1.99 });
+  const events = s.advance(TICK_SECONDS, input());
+  assert.deepEqual(
+    events.expired.map((e) => [e.kind, e.faction, e.shotId, e.owner]),
+    [['bigSpaceGun', 'remote', 9, 'mo']],
+  );
+});
+
 test('remote shots keep their owner and id, and end by them', async () => {
   const s = await sim();
   const p = s.projectiles.spawn({ kind: 'zapper', x: 0, y: 0, angle: 0 }, { faction: 'remote', owner: 'mo', shotId: 7 });

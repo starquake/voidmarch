@@ -50,6 +50,17 @@ Three slots, four options each = 64 loadouts:
 | Engine | 4 engine variants | Speed / acceleration / handling trade-offs |
 | Shield | 4 shield variants (incl. front, front+sides, round bubble) | Coverage vs strength trade-offs |
 
+**Each weapon has its own advantage** (#72, @starquake: "Can we make the weapons have different advantages? Like make the missiles seeking missiles? And the bomb when exploding throw bullets in a star?"):
+
+| Weapon | Advantage | Numbers |
+|---|---|---|
+| Auto cannon | Steady and precise | 1 damage every 0.13 s |
+| Rockets | **Seek**: turn toward the nearest enemy within 60° and 400 px, up to 3 rad/s, so a jinking Scout can still slip one | 3 damage every 0.4 s, under the cannon's rate, since they need no aim |
+| Big space gun | **Bursts** where the ball hits or after 150 px, into a star of 8 shards (the auto cannon's shot, recolored gold), seeded by the shot, so every screen draws the same star | 12 for the ball, then 2 per shard, 120 px out; the shards fly past the enemy the ball hit, so the burst is crowd damage, not a bigger single hit |
+| Zapper | **Pierces**: the zigzag beam carries on through 2 more enemies after the first | 2 per enemy, 3 at most |
+
+Tiers (below) raise each weapon's fire rate; the advantages stay as they are. Rockets that others fire are steered on each screen toward the enemies as it draws them, so a curve can differ a little between screens; only the shooter reports hits.
+
 - Every new player starts with **one default part per slot**.
 - **Parts are permanent unlocks.** Enemies drop part pickups. Collecting a pickup for a part you don't own unlocks it forever for your player.
 - Loadout can be changed **at the home planet**.

@@ -216,6 +216,21 @@ export declare type Hit = Message<"voidmarch.v1.Hit"> & {
    * @deprecated
    */
   companion: number;
+
+  /**
+   * The shard of the shot's burst that hit, from 1; 0 for the shot itself
+   * (#72).
+   *
+   * @generated from field: uint32 shard = 5;
+   */
+  shard: number;
+
+  /**
+   * Set when a piercing shot carries on through: the hub doesn't end it.
+   *
+   * @generated from field: bool goes_on = 6;
+   */
+  goesOn: boolean;
 };
 
 /**
@@ -918,6 +933,14 @@ export declare type ShotEnded = Message<"voidmarch.v1.ShotEnded"> & {
    * @generated from field: uint32 tick = 3;
    */
   tick: number;
+
+  /**
+   * The shard of the shot's burst that ended, from 1; 0 for the shot itself
+   * (#72).
+   *
+   * @generated from field: uint32 shard = 4;
+   */
+  shard: number;
 };
 
 /**

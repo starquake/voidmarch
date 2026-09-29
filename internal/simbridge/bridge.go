@@ -8,6 +8,7 @@ package simbridge
 import (
 	"math"
 	"slices"
+	"unicode/utf16"
 
 	"github.com/starquake/voidmarch/internal/sim"
 )
@@ -55,6 +56,8 @@ const (
 	ProjectileAngle
 	ProjectileAge
 	ProjectileShotID
+	// ProjectileShard is a burst shard's number, from 1; 0 otherwise (#72).
+	ProjectileShard
 	ProjectileSize
 )
 
@@ -75,6 +78,8 @@ const (
 	ExpiredFaction
 	ExpiredX
 	ExpiredY
+	ExpiredShotID
+	ExpiredSlot
 	ExpiredSize
 )
 
@@ -90,7 +95,9 @@ const (
 	patternAngle = 3
 	patternSize  = 4
 	maxPatterns  = 8
-	targetSize   = 3
+	// TargetSize is the numbers per HitScan target: x, y, radius and its id,
+	// so a piercing shot hits each enemy once (#72).
+	TargetSize = 4
 	// ShipTargetSize is the numbers per ship ShipScan reads: x, y, angle,
 	// shield index and charges.
 	ShipTargetSize = 5
@@ -310,9 +317,10 @@ func (b *Bridge) Clear(faction int) {
 
 // HitScan tests every active projectile of the faction at index faction of
 // [Factions] along the path it flew in the last stepSeconds against n targets
-// in Scratch (x, y, radius each), ends the ones that hit, and writes (slot,
-// target index) pairs into Hits. It returns how many hit: one call for a
-// frame's hits instead of two per projectile.
+// in Scratch (x, y, radius, id each). A shot ends on a hit unless it pierces,
+// and a piercing shot hits each target once. It writes (slot, target index,
+// 1 when the shot carries on) triples into Hits and returns how many hit: one
+// call for a frame's hits instead of two per projectile.
 func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
 	factions := Factions()
 	if faction < 0 || faction >= len(factions) {
@@ -320,9 +328,11 @@ func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
 	}
 	n = min(max(n, 0), MaxTargets)
 	targets := make([]sim.Target[int], n)
+	ids := make([]int, n)
 	for i := range n {
-		at := b.Scratch[i*targetSize:]
+		at := b.Scratch[i*TargetSize:]
 		targets[i] = sim.Target[int]{ID: i, X: at[0], Y: at[1], Radius: at[2]}
+		ids[i] = int(at[3])
 	}
 	hits := 0
 	items := b.sandbox.Projectiles.Items()
@@ -332,12 +342,13 @@ func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
 			continue
 		}
 		from := sim.PositionAt(p, max(0, p.Age-stepSeconds))
-		target, ok := sim.HitTargetAlong(from.X, from.Y, p.X, p.Y, targets)
+		skip := func(i int) bool { return p.HasHit(ids[i]) }
+		target, ok := sim.HitTargetAlongExcept(from.X, from.Y, p.X, p.Y, targets, skip)
 		if !ok {
 			continue
 		}
-		p.Active = false
-		b.Hits[hits*2], b.Hits[hits*2+1] = float64(slot), float64(target.ID)
+		at := b.Hits[hits*hitTriple:]
+		at[0], at[1], at[2] = float64(slot), float64(target.ID), boolFloat(p.Hit(ids[target.ID]))
 		hits++
 	}
 	if hits > 0 {
@@ -345,6 +356,63 @@ func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
 	}
 
 	return hits
+}
+
+// Steer turns the seeking projectiles of the faction at index faction of
+// [Factions] toward the nearest of n targets in Scratch (x, y first, as for
+// HitScan), by at most their turn rate over stepSeconds.
+func (b *Bridge) Steer(faction int, stepSeconds float64, n int) {
+	factions := Factions()
+	if faction < 0 || faction >= len(factions) {
+		return
+	}
+	n = min(max(n, 0), MaxTargets)
+	targets := make([]sim.Vec, n)
+	for i := range n {
+		at := b.Scratch[i*TargetSize:]
+		targets[i] = sim.Vec{X: at[0], Y: at[1]}
+	}
+	b.sandbox.Projectiles.Steer(stepSeconds, factions[faction], targets)
+	b.write(sim.FrameEvents{})
+}
+
+// BurstSeed is [sim.BurstSeed] for the owner whose name is the first n
+// UTF-16 code units in Scratch.
+func (b *Bridge) BurstSeed(n, shotID int) uint32 {
+	n = min(max(n, 0), ScratchSize)
+	units := make([]uint16, n)
+	for i := range n {
+		units[i] = uint16(b.Scratch[i])
+	}
+
+	return sim.BurstSeed(string(utf16.Decode(units)), shotID)
+}
+
+// Burst spawns the star a shot of the weapon at index weapon of [sim.Weapons]
+// scatters from (x, y), as projectiles of the faction at index faction of
+// [Factions], each named by the shot's id and its shard number. The shards
+// leave alone the enemies the shot in slot from hit (-1 for none). It writes
+// the shards' slots into Scratch and returns how many there are.
+func (b *Bridge) Burst(weapon, faction int, x, y float64, shotID int, seed uint32, from int) int {
+	weapons, factions := sim.Weapons(), Factions()
+	if weapon < 0 || weapon >= len(weapons) || faction < 0 || faction >= len(factions) {
+		return 0
+	}
+	pool := b.sandbox.Projectiles
+	shards := sim.BurstPattern(weapons[weapon], x, y, seed)
+	for k, shard := range shards {
+		p := pool.Spawn(
+			shard,
+			sim.SpawnOptions{Faction: factions[faction], ShotID: shotID, Shard: k + 1},
+		)
+		if items := pool.Items(); from >= 0 && from < len(items) {
+			p.SkipHitsOf(&items[from])
+		}
+		b.Scratch[k] = float64(pool.SlotOf(p))
+	}
+	b.write(sim.FrameEvents{})
+
+	return len(shards)
 }
 
 // ShipScan tests every active enemy bullet along the path it flew in the
@@ -445,6 +513,7 @@ func (b *Bridge) write(events sim.FrameEvents) {
 		at[ProjectileX], at[ProjectileY] = p.X, p.Y
 		at[ProjectileAngle], at[ProjectileAge] = p.Angle, p.Age
 		at[ProjectileShotID] = float64(p.ShotID)
+		at[ProjectileShard] = float64(p.Shard)
 	}
 
 	shots := events.Shots[:min(len(events.Shots), maxShots)]
@@ -468,6 +537,7 @@ func (b *Bridge) write(events sim.FrameEvents) {
 		at[ExpiredKind] = float64(slices.Index(kinds, e.Kind))
 		at[ExpiredFaction] = float64(slices.Index(factions, e.Faction))
 		at[ExpiredX], at[ExpiredY] = e.X, e.Y
+		at[ExpiredShotID], at[ExpiredSlot] = float64(e.ShotID), float64(e.Slot)
 	}
 }
 
@@ -479,7 +549,12 @@ func ProjectileKinds() []sim.ProjectileKind {
 		out = append(out, sim.ProjectileKind(w))
 	}
 
-	return append(out, sim.ProjectileKind(sim.KlaedBullet), sim.ProjectileKind(sim.KlaedBigBullet))
+	return append(
+		out,
+		sim.ProjectileKind(sim.KlaedBullet),
+		sim.ProjectileKind(sim.KlaedBigBullet),
+		sim.ProjectileShard,
+	)
 }
 
 // Factions are the factions in index order.

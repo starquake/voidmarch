@@ -226,8 +226,35 @@ type WeaponStats struct {
 	Muzzles []Offset
 	// Alternate fires one muzzle per shot in turn instead of all at once.
 	Alternate bool
-	// Shake is the camera shake per shot, 0 for none.
+	// Shake is the camera shake when one of our own shots bursts, 0 for none.
 	Shake float64
+	// Seek steers its shots toward enemies (#72); zero for straight shots.
+	Seek Seek
+	// Pierce is how many enemies a shot carries on through after its first.
+	Pierce int
+	// Burst is the star of shards a shot scatters where it ends.
+	Burst Burst
+}
+
+// Seek is how a shot steers toward the nearest enemy ahead of it.
+type Seek struct {
+	// Cone is the half-angle, in radians, around its heading it looks in.
+	Cone float64
+	// Range is how far, in px, it looks.
+	Range float64
+	// TurnRate is how fast it turns, in radians per second.
+	TurnRate float64
+}
+
+// Burst is a star of shards: how many, and each one's damage.
+type Burst struct {
+	Shards int
+	Damage float64
+}
+
+// ShardStats is how a burst's shard flies: 260 px/s for 0.46 s, about 120 px.
+func ShardStats() ProjectileStats {
+	return ProjectileStats{Speed: 260, MaxSpeed: 260, Lifetime: 0.46}
 }
 
 // WeaponStatsOf is a weapon's stats. Sidegrades: a new player's auto cannon
@@ -237,19 +264,23 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 	case WeaponRockets:
 		return WeaponStats{
 			Speed: 140, Acceleration: 900, MaxSpeed: 560, Lifetime: 1.5,
-			Interval:  0.32,
-			Damage:    4,
+			// Seeking pays for itself: about 7.5 damage a second, under the
+			// auto cannon's (#72).
+			Interval:  0.4,
+			Damage:    3,
+			Seek:      Seek{Cone: math.Pi / 3, Range: 400, TurnRate: 3},
 			Muzzles:   []Offset{{Forward: 7, Right: -12}, {Forward: 7, Right: 12}},
 			Alternate: true,
 		}
 	case WeaponBigSpaceGun:
 		return WeaponStats{
-			Speed: 300, MaxSpeed: 300, Lifetime: 2,
+			Speed: 300, MaxSpeed: 300, Lifetime: 0.5,
 			Interval: 0.9,
 			Charge:   0.45,
 			Damage:   12,
 			Muzzles:  []Offset{{Forward: 16}},
-			Shake:    0.006,
+			Shake:    0.002,
+			Burst:    Burst{Shards: 8, Damage: 2},
 		}
 	case WeaponZapper:
 		return WeaponStats{
@@ -259,6 +290,7 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 			Charge:   0.1,
 			Damage:   2,
 			Muzzles:  []Offset{{Forward: 15, Right: -11}, {Forward: 15, Right: 11}},
+			Pierce:   2,
 		}
 	case WeaponAutoCannon:
 		fallthrough

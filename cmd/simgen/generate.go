@@ -76,7 +76,8 @@ func writeTunables(w writer) {
 	w("export const HOME_SPAWN_Y = %d;\n", sim.HomeSpawnY)
 	w("export const BRAIN_SPACING = %d;\n", sim.BrainSpacing)
 	w("export const RAM_DAMAGE = %d;\n", sim.RammingDamage)
-	w("export const RAM_SPEED = %s;\n\n", num(sim.RammingSpeed))
+	w("export const RAM_SPEED = %s;\n", num(sim.RammingSpeed))
+	w("export const SHARD_DAMAGE = %s;\n\n", num(sim.ShotDamage(sim.ProjectileShard)))
 
 	writeShieldStats(w)
 
@@ -185,6 +186,7 @@ func writeLayout(w writer) {
 		{"projectileAngle", simbridge.ProjectileAngle},
 		{"projectileAge", simbridge.ProjectileAge},
 		{"projectileShotId", simbridge.ProjectileShotID},
+		{"projectileShard", simbridge.ProjectileShard},
 		{"shotsOffset", simbridge.ShotsOffset},
 		{"shotSize", simbridge.ShotSize},
 		{"shotId", simbridge.ShotID},
@@ -200,8 +202,11 @@ func writeLayout(w writer) {
 		{"expiredFaction", simbridge.ExpiredFaction},
 		{"expiredX", simbridge.ExpiredX},
 		{"expiredY", simbridge.ExpiredY},
+		{"expiredShotId", simbridge.ExpiredShotID},
+		{"expiredSlot", simbridge.ExpiredSlot},
 		{"stateSize", simbridge.StateSize},
 		{"maxTargets", simbridge.MaxTargets},
+		{"targetSize", simbridge.TargetSize},
 		{"shipTargetSize", simbridge.ShipTargetSize},
 		{"bumpSize", simbridge.BumpSize},
 		{"scratchSize", simbridge.ScratchSize},

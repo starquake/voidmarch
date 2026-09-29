@@ -23,6 +23,10 @@ type Expired struct {
 	Faction Faction
 	X       float64
 	Y       float64
+	// ShotID and Slot name the shot, so a big space gun ball that ran out
+	// bursts with its owner's seed (#72).
+	ShotID int
+	Slot   int
 }
 
 // FrameEvents is what happened during one frame's ticks, for effects and
@@ -171,7 +175,10 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 	for _, p := range s.Projectiles.Step(TickSeconds, ProjectileInBounds) {
 		events.Expired = append(
 			events.Expired,
-			Expired{Kind: p.Kind, Faction: p.Faction, X: p.X, Y: p.Y},
+			Expired{
+				Kind: p.Kind, Faction: p.Faction, X: p.X, Y: p.Y,
+				ShotID: p.ShotID, Slot: s.Projectiles.SlotOf(p),
+			},
 		)
 	}
 	events.Ticks++

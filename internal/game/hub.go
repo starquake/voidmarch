@@ -344,7 +344,12 @@ func (h *Hub) handleMessage(in inbound) {
 		// The hub tests its companions' shots itself; a client reports its own.
 		if kind.Hit.GetCompanion() == 0 { //nolint:staticcheck // ignoring the deprecated field is the point.
 			id := in.session.Player.ID
-			h.hit(id, id, kind.Hit.GetEnemyId(), kind.Hit.GetShotId(), kind.Hit.GetDamage())
+			shot := shotHit{
+				id:     kind.Hit.GetShotId(),
+				shard:  kind.Hit.GetShard(),
+				goesOn: kind.Hit.GetGoesOn(),
+			}
+			h.hit(id, id, kind.Hit.GetEnemyId(), shot, kind.Hit.GetDamage())
 		}
 	case *pb.ClientMessage_Summon:
 		h.summon(in.session.Player.ID, m)

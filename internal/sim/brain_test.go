@@ -410,9 +410,9 @@ func TestThink_Shielding(t *testing.T) {
 func TestThink_ConservingSavesTheBigGun(t *testing.T) {
 	t.Parallel()
 
-	self, owner := facing(-40, 40, 100, -100)
+	self, owner := facing(-40, 40, 40, -40)
 	self.Loadout.Weapon = WeaponBigSpaceGun
-	scout := []BrainEnemy{enemy(1, 100, -100)}
+	scout := []BrainEnemy{enemy(1, 40, -40)}
 	conserve := func(o *Orders) { o.Resources = ResourcesConserve }
 	if !decide(self, owner, scout, nil).Command.Fire {
 		t.Error("spending, the big gun held its volley")
