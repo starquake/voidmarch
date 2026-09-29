@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/config"
@@ -34,11 +35,15 @@ func TestParse_Defaults(t *testing.T) {
 	if got, want := cfg.PoolStart, PoolStartDefault; got != want {
 		t.Errorf("cfg.PoolStart = %d, want %d", got, want)
 	}
+	if got, want := cfg.DBPath, DBPathDefault; got != want {
+		t.Errorf("cfg.DBPath = %q, want %q", got, want)
+	}
 }
 
 func TestParse_Values(t *testing.T) {
 	t.Parallel()
 
+	dbPath := filepath.Join(t.TempDir(), "players.db")
 	cfg, err := Parse(envFunc(map[string]string{
 		"APP_ENV":    "development",
 		"HOST":       "127.0.0.1",
@@ -46,6 +51,7 @@ func TestParse_Values(t *testing.T) {
 		"WEB_DIR":    "internal/web/static",
 		"WIRE_LOG":   "true",
 		"POOL_START": "0",
+		"DB_PATH":    dbPath,
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -65,6 +71,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := cfg.PoolStart, 0; got != want {
 		t.Errorf("cfg.PoolStart = %d, want %d", got, want)
+	}
+	if got, want := cfg.DBPath, dbPath; got != want {
+		t.Errorf("cfg.DBPath = %q, want %q", got, want)
 	}
 }
 
@@ -103,6 +112,11 @@ func TestParse_Errors(t *testing.T) {
 			name: "pool start negative",
 			env:  map[string]string{"POOL_START": "-1"},
 			want: ErrInvalidPoolStart,
+		},
+		{
+			name: "db path in a missing directory",
+			env:  map[string]string{"DB_PATH": "/no/such/dir/voidmarch.db"},
+			want: ErrInvalidDBPath,
 		},
 	}
 

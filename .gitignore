@@ -16,3 +16,6 @@ frontend/playwright-report/
 .claude/worktrees/
 .claude/*.lock
 .claude/settings.local.json
+
+# The development database (DB_PATH) and its WAL files.
+voidmarch.db*

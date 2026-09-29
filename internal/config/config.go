@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -21,6 +23,10 @@ const PortDefault = "8080"
 // POOL_START is unset, until fights can be won (see #49).
 const PoolStartDefault = 3
 
+// DBPathDefault is the database file when DB_PATH is unset: beside the
+// working directory, so a development server keeps its players too.
+const DBPathDefault = "voidmarch.db"
+
 const maxPort = 65535
 
 // invalidValue wraps an Err sentinel with the value that failed.
@@ -35,6 +41,8 @@ var (
 	ErrInvalidWireLog = errors.New("invalid WIRE_LOG")
 	// ErrInvalidPoolStart is returned when POOL_START is not a non-negative number.
 	ErrInvalidPoolStart = errors.New("invalid POOL_START")
+	// ErrInvalidDBPath is returned when DB_PATH is in a directory that doesn't exist.
+	ErrInvalidDBPath = errors.New("invalid DB_PATH")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
 	ErrWebDirNotAllowed = errors.New("WEB_DIR is only allowed when APP_ENV=development")
 )
@@ -51,8 +59,11 @@ type Config struct {
 	WebDir string
 	// WireLog logs every WebSocket message, decoded. Noisy; for debugging.
 	WireLog bool
-	// PoolStart is how many companion ships the shared hangar holds at start.
+	// PoolStart is how many companion ships the shared hangar holds on a fresh
+	// database; after that the saved count wins.
 	PoolStart int
+	// DBPath is the SQLite file that keeps players and the hangar.
+	DBPath string
 }
 
 // Parse reads the configuration through getenv, applying defaults for unset
@@ -104,7 +115,25 @@ func Parse(getenv func(string) string) (*Config, error) {
 		c.PoolStart = n
 	}
 
+	dbPath, err := parseDBPath(getenv("DB_PATH"))
+	if err != nil {
+		return nil, err
+	}
+	c.DBPath = dbPath
+
 	return c, nil
+}
+
+// parseDBPath is DB_PATH, or the default, in a directory that exists.
+func parseDBPath(val string) (string, error) {
+	if val == "" {
+		val = DBPathDefault
+	}
+	if info, err := os.Stat(filepath.Dir(val)); err != nil || !info.IsDir() {
+		return "", fmt.Errorf(invalidValue, ErrInvalidDBPath, val)
+	}
+
+	return val, nil
 }
 
 // IsProduction reports whether the server runs in production.
