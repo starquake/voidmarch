@@ -75,6 +75,9 @@ and in the browser's WebAssembly:
 - A hit from inside the shield's arc, centered on the aim, takes one charge:
   the front shield holds 3 over 90°, front and side 2 over 180°, round 1 all
   around. Other hits, and hits with no charge left, cost a hull step.
+- Bullets meet a charged shield where it is drawn, 21 to 25 px out
+  (`ShieldStats.Radius`, from the sprites), on the side it covers; the
+  rest fly on to the hull's 12 px.
 - The shield recharges over its `Recharge` seconds once 3 s pass without a
   hit, twice as fast with a squadmate (a player or companion of the same
   squadron) within 200 px. After 8 s without a hit the hull heals one step

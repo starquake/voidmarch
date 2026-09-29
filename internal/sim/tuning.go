@@ -245,6 +245,9 @@ type ShieldStats struct {
 	Strength float64
 	// Recharge is the seconds out of combat to recharge fully.
 	Recharge float64
+	// Radius is where the shield is drawn, from the sprite's opaque extent:
+	// bullets meet it there, before the hull.
+	Radius float64
 }
 
 // Covers reports whether a hit from offset radians off the aim is inside the arc.
@@ -256,15 +259,15 @@ func (s ShieldStats) Covers(offset float64) bool {
 func ShieldStatsOf(id ShieldID) ShieldStats {
 	switch id {
 	case ShieldFrontAndSide:
-		return ShieldStats{Coverage: math.Pi, Strength: 2, Recharge: 5}
+		return ShieldStats{Coverage: math.Pi, Strength: 2, Recharge: 5, Radius: 23}
 	case ShieldRound:
-		return ShieldStats{Coverage: Tau, Strength: 1, Recharge: 3}
+		return ShieldStats{Coverage: Tau, Strength: 1, Recharge: 3, Radius: 25}
 	case ShieldInvincibility:
-		return ShieldStats{Coverage: Tau, Strength: 3, Recharge: 12}
+		return ShieldStats{Coverage: Tau, Strength: 3, Recharge: 12, Radius: 14}
 	case ShieldFront:
 		fallthrough
 	default:
-		return ShieldStats{Coverage: math.Pi * half, Strength: 3, Recharge: 5}
+		return ShieldStats{Coverage: math.Pi * half, Strength: 3, Recharge: 5, Radius: 21}
 	}
 }
 

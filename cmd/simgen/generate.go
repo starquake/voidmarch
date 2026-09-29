@@ -190,6 +190,8 @@ func writeLayout(w writer) {
 		{"expiredY", simbridge.ExpiredY},
 		{"stateSize", simbridge.StateSize},
 		{"maxTargets", simbridge.MaxTargets},
+		{"shipTargetSize", simbridge.ShipTargetSize},
+		{"scratchSize", simbridge.ScratchSize},
 	}
 	for _, f := range fields {
 		w("  %s: %d,\n", f.name, f.value)

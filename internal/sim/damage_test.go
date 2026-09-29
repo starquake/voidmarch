@@ -156,12 +156,110 @@ func TestRecover_HullHealsSlowly(t *testing.T) {
 	}
 }
 
-func TestHitFrom(t *testing.T) {
+func TestShipHitAlong(t *testing.T) {
 	t.Parallel()
 
-	p := &Projectile{Angle: 0}
-	if got := HitFrom(p); math.Abs(math.Abs(got)-math.Pi) > 1e-9 {
-		t.Errorf("a shot flying +x came from %v, want the -x side (Pi)", got)
+	// A ship at the origin facing up (-y).
+	ship := func(shield ShieldID, charges float64) ShipTarget {
+		return ShipTarget{Angle: -math.Pi / 2, Shield: shield, Charges: charges}
+	}
+	front := ShieldStatsOf(ShieldFront).Radius + ShotRadius
+	round := ShieldStatsOf(ShieldRound).Radius + ShotRadius
+	hull := float64(ShipRadius + ShotRadius)
+	for _, tc := range []struct {
+		name           string
+		target         ShipTarget
+		x0, y0, x1, y1 float64
+		along, from    float64
+		ok             bool
+	}{
+		{
+			name:   "from the front, the shield meets it",
+			target: ship(ShieldFront, 3),
+			y0:     -100,
+			along:  (100 - front) / 100, from: -math.Pi / 2, ok: true,
+		},
+		{
+			name:   "from the front with no charge, the hull does",
+			target: ship(ShieldFront, 0.9),
+			y0:     -100,
+			along:  (100 - hull) / 100, from: -math.Pi / 2, ok: true,
+		},
+		{
+			name:   "from behind, past the front shield to the hull",
+			target: ship(ShieldFront, 3),
+			y0:     100,
+			along:  (100 - hull) / 100, from: math.Pi / 2, ok: true,
+		},
+		{
+			name:   "from behind, the round shield meets it",
+			target: ship(ShieldRound, 1),
+			y0:     100,
+			along:  (100 - round) / 100, from: math.Pi / 2, ok: true,
+		},
+		{
+			name:   "starting inside the shield",
+			target: ship(ShieldFront, 3),
+			y0:     -front + 1, y1: -front + 1,
+			along: 0, from: -math.Pi / 2, ok: true,
+		},
+		{
+			name:   "passing wide",
+			target: ship(ShieldRound, 1),
+			x0:     100, y0: -100, x1: 100,
+		},
+		{
+			name:   "flying away",
+			target: ship(ShieldFront, 3),
+			y0:     -30, y1: -100,
+		},
+		{
+			name:   "not there yet",
+			target: ship(ShieldFront, 3),
+			y0:     -100, y1: -90,
+		},
+		{
+			name:   "standing still outside",
+			target: ship(ShieldFront, 3),
+			y0:     -100, y1: -100,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			along, from, ok := ShipHitAlong(tc.target, tc.x0, tc.y0, tc.x1, tc.y1)
+			if ok != tc.ok || math.Abs(along-tc.along) > 1e-9 ||
+				math.Abs(WrapAngle(from-tc.from)) > 1e-9 {
+				t.Errorf(
+					"ShipHitAlong() = %v, %v, %v, want %v, %v, %v",
+					along, from, ok, tc.along, tc.from, tc.ok,
+				)
+			}
+		})
+	}
+}
+
+func TestFirstShipHit(t *testing.T) {
+	t.Parallel()
+
+	near := ShipTarget{Y: -50, Angle: -math.Pi / 2, Shield: ShieldFront}
+	far := ShipTarget{Y: 0, Angle: -math.Pi / 2, Shield: ShieldFront}
+	if i, _, ok := FirstShipHit([]ShipTarget{far, near}, 0, -100, 0, 0); !ok || i != 1 {
+		t.Errorf("FirstShipHit() = %d, %v, want 1 (the nearer ship), true", i, ok)
+	}
+	if _, _, ok := FirstShipHit([]ShipTarget{far}, 100, -100, 100, 0); ok {
+		t.Error("FirstShipHit() of a miss = true, want false")
+	}
+}
+
+func TestTargetOf(t *testing.T) {
+	t.Parallel()
+
+	s := facingUp(ShieldRound)
+	s.X, s.Y = 3, 4
+	want := ShipTarget{X: 3, Y: 4, Angle: s.Angle, Shield: ShieldRound, Charges: s.Shield}
+	if got := TargetOf(s); got != want {
+		t.Errorf("TargetOf() = %+v, want %+v", got, want)
 	}
 }
 

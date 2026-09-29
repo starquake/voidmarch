@@ -37,8 +37,8 @@ func advance(frameSeconds, moveX, moveY, aimX, aimY float64, fire int32, squadma
 }
 
 //go:wasmexport takeHit
-func takeHit(slot int32) int32 {
-	if bridge.TakeHit(int(slot)) {
+func takeHit(from float64) int32 {
+	if bridge.TakeHit(from) {
 		return 1
 	}
 
@@ -92,6 +92,11 @@ func clear(faction int32) {
 //go:wasmexport hitsPointer
 func hitsPointer() int32 {
 	return int32(uintptr(unsafe.Pointer(&bridge.Hits[0])))
+}
+
+//go:wasmexport shipScan
+func shipScan(stepSeconds float64, n int32) int32 {
+	return int32(bridge.ShipScan(stepSeconds, int(n)))
 }
 
 //go:wasmexport hitScan

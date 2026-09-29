@@ -149,4 +149,6 @@ export const LAYOUT = {
   expiredY: 3,
   stateSize: 3160,
   maxTargets: 128,
+  shipTargetSize: 5,
+  scratchSize: 640,
 } as const;

@@ -244,18 +244,46 @@ func TestHitScan(t *testing.T) {
 	}
 }
 
+func TestShipScan(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	x, y, angle := b.State[HeaderShipX], b.State[HeaderShipY], b.State[HeaderShipAngle]
+	enemy := slices.Index(Factions(), sim.FactionEnemy)
+	kind := sim.ProjectileKind(sim.KlaedBullet)
+	bullet := slices.Index(ProjectileKinds(), kind)
+	// Flying down at the ship from 80 px above, now 5 px from its center:
+	// on the way it met the front shield.
+	age := 75 / sim.ProjectileStatsOf(kind).Speed
+	slot := b.Spawn(bullet, enemy, x, y-80, math.Pi/2, age, 0)
+	b.Spawn(0, slices.Index(Factions(), sim.FactionOwn), x, y-80, math.Pi/2, age, 0)
+	copy(
+		b.Scratch[:],
+		[]float64{x, y, angle, float64(slices.Index(sim.Shields(), sim.ShieldFront)), 3},
+	)
+
+	if n := b.ShipScan(age, 1); n != 1 || b.Hits[0] != float64(slot) || b.Hits[1] != 0 {
+		t.Fatalf("ShipScan() = %d, hits %v, want the enemy bullet on ship 0", n, b.Hits[:3])
+	}
+	if from := b.Hits[2]; math.Abs(from+math.Pi/2) > 1e-9 {
+		t.Errorf("contact from %v, want -Pi/2, ahead", from)
+	}
+	if b.ShipScan(age, 1) != 0 {
+		t.Error("an ended bullet hit again")
+	}
+	if b.ShipScan(age, -1) != 0 {
+		t.Error("ShipScan() over no ships hit something")
+	}
+}
+
 func TestTakeHit(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	enemy := slices.Index(Factions(), sim.FactionEnemy)
-	bullet := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.KlaedBullet))
-	// The ship faces up; a bullet flying down came from ahead, one flying up from behind.
-	ahead := b.Spawn(bullet, enemy, 0, 100, math.Pi/2, 0, 0)
-	behind := b.Spawn(bullet, enemy, 0, 200, -math.Pi/2, 0, 0)
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
 	full := b.State[HeaderShipShieldCharge]
-
-	if !b.TakeHit(ahead) || b.State[HeaderShipShieldCharge] != full-1 ||
+	if !b.TakeHit(-math.Pi/2) || b.State[HeaderShipShieldCharge] != full-1 ||
 		b.State[HeaderShipDamage] != 0 {
 		t.Errorf(
 			"hit ahead: shield %v, damage %v, want one charge less",
@@ -263,11 +291,8 @@ func TestTakeHit(t *testing.T) {
 			b.State[HeaderShipDamage],
 		)
 	}
-	if b.TakeHit(behind) || b.State[HeaderShipDamage] != 1 || b.State[HeaderShipSinceHit] != 0 {
+	if b.TakeHit(math.Pi/2) || b.State[HeaderShipDamage] != 1 || b.State[HeaderShipSinceHit] != 0 {
 		t.Errorf("hit from behind: damage %v, want the hull hit", b.State[HeaderShipDamage])
-	}
-	if b.TakeHit(-1) {
-		t.Error("a hit from no slot was absorbed")
 	}
 }
 
@@ -276,8 +301,8 @@ func TestAdvance_FormationBonus(t *testing.T) {
 
 	alone, together := New(), New()
 	for _, b := range []*Bridge{alone, together} {
-		b.Spawn(4, slices.Index(Factions(), sim.FactionEnemy), 0, 100, math.Pi/2, 0, 0)
-		b.TakeHit(0)
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+		b.TakeHit(-math.Pi / 2)
 		// A frame covers at most a few ticks, so wait out the delay tick by tick.
 		for range int(sim.ShieldRechargeDelay/sim.TickSeconds) + 1 {
 			b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)

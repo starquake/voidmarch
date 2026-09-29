@@ -97,24 +97,36 @@ test('the ship can be placed, damaged and snapped', async () => {
   assert.deepEqual([s.ship.damage, s.ship.rotationSnap], [2, 16]);
 });
 
-test('a hit in front takes a shield charge, one from behind a hull step', async () => {
+test('an enemy bullet meets the front shield ahead, and only the hull behind', async () => {
   const s = await sim();
   s.advance(TICK_SECONDS, input());
+  const { x, y } = s.ship;
   assert.equal(s.ship.shield, 3);
-  // The ship faces up, toward the pointer: the front shield covers above it.
-  const front = s.projectiles.spawn({ kind: 'klaedBullet', x: 0, y: 100, angle: Math.PI / 2 }, { faction: 'enemy' });
-  assert.equal(s.takeHit(front.slot), true);
+  const me = [{ id: 'me', x, y, angle: s.ship.angle, shield: s.ship.loadout.shield, charges: s.ship.shield }];
+  // 20 px out: within the shield's reach, beyond the hull's. The ship faces up.
+  const ahead = s.projectiles.spawn({ kind: 'klaedBullet', x, y: y - 20, angle: Math.PI / 2 }, { faction: 'enemy' });
+  const behind = s.projectiles.spawn({ kind: 'klaedBullet', x, y: y + 20, angle: -Math.PI / 2 }, { faction: 'enemy' });
+  const hits = s.shipScan(TICK_SECONDS, me);
+  assert.deepEqual(
+    hits.map((h) => [h.projectile.slot, h.ship.id]),
+    [[ahead.slot, 'me']],
+  );
+  assert.equal(behind.active, true);
+  const from = hits[0]?.from ?? NaN;
+  assert.ok(Math.abs(from + Math.PI / 2) < 1e-9, `from ${String(from)}`);
+
+  assert.equal(s.takeHit(from), true);
   assert.deepEqual([s.ship.shield, s.ship.damage, s.ship.sinceHit], [2, 0, 0]);
-  const behind = s.projectiles.spawn({ kind: 'klaedBullet', x: 0, y: 220, angle: -Math.PI / 2 }, { faction: 'enemy' });
-  assert.equal(s.takeHit(behind.slot), false);
+  assert.equal(s.takeHit(Math.PI / 2), false);
   assert.deepEqual([s.ship.shield, s.ship.damage], [2, 1]);
+  assert.deepEqual(s.shipScan(TICK_SECONDS, []), []);
 });
 
 test('a squadmate near recharges the shield faster', async () => {
   const recharged = async (squadmateDistance: number): Promise<number> => {
     const s = await sim();
-    const bullet = s.projectiles.spawn({ kind: 'klaedBullet', x: 0, y: 100, angle: Math.PI / 2 }, { faction: 'enemy' });
-    s.takeHit(bullet.slot);
+    s.advance(TICK_SECONDS, input());
+    s.takeHit(-Math.PI / 2);
     for (let t = 0; t < 4 * TICK_RATE; t++) {
       s.advance(TICK_SECONDS, input(), squadmateDistance);
     }

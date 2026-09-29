@@ -129,9 +129,11 @@ func (h *Hub) stepCompanionShots() {
 		from := sim.PositionAt(p, math.Max(0, p.Age-sim.TickSeconds))
 		switch p.Faction {
 		case sim.FactionEnemy:
-			if target, ok := sim.HitTargetAlong(from.X, from.Y, p.X, p.Y, companions); ok {
+			if i, direction, ok := sim.FirstShipHit(companions, from.X, from.Y, p.X, p.Y); ok {
 				p.Active = false
-				sim.TakeHit(ships[target.ID], sim.HitFrom(p))
+				sim.TakeHit(ships[i], direction)
+				// Its shield may be spent now, for the next bullet this step.
+				companions[i] = sim.TargetOf(ships[i])
 			}
 		case sim.FactionOwn, sim.FactionRemote:
 			fallthrough
@@ -167,17 +169,14 @@ func (h *Hub) enemyTargets() []sim.Target[uint32] {
 	return out
 }
 
-// companionTargets are every companion as a hit circle, with its ship by
-// the circle's id.
-func (h *Hub) companionTargets() ([]sim.Target[int], []*sim.Ship) {
-	var targets []sim.Target[int]
+// companionTargets are every companion as enemy bullets meet it, with its
+// ship at the same index.
+func (h *Hub) companionTargets() ([]sim.ShipTarget, []*sim.Ship) {
+	var targets []sim.ShipTarget
 	var ships []*sim.Ship
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
 		for _, c := range h.members[id].wing.Companions {
-			targets = append(
-				targets,
-				sim.Target[int]{ID: len(ships), X: c.Ship.X, Y: c.Ship.Y, Radius: sim.ShipRadius},
-			)
+			targets = append(targets, sim.TargetOf(c.Ship))
 			ships = append(ships, c.Ship)
 		}
 	}

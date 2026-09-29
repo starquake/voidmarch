@@ -113,6 +113,18 @@ export interface Target<Id> {
   radius: number;
 }
 
+/** A ship as enemy bullets meet it: a charged shield's arc, then the hull. */
+export interface ShipTarget<Id> {
+  id: Id;
+  x: number;
+  y: number;
+  /** Facing in radians, which the shield's arc is centered on. */
+  angle: number;
+  shield: ShieldId;
+  /** The shield's charges left. */
+  charges: number;
+}
+
 /** The exports of cmd/simwasm. */
 interface Exports {
   memory?: WebAssembly.Memory;
@@ -129,7 +141,8 @@ interface Exports {
     fire: number,
     squadmateDistance: number,
   ): void;
-  takeHit(slot: number): number;
+  takeHit(from: number): number;
+  shipScan(stepSeconds: number, n: number): number;
   setControlMode(screen: number): void;
   placeShip(x: number, y: number): void;
   setLoadout(weapon: number, engine: number, shield: number): void;
@@ -149,8 +162,7 @@ export interface GoRuntime {
   run(instance: WebAssembly.Instance): Promise<void>;
 }
 
-/** Scratch holds MaxTargets targets of three numbers, the largest use. */
-const SCRATCH_SIZE = LAYOUT.maxTargets * 3;
+const SCRATCH_SIZE = LAYOUT.scratchSize;
 const PATTERN_SIZE = 4;
 
 const at = <T>(list: readonly T[], i: number, fallback: T): T => list[i] ?? fallback;
@@ -227,9 +239,9 @@ export class Sandbox {
     return this.read();
   }
 
-  /** Applies the hit of the projectile in slot to the ship; true when the shield took it. */
-  takeHit(slot: number): boolean {
-    const absorbed = this.exports.takeHit(slot) !== 0;
+  /** Applies a hit on the ship from direction from, as shipScan reports it; true when the shield took it. */
+  takeHit(from: number): boolean {
+    const absorbed = this.exports.takeHit(from) !== 0;
     this.read();
 
     return absorbed;
@@ -292,6 +304,43 @@ export class Sandbox {
       const target = targets[index];
       if (projectile !== undefined && target !== undefined) {
         out.push({ projectile, target });
+      }
+    }
+
+    return out;
+  }
+
+  /**
+   * Tests every enemy bullet along the path it flew in the last stepSeconds
+   * against the ships, a charged shield's arc before the hull, and ends the
+   * ones that hit. Returns what hit which ship, and the direction of the
+   * contact from it, for takeHit.
+   */
+  shipScan<Id>(
+    stepSeconds: number,
+    ships: readonly ShipTarget<Id>[],
+  ): { projectile: Projectile; ship: ShipTarget<Id>; from: number }[] {
+    const n = Math.min(ships.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const s = ships[i];
+      if (s !== undefined) {
+        scratch.set([s.x, s.y, s.angle, SHIELDS.indexOf(s.shield), s.charges], i * LAYOUT.shipTargetSize);
+      }
+    }
+    const count = this.exports.shipScan(stepSeconds, n);
+    if (count === 0) {
+      return [];
+    }
+    const triples = new Float64Array(this.memory(), this.exports.hitsPointer(), count * 3);
+    const hits = Array.from({ length: count }, (_, i) => [triples[i * 3] ?? -1, triples[i * 3 + 1] ?? -1, triples[i * 3 + 2] ?? 0] as const);
+    this.read();
+    const out: { projectile: Projectile; ship: ShipTarget<Id>; from: number }[] = [];
+    for (const [slot, index, from] of hits) {
+      const projectile = this.projectiles.items[slot];
+      const ship = ships[index];
+      if (projectile !== undefined && ship !== undefined) {
+        out.push({ projectile, ship, from });
       }
     }
 

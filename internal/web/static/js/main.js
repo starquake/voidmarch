@@ -144,7 +144,6 @@ var TICK_SECONDS = 1 / TICK_RATE;
 var WORLD_HALF_SIZE = 2e3;
 var WORLD_EDGE_BAND = 200;
 var SAFE_ZONE_RADIUS = 300;
-var SHIP_RADIUS = 12;
 var SHIELD_STATS = {
   front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
   frontAndSide: { coverage: 3.141592653589793, strength: 2, recharge: 5 },
@@ -254,7 +253,9 @@ var LAYOUT = {
   expiredX: 2,
   expiredY: 3,
   stateSize: 3160,
-  maxTargets: 128
+  maxTargets: 128,
+  shipTargetSize: 5,
+  scratchSize: 640
 };
 
 // src/sim/loadout.ts
@@ -835,7 +836,7 @@ function saveLastSquadron(name, store = browserStorage()) {
 }
 
 // src/simwasm.ts
-var SCRATCH_SIZE = LAYOUT.maxTargets * 3;
+var SCRATCH_SIZE = LAYOUT.scratchSize;
 var PATTERN_SIZE = 4;
 var at = (list, i, fallback) => list[i] ?? fallback;
 async function instantiate(bytes, go) {
@@ -895,9 +896,9 @@ var Sandbox = class {
     this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance);
     return this.read();
   }
-  /** Applies the hit of the projectile in slot to the ship; true when the shield took it. */
-  takeHit(slot) {
-    const absorbed = this.exports.takeHit(slot) !== 0;
+  /** Applies a hit on the ship from direction from, as shipScan reports it; true when the shield took it. */
+  takeHit(from) {
+    const absorbed = this.exports.takeHit(from) !== 0;
     this.read();
     return absorbed;
   }
@@ -950,6 +951,38 @@ var Sandbox = class {
       const target = targets[index];
       if (projectile !== void 0 && target !== void 0) {
         out.push({ projectile, target });
+      }
+    }
+    return out;
+  }
+  /**
+   * Tests every enemy bullet along the path it flew in the last stepSeconds
+   * against the ships, a charged shield's arc before the hull, and ends the
+   * ones that hit. Returns what hit which ship, and the direction of the
+   * contact from it, for takeHit.
+   */
+  shipScan(stepSeconds, ships) {
+    const n = Math.min(ships.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const s = ships[i];
+      if (s !== void 0) {
+        scratch.set([s.x, s.y, s.angle, SHIELDS.indexOf(s.shield), s.charges], i * LAYOUT.shipTargetSize);
+      }
+    }
+    const count = this.exports.shipScan(stepSeconds, n);
+    if (count === 0) {
+      return [];
+    }
+    const triples = new Float64Array(this.memory(), this.exports.hitsPointer(), count * 3);
+    const hits = Array.from({ length: count }, (_, i) => [triples[i * 3] ?? -1, triples[i * 3 + 1] ?? -1, triples[i * 3 + 2] ?? 0]);
+    this.read();
+    const out = [];
+    for (const [slot, index, from] of hits) {
+      const projectile = this.projectiles.items[slot];
+      const ship = ships[index];
+      if (projectile !== void 0 && ship !== void 0) {
+        out.push({ projectile, ship, from });
       }
     }
     return out;
@@ -2218,6 +2251,7 @@ var NetPlay = class {
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
+      remote.drawn = ship;
       if (ship === void 0) {
         continue;
       }
@@ -2348,10 +2382,16 @@ var NetPlay = class {
       radius: ENEMY_RADIUS[e.view.kind]
     }));
     const { sim } = this.options;
+    const { ship } = sim;
     const ships = [
-      { id: -1, x: sim.ship.x, y: sim.ship.y, radius: SHIP_RADIUS },
-      ...[...this.remotes.values()].map((r, i) => ({ id: i, x: r.view.root.x, y: r.view.root.y, radius: SHIP_RADIUS }))
+      { id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield }
     ];
+    for (const r of this.remotes.values()) {
+      const s = r.drawn;
+      if (s !== void 0) {
+        ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
+      }
+    }
     for (const { projectile: p, target } of sim.hitScan("own", stepSeconds, targets)) {
       if (!isWeapon(p.kind)) {
         continue;
@@ -2361,10 +2401,10 @@ var NetPlay = class {
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
     }
-    for (const { projectile: p, target } of sim.hitScan("enemy", stepSeconds, ships)) {
+    for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
       if (target.id === -1) {
         this.hitsTaken++;
-        sim.takeHit(p.slot);
+        sim.takeHit(from);
         frame.hitsOnMe.push({ x: p.x, y: p.y });
       } else {
         frame.enemyHits.push({ x: p.x, y: p.y });
@@ -2506,7 +2546,8 @@ var NetPlay = class {
       name,
       colour,
       ownerId,
-      squadron
+      squadron,
+      drawn: void 0
     };
     this.remotes.set(id, remote);
     return remote;
