@@ -690,7 +690,12 @@ type Hit struct {
 	// a companion set is ignored.
 	//
 	// Deprecated: Marked as deprecated in voidmarch/v1/messages.proto.
-	Companion     uint32 `protobuf:"varint,4,opt,name=companion,proto3" json:"companion,omitempty"`
+	Companion uint32 `protobuf:"varint,4,opt,name=companion,proto3" json:"companion,omitempty"`
+	// The shard of the shot's burst that hit, from 1; 0 for the shot itself
+	// (#72).
+	Shard uint32 `protobuf:"varint,5,opt,name=shard,proto3" json:"shard,omitempty"`
+	// Set when a piercing shot carries on through: the hub doesn't end it.
+	GoesOn        bool `protobuf:"varint,6,opt,name=goes_on,json=goesOn,proto3" json:"goes_on,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -752,6 +757,20 @@ func (x *Hit) GetCompanion() uint32 {
 		return x.Companion
 	}
 	return 0
+}
+
+func (x *Hit) GetShard() uint32 {
+	if x != nil {
+		return x.Shard
+	}
+	return 0
+}
+
+func (x *Hit) GetGoesOn() bool {
+	if x != nil {
+		return x.GoesOn
+	}
+	return false
 }
 
 // Summon asks for a companion seat (docs/design.md, section 13).
@@ -2153,10 +2172,13 @@ func (x *EnemyDestroyed) GetY() float32 {
 // ShotEnded removes a player's shot everywhere once it hit something, at the
 // server tick the hit arrived, so clients end it on their delayed timeline.
 type ShotEnded struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	PlayerId      string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	ShotId        uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
-	Tick          uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	PlayerId string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
+	ShotId   uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
+	Tick     uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	// The shard of the shot's burst that ended, from 1; 0 for the shot itself
+	// (#72).
+	Shard         uint32 `protobuf:"varint,4,opt,name=shard,proto3" json:"shard,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2208,6 +2230,13 @@ func (x *ShotEnded) GetShotId() uint32 {
 func (x *ShotEnded) GetTick() uint32 {
 	if x != nil {
 		return x.Tick
+	}
+	return 0
+}
+
+func (x *ShotEnded) GetShard() uint32 {
+	if x != nil {
+		return x.Shard
 	}
 	return 0
 }
@@ -2837,12 +2866,14 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01x\x18\x04 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x05 \x01(\x02R\x01y\x12\x14\n" +
 	"\x05angle\x18\x06 \x01(\x02R\x05angle\x12\x1c\n" +
-	"\tcompanion\x18\a \x01(\rR\tcompanion\"s\n" +
+	"\tcompanion\x18\a \x01(\rR\tcompanion\"\xa2\x01\n" +
 	"\x03Hit\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12\x17\n" +
 	"\ashot_id\x18\x02 \x01(\rR\x06shotId\x12\x16\n" +
 	"\x06damage\x18\x03 \x01(\rR\x06damage\x12 \n" +
-	"\tcompanion\x18\x04 \x01(\rB\x02\x18\x01R\tcompanion\"\b\n" +
+	"\tcompanion\x18\x04 \x01(\rB\x02\x18\x01R\tcompanion\x12\x14\n" +
+	"\x05shard\x18\x05 \x01(\rR\x05shard\x12\x17\n" +
+	"\agoes_on\x18\x06 \x01(\bR\x06goesOn\"\b\n" +
 	"\x06Summon\"a\n" +
 	"\x0eCompanionState\x12\x1c\n" +
 	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12-\n" +
@@ -2947,11 +2978,12 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"byPlayerId\x12\x12\n" +
 	"\x04tick\x18\x04 \x01(\rR\x04tick\x12\f\n" +
 	"\x01x\x18\x05 \x01(\x02R\x01x\x12\f\n" +
-	"\x01y\x18\x06 \x01(\x02R\x01y\"U\n" +
+	"\x01y\x18\x06 \x01(\x02R\x01y\"k\n" +
 	"\tShotEnded\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x17\n" +
 	"\ashot_id\x18\x02 \x01(\rR\x06shotId\x12\x12\n" +
-	"\x04tick\x18\x03 \x01(\rR\x04tick\"j\n" +
+	"\x04tick\x18\x03 \x01(\rR\x04tick\x12\x14\n" +
+	"\x05shard\x18\x04 \x01(\rR\x05shard\"j\n" +
 	"\n" +
 	"RemoteShot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +

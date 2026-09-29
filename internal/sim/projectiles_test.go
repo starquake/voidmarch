@@ -199,3 +199,157 @@ func TestPool_EnemyBullets(t *testing.T) {
 		t.Errorf("ProjectileStatsOf(big bullet) = %+v, want %+v", got, want)
 	}
 }
+
+// rocketAt is a rocket in flight at the origin heading +x.
+func rocketAt(pool *Pool) *Projectile {
+	return pool.Spawn(
+		ProjectileSpawn{Kind: ProjectileKind(WeaponRockets)},
+		SpawnOptions{AgeSeconds: 0.5},
+	)
+}
+
+func TestSteer_TurnsTowardTheNearestEnemyAhead(t *testing.T) {
+	t.Parallel()
+
+	seek := WeaponStatsOf(WeaponRockets).Seek
+	for _, tc := range []struct {
+		name   string
+		target Vec
+		turned bool
+	}{
+		{name: "ahead and to the left", target: Vec{X: 200, Y: -100}, turned: true},
+		{name: "outside the cone", target: Vec{X: -100, Y: 50}},
+		{name: "out of range", target: Vec{X: seek.Range + 300, Y: 50}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			pool := NewPool(4)
+			r := rocketAt(pool)
+			start := Vec{X: r.X, Y: r.Y}
+			pool.Steer(
+				TickSeconds,
+				FactionOwn,
+				[]Vec{{X: start.X + tc.target.X, Y: start.Y + tc.target.Y}},
+			)
+			if turned := r.Angle != 0; turned != tc.turned {
+				t.Errorf("angle %v, turned %v, want %v", r.Angle, turned, tc.turned)
+			}
+			if tc.turned && math.Abs(r.Angle) > seek.TurnRate*TickSeconds+1e-9 {
+				t.Errorf("turned %v in a tick, want at most %v", r.Angle, seek.TurnRate*TickSeconds)
+			}
+			if r.X != start.X || r.Y != start.Y {
+				t.Errorf("steering moved it from %v to (%v, %v)", start, r.X, r.Y)
+			}
+		})
+	}
+}
+
+func TestSteer_ARocketHomesIn(t *testing.T) {
+	t.Parallel()
+
+	pool := NewPool(4)
+	r := rocketAt(pool)
+	target := Vec{X: r.X + 250, Y: r.Y + 120}
+	closest := math.Inf(1)
+	for range 60 {
+		pool.Steer(TickSeconds, FactionOwn, []Vec{target})
+		pool.Step(TickSeconds, func(float64, float64) bool { return true })
+		closest = math.Min(closest, math.Hypot(r.X-target.X, r.Y-target.Y))
+	}
+	if closest > 15 {
+		t.Errorf("came within %v of a still target, want a hit (within 15)", closest)
+	}
+}
+
+func TestSteer_OnlySeekersOfTheFaction(t *testing.T) {
+	t.Parallel()
+
+	pool := NewPool(4)
+	cannon := pool.Spawn(ProjectileSpawn{Kind: ProjectileKind(WeaponAutoCannon)}, SpawnOptions{})
+	remote := pool.Spawn(
+		ProjectileSpawn{Kind: ProjectileKind(WeaponRockets)},
+		SpawnOptions{Faction: FactionRemote},
+	)
+	pool.Steer(TickSeconds, FactionOwn, []Vec{{X: 100, Y: -50}})
+	if cannon.Angle != 0 || remote.Angle != 0 {
+		t.Errorf(
+			"angles %v, %v, want an auto cannon shot and another faction's rocket left straight",
+			cannon.Angle,
+			remote.Angle,
+		)
+	}
+}
+
+func TestBurstPattern(t *testing.T) {
+	t.Parallel()
+
+	seed := BurstSeed("sanne", 7)
+	a := BurstPattern(WeaponBigSpaceGun, 10, 20, seed)
+	b := BurstPattern(WeaponBigSpaceGun, 10, 20, seed)
+	burst := WeaponStatsOf(WeaponBigSpaceGun).Burst
+	if len(a) != burst.Shards {
+		t.Fatalf("%d shards, want %d", len(a), burst.Shards)
+	}
+	step := Tau / float64(burst.Shards)
+	for k := range a {
+		if a[k] != b[k] {
+			t.Errorf("shard %d differs for one seed: %+v, %+v", k, a[k], b[k])
+		}
+		if a[k].Kind != ProjectileShard || a[k].X != 10 || a[k].Y != 20 {
+			t.Errorf("shard %d = %+v, want a shard from (10, 20)", k, a[k])
+		}
+		if k > 0 && math.Abs(a[k].Angle-a[k-1].Angle-step) > 1e-9 {
+			t.Errorf(
+				"shards %d and %d are %v apart, want %v",
+				k-1,
+				k,
+				a[k].Angle-a[k-1].Angle,
+				step,
+			)
+		}
+	}
+	other := BurstPattern(WeaponBigSpaceGun, 10, 20, BurstSeed("sanne", 8))
+	if other[0].Angle == a[0].Angle {
+		t.Error("another shot's star is turned the same")
+	}
+	if got := BurstPattern(WeaponZapper, 0, 0, seed); got != nil {
+		t.Errorf("a zapper bursts into %v, want nothing", got)
+	}
+}
+
+func TestProjectile_Hit(t *testing.T) {
+	t.Parallel()
+
+	pool := NewPool(4)
+	zap := pool.Spawn(ProjectileSpawn{Kind: ProjectileKind(WeaponZapper)}, SpawnOptions{})
+	pierce := WeaponStatsOf(WeaponZapper).Pierce
+	for i := range pierce {
+		if !zap.Hit(i + 1) {
+			t.Fatalf("hit %d ended the zapper shot, want it to carry on", i+1)
+		}
+	}
+	if !zap.HasHit(1) || zap.HasHit(99) {
+		t.Error("HasHit doesn't remember the enemies it hit")
+	}
+	if zap.Hit(pierce+1) || zap.Active {
+		t.Errorf("hit %d carried on, want the last one to end it", pierce+1)
+	}
+
+	cannon := pool.Spawn(ProjectileSpawn{Kind: ProjectileKind(WeaponAutoCannon)}, SpawnOptions{})
+	if cannon.Hit(1) || cannon.Active {
+		t.Error("an auto cannon shot carried on through an enemy")
+	}
+}
+
+func TestShotDamage(t *testing.T) {
+	t.Parallel()
+
+	want := WeaponStatsOf(WeaponBigSpaceGun).Burst.Damage
+	if got := ShotDamage(ProjectileShard); got != want {
+		t.Errorf("shard damage = %v, want %v", got, want)
+	}
+	if got, want := ShotDamage(ProjectileKind(WeaponRockets)), 3.0; got != want {
+		t.Errorf("rocket damage = %v, want %v", got, want)
+	}
+}

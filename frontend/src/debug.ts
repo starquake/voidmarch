@@ -25,6 +25,8 @@ export interface DebugState {
   /** Whether enemy bullets glow (#36); it follows the effects toggle. */
   enemyFireGlow: boolean;
   projectiles: number;
+  /** This player's own burst shards in flight (#72). */
+  ownShards: number;
   shotsFired: number;
   zoom: number;
   fps: number;

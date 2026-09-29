@@ -167,7 +167,10 @@ func withinReach(p point, companions []point) bool {
 // shots that hit an enemy count, and enemy bullets that hit a companion
 // wear its shield or hull.
 func (h *Hub) stepCompanionShots() {
-	h.shots.Step(sim.TickSeconds, sim.ProjectileInBounds)
+	h.shots.Steer(sim.TickSeconds, sim.FactionOwn, h.enemyPoints())
+	for _, p := range h.shots.Step(sim.TickSeconds, sim.ProjectileInBounds) {
+		h.burst(p)
+	}
 	enemies := h.enemyTargets()
 	companions, ships := h.companionTargets()
 	items := h.shots.Items()
@@ -188,16 +191,45 @@ func (h *Hub) stepCompanionShots() {
 		case sim.FactionOwn, sim.FactionRemote:
 			fallthrough
 		default:
-			if target, ok := sim.HitTargetAlong(from.X, from.Y, p.X, p.Y, enemies); ok {
-				p.Active = false
-				damage := sim.WeaponStatsOf(sim.WeaponID(p.Kind)).Damage
-				shotID := uint32(p.ShotID) //nolint:gosec // shot ids count up from 1.
-				h.hit("", p.Owner, target.ID, shotID, uint32(damage))
-				// The enemy may be gone now: test the rest against the ones left.
-				enemies = h.enemyTargets()
+			skip := func(id uint32) bool { return p.HasHit(int(id)) }
+			target, ok := sim.HitTargetAlongExcept(from.X, from.Y, p.X, p.Y, enemies, skip)
+			if !ok {
+				continue
 			}
+			goesOn := p.Hit(int(target.ID))
+			//nolint:gosec // shot ids count up from 1, shards from 1 to a burst's size.
+			shot := shotHit{id: uint32(p.ShotID), shard: uint32(p.Shard), goesOn: goesOn}
+			h.hit("", p.Owner, target.ID, shot, uint32(sim.ShotDamage(p.Kind)))
+			if !goesOn {
+				h.burst(p)
+			}
+			// The enemy may be gone now: test the rest against the ones left.
+			enemies = h.enemyTargets()
 		}
 	}
+}
+
+// burst scatters the star of a companion's big space gun ball where it
+// ended, as every client does for the same shot (#72).
+func (h *Hub) burst(p *sim.Projectile) {
+	if p.Faction != sim.FactionOwn || !sim.IsWeapon(p.Kind) {
+		return
+	}
+	seed := sim.BurstSeed(p.Owner, p.ShotID)
+	for k, shard := range sim.BurstPattern(sim.WeaponID(p.Kind), p.X, p.Y, seed) {
+		h.shots.Spawn(shard, sim.SpawnOptions{Owner: p.Owner, ShotID: p.ShotID, Shard: k + 1}).
+			SkipHitsOf(p)
+	}
+}
+
+// enemyPoints are where the enemies are, for seeking shots.
+func (h *Hub) enemyPoints() []sim.Vec {
+	out := make([]sim.Vec, 0, len(h.enemies))
+	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
+		out = append(out, sim.Vec{X: h.enemies[id].x, Y: h.enemies[id].y})
+	}
+
+	return out
 }
 
 // enemyTargets are the enemies as hit circles.

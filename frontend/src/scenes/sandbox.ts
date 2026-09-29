@@ -64,6 +64,8 @@ const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
 const HIT_SPARKS = 5;
 /** HUD text size and margin in CSS pixels; scaled to device pixels on resize. */
+/** A burst's shards are the auto cannon's shot in this gold (#72). */
+const SHARD_TINT = 0xffd27a;
 const HUD_FONT_PX = 12;
 const HUD_MARGIN_PX = 8;
 /** The "You're down" panel (#47): its text size, padding and height on screen, in CSS pixels and a fraction of the height. */
@@ -203,6 +205,7 @@ export class SandboxScene extends Phaser.Scene {
       controlMode: this.sim.controlMode,
       effects: this.effects,
       projectiles: 0,
+      ownShards: 0,
       shotsFired: 0,
       zoom: 1,
       fps: 0,
@@ -236,6 +239,7 @@ export class SandboxScene extends Phaser.Scene {
 
   override update(time: number, deltaMs: number): void {
     const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
+    this.burstExpired(events);
     const net = this.net?.update(events);
     this.drawShip(events);
     this.countRevive();
@@ -319,7 +323,9 @@ export class SandboxScene extends Phaser.Scene {
   private stepHidden(deltaMs: number): void {
     const { pointerX, pointerY } = this.readInput();
     const idle = { up: false, down: false, left: false, right: false, pointerX, pointerY, fire: false };
-    this.net?.update(this.sim.advance(deltaMs / 1000, idle, this.net.squadmateDistance, this.net.friendDistance));
+    const events = this.sim.advance(deltaMs / 1000, idle, this.net?.squadmateDistance, this.net?.friendDistance);
+    this.burstExpired(events);
+    this.net?.update(events);
     this.publish();
   }
 
@@ -803,6 +809,15 @@ export class SandboxScene extends Phaser.Scene {
     this.ship.weapon.setFrame(this.weaponFrames.frame(now));
   }
 
+  /** Our own big space gun balls that ran out burst into their star, as on every screen (#72). */
+  private burstExpired(events: FrameEvents): void {
+    for (const e of events.expired) {
+      if (e.faction === 'own' && e.kind === 'bigSpaceGun') {
+        this.sim.burst(e.kind, 'own', e.x, e.y, e.shotId, this.net?.playerId ?? '');
+      }
+    }
+  }
+
   private drawProjectiles(): void {
     this.sim.projectiles.items.forEach((p, i) => {
       const sprite = this.projectileSprites[i];
@@ -814,7 +829,12 @@ export class SandboxScene extends Phaser.Scene {
         return;
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
-      sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
+      if (p.kind === 'shard') {
+        // A burst's shard: the auto cannon's shot, recolored gold (#72).
+        sprite.play(keys.projectile('autoCannon'), true).setTint(SHARD_TINT);
+      } else {
+        sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true).clearTint();
+      }
       // Pooled sprites carry every faction in turn: move each to its layer.
       const layer = p.faction === 'enemy' ? this.enemyFire : this.world;
       if (sprite.displayList !== layer) {
@@ -938,6 +958,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.effects = this.effects;
     this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
+    this.debug.ownShards = projectiles.items.filter((p) => p.active && p.faction === 'own' && p.kind === 'shard').length;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;

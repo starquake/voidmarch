@@ -19,12 +19,25 @@ func HitTarget[ID any](x, y float64, targets []Target[ID]) (Target[ID], bool) {
 // (x0, y0) to (x1, y1), so a fast shot can't skip past a small target between
 // two checks.
 func HitTargetAlong[ID any](x0, y0, x1, y1 float64, targets []Target[ID]) (Target[ID], bool) {
+	return HitTargetAlongExcept(x0, y0, x1, y1, targets, nil)
+}
+
+// HitTargetAlongExcept is HitTargetAlong leaving out the targets skip names,
+// such as the enemies a piercing shot already went through.
+func HitTargetAlongExcept[ID any](
+	x0, y0, x1, y1 float64,
+	targets []Target[ID],
+	skip func(ID) bool,
+) (Target[ID], bool) {
 	dx, dy := x1-x0, y1-y0
 	lengthSquared := dx*dx + dy*dy
 	var first Target[ID]
 	found := false
 	firstAlong := math.Inf(1)
 	for _, t := range targets {
+		if skip != nil && skip(t.ID) {
+			continue
+		}
 		var along float64
 		if lengthSquared != 0 {
 			along = Clamp(((t.X-x0)*dx+(t.Y-y0)*dy)/lengthSquared, 0, 1)

@@ -108,6 +108,21 @@ func hitsPointer() int32 {
 	return int32(uintptr(unsafe.Pointer(&bridge.Hits[0])))
 }
 
+//go:wasmexport steer
+func steer(faction int32, stepSeconds float64, n int32) {
+	bridge.Steer(int(faction), stepSeconds, int(n))
+}
+
+//go:wasmexport burstSeed
+func burstSeed(n, shotID int32) uint32 {
+	return bridge.BurstSeed(int(n), int(shotID))
+}
+
+//go:wasmexport burst
+func burst(weapon, faction int32, x, y float64, shotID int32, seed uint32, from int32) int32 {
+	return int32(bridge.Burst(int(weapon), int(faction), x, y, int(shotID), seed, int(from)))
+}
+
 //go:wasmexport shipScan
 func shipScan(stepSeconds float64, n int32) int32 {
 	return int32(bridge.ShipScan(stepSeconds, int(n)))

@@ -149,7 +149,7 @@ func (h *Hub) rammed(target, other *bumper, c sim.Contact) {
 		sim.TakeHit(target.ship, c.From())
 	case target.enemy != nil && other.seat != "":
 		if _, alive := h.enemies[target.enemy.id]; alive {
-			h.hit("", other.seat, target.enemy.id, 0, sim.RammingDamage)
+			h.hit("", other.seat, target.enemy.id, shotHit{}, sim.RammingDamage)
 		}
 	default:
 		// Players count their own rams, and enemies don't hurt each other.

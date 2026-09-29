@@ -32,12 +32,13 @@ import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
 import type { WeaponId } from '../sim/loadout.ts';
-import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn } from '../simwasm.ts';
+import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn, type Target } from '../simwasm.ts';
 import {
   ENEMY_SOUND_RANGE,
   ENEMY_VOLLEY_RANGE,
   MAX_DAMAGE,
   RAM_DAMAGE,
+  SHARD_DAMAGE,
   SAFE_ZONE_RADIUS,
   SHIP_RADIUS,
   TICK_SECONDS,
@@ -113,6 +114,8 @@ interface Enemy {
 interface ShotEnd {
   owner: string;
   shotId: number;
+  /** A shard of its burst, from 1; 0 for the shot itself (#72). */
+  shard: number;
 }
 
 /** An enemy volley, waiting for the delayed timeline. */
@@ -256,7 +259,7 @@ export class NetPlay {
           this.destructions.add(destroyed.tick, destroyed);
         },
         shotEnded: (ended) => {
-          this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
+          this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId, shard: ended.shard });
         },
         companionGranted: () => {
           // The hub flies it: it arrives in the next snapshot like any ship.
@@ -416,13 +419,27 @@ export class NetPlay {
         shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
       }
     }
+    const { sim } = this.options;
     for (const { item: ended } of this.shotEnds.due(renderTick)) {
-      this.options.sim.projectiles.end(ended.owner, ended.shotId);
+      const p = sim.projectiles.end(ended.owner, ended.shotId, ended.shard);
+      if (p?.kind === 'bigSpaceGun') {
+        sim.burst(p.kind, 'remote', p.x, p.y, p.shotId, ended.owner, p.slot);
+      }
+    }
+    // Others' big space gun balls that ran out burst where they are, as on their screens.
+    for (const e of events.expired) {
+      if (e.faction === 'remote' && e.kind === 'bigSpaceGun') {
+        sim.burst(e.kind, 'remote', e.x, e.y, e.shotId, e.owner);
+      }
     }
 
     this.drawEnemies(renderTick);
+    // Rockets seek among the enemies as drawn: ours for real, the others' for the picture (#72).
+    const stepSeconds = events.ticks * TICK_SECONDS;
+    sim.steer('own', stepSeconds, this.enemyTargets());
+    sim.steer('remote', stepSeconds, this.enemyTargets());
     this.bump(frame);
-    this.testHits(frame, events.ticks * TICK_SECONDS);
+    this.testHits(frame, stepSeconds);
 
     return frame;
   }
@@ -506,6 +523,11 @@ export class NetPlay {
     return [...this.remotes.values()].filter((r) => r.ownerId !== '' && r.ownerId === this.playerId);
   }
 
+  /** The enemies as drawn, as targets for hits and seeking shots. */
+  private enemyTargets(): Target<number>[] {
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, x: e.view.x, y: e.view.y, radius: ENEMY_RADIUS[e.view.kind] }));
+  }
+
   /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
   get squadmateDistance(): number {
     return this.nearestUp((r) => this.isSquadmate(r))?.distance ?? Infinity;
@@ -553,12 +575,7 @@ export class NetPlay {
    * frame rates don't skip hits.
    */
   private testHits(frame: NetFrame, stepSeconds: number): void {
-    const targets = [...this.enemies.entries()].map(([id, e]) => ({
-      id,
-      x: e.view.x,
-      y: e.view.y,
-      radius: ENEMY_RADIUS[e.view.kind],
-    }));
+    const targets = this.enemyTargets();
     const { sim } = this.options;
     // The player's own ship, then everyone else's as drawn.
     const { ship } = sim;
@@ -573,14 +590,18 @@ export class NetPlay {
         ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
       }
     }
-    for (const { projectile: p, target } of sim.hitScan('own', stepSeconds, targets)) {
-      if (!isWeapon(p.kind)) {
+    for (const { projectile: p, target, goesOn } of sim.hitScan('own', stepSeconds, targets)) {
+      const damage = p.kind === 'shard' ? SHARD_DAMAGE : isWeapon(p.kind) ? WEAPON_STATS[p.kind].damage : 0;
+      if (damage === 0) {
         continue;
       }
       this.lastHit = { id: target.id, atMs: now() };
-      this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+      this.connection.sendHit(target.id, p.shotId, damage, p.shard, goesOn);
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
+      if (p.kind === 'bigSpaceGun' && !goesOn) {
+        sim.burst(p.kind, 'own', p.x, p.y, p.shotId, this.playerId ?? '', p.slot);
+      }
     }
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
       if (target.id === -1) {

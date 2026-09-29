@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 	"testing"
+	"unicode/utf16"
 
 	"github.com/starquake/voidmarch/internal/sim"
 	. "github.com/starquake/voidmarch/internal/simbridge"
@@ -476,5 +477,107 @@ func TestBump_AGentleBodyOnlyPushes(t *testing.T) {
 	}
 	if b.State[HeaderShipY] >= y {
 		t.Errorf("ship y %v, want pushed up from %v", b.State[HeaderShipY], y)
+	}
+}
+
+// target writes a HitScan target into b's Scratch at index i.
+func target(b *Bridge, i int, x, y, radius float64, id int) {
+	copy(b.Scratch[i*4:], []float64{x, y, radius, float64(id)})
+}
+
+func TestHitScan_AZapperShotPierces(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	own := slices.Index(Factions(), sim.FactionOwn)
+	zapper := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.WeaponZapper))
+	slot := b.Spawn(zapper, own, 0, 0, 0, 0.2, 0)
+	// Three enemies in a row along its path, and a fourth.
+	for i, id := range []int{11, 12, 13, 14} {
+		target(b, i, 0, 0, 200, id)
+	}
+	var carriesOn []float64
+	for range 4 {
+		if b.HitScan(own, 0.2, 4) == 1 {
+			carriesOn = append(carriesOn, b.Hits[2])
+		}
+	}
+	if !slices.Equal(carriesOn, []float64{1, 1, 0}) {
+		t.Errorf("zapper hits carried on %v, want through two and ending on the third", carriesOn)
+	}
+	if b.State[PoolOffset+slot*ProjectileSize+ProjectileActive] != 0 {
+		t.Error("the zapper shot is still flying after its last pierce")
+	}
+}
+
+func TestSteer_ARocketTurns(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	own := slices.Index(Factions(), sim.FactionOwn)
+	rocket := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.WeaponRockets))
+	slot := b.Spawn(rocket, own, 0, 0, 0, 0, 0)
+	target(b, 0, 200, -100, 10, 1)
+	b.Steer(own, sim.TickSeconds, 1)
+	if angle := b.State[PoolOffset+slot*ProjectileSize+ProjectileAngle]; angle >= 0 {
+		t.Errorf(
+			"rocket angle %v after steering toward an enemy up and ahead, want turned up (negative)",
+			angle,
+		)
+	}
+	b.Steer(99, sim.TickSeconds, 1)
+}
+
+func TestBurst(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	for i, r := range utf16.Encode([]rune("sanne")) {
+		b.Scratch[i] = float64(r)
+	}
+	seed := b.BurstSeed(5, 7)
+	if want := sim.BurstSeed("sanne", 7); seed != want {
+		t.Fatalf("BurstSeed() = %d, want %d, the sim's", seed, want)
+	}
+	gun := slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun)
+	remote := slices.Index(Factions(), sim.FactionRemote)
+	n := b.Burst(gun, remote, 10, 20, 7, seed, -1)
+	if n != sim.WeaponStatsOf(sim.WeaponBigSpaceGun).Burst.Shards {
+		t.Fatalf("Burst() = %d shards, want the gun's", n)
+	}
+	for k := range n {
+		at := b.State[PoolOffset+int(b.Scratch[k])*ProjectileSize:]
+		if at[ProjectileActive] != 1 || at[ProjectileShotID] != 7 ||
+			at[ProjectileShard] != float64(k+1) {
+			t.Errorf(
+				"shard %d in slot %v: %v, want active, shot 7, shard %d",
+				k,
+				b.Scratch[k],
+				at[:ProjectileSize],
+				k+1,
+			)
+		}
+	}
+	if b.Burst(99, remote, 0, 0, 1, seed, -1) != 0 {
+		t.Error("an unknown weapon burst")
+	}
+}
+
+func TestBurst_ShardsPassTheEnemyTheBallHit(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	own := slices.Index(Factions(), sim.FactionOwn)
+	gun := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.WeaponBigSpaceGun))
+	ball := b.Spawn(gun, own, 0, 0, 0, 0.1, 0)
+	target(b, 0, 0, 0, 40, 5)
+	if b.HitScan(own, 0.1, 1) != 1 {
+		t.Fatal("the ball missed the enemy it sits in")
+	}
+	b.Burst(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), own, 0, 0, 1, 1, ball)
+	b.Advance(sim.TickSeconds, sim.Command{}, sim.NoSquadmate, sim.NoSquadmate)
+	target(b, 0, 0, 0, 40, 5)
+	if hits := b.HitScan(own, sim.TickSeconds, 1); hits != 0 {
+		t.Errorf("%d shards hit the enemy the ball struck, want none: they fly out past it", hits)
 	}
 }

@@ -9,7 +9,7 @@ export const SHIELDS = ['front', 'frontAndSide', 'round', 'invincibility'] as co
 /** Enemy classes in index order, matching the server's EnemyKind. */
 export const ENEMY_KINDS = ['scout', 'fighter'] as const;
 /** Projectile kinds in index order: the weapons, then the enemy bullets. */
-export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet'] as const;
+export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet', 'shard'] as const;
 /** Factions in index order: this player's, another player's, an enemy's. */
 export const FACTIONS = ['own', 'remote', 'enemy'] as const;
 
@@ -37,6 +37,7 @@ export const HOME_SPAWN_Y = 160;
 export const BRAIN_SPACING = 40;
 export const RAM_DAMAGE = 2;
 export const RAM_SPEED = 120;
+export const SHARD_DAMAGE = 2;
 
 export const SHIELD_STATS = {
   front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
@@ -64,9 +65,9 @@ export const WEAPON_STATS = {
     shake: 0,
   },
   rockets: {
-    interval: 0.32,
+    interval: 0.4,
     charge: 0,
-    damage: 4,
+    damage: 3,
     speed: 140,
     lifetime: 1.5,
     muzzles: [{ forward: 7, right: -12 }, { forward: 7, right: 12 }],
@@ -130,7 +131,7 @@ export const LAYOUT = {
   expired: 20,
   projectileCapacity: 256,
   poolOffset: 25,
-  projectileSize: 8,
+  projectileSize: 9,
   projectileActive: 0,
   projectileKind: 1,
   projectileFaction: 2,
@@ -139,7 +140,8 @@ export const LAYOUT = {
   projectileAngle: 5,
   projectileAge: 6,
   projectileShotId: 7,
-  shotsOffset: 2073,
+  projectileShard: 8,
+  shotsOffset: 2329,
   shotSize: 6,
   shotId: 0,
   shotWeapon: 1,
@@ -147,15 +149,18 @@ export const LAYOUT = {
   shotX: 3,
   shotY: 4,
   shotAngle: 5,
-  chargesOffset: 2133,
-  expiredOffset: 2138,
-  expiredSize: 4,
+  chargesOffset: 2389,
+  expiredOffset: 2394,
+  expiredSize: 6,
   expiredKind: 0,
   expiredFaction: 1,
   expiredX: 2,
   expiredY: 3,
-  stateSize: 3162,
+  expiredShotId: 4,
+  expiredSlot: 5,
+  stateSize: 3930,
   maxTargets: 128,
+  targetSize: 4,
   shipTargetSize: 5,
   bumpSize: 8,
   scratchSize: 1024,

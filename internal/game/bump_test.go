@@ -126,3 +126,26 @@ func TestBump_ARamHitHasNoShotToEnd(t *testing.T) {
 		t.Error("three rams didn't destroy the enemy; want them to count")
 	}
 }
+
+func TestHit_PiercingAndShards(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithEnemyAt(0, 700))
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
+	latest(t, a, tick, 1, 0, 700)
+	hit := func(h *pb.Hit) { a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Hit{Hit: h}}) }
+	// A zapper shot carrying on through, then a burst's third shard.
+	hit(&pb.Hit{EnemyId: 1, ShotId: 5, Damage: 1, GoesOn: true})
+	hit(&pb.Hit{EnemyId: 1, ShotId: 6, Shard: 3, Damage: 1})
+	_, messages := latest(t, b, tick, 2, 0, 180)
+	var ended []*pb.ShotEnded
+	for _, msg := range messages {
+		if e := msg.GetShotEnded(); e != nil {
+			ended = append(ended, e)
+		}
+	}
+	if len(ended) != 1 || ended[0].GetShotId() != 6 || ended[0].GetShard() != 3 {
+		t.Errorf("shots ended = %v, want only shot 6's shard 3", ended)
+	}
+}

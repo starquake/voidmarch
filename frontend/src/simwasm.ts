@@ -67,6 +67,8 @@ export interface Projectile {
   /** The remote player or enemy it belongs to; empty for own shots. */
   readonly owner: string;
   readonly shotId: number;
+  /** A burst's shard number, from 1; 0 for any other projectile (#72). */
+  readonly shard: number;
   readonly x: number;
   readonly y: number;
   readonly angle: number;
@@ -108,7 +110,8 @@ export interface FrameEvents {
   /** Weapons whose charge started this frame. */
   charges: WeaponId[];
   shots: FiredShot[];
-  expired: { kind: ProjectileKind; faction: Faction; x: number; y: number }[];
+  /** Projectiles that ran out, with the shot and owner a burst is seeded from (#72). */
+  expired: { kind: ProjectileKind; faction: Faction; x: number; y: number; shotId: number; owner: string }[];
 }
 
 /** Something a projectile can hit: a circle in world space. */
@@ -176,6 +179,9 @@ interface Exports {
   clear(faction: number): void;
   hitsPointer(): number;
   hitScan(faction: number, stepSeconds: number, n: number): number;
+  steer(faction: number, stepSeconds: number, n: number): void;
+  burstSeed(n: number, shotId: number): number;
+  burst(weapon: number, faction: number, x: number, y: number, shotId: number, seed: number, from: number): number;
   bump(n: number): number;
   enemyPattern(kind: number, x: number, y: number, angle: number, seed: number): number;
 }
@@ -326,33 +332,67 @@ export class Sandbox {
     faction: Faction,
     stepSeconds: number,
     targets: readonly Target<Id>[],
-  ): { projectile: Projectile; target: Target<Id> }[] {
-    const n = Math.min(targets.length, LAYOUT.maxTargets);
-    const scratch = this.scratch();
-    for (let i = 0; i < n; i++) {
-      const t = targets[i];
-      if (t !== undefined) {
-        scratch.set([t.x, t.y, t.radius], i * 3);
-      }
-    }
+  ): { projectile: Projectile; target: Target<Id>; goesOn: boolean }[] {
+    const n = this.writeTargets(targets);
     const count = this.exports.hitScan(FACTIONS.indexOf(faction), stepSeconds, n);
     if (count === 0) {
       return [];
     }
     const pointer = this.exports.hitsPointer();
-    const pairs = new Float64Array(this.memory(), pointer, count * 2);
-    const hits = Array.from({ length: count }, (_, i) => [pairs[i * 2] ?? -1, pairs[i * 2 + 1] ?? -1] as const);
+    const triples = new Float64Array(this.memory(), pointer, count * 3);
+    const hits = Array.from({ length: count }, (_, i) => [triples[i * 3] ?? -1, triples[i * 3 + 1] ?? -1, triples[i * 3 + 2] === 1] as const);
     this.read();
-    const out: { projectile: Projectile; target: Target<Id> }[] = [];
-    for (const [slot, index] of hits) {
+    const out: { projectile: Projectile; target: Target<Id>; goesOn: boolean }[] = [];
+    for (const [slot, index, goesOn] of hits) {
       const projectile = this.projectiles.items[slot];
       const target = targets[index];
       if (projectile !== undefined && target !== undefined) {
-        out.push({ projectile, target });
+        out.push({ projectile, target, goesOn });
       }
     }
 
     return out;
+  }
+
+  /**
+   * Turns the seeking projectiles of the faction toward the nearest of the
+   * targets ahead of them, by at most their turn rate over stepSeconds (#72).
+   */
+  steer<Id>(faction: Faction, stepSeconds: number, targets: readonly Target<Id>[]): void {
+    const n = this.writeTargets(targets);
+    this.exports.steer(FACTIONS.indexOf(faction), stepSeconds, n);
+    this.read();
+  }
+
+  /**
+   * Scatters the star a shot of weapon bursts into where it ended, as
+   * projectiles of the faction named by the shot's id and owner. The owner
+   * seeds it, so every screen draws the same star. The shards pass the
+   * enemies the shot in slot from hit. Returns the shards.
+   */
+  burst(weapon: WeaponId, faction: Faction, x: number, y: number, shotId: number, owner: string, from = -1): Projectile[] {
+    const scratch = this.scratch();
+    const units = Array.from(owner.slice(0, SCRATCH_SIZE), (_, i) => owner.charCodeAt(i));
+    scratch.set(units);
+    const seed = this.exports.burstSeed(units.length, shotId);
+    const count = this.exports.burst(WEAPONS.indexOf(weapon), FACTIONS.indexOf(faction), x, y, shotId, seed >>> 0, from);
+    const slots = Array.from(this.scratch().subarray(0, count));
+
+    return this.projectiles.adopt(slots, faction === 'own' ? '' : owner);
+  }
+
+  /** Writes targets into scratch for a scan, and returns how many fit. */
+  private writeTargets<Id>(targets: readonly Target<Id>[]): number {
+    const n = Math.min(targets.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const t = targets[i];
+      if (t !== undefined) {
+        scratch.set([t.x, t.y, t.radius, typeof t.id === 'number' ? t.id : i], i * LAYOUT.targetSize);
+      }
+    }
+
+    return n;
   }
 
   /**
@@ -517,6 +557,8 @@ export class Sandbox {
         faction: at(FACTIONS, get(b + LAYOUT.expiredFaction), FACTIONS[0]),
         x: get(b + LAYOUT.expiredX),
         y: get(b + LAYOUT.expiredY),
+        shotId: get(b + LAYOUT.expiredShotId),
+        owner: this.projectiles.ownerOf(get(b + LAYOUT.expiredSlot)),
       });
     }
 
@@ -540,6 +582,7 @@ export class Projectiles {
       faction: FACTIONS[0],
       owner: '',
       shotId: 0,
+      shard: 0,
       x: 0,
       y: 0,
       angle: 0,
@@ -587,9 +630,26 @@ export class Projectiles {
     this.read(this.sandbox.state());
   }
 
-  /** Ends a remote player's shot that hit something, and returns it. */
-  end(owner: string, shotId: number): Projectile | undefined {
-    const p = this.slots.find((q) => q.active && q.faction === 'remote' && q.owner === owner && q.shotId === shotId);
+  /** The remote owner of the projectile in slot, '' for an own shot. */
+  ownerOf(slot: number): string {
+    return this.owners[slot] ?? '';
+  }
+
+  /** Takes on projectiles the sim spawned itself, a burst's shards, for owner. */
+  adopt(slots: readonly number[], owner: string): Projectile[] {
+    for (const slot of slots) {
+      this.owners[slot] = owner;
+    }
+    this.read(this.sandbox.state());
+
+    return slots.map((slot) => this.slots[slot]).filter((p): p is Mutable<Projectile> => p !== undefined);
+  }
+
+  /** Ends a remote player's shot, or a shard of its burst, that hit something, and returns it. */
+  end(owner: string, shotId: number, shard = 0): Projectile | undefined {
+    const p = this.slots.find(
+      (q) => q.active && q.faction === 'remote' && q.owner === owner && q.shotId === shotId && q.shard === shard,
+    );
     if (p !== undefined) {
       this.deactivate(p);
     }
@@ -611,6 +671,7 @@ export class Projectiles {
       p.angle = s[b + LAYOUT.projectileAngle] ?? 0;
       p.age = s[b + LAYOUT.projectileAge] ?? 0;
       p.shotId = s[b + LAYOUT.projectileShotId] ?? 0;
+      p.shard = s[b + LAYOUT.projectileShard] ?? 0;
     }
   }
 }

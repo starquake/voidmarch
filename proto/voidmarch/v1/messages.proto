@@ -95,6 +95,11 @@ message Hit {
   // Deprecated: the hub tests its companions' shots itself (#51); a hit with
   // a companion set is ignored.
   uint32 companion = 4 [deprecated = true];
+  // The shard of the shot's burst that hit, from 1; 0 for the shot itself
+  // (#72).
+  uint32 shard = 5;
+  // Set when a piercing shot carries on through: the hub doesn't end it.
+  bool goes_on = 6;
 }
 
 // Summon asks for a companion seat (docs/design.md, section 13).
@@ -300,6 +305,9 @@ message ShotEnded {
   string player_id = 1;
   uint32 shot_id = 2;
   uint32 tick = 3;
+  // The shard of the shot's burst that ended, from 1; 0 for the shot itself
+  // (#72).
+  uint32 shard = 4;
 }
 
 // RemoteShot is another player's shot, stamped with the server tick it arrived at.

@@ -1,6 +1,11 @@
 package sim
 
-import "strconv"
+import (
+	"hash/fnv"
+	"math"
+	"slices"
+	"strconv"
+)
 
 // ProjectileKind is what a projectile is: a player weapon's shot (a WeaponID)
 // or an enemy's bullet (an EnemyBulletID).
@@ -26,10 +31,19 @@ func IsWeapon(kind ProjectileKind) bool {
 	}
 }
 
+// ProjectileShard is a shard of a big space gun ball's burst (#72).
+const ProjectileShard ProjectileKind = "shard"
+
+// maxHits is the most enemies one shot can hit: a first hit and its pierces.
+const maxHits = 3
+
 // ProjectileStatsOf is how a projectile of kind flies.
 func ProjectileStatsOf(kind ProjectileKind) ProjectileStats {
 	if IsWeapon(kind) {
 		return WeaponStatsOf(WeaponID(kind)).ProjectileStats
+	}
+	if kind == ProjectileShard {
+		return ShardStats()
 	}
 
 	return EnemyBulletStatsOf(EnemyBulletID(kind))
@@ -55,6 +69,8 @@ type SpawnOptions struct {
 	Owner string
 	// ShotID is the shot's id for its owner; 0 gives own shots the next one.
 	ShotID int
+	// Shard is a burst shard's number, from 1, under its shot's id.
+	Shard int
 }
 
 // Projectile is one shot or bullet in flight.
@@ -70,6 +86,16 @@ type Projectile struct {
 	Age     float64
 	X       float64
 	Y       float64
+	// BaseAge is the age at which the origin and angle were last set: 0,
+	// unless a seeking shot turned (#72).
+	BaseAge float64
+	// Shard is a burst shard's number, from 1; 0 for any other projectile.
+	Shard int
+	// PiercesLeft is how many more enemies a shot carries on through.
+	PiercesLeft int
+	// hitIDs are the enemies it hit, so a piercing shot hits each once.
+	hitIDs [maxHits]int
+	hits   int
 }
 
 // Traveled is the distance covered after age seconds, accelerating up to
@@ -93,7 +119,7 @@ func Traveled(stats ProjectileStats, age float64) float64 {
 func PositionAt(p *Projectile, age float64) Vec {
 	stats := ProjectileStatsOf(p.Kind)
 	lateral := stats.Zigzag.Amplitude * TriangleWave(age*stats.Zigzag.Frequency)
-	offset := RotateOffset(Traveled(stats, age), lateral, p.Angle)
+	offset := RotateOffset(Traveled(stats, age)-Traveled(stats, p.BaseAge), lateral, p.Angle)
 
 	return Vec{X: p.OriginX + offset.X, Y: p.OriginY + offset.Y}
 }
@@ -168,6 +194,11 @@ func (p *Pool) Spawn(shot ProjectileSpawn, opts SpawnOptions) *Projectile {
 	chosen.OriginX, chosen.OriginY = shot.X, shot.Y
 	chosen.Angle = shot.Angle
 	chosen.Age = opts.AgeSeconds
+	chosen.BaseAge, chosen.Shard, chosen.hits = 0, opts.Shard, 0
+	chosen.PiercesLeft = 0
+	if IsWeapon(shot.Kind) {
+		chosen.PiercesLeft = WeaponStatsOf(WeaponID(shot.Kind)).Pierce
+	}
 	Place(chosen)
 
 	return chosen
@@ -225,6 +256,120 @@ func (p *Pool) Step(dt float64, inBounds func(x, y float64) bool) []*Projectile 
 	}
 
 	return expired
+}
+
+// SlotOf is q's index among the pool's items, or -1.
+func (p *Pool) SlotOf(q *Projectile) int {
+	for i := range p.items {
+		if &p.items[i] == q {
+			return i
+		}
+	}
+
+	return -1
+}
+
+// Steer turns every seeking projectile of faction toward the nearest target
+// within its cone and range, by at most its turn rate over dt. A turn
+// re-bases it: it flies on straight from where it is, along the new heading.
+func (p *Pool) Steer(dt float64, faction Faction, targets []Vec) {
+	for i := range p.items {
+		q := &p.items[i]
+		if !q.Active || q.Faction != faction || !IsWeapon(q.Kind) {
+			continue
+		}
+		seek := WeaponStatsOf(WeaponID(q.Kind)).Seek
+		if seek.TurnRate == 0 {
+			continue
+		}
+		off, ok := nearestAhead(q, seek, targets)
+		if !ok {
+			continue
+		}
+		turn := math.Max(-seek.TurnRate*dt, math.Min(seek.TurnRate*dt, off))
+		q.OriginX, q.OriginY, q.BaseAge = q.X, q.Y, q.Age
+		q.Angle = WrapAngle(q.Angle + turn)
+	}
+}
+
+// nearestAhead is how far off q's heading the nearest target in its cone
+// and range is.
+func nearestAhead(q *Projectile, seek Seek, targets []Vec) (float64, bool) {
+	best := math.Inf(1)
+	var off float64
+	found := false
+	for _, t := range targets {
+		d := math.Hypot(t.X-q.X, t.Y-q.Y)
+		angle := WrapAngle(math.Atan2(t.Y-q.Y, t.X-q.X) - q.Angle)
+		if d <= seek.Range && math.Abs(angle) <= seek.Cone && d < best {
+			best, off, found = d, angle, true
+		}
+	}
+
+	return off, found
+}
+
+// HasHit reports whether q already hit target id.
+func (q *Projectile) HasHit(id int) bool {
+	return slices.Contains(q.hitIDs[:q.hits], id)
+}
+
+// Hit records that q hit target id, and reports whether it carries on
+// through: a piercing shot with pierces left.
+func (q *Projectile) Hit(id int) bool {
+	if q.hits < maxHits {
+		q.hitIDs[q.hits] = id
+		q.hits++
+	}
+	if q.PiercesLeft > 0 {
+		q.PiercesLeft--
+
+		return true
+	}
+	q.Active = false
+
+	return false
+}
+
+// SkipHitsOf makes q leave alone the enemies from already hit: a burst's
+// shards fly out past the enemy their ball struck.
+func (q *Projectile) SkipHitsOf(from *Projectile) {
+	q.hitIDs, q.hits = from.hitIDs, from.hits
+}
+
+// ShotDamage is what a projectile of kind does to an enemy it hits.
+func ShotDamage(kind ProjectileKind) float64 {
+	if kind == ProjectileShard {
+		return WeaponStatsOf(WeaponBigSpaceGun).Burst.Damage
+	}
+
+	return WeaponStatsOf(WeaponID(kind)).Damage
+}
+
+// BurstSeed is the seed of a shot's burst, the same on every screen: from
+// its owner (a player or a companion's seat) and its shot id.
+func BurstSeed(owner string, shotID int) uint32 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(owner + "/" + strconv.Itoa(shotID)))
+
+	return h.Sum32()
+}
+
+// BurstPattern is the star of shards a shot of weapon scatters from (x, y),
+// turned by its seed; none for a weapon that doesn't burst.
+func BurstPattern(weapon WeaponID, x, y float64, seed uint32) []ProjectileSpawn {
+	burst := WeaponStatsOf(weapon).Burst
+	if burst.Shards == 0 {
+		return nil
+	}
+	step := Tau / float64(burst.Shards)
+	turn := NewRandom(seed).Next() * step
+	out := make([]ProjectileSpawn, burst.Shards)
+	for k := range out {
+		out[k] = ProjectileSpawn{Kind: ProjectileShard, X: x, Y: y, Angle: turn + step*float64(k)}
+	}
+
+	return out
 }
 
 func (p *Pool) oldest() *Projectile {

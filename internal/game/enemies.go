@@ -357,16 +357,18 @@ func (h *Hub) fire(e *enemy) {
 // reports it (except is that player, who ended it already), or a companion's,
 // as the hub tests it. The shot ends everywhere else, and the enemy is
 // destroyed once its hit points run out.
-func (h *Hub) hit(except, shooter string, enemyID, shotID, damage uint32) {
+func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage uint32) {
 	e, ok := h.enemies[enemyID]
 	if !ok {
 		return
 	}
-	// Shot 0 is a ram (#48), with no shot to end.
-	if shotID != 0 {
+	// Shot 0 is a ram (#48), with no shot to end; a piercing shot that
+	// carries on isn't over yet (#72).
+	if shot.id != 0 && !shot.goesOn {
 		h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{
 			PlayerId: shooter,
-			ShotId:   shotID,
+			ShotId:   shot.id,
+			Shard:    shot.shard,
 			Tick:     h.tick,
 		}}}, except)
 	}
@@ -388,6 +390,13 @@ func (h *Hub) hit(except, shooter string, enemyID, shotID, damage uint32) {
 		}}},
 		"",
 	)
+}
+
+// shotHit names what hit: a shot by its id, or 0 for a ram; a shard of its
+// burst, from 1; and whether a piercing shot carries on.
+type shotHit struct {
+	id, shard uint32
+	goesOn    bool
 }
 
 // damaged is hp after a reported hit, capped at the strongest weapon's damage.

@@ -136,7 +136,7 @@ var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
 var SHIELDS = ["front", "frontAndSide", "round", "invincibility"];
 var ENEMY_KINDS = ["scout", "fighter"];
-var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet"];
+var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "shard"];
 var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front" };
 var TICK_RATE = 60;
@@ -150,6 +150,7 @@ var RESPAWN_DELAY = 3;
 var HOME_SPAWN_Y = 160;
 var BRAIN_SPACING = 40;
 var RAM_DAMAGE = 2;
+var SHARD_DAMAGE = 2;
 var SHIELD_STATS = {
   front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
   frontAndSide: { coverage: 3.141592653589793, strength: 2, recharge: 5 },
@@ -174,9 +175,9 @@ var WEAPON_STATS = {
     shake: 0
   },
   rockets: {
-    interval: 0.32,
+    interval: 0.4,
     charge: 0,
-    damage: 4,
+    damage: 3,
     speed: 140,
     lifetime: 1.5,
     muzzles: [{ forward: 7, right: -12 }, { forward: 7, right: 12 }],
@@ -236,7 +237,7 @@ var LAYOUT = {
   expired: 20,
   projectileCapacity: 256,
   poolOffset: 25,
-  projectileSize: 8,
+  projectileSize: 9,
   projectileActive: 0,
   projectileKind: 1,
   projectileFaction: 2,
@@ -245,7 +246,8 @@ var LAYOUT = {
   projectileAngle: 5,
   projectileAge: 6,
   projectileShotId: 7,
-  shotsOffset: 2073,
+  projectileShard: 8,
+  shotsOffset: 2329,
   shotSize: 6,
   shotId: 0,
   shotWeapon: 1,
@@ -253,15 +255,18 @@ var LAYOUT = {
   shotX: 3,
   shotY: 4,
   shotAngle: 5,
-  chargesOffset: 2133,
-  expiredOffset: 2138,
-  expiredSize: 4,
+  chargesOffset: 2389,
+  expiredOffset: 2394,
+  expiredSize: 6,
   expiredKind: 0,
   expiredFaction: 1,
   expiredX: 2,
   expiredY: 3,
-  stateSize: 3162,
+  expiredShotId: 4,
+  expiredSlot: 5,
+  stateSize: 3930,
   maxTargets: 128,
+  targetSize: 4,
   shipTargetSize: 5,
   bumpSize: 8,
   scratchSize: 1024
@@ -573,7 +578,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIrMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNEg4KBnNoaWVsZBgJIAEoAhIOCgZyZXZpdmUYCiABKAIiFgoFSGVsbG8SDQoFdG9rZW4YASABKAkihQEKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAISEQoJY29tcGFuaW9uGAcgASgNIk8KA0hpdBIQCghlbmVteV9pZBgBIAEoDRIPCgdzaG90X2lkGAIgASgNEg4KBmRhbWFnZRgDIAEoDRIVCgljb21wYW5pb24YBCABKA1CAhgBIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSKrAwoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAQgYKBGtpbmQi/gEKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg0KBWNvbG9yGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDRIXCg9jb21wYW5pb25fbGltaXQYByABKA0SDAoEbmFtZRgJIAEoCRISCgpjb21wYW5pb25zGAogAygNEioKCXNxdWFkcm9ucxgLIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnMSEAoIc3F1YWRyb24YDCABKAlKBAgIEAlSD3N1bW1vbl9hbnl3aGVyZSKMAQoOUGxheWVyU25hcHNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFY29sb3IYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlEhAKCG93bmVyX2lkGAUgASgJEhAKCHNxdWFkcm9uGAYgASgJIkUKDlNxdWFkcm9uTWVtYmVyEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCmNvbXBhbmlvbnMYAyABKA0idgoMU3F1YWRyb25JbmZvEgwKBG5hbWUYASABKAkSLQoHbWVtYmVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbk1lbWJlchIpCgRtb2RlGAMgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUiXQoJU3F1YWRyb25zEi0KCXNxdWFkcm9ucxgBIAMoCzIaLnZvaWRtYXJjaC52MS5TcXVhZHJvbkluZm8SEQoJbmV4dF9uYW1lGAIgASgJEg4KBmhhbmdhchgDIAEoDSJyCg5TcXVhZHJvbkpvaW5lZBIMCgRuYW1lGAEgASgJEikKBG1vZGUYAiABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIRCgl0b29rX292ZXIYAyABKAgSCQoBeBgEIAEoAhIJCgF5GAUgASgCIiEKD1NxdWFkcm9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiXgoPU3F1YWRyb25PcmRlcmVkEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEioKBW9yZGVyGAMgASgLMhsudm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXIiggEKCkVuZW15U3RhdGUSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEg0KBWFuZ2xlGAUgASgCEgoKAnZ4GAYgASgCEgoKAnZ5GAcgASgCInIKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUimgEKCkVuZW15RmlyZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSDAoEdGljaxgDIAEoDRIMCgRzZWVkGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAhINCgVhbmdsZRgHIAEoAhISCgp3YXJuX3RpY2tzGAggASgNIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiPQoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSI7ChBDb21wYW5pb25HcmFudGVkEhEKCWNvbXBhbmlvbhgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAIiIgoQQ29tcGFuaW9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiOQoSQ29tcGFuaW9uRGlzbWlzc2VkEhEKCWNvbXBhbmlvbhgBIAEoDRIQCgh0YWtlbl9ieRgCIAEoCSIGCgRGdWxsIpYGCg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSAASOwoRY29tcGFuaW9uX2dyYW50ZWQYCSABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uR3JhbnRlZEgAEjsKEWNvbXBhbmlvbl9yZWZ1c2VkGAogASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvblJlZnVzZWRIABI/ChNjb21wYW5pb25fZGlzbWlzc2VkGAsgASgLMiAudm9pZG1hcmNoLnYxLkNvbXBhbmlvbkRpc21pc3NlZEgAEiwKCXNxdWFkcm9ucxgMIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnNIABI3Cg9zcXVhZHJvbl9qb2luZWQYDSABKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25Kb2luZWRIABI5ChBzcXVhZHJvbl9yZWZ1c2VkGA4gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uUmVmdXNlZEgAEjkKEHNxdWFkcm9uX29yZGVyZWQYDyABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlcmVkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACKrQBCg1Db21wYW5pb25Nb2RlEh4KGkNPTVBBTklPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGQoVQ09NUEFOSU9OX01PREVfRVNDT1JUEAESGQoVQ09NUEFOSU9OX01PREVfQVRUQUNLEAISGAoUQ09NUEFOSU9OX01PREVfR1VBUkQQAxIXChNDT01QQU5JT05fTU9ERV9IT0xEEAQSGgoWQ09NUEFOSU9OX01PREVfU1RFQUxUSBAFKpQBChBDb21wYW5pb25PbmVTaG90EiIKHkNPTVBBTklPTl9PTkVfU0hPVF9VTlNQRUNJRklFRBAAEhwKGENPTVBBTklPTl9PTkVfU0hPVF9GT0NVUxABEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9SRUdST1VQEAISHgoaQ09NUEFOSU9OX09ORV9TSE9UX0dPX0hPTUUQA0JGWkRnaXRodWIuY29tL3N0YXJxdWFrZS92b2lkbWFyY2gvaW50ZXJuYWwvZ2VuL3ZvaWRtYXJjaC92MTt2b2lkbWFyY2h2MWIGcHJvdG8z");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIrMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNEg4KBnNoaWVsZBgJIAEoAhIOCgZyZXZpdmUYCiABKAIiFgoFSGVsbG8SDQoFdG9rZW4YASABKAkihQEKCVNob3RGaXJlZBIKCgJpZBgBIAEoDRIkCgZ3ZWFwb24YAiABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEg4KBm11enpsZRgDIAEoDRIJCgF4GAQgASgCEgkKAXkYBSABKAISDQoFYW5nbGUYBiABKAISEQoJY29tcGFuaW9uGAcgASgNIm8KA0hpdBIQCghlbmVteV9pZBgBIAEoDRIPCgdzaG90X2lkGAIgASgNEg4KBmRhbWFnZRgDIAEoDRIVCgljb21wYW5pb24YBCABKA1CAhgBEg0KBXNoYXJkGAUgASgNEg8KB2dvZXNfb24YBiABKAgiCAoGU3VtbW9uIk8KDkNvbXBhbmlvblN0YXRlEhEKCWNvbXBhbmlvbhgBIAEoDRImCgVzdGF0ZRgCIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGU6AhgBIh4KDkNob29zZVNxdWFkcm9uEgwKBG5hbWUYASABKAkimgEKDVNxdWFkcm9uT3JkZXISKQoEbW9kZRgBIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEjAKCG9uZV9zaG90GAIgASgOMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbk9uZVNob3QSCQoBeBgDIAEoAhIJCgF5GAQgASgCEhYKDmZvY3VzX2VuZW15X2lkGAUgASgNIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIqsDCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjUKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUICGAFIABIoCgdkaXNtaXNzGAcgASgLMhUudm9pZG1hcmNoLnYxLkRpc21pc3NIABI3Cg9jaG9vc2Vfc3F1YWRyb24YCCABKAsyHC52b2lkbWFyY2gudjEuQ2hvb3NlU3F1YWRyb25IABI1Cg5zcXVhZHJvbl9vcmRlchgJIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVySABCBgoEa2luZCL+AQoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCUoECAgQCVIPc3VtbW9uX2FueXdoZXJlIowBCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVjb2xvchgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkSEAoIc3F1YWRyb24YBiABKAkiRQoOU3F1YWRyb25NZW1iZXISEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKY29tcGFuaW9ucxgDIAEoDSJ2CgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZSJdCglTcXVhZHJvbnMSLQoJc3F1YWRyb25zGAEgAygLMhoudm9pZG1hcmNoLnYxLlNxdWFkcm9uSW5mbxIRCgluZXh0X25hbWUYAiABKAkSDgoGaGFuZ2FyGAMgASgNInIKDlNxdWFkcm9uSm9pbmVkEgwKBG5hbWUYASABKAkSKQoEbW9kZRgCIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEhEKCXRvb2tfb3ZlchgDIAEoCBIJCgF4GAQgASgCEgkKAXkYBSABKAIiIQoPU3F1YWRyb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSJeCg9TcXVhZHJvbk9yZGVyZWQSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSKgoFb3JkZXIYAyABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlciKCAQoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAISCgoCdngYBiABKAISCgoCdnkYByABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiJMCglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDRINCgVzaGFyZBgEIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSI5ChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNEhAKCHRha2VuX2J5GAIgASgJIgYKBEZ1bGwilgYKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSAASLAoJc3F1YWRyb25zGAwgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9uc0gAEjcKD3NxdWFkcm9uX2pvaW5lZBgNIAEoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbkpvaW5lZEgAEjkKEHNxdWFkcm9uX3JlZnVzZWQYDiABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25SZWZ1c2VkSAASOQoQc3F1YWRyb25fb3JkZXJlZBgPIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAIqtAEKDUNvbXBhbmlvbk1vZGUSHgoaQ09NUEFOSU9OX01PREVfVU5TUEVDSUZJRUQQABIZChVDT01QQU5JT05fTU9ERV9FU0NPUlQQARIZChVDT01QQU5JT05fTU9ERV9BVFRBQ0sQAhIYChRDT01QQU5JT05fTU9ERV9HVUFSRBADEhcKE0NPTVBBTklPTl9NT0RFX0hPTEQQBBIaChZDT01QQU5JT05fTU9ERV9TVEVBTFRIEAUqlAEKEENvbXBhbmlvbk9uZVNob3QSIgoeQ09NUEFOSU9OX09ORV9TSE9UX1VOU1BFQ0lGSUVEEAASHAoYQ09NUEFOSU9OX09ORV9TSE9UX0ZPQ1VTEAESHgoaQ09NUEFOSU9OX09ORV9TSE9UX1JFR1JPVVAQAhIeChpDT01QQU5JT05fT05FX1NIT1RfR09fSE9NRRADQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 10);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 30);
@@ -959,31 +964,60 @@ var Sandbox = class {
    * returns what hit what: one call for the frame.
    */
   hitScan(faction, stepSeconds, targets) {
-    const n = Math.min(targets.length, LAYOUT.maxTargets);
-    const scratch = this.scratch();
-    for (let i = 0; i < n; i++) {
-      const t = targets[i];
-      if (t !== void 0) {
-        scratch.set([t.x, t.y, t.radius], i * 3);
-      }
-    }
+    const n = this.writeTargets(targets);
     const count = this.exports.hitScan(FACTIONS.indexOf(faction), stepSeconds, n);
     if (count === 0) {
       return [];
     }
     const pointer = this.exports.hitsPointer();
-    const pairs = new Float64Array(this.memory(), pointer, count * 2);
-    const hits = Array.from({ length: count }, (_, i) => [pairs[i * 2] ?? -1, pairs[i * 2 + 1] ?? -1]);
+    const triples = new Float64Array(this.memory(), pointer, count * 3);
+    const hits = Array.from({ length: count }, (_, i) => [triples[i * 3] ?? -1, triples[i * 3 + 1] ?? -1, triples[i * 3 + 2] === 1]);
     this.read();
     const out = [];
-    for (const [slot, index] of hits) {
+    for (const [slot, index, goesOn] of hits) {
       const projectile = this.projectiles.items[slot];
       const target = targets[index];
       if (projectile !== void 0 && target !== void 0) {
-        out.push({ projectile, target });
+        out.push({ projectile, target, goesOn });
       }
     }
     return out;
+  }
+  /**
+   * Turns the seeking projectiles of the faction toward the nearest of the
+   * targets ahead of them, by at most their turn rate over stepSeconds (#72).
+   */
+  steer(faction, stepSeconds, targets) {
+    const n = this.writeTargets(targets);
+    this.exports.steer(FACTIONS.indexOf(faction), stepSeconds, n);
+    this.read();
+  }
+  /**
+   * Scatters the star a shot of weapon bursts into where it ended, as
+   * projectiles of the faction named by the shot's id and owner. The owner
+   * seeds it, so every screen draws the same star. The shards pass the
+   * enemies the shot in slot from hit. Returns the shards.
+   */
+  burst(weapon, faction, x, y, shotId, owner, from = -1) {
+    const scratch = this.scratch();
+    const units = Array.from(owner.slice(0, SCRATCH_SIZE), (_, i) => owner.charCodeAt(i));
+    scratch.set(units);
+    const seed = this.exports.burstSeed(units.length, shotId);
+    const count = this.exports.burst(WEAPONS.indexOf(weapon), FACTIONS.indexOf(faction), x, y, shotId, seed >>> 0, from);
+    const slots = Array.from(this.scratch().subarray(0, count));
+    return this.projectiles.adopt(slots, faction === "own" ? "" : owner);
+  }
+  /** Writes targets into scratch for a scan, and returns how many fit. */
+  writeTargets(targets) {
+    const n = Math.min(targets.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const t = targets[i];
+      if (t !== void 0) {
+        scratch.set([t.x, t.y, t.radius, typeof t.id === "number" ? t.id : i], i * LAYOUT.targetSize);
+      }
+    }
+    return n;
   }
   /**
    * Tests every enemy bullet along the path it flew in the last stepSeconds
@@ -1129,7 +1163,9 @@ var Sandbox = class {
         kind: at(PROJECTILE_KINDS, get(b + LAYOUT.expiredKind), PROJECTILE_KINDS[0]),
         faction: at(FACTIONS, get(b + LAYOUT.expiredFaction), FACTIONS[0]),
         x: get(b + LAYOUT.expiredX),
-        y: get(b + LAYOUT.expiredY)
+        y: get(b + LAYOUT.expiredY),
+        shotId: get(b + LAYOUT.expiredShotId),
+        owner: this.projectiles.ownerOf(get(b + LAYOUT.expiredSlot))
       });
     }
     return events;
@@ -1149,6 +1185,7 @@ var Projectiles = class {
       faction: FACTIONS[0],
       owner: "",
       shotId: 0,
+      shard: 0,
       x: 0,
       y: 0,
       angle: 0,
@@ -1190,9 +1227,23 @@ var Projectiles = class {
     this.sandbox.calls.clear(FACTIONS.indexOf(faction));
     this.read(this.sandbox.state());
   }
-  /** Ends a remote player's shot that hit something, and returns it. */
-  end(owner, shotId) {
-    const p = this.slots.find((q) => q.active && q.faction === "remote" && q.owner === owner && q.shotId === shotId);
+  /** The remote owner of the projectile in slot, '' for an own shot. */
+  ownerOf(slot) {
+    return this.owners[slot] ?? "";
+  }
+  /** Takes on projectiles the sim spawned itself, a burst's shards, for owner. */
+  adopt(slots, owner) {
+    for (const slot of slots) {
+      this.owners[slot] = owner;
+    }
+    this.read(this.sandbox.state());
+    return slots.map((slot) => this.slots[slot]).filter((p) => p !== void 0);
+  }
+  /** Ends a remote player's shot, or a shard of its burst, that hit something, and returns it. */
+  end(owner, shotId, shard = 0) {
+    const p = this.slots.find(
+      (q) => q.active && q.faction === "remote" && q.owner === owner && q.shotId === shotId && q.shard === shard
+    );
     if (p !== void 0) {
       this.deactivate(p);
     }
@@ -1211,6 +1262,7 @@ var Projectiles = class {
       p.angle = s[b + LAYOUT.projectileAngle] ?? 0;
       p.age = s[b + LAYOUT.projectileAge] ?? 0;
       p.shotId = s[b + LAYOUT.projectileShotId] ?? 0;
+      p.shard = s[b + LAYOUT.projectileShard] ?? 0;
     }
   }
 };
@@ -1747,9 +1799,10 @@ var Connection = class {
     );
   }
   /** Reports that one of our shots hit an enemy; the server trusts it. */
-  sendHit(enemyId, shotId, damage) {
+  /** Reports a hit on an enemy: by a shot, a shard of its burst, or a ram (shot 0); goesOn when a piercing shot carries on (#72). */
+  sendHit(enemyId, shotId, damage, shard = 0, goesOn = false) {
     if (this.welcomed) {
-      this.send(create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage } } }));
+      this.send(create2(ClientMessageSchema, { kind: { case: "hit", value: { enemyId, shotId, damage, shard, goesOn } } }));
     }
   }
   open() {
@@ -2262,7 +2315,7 @@ var NetPlay = class {
           this.destructions.add(destroyed.tick, destroyed);
         },
         shotEnded: (ended) => {
-          this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId });
+          this.shotEnds.add(ended.tick, { owner: ended.playerId, shotId: ended.shotId, shard: ended.shard });
         },
         companionGranted: () => {
         },
@@ -2406,12 +2459,24 @@ var NetPlay = class {
         shooter.animator.release(seconds, stats.alternate ? due.shot.muzzle : 0, stats.alternate ? stats.muzzles.length : 1);
       }
     }
+    const { sim } = this.options;
     for (const { item: ended } of this.shotEnds.due(renderTick)) {
-      this.options.sim.projectiles.end(ended.owner, ended.shotId);
+      const p = sim.projectiles.end(ended.owner, ended.shotId, ended.shard);
+      if (p?.kind === "bigSpaceGun") {
+        sim.burst(p.kind, "remote", p.x, p.y, p.shotId, ended.owner, p.slot);
+      }
+    }
+    for (const e of events.expired) {
+      if (e.faction === "remote" && e.kind === "bigSpaceGun") {
+        sim.burst(e.kind, "remote", e.x, e.y, e.shotId, e.owner);
+      }
     }
     this.drawEnemies(renderTick);
+    const stepSeconds = events.ticks * TICK_SECONDS;
+    sim.steer("own", stepSeconds, this.enemyTargets());
+    sim.steer("remote", stepSeconds, this.enemyTargets());
     this.bump(frame);
-    this.testHits(frame, events.ticks * TICK_SECONDS);
+    this.testHits(frame, stepSeconds);
     return frame;
   }
   /**
@@ -2483,6 +2548,10 @@ var NetPlay = class {
   ownCompanions() {
     return [...this.remotes.values()].filter((r) => r.ownerId !== "" && r.ownerId === this.playerId);
   }
+  /** The enemies as drawn, as targets for hits and seeking shots. */
+  enemyTargets() {
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, x: e.view.x, y: e.view.y, radius: ENEMY_RADIUS[e.view.kind] }));
+  }
   /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
   get squadmateDistance() {
     return this.nearestUp((r) => this.isSquadmate(r))?.distance ?? Infinity;
@@ -2524,12 +2593,7 @@ var NetPlay = class {
    * frame rates don't skip hits.
    */
   testHits(frame, stepSeconds) {
-    const targets = [...this.enemies.entries()].map(([id, e]) => ({
-      id,
-      x: e.view.x,
-      y: e.view.y,
-      radius: ENEMY_RADIUS[e.view.kind]
-    }));
+    const targets = this.enemyTargets();
     const { sim } = this.options;
     const { ship } = sim;
     const ships = [];
@@ -2542,14 +2606,18 @@ var NetPlay = class {
         ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
       }
     }
-    for (const { projectile: p, target } of sim.hitScan("own", stepSeconds, targets)) {
-      if (!isWeapon(p.kind)) {
+    for (const { projectile: p, target, goesOn } of sim.hitScan("own", stepSeconds, targets)) {
+      const damage = p.kind === "shard" ? SHARD_DAMAGE : isWeapon(p.kind) ? WEAPON_STATS[p.kind].damage : 0;
+      if (damage === 0) {
         continue;
       }
       this.lastHit = { id: target.id, atMs: now() };
-      this.connection.sendHit(target.id, p.shotId, WEAPON_STATS[p.kind].damage);
+      this.connection.sendHit(target.id, p.shotId, damage, p.shard, goesOn);
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
+      if (p.kind === "bigSpaceGun" && !goesOn) {
+        sim.burst(p.kind, "own", p.x, p.y, p.shotId, this.playerId ?? "", p.slot);
+      }
     }
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
       if (target.id === -1) {
@@ -2767,6 +2835,7 @@ var BLOOM_BLUR = 3;
 var EFFECT_ZOOM = 2;
 var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
+var SHARD_TINT = 16765562;
 var HUD_FONT_PX = 12;
 var HUD_MARGIN_PX = 8;
 var DOWN_PANEL_FONT_PX = 14;
@@ -2869,6 +2938,7 @@ var SandboxScene = class extends Phaser5.Scene {
       controlMode: this.sim.controlMode,
       effects: this.effects,
       projectiles: 0,
+      ownShards: 0,
       shotsFired: 0,
       zoom: 1,
       fps: 0,
@@ -2901,6 +2971,7 @@ var SandboxScene = class extends Phaser5.Scene {
   }
   update(time, deltaMs) {
     const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
+    this.burstExpired(events);
     const net = this.net?.update(events);
     this.drawShip(events);
     this.countRevive();
@@ -2977,7 +3048,9 @@ var SandboxScene = class extends Phaser5.Scene {
   stepHidden(deltaMs) {
     const { pointerX, pointerY } = this.readInput();
     const idle = { up: false, down: false, left: false, right: false, pointerX, pointerY, fire: false };
-    this.net?.update(this.sim.advance(deltaMs / 1e3, idle, this.net.squadmateDistance, this.net.friendDistance));
+    const events = this.sim.advance(deltaMs / 1e3, idle, this.net?.squadmateDistance, this.net?.friendDistance);
+    this.burstExpired(events);
+    this.net?.update(events);
     this.publish();
   }
   createProjectiles() {
@@ -3401,6 +3474,14 @@ ${modeName(info)}`,
     }
     this.ship.weapon.setFrame(this.weaponFrames.frame(now2));
   }
+  /** Our own big space gun balls that ran out burst into their star, as on every screen (#72). */
+  burstExpired(events) {
+    for (const e of events.expired) {
+      if (e.faction === "own" && e.kind === "bigSpaceGun") {
+        this.sim.burst(e.kind, "own", e.x, e.y, e.shotId, this.net?.playerId ?? "");
+      }
+    }
+  }
   drawProjectiles() {
     this.sim.projectiles.items.forEach((p, i) => {
       const sprite = this.projectileSprites[i];
@@ -3412,7 +3493,11 @@ ${modeName(info)}`,
         return;
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
-      sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true);
+      if (p.kind === "shard") {
+        sprite.play(keys.projectile("autoCannon"), true).setTint(SHARD_TINT);
+      } else {
+        sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true).clearTint();
+      }
       const layer = p.faction === "enemy" ? this.enemyFire : this.world;
       if (sprite.displayList !== layer) {
         sprite.displayList.remove(sprite);
@@ -3526,6 +3611,7 @@ ${modeName(info)}`,
     this.debug.effects = this.effects;
     this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
+    this.debug.ownShards = projectiles.items.filter((p) => p.active && p.faction === "own" && p.kind === "shard").length;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
