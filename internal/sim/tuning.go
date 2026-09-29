@@ -274,7 +274,7 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 		}
 	case WeaponBigSpaceGun:
 		return WeaponStats{
-			Speed: 300, MaxSpeed: 300, Lifetime: 2,
+			Speed: 300, MaxSpeed: 300, Lifetime: 0.8,
 			Interval: 0.9,
 			Charge:   0.45,
 			Damage:   12,

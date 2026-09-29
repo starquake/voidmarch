@@ -189,7 +189,7 @@ var WEAPON_STATS = {
     charge: 0.45,
     damage: 12,
     speed: 300,
-    lifetime: 2,
+    lifetime: 0.8,
     muzzles: [{ forward: 16, right: 0 }],
     alternate: false,
     shake: 6e-3
