@@ -8,7 +8,7 @@
 
 - **Web only, no install.** Open a URL, pick a name, play.
 - **Drop in / drop out.** The world is persistent and keeps existing when nobody is online. Some evenings 1 player is on, sometimes 3, on a busy evening 16.
-- **Nobody feels behind.** Progress is mostly *shared* (the frontier). Personal progress is *horizontal* (more options, not more power).
+- **Nobody feels behind.** Progress is mostly *shared* (the frontier). Personal progress is mostly *horizontal* (more options), with a modest, capped step up through part tiers (§4).
 - **Shared goal:** push the frontier outward by defeating each alien faction's Dreadnought. Defeat all three and the season ends.
 - **Personal goals:** collect all 12 ship parts and experiment with loadouts.
 - **Players are friends.** Griefing and cheating are not design concerns. This lets us trust the client (see §9).
@@ -20,7 +20,7 @@
 | Pack | Contents | Use |
 |---|---|---|
 | Void – Main Ship | Player ship base sprite in 4 damage states, 4 engines, 4 shields, 4 weapons (with projectiles), all animated | Player ships |
-| Void – Pickups Pack | 12 animated pickups (expected: icons for the 4 weapons, 4 engines, 4 shields; **verify after download**) | Part drops / unlocks |
+| Void – Pickups Pack | 12 animated pickups, one per part: the 4 weapons, 4 engines and 4 shields (checked in #6), each a 15-frame 32 × 32 blink | Part drops, unlocks and tier upgrades |
 | Void – Fleet Pack 1 (Kla'ed) | 8 ships: Scout, Fighter, Support Ship, Bomber, Torpedo Ship, Frigate, Battlecruiser, Dreadnought. Animated engines, shields, weapons, destruction. 5 projectiles | Faction 1 enemies |
 | Void – Fleet Pack 2 (Nairan) | Same 8 classes, different faction look | Faction 2 enemies |
 | Void – Fleet Pack 3 (Nautolan) | Same 8 classes, different faction look | Faction 3 enemies |
@@ -40,7 +40,7 @@ Everything is pixel art at native resolution. Render with nearest-neighbor scali
 
 ## 4. The player ship
 
-### Loadout (horizontal progression)
+### Loadout and tiers
 
 Three slots, four options each = 64 loadouts:
 
@@ -54,6 +54,16 @@ Three slots, four options each = 64 loadouts:
 - **Parts are permanent unlocks.** Enemies drop part pickups. Collecting a pickup for a part you don't own unlocks it forever for your player.
 - Loadout can be changed **at the home planet**.
 - Weapon/engine/shield *choices* should be sidegrades, never strictly better. A new player with defaults is useful in any fight.
+
+### Tiers (getting stronger)
+
+Decided in #6 (@starquake, 2026-09-29: "Should we consider upgrades. Doesn't it feel boring if you can't become stronger?"):
+
+- **A part grows through three tiers: Super, Mega and Hyper.** A part starts plain ("Auto Cannon"). Picking up a part you already own upgrades it one tier: Super Auto Cannon, Mega Auto Cannon, then Hyper Auto Cannon, the cap.
+- **Each tier adds about 15%** to that part's own strength: a weapon's fire rate, a shield's recharge, an engine's acceleration (tunable; @starquake picked 15 over 10: "Is the +10% enough? Shouldn't it be more?"). A Hyper part is about 1.45× a plain one, so each tier is felt in a fight. A veteran is stronger than a newcomer but never in a different league, and a newcomer with plain parts still pulls their weight.
+- **The parts stay sidegrades of each other**: a Hyper Zapper and a Hyper Rocket are equals, and so are two plain ones. Tiers reward playing, not a best loadout.
+- **Each tier has its own color**, which tints the part sprite, outlines its pickup and colors the name in the HUD and on the player's label (@starquake: "We could use colors and show super mega and hyper in front of the name"). The packs have one sprite per part and no tier art, so tier colors are recolors, which the art rule allows. The colors come in a mockup.
+- Still open in #6: how later joiners catch up (catch-up drops while below their squadmates, or a rising floor), and what happens to a pickup of a part you already have at Hyper.
 
 ### Shields and facing
 
@@ -269,7 +279,6 @@ Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney'
 
 ## 12. Open questions
 
-- Exact contents of the Pickups Pack (verify the 12 pickups map to the 12 parts).
 - Stats for each weapon, engine and shield.
 - Do personal unlocks reset at season end?
 - Dreadnought health and regeneration numbers for a 1–16 player group.
