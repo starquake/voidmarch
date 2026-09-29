@@ -140,6 +140,8 @@ type Hub struct {
 	shots *sim.Pool
 	// volleys are enemy volleys announced but not yet fired.
 	volleys []volley
+	// rams are the recent rams between bodies, for the cooldown.
+	rams sim.Rams[ramPair]
 }
 
 // HubOption configures a [Hub].
@@ -149,6 +151,8 @@ type hubOptions struct {
 	seed      uint64
 	seeded    bool
 	poolStart int
+	// setup runs on the new hub, for tests that start from a given world.
+	setup []func(*Hub)
 }
 
 // WithPoolStart sets how many companion ships the hangar holds at start.
@@ -174,7 +178,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		opt(&o)
 	}
 
-	return &Hub{
+	h := &Hub{
 		logger:   logger,
 		join:     make(chan joinRequest),
 		leave:    make(chan *Session),
@@ -188,6 +192,11 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		hangar:    o.poolStart,
 		shots:     sim.NewPool(shotCapacity),
 	}
+	for _, setup := range o.setup {
+		setup(h)
+	}
+
+	return h
 }
 
 // newRand returns the hub's random source: seeded for tests, else random.
@@ -357,6 +366,7 @@ func (h *Hub) step() {
 	h.stepEnemies()
 	h.fireVolleys()
 	h.flyCompanions()
+	h.bumpShips()
 	enemies := h.enemySnapshot()
 	companions := h.companionSnapshots()
 

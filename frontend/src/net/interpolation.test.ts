@@ -8,6 +8,8 @@ import type { RemoteShip } from './mapping.ts';
 const ship = (x: number, y: number, angle = 0, thrusting = false): RemoteShip => ({
   x,
   y,
+  vx: 0,
+  vy: 0,
   angle,
   thrusting,
   loadout: { ...DEFAULT_LOADOUT },

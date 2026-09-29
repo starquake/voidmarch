@@ -190,6 +190,8 @@ export declare type Hit = Message<"voidmarch.v1.Hit"> & {
   enemyId: number;
 
   /**
+   * The shot that hit, or 0 for a ram (#48).
+   *
    * @generated from field: uint32 shot_id = 2;
    */
   shotId: number;
@@ -741,6 +743,18 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
    * @generated from field: float angle = 5;
    */
   angle: number;
+
+  /**
+   * Velocity in px/s, for the closing speed of a ram (#48).
+   *
+   * @generated from field: float vx = 6;
+   */
+  vx: number;
+
+  /**
+   * @generated from field: float vy = 7;
+   */
+  vy: number;
 };
 
 /**

@@ -24,3 +24,10 @@ func WithinReach(x, y float64, companions [][2]float64) bool {
 
 // VolleyRange exposes volleyRange for tests.
 const VolleyRange = volleyRange
+
+// WithEnemyAt starts the hub with an enemy at (x, y).
+func WithEnemyAt(x, y float64) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) { h.addEnemy(x, y) })
+	}
+}

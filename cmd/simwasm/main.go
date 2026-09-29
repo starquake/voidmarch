@@ -104,6 +104,11 @@ func hitScan(faction int32, stepSeconds float64, n int32) int32 {
 	return int32(bridge.HitScan(int(faction), stepSeconds, int(n)))
 }
 
+//go:wasmexport bump
+func bump(n int32) int32 {
+	return int32(bridge.Bump(int(n)))
+}
+
 //go:wasmexport enemyPattern
 func enemyPattern(kind int32, x, y, angle, seed float64) int32 {
 	return int32(bridge.EnemyPattern(int(kind), x, y, angle, uint32(seed)))

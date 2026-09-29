@@ -54,6 +54,12 @@ const (
 	BrainTightFormation = 0.6
 	// BrainInFormation: a companion this close to its slot is in formation.
 	BrainInFormation = 16
+	// BrainSpacing is how far, center to center, a companion keeps from other
+	// friendly ships where it can: ships touch at 24 and bump (#48).
+	BrainSpacing = 40
+	// BrainSplitTurn is the turn, in radians, between the ways companions on
+	// one point leave it, by formation slot: the golden angle.
+	BrainSplitTurn = 2.39996
 	// BrainLookAhead is how far ahead along the owner's facing a companion
 	// looks when nothing needs shooting.
 	BrainLookAhead = 200
@@ -108,6 +114,19 @@ const (
 	FormationRecharge = 2
 	// NoSquadmate is the squadmate distance when there's none near.
 	NoSquadmate = math.MaxFloat64
+)
+
+// Bumping (#48): ships and enemies push apart, and a fast collision hurts.
+const (
+	// RammingSpeed is the closing speed, in px/s, from which a collision is a ram.
+	RammingSpeed float64 = 120
+	// RammingReach is how close, in px past touching, bodies count as meeting
+	// for a ram.
+	RammingReach float64 = 8
+	// RammingCooldown is the seconds before the same two bodies can ram again.
+	RammingCooldown float64 = 1
+	// RammingDamage is what a ram does to an enemy, like a zapper hit.
+	RammingDamage = 2
 )
 
 // EngineStats is how an engine flies.

@@ -99,10 +99,21 @@ const (
 	shipCharges    = 4
 	// hitTriple is the numbers per hit ShipScan writes.
 	hitTriple = 3
-	// MaxTargets is how many targets HitScan and ShipScan read from Scratch.
+	// MaxTargets is how many targets HitScan, ShipScan and Bump read from Scratch.
 	MaxTargets = 128
+	// BumpSize is the numbers per body Bump reads: x, y, radius, vx, vy, a
+	// key naming it for the ram cooldown, and the side it pushes the ship
+	// to when they sit on the same point.
+	BumpSize   = 7
+	bumpX      = 0
+	bumpY      = 1
+	bumpRadius = 2
+	bumpVX     = 3
+	bumpVY     = 4
+	bumpKey    = 5
+	bumpSide   = 6
 	// ScratchSize is the numbers Scratch holds, enough for the largest use.
-	ScratchSize = MaxTargets * ShipTargetSize
+	ScratchSize = MaxTargets * BumpSize
 )
 
 // Offsets of the sections of State.
@@ -122,9 +133,13 @@ type Bridge struct {
 	// Scratch passes a call's extra numbers both ways: hit targets in, a
 	// position or an enemy pattern out.
 	Scratch [ScratchSize]float64
-	// Hits is HitScan's answer, pairs of (slot, target index), and
-	// ShipScan's, triples of (slot, ship index, direction of the contact).
+	// Hits is HitScan's answer, pairs of (slot, target index), ShipScan's,
+	// triples of (slot, ship index, direction of the contact), and Bump's,
+	// pairs of (body index, 1 when the shield took the ram).
 	Hits [ProjectileCapacity * hitTriple]float64
+	// clock is the seconds the sandbox has run, for the ram cooldown.
+	clock float64
+	rams  sim.Rams[float64]
 }
 
 // New returns a bridge around a fresh sandbox, its state already written.
@@ -140,7 +155,47 @@ func New() *Bridge {
 // the nearest squadmate is, for the shield's formation bonus.
 func (b *Bridge) Advance(frameSeconds float64, cmd sim.Command, squadmateDistance float64) {
 	b.sandbox.SquadmateDistance = squadmateDistance
-	b.write(b.sandbox.AdvanceCommand(frameSeconds, cmd))
+	events := b.sandbox.AdvanceCommand(frameSeconds, cmd)
+	b.clock += float64(events.Ticks) * sim.TickSeconds
+	b.write(events)
+}
+
+// Bump pushes the ship out of the n bodies in Scratch (BumpSize numbers
+// each) and applies a hit for each ram, from the rammed body's side. It
+// writes (body index, 1 when the shield took it) pairs into Hits and
+// returns how many rams there were.
+func (b *Bridge) Bump(n int) int {
+	n = min(max(n, 0), MaxTargets)
+	ship := b.sandbox.Ship
+	before := sim.Vec{X: ship.X, Y: ship.Y}
+	rams := 0
+	for i := range n {
+		at := b.Scratch[i*BumpSize:]
+		other := sim.Body{
+			X:      at[bumpX],
+			Y:      at[bumpY],
+			Radius: at[bumpRadius],
+			VX:     at[bumpVX],
+			VY:     at[bumpVY],
+		}
+		c, ok := sim.Touching(sim.ShipBody(ship), other, at[bumpSide])
+		if !ok {
+			continue
+		}
+		ship.MoveTo(sim.Apart(sim.ShipBody(ship), c, 1))
+		if !c.Hurts() || !b.rams.Ready(at[bumpKey], b.clock) {
+			continue
+		}
+		b.Hits[rams*2], b.Hits[rams*2+1] = float64(i), boolFloat(sim.TakeHit(ship, c.From()))
+		rams++
+	}
+	b.rams.Forget(b.clock)
+	// Drawing blends from Previous: move it along, so the push shows at once.
+	b.sandbox.Previous.X += ship.X - before.X
+	b.sandbox.Previous.Y += ship.Y - before.Y
+	b.write(sim.FrameEvents{})
+
+	return rams
 }
 
 // TakeHit applies a hit on the ship from direction from, as ShipScan

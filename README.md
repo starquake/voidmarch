@@ -89,7 +89,8 @@ six. Their weapons animate just before they fire at anyone within range, and
 they leave once nobody is near. Your shield takes hits from the side it
 covers while it has charges, and recharges after a few seconds without one,
 faster with a squadmate close by. Other hits cost the hull a step, which
-heals slowly out of combat. The HUD shows both. Enemies need the server, so
+heals slowly out of combat. The HUD shows both. Ships and enemies bump
+apart, and a fast collision is a ram that hurts both sides. Enemies need the server, so
 offline the sandbox stays empty.
 
 Add `?wire=json` to the address to see the game's messages as readable JSON in

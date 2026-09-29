@@ -16,7 +16,9 @@ const tolerance = 1e-9
 
 // golden is internal/sim/testdata/golden.json, written by the TypeScript
 // sim before the port (#50); the TypeScript rules and that script are gone
-// since #53, so the file is a fixed record.
+// since #53, so the file is a fixed record. The sandboxes' companion traces
+// and shots were re-recorded from Go when companions began keeping apart
+// (#48): their three companions start 30 px apart.
 type golden struct {
 	Math        goldenMath         `json:"math"`
 	Ships       []goldenShip       `json:"ships"`

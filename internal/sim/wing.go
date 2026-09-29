@@ -121,9 +121,10 @@ func (w *Wing) Observe(owner Mover) {
 }
 
 // Step flies every companion one tick against the enemies as they see them,
-// and returns the shots they fired. Observe first: a wing that has never seen
-// its owner holds still.
-func (w *Wing) Step(enemies []BrainEnemy) []CompanionShot {
+// keeping clear of its wingmates and the others (other players' ships and
+// their companions), and returns the shots they fired. Observe first: a wing that has
+// never seen its owner holds still.
+func (w *Wing) Step(enemies []BrainEnemy, others []Vec) []CompanionShot {
 	if len(w.ownerTrail) == 0 {
 		return nil
 	}
@@ -140,7 +141,10 @@ func (w *Wing) Step(enemies []BrainEnemy) []CompanionShot {
 		// It sees its owner as they were its reaction time ago.
 		seen := w.ownerTrail[max(0, len(w.ownerTrail)-1-c.ReactionTicks)]
 		step := Think(
-			BrainView{Self: c.Ship, Owner: seen, Slot: slot, Enemies: enemies},
+			BrainView{
+				Self: c.Ship, Owner: seen, Slot: slot, Enemies: enemies,
+				Friends: w.friendsOf(c, others),
+			},
 			c.Orders,
 			c.Random,
 		)
@@ -161,4 +165,18 @@ func (w *Wing) Step(enemies []BrainEnemy) []CompanionShot {
 	}
 
 	return shots
+}
+
+// friendsOf are the ships c keeps clear of: the others and its wingmates.
+// Its owner isn't one: the formation already keeps it at a distance.
+func (w *Wing) friendsOf(c *Companion, others []Vec) []Vec {
+	friends := make([]Vec, 0, len(others)+len(w.Companions))
+	friends = append(friends, others...)
+	for _, mate := range w.Companions {
+		if mate != c {
+			friends = append(friends, Vec{X: mate.Ship.X, Y: mate.Ship.Y})
+		}
+	}
+
+	return friends
 }

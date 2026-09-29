@@ -210,6 +210,77 @@ func TestSetLoadout_ASwapNeverAddsCharges(t *testing.T) {
 	}
 }
 
+// body writes a body into b's Scratch at index i for Bump.
+func body(b *Bridge, i int, o sim.Body, key, side float64) {
+	copy(b.Scratch[i*BumpSize:], []float64{o.X, o.Y, o.Radius, o.VX, o.VY, key, side})
+}
+
+func TestBump_PushesTheShipOut(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	x, y := b.State[HeaderShipX], b.State[HeaderShipY]
+	body(b, 0, sim.Body{X: x + 20, Y: y, Radius: sim.ShipRadius}, 1, 1)
+	body(b, 1, sim.Body{X: x + 500, Y: y, Radius: sim.ShipRadius}, 2, 1)
+	if rams := b.Bump(2); rams != 0 {
+		t.Errorf("Bump() = %d rams, want 0 for a ship at rest", rams)
+	}
+	if got, want := b.State[HeaderShipX], x-4; math.Abs(got-want) > 1e-9 {
+		t.Errorf("ship x = %v, want %v, just out of the body", got, want)
+	}
+	if got, want := b.State[HeaderPreviousX], x-4; math.Abs(got-want) > 1e-9 {
+		t.Errorf("previous x = %v, want %v, moved with the push", got, want)
+	}
+}
+
+func TestBump_ARamHurtsOncePerCooldown(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	x, y := b.State[HeaderShipX], b.State[HeaderShipY]
+	// A body rushing up into the ship from behind, where the front shield doesn't cover.
+	ram := func() int {
+		body(
+			b,
+			0,
+			sim.Body{X: x, Y: y + 20, Radius: sim.ShipRadius, VX: 0, VY: -sim.RammingSpeed},
+			7,
+			1,
+		)
+
+		return b.Bump(1)
+	}
+	if rams := ram(); rams != 1 || b.Hits[0] != 0 || b.Hits[1] != 0 {
+		t.Fatalf("Bump() = %d rams, hits %v, want one on body 0, not absorbed", rams, b.Hits[:2])
+	}
+	if got := b.State[HeaderShipDamage]; got != 1 {
+		t.Errorf("damage after a ram from behind = %v, want 1", got)
+	}
+	if rams := ram(); rams != 0 {
+		t.Errorf("a second ram at once = %d rams, want 0 within the cooldown", rams)
+	}
+	for range int(sim.RammingCooldown*sim.TickRate) + 1 {
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	}
+	x, y = b.State[HeaderShipX], b.State[HeaderShipY]
+	if rams := ram(); rams != 1 {
+		t.Errorf("a ram after the cooldown = %d rams, want 1", rams)
+	}
+}
+
+func TestBump_ClampsN(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	if got := b.Bump(-1); got != 0 {
+		t.Errorf("Bump(-1) = %d, want 0", got)
+	}
+	if got := b.Bump(MaxTargets + 1); got != 0 {
+		t.Errorf("Bump(MaxTargets+1) over an empty scratch = %d, want 0", got)
+	}
+}
+
 func TestHitScan(t *testing.T) {
 	t.Parallel()
 

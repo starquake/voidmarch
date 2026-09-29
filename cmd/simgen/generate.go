@@ -71,20 +71,11 @@ func writeTunables(w writer) {
 	w("export const WORLD_EDGE_BAND = %d;\n", sim.WorldEdgeBand)
 	w("export const SAFE_ZONE_RADIUS = %d;\n", sim.SafeZoneRadius)
 	w("export const SHIP_RADIUS = %d;\n", sim.ShipRadius)
-	w("export const MAX_DAMAGE = %d;\n\n", sim.MaxDamage)
+	w("export const MAX_DAMAGE = %d;\n", sim.MaxDamage)
+	w("export const RAM_DAMAGE = %d;\n", sim.RammingDamage)
+	w("export const RAM_SPEED = %s;\n\n", num(sim.RammingSpeed))
 
-	w("export const SHIELD_STATS = {\n")
-	for _, id := range sim.Shields() {
-		s := sim.ShieldStatsOf(id)
-		w(
-			"  %s: { coverage: %s, strength: %s, recharge: %s },\n",
-			id,
-			num(s.Coverage),
-			num(s.Strength),
-			num(s.Recharge),
-		)
-	}
-	w(endObject)
+	writeShieldStats(w)
 
 	w("export const ENGINE_STATS = {\n")
 	for _, id := range sim.Engines() {
@@ -127,6 +118,22 @@ func writeTunables(w writer) {
 	w("export const ENEMY_RADIUS = {\n")
 	for _, k := range sim.EnemyKinds() {
 		w("  %s: %s,\n", k, num(sim.EnemyRadius(k)))
+	}
+	w(endObject)
+}
+
+// writeShieldStats writes each shield's arc, charges and recharge time.
+func writeShieldStats(w writer) {
+	w("export const SHIELD_STATS = {\n")
+	for _, id := range sim.Shields() {
+		s := sim.ShieldStatsOf(id)
+		w(
+			"  %s: { coverage: %s, strength: %s, recharge: %s },\n",
+			id,
+			num(s.Coverage),
+			num(s.Strength),
+			num(s.Recharge),
+		)
 	}
 	w(endObject)
 }
@@ -191,6 +198,7 @@ func writeLayout(w writer) {
 		{"stateSize", simbridge.StateSize},
 		{"maxTargets", simbridge.MaxTargets},
 		{"shipTargetSize", simbridge.ShipTargetSize},
+		{"bumpSize", simbridge.BumpSize},
 		{"scratchSize", simbridge.ScratchSize},
 	}
 	for _, f := range fields {

@@ -30,12 +30,32 @@ func (h *Hub) flyCompanions() {
 				continue
 			}
 			m.wing.Observe(mover(m.state))
-			for _, shot := range m.wing.Step(h.brainEnemies(m)) {
+			for _, shot := range m.wing.Step(h.brainEnemies(m), h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}
 		}
 		h.stepCompanionShots()
 	}
+}
+
+// othersThan are the ships of every member but id and their companions,
+// which id's companions keep clear of.
+func (h *Hub) othersThan(id string) []sim.Vec {
+	var out []sim.Vec
+	for _, other := range slices.Sorted(maps.Keys(h.members)) {
+		if other == id {
+			continue
+		}
+		m := h.members[other]
+		if m.state != nil {
+			out = append(out, sim.Vec{X: float64(m.state.GetX()), Y: float64(m.state.GetY())})
+		}
+		for _, c := range m.wing.Companions {
+			out = append(out, sim.Vec{X: c.Ship.X, Y: c.Ship.Y})
+		}
+	}
+
+	return out
 }
 
 // brainEnemies are the enemies as m's companions see them.

@@ -43,7 +43,7 @@ test('every loadout survives the round trip through the wire', () => {
       for (const shield of SHIELDS) {
         const ship = { ...createShip(12, -3), loadout: { weapon, engine, shield }, angle: 1.5, thrusting: true, damage: 2, shield: 1.5 };
         const remote = fromShipState(toShipState(ship));
-        assert.deepEqual(remote, { x: 12, y: -3, angle: 1.5, thrusting: true, loadout: { weapon, engine, shield }, damage: 2, shield: 1.5 });
+        assert.deepEqual(remote, { x: 12, y: -3, vx: 0, vy: 0, angle: 1.5, thrusting: true, loadout: { weapon, engine, shield }, damage: 2, shield: 1.5 });
       }
     }
   }

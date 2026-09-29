@@ -87,6 +87,7 @@ message ShotFired {
 // trusted for it (docs/design.md, section 9).
 message Hit {
   uint32 enemy_id = 1;
+  // The shot that hit, or 0 for a ram (#48).
   uint32 shot_id = 2;
   uint32 damage = 3;
   // Deprecated: the hub tests its companions' shots itself (#51); a hit with
@@ -254,6 +255,9 @@ message EnemyState {
   float y = 4;
   // Facing in radians; 0 is +x and y grows downward.
   float angle = 5;
+  // Velocity in px/s, for the closing speed of a ram (#48).
+  float vx = 6;
+  float vy = 7;
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.

@@ -201,6 +201,7 @@ export class SandboxScene extends Phaser.Scene {
       lastEnemyDestroyed: undefined,
       enemyFireGlow: false,
       hitsTaken: 0,
+      rams: 0,
       companions: [],
       companionKills: 0,
       notice: undefined,
@@ -868,6 +869,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;
+    this.debug.rams = this.net?.rams ?? 0;
     this.debug.companions = (this.net?.others ?? [])
       .filter((o) => o.ownerId !== '' && o.ownerId === this.net?.playerId)
       .map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));

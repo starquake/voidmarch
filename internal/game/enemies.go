@@ -360,11 +360,14 @@ func (h *Hub) hit(except, shooter string, enemyID, shotID, damage uint32) {
 	if !ok {
 		return
 	}
-	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{
-		PlayerId: shooter,
-		ShotId:   shotID,
-		Tick:     h.tick,
-	}}}, except)
+	// Shot 0 is a ram (#48), with no shot to end.
+	if shotID != 0 {
+		h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{
+			PlayerId: shooter,
+			ShotId:   shotID,
+			Tick:     h.tick,
+		}}}, except)
+	}
 
 	e.hp = damaged(e.hp, damage)
 	if e.hp > 0 {
@@ -400,6 +403,8 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 			X:       float32(e.x),
 			Y:       float32(e.y),
 			Angle:   float32(e.angle),
+			Vx:      float32(e.vx),
+			Vy:      float32(e.vy),
 		})
 	}
 

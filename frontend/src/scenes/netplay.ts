@@ -32,11 +32,13 @@ import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
 import type { WeaponId } from '../sim/loadout.ts';
-import { isWeapon, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn } from '../simwasm.ts';
+import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn } from '../simwasm.ts';
 import {
   ENEMY_SOUND_RANGE,
   ENEMY_VOLLEY_RANGE,
+  RAM_DAMAGE,
   SAFE_ZONE_RADIUS,
+  SHIP_RADIUS,
   TICK_SECONDS,
   WEAPON_STATS,
 } from '../sim/tuning.ts';
@@ -66,7 +68,7 @@ interface Remote {
   ownerId: string;
   /** The squadron shown in a player's label. */
   squadron: string;
-  /** Where it was drawn this frame. */
+  /** Where it was drawn this frame, for hits and bumping. */
   drawn: RemoteShip | undefined;
 }
 
@@ -89,9 +91,17 @@ export interface NetPlayOptions {
   squadronScreen: SquadronScreen;
 }
 
+/** An enemy's pose and velocity, as bumping needs it. */
+interface EnemyPose extends Pose {
+  vx: number;
+  vy: number;
+}
+
 interface Enemy {
   view: EnemyView;
-  buffer: StateBuffer<Pose>;
+  buffer: StateBuffer<EnemyPose>;
+  /** Where it was drawn this frame, for bumping. */
+  drawn: EnemyPose | undefined;
   /** The last snapshot tick it was in. */
   lastSeen: number;
   /** The tick it was shot down at, once the server said so. */
@@ -167,6 +177,9 @@ export class NetPlay {
   enemiesDestroyed = 0;
   lastEnemyDestroyed: number | undefined;
   hitsTaken = 0;
+  /** Rams the local ship made or took. */
+  rams = 0;
+  private readonly bumpKeys = new Map<string, number>();
   /** Enemies this player's companions shot down. */
   companionKills = 0;
   /** The enemy the player last hit, and when (performance.now() ms): what they're shooting at. */
@@ -406,6 +419,7 @@ export class NetPlay {
     }
 
     this.drawEnemies(renderTick);
+    this.bump(frame);
     this.testHits(frame, events.ticks * TICK_SECONDS);
 
     return frame;
@@ -460,6 +474,7 @@ export class NetPlay {
   private drawEnemies(renderTick: number): void {
     for (const enemy of this.enemies.values()) {
       const pose = enemy.buffer.sample(renderTick);
+      enemy.drawn = enemy.destroyedAt === undefined ? pose : undefined;
       if (pose !== undefined) {
         enemy.view.place(pose.x, pose.y, pose.angle);
       }
@@ -542,6 +557,55 @@ export class NetPlay {
         frame.enemyHits.push({ x: p.x, y: p.y });
       }
     }
+  }
+
+  /**
+   * Pushes the local ship out of every ship and enemy as drawn. A ram costs
+   * it a shield charge or hull step, and a rammed enemy takes RAM_DAMAGE,
+   * reported like a shot's hit with no shot. The others' clients and the hub
+   * bump their own ships.
+   */
+  private bump(frame: NetFrame): void {
+    const { sim } = this.options;
+    const bodies: BumpBody[] = [];
+    const rammed: (number | undefined)[] = [];
+    for (const [id, remote] of this.remotes) {
+      const s = remote.drawn;
+      if (s !== undefined) {
+        const side = this.playerId !== undefined && this.playerId < id ? 1 : -1;
+        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side });
+        rammed.push(undefined);
+      }
+    }
+    for (const [id, enemy] of this.enemies) {
+      const e = enemy.drawn;
+      if (e !== undefined) {
+        const radius = ENEMY_RADIUS[enemy.view.kind];
+        // Enemy ids count up from 1, so negative keys never meet a player's.
+        bodies.push({ x: e.x, y: e.y, vx: e.vx, vy: e.vy, radius, key: -id, side: 1 });
+        rammed.push(id);
+      }
+    }
+    for (const { index } of sim.bump(bodies)) {
+      this.rams++;
+      frame.hitsOnMe.push({ x: sim.ship.x, y: sim.ship.y });
+      const enemyId = rammed[index];
+      if (enemyId !== undefined) {
+        this.connection.sendHit(enemyId, 0, RAM_DAMAGE);
+        this.enemies.get(enemyId)?.view.flash();
+      }
+    }
+  }
+
+  /** A number naming another ship for the ram cooldown, the same for as long as the page runs. */
+  private bumpKey(name: string): number {
+    let key = this.bumpKeys.get(name);
+    if (key === undefined) {
+      key = this.bumpKeys.size + 1;
+      this.bumpKeys.set(name, key);
+    }
+
+    return key;
   }
 
   /** Whether a point is within range of the player or one of their companions. */
@@ -664,14 +728,15 @@ export class NetPlay {
       if (enemy === undefined) {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
-          buffer: new StateBuffer<Pose>(),
+          buffer: new StateBuffer<EnemyPose>(),
+          drawn: undefined,
           lastSeen: snapshot.tick,
           destroyedAt: undefined,
         };
         this.enemies.set(state.enemyId, enemy);
       }
       enemy.lastSeen = snapshot.tick;
-      enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle });
+      enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle, vx: state.vx, vy: state.vy });
     }
   }
 

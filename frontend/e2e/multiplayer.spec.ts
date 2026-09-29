@@ -73,6 +73,64 @@ test('two players see each other fly and shoot', async ({ browser, baseURL }) =>
   }
 });
 
+test('two ships flown into each other bump apart', async ({ browser, baseURL }) => {
+  test.setTimeout(90_000);
+  const suffix = String(Date.now() % 100000);
+  const sanne = await player(browser, baseURL ?? '', `Sanne${suffix}`);
+  const mo = await player(browser, baseURL ?? '', `Mo${suffix}`);
+  const apart = async (): Promise<{ dx: number; distance: number; rams: number }> => {
+    const [a, b] = await Promise.all([state(sanne), state(mo)]);
+
+    return { dx: b.ship.x - a.ship.x, distance: Math.hypot(b.ship.x - a.ship.x, b.ship.y - a.ship.y), rams: b.rams };
+  };
+  const SHIPS_TOUCH = 24;
+  try {
+    // Both start below the home planet on the same point, and part sideways.
+    await expect
+      .poll(async () => (await apart()).distance, { message: 'the two new ships part' })
+      .toBeGreaterThanOrEqual(SHIPS_TOUCH - 1);
+
+    // They part along x, so with screen-relative controls Mo backs away
+    // along that line and then flies straight into her, whatever his aim.
+    await mo.keyboard.press('c');
+    await expect.poll(async () => (await state(mo)).controlMode).toBe('screen');
+    const [away, toward] = (await apart()).dx > 0 ? ['d', 'a'] : ['a', 'd'];
+    await mo.keyboard.down(away);
+    await expect.poll(async () => (await apart()).distance).toBeGreaterThan(80);
+    await mo.keyboard.up(away);
+    await mo.keyboard.down(toward);
+    // He never flies through her: the ships stay out of each other while he pushes.
+    let closest = Infinity;
+    const track = async (): Promise<{ distance: number; rams: number }> => {
+      const now = await apart();
+      closest = Math.min(closest, now.distance);
+
+      return now;
+    };
+    await expect
+      .poll(
+        async () => {
+          const now = await track();
+
+          return now.rams > 0 && now.distance >= SHIPS_TOUCH - 1;
+        },
+        { message: 'Mo rams Sanne and stays out of her ship', intervals: [50] },
+      )
+      .toBe(true);
+    for (let i = 0; i < 10; i++) {
+      await track();
+      await mo.waitForTimeout(50);
+    }
+    await mo.keyboard.up(toward);
+    expect(closest, 'the closest the ships came, center to center').toBeGreaterThan(SHIPS_TOUCH / 2);
+    // Rams hurt both: Sanne's own client counts his ram on her too.
+    await expect.poll(async () => (await state(sanne)).rams, { message: 'Sanne counts the ram' }).toBeGreaterThan(0);
+  } finally {
+    await sanne.context().close();
+    await mo.context().close();
+  }
+});
+
 test('without the server the game still plays', async ({ page }) => {
   await page.routeWebSocket('**/ws', (ws) => {
     void ws.close();

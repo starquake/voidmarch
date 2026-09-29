@@ -90,6 +90,31 @@ and in the browser's WebAssembly:
   companions it flies. Bullets that touch another player's ship end there on
   every screen, for the picture only.
 
+### Bumping
+
+As built (#48), in `internal/sim/bump.go`: ships and enemies don't overlap.
+
+- Every ship bumps: players, companions and enemies. Overlapping bodies push
+  apart along the line between their centers, and the one pushed loses its
+  speed into the other. Two ships on one point, as at the spawn, part along
+  x, each to its own side.
+- A collision closing at 120 px/s or more is a ram. It counts from 8 px
+  short of touching (`RammingReach`): each ship sees the other as it was, and
+  the rammer's own client stops it at the touch, so the rammed ship would
+  otherwise rarely see an overlap. It costs each ship a
+  shield charge, if the shield covers the side it came from, or a hull
+  step. An enemy takes 2 damage, like a zapper hit. The same two bodies ram
+  at most once a second.
+- Each client bumps its own ship against every other ship and enemy as
+  drawn, and reports a ram on an enemy as a `Hit` with `shot_id` 0. The
+  hub bumps its companions and enemies against each other and the players'
+  latest states, and applies the companions' rams, so every ship is moved
+  by whoever flies it.
+- A downed ship won't bump once going down exists (#47).
+- Companions keep a little room from other friendly ships, so orders that
+  send a wing to one place don't make it ram itself (see §13, "Keeping
+  apart").
+
 ## 5. Going down (death without setbacks)
 
 - At 0 health the ship is **downed**: it stays as the "very damaged" sprite, drifting slowly, unable to shoot.
@@ -302,6 +327,7 @@ With health (milestone 4), a **Support** mode fits in: stay close, revive downed
 As built (#26, moved to Go in #50 and to the server in #51): the brain is `Think` in `internal/sim/brain.go`, a pure function from what a companion sees (its own ship, its owner, its formation slot, the enemies as drawn and whether each has attacked the wing) and its orders to a move, aim and fire command, plus whether a one-shot order is done. It is seeded, so every scenario is reproducible, and its distances live in `internal/sim/tuning.go`.
 
 - **Moving:** it steers toward the velocity that closes on its goal and brakes on arrival, so it holds formation even with the owner at full speed.
+- **Keeping apart** (#48): it nudges its goal away from its wingmates and other players' ships (and their companions) closer than 40 px, center to center, harder the closer they are, so companions sent to one place (a hold point, a focus target, home) spread out instead of bumping. Companions on one exact point leave it in different directions by formation slot. Its owner isn't counted: the formation already keeps it about 60 px away.
 - **Targets:** escorting and defending, enemies within 300 px of the owner; aggressive, within a 450 px leash, the weakest first. Defensive and return fire shoot only enemies that have attacked the wing.
 - **Firing:** only within the weapon's reach and when facing within 0.2 rad of the target.
 - **Falling back:** badly damaged, a defensive or conserving companion falls back into a tight formation. Until health exists (milestone 4), the damage state stands in for it.

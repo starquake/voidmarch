@@ -674,8 +674,9 @@ func (x *ShotFired) GetCompanion() uint32 {
 type Hit struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	EnemyId uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
-	ShotId  uint32                 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
-	Damage  uint32                 `protobuf:"varint,3,opt,name=damage,proto3" json:"damage,omitempty"`
+	// The shot that hit, or 0 for a ram (#48).
+	ShotId uint32 `protobuf:"varint,2,opt,name=shot_id,json=shotId,proto3" json:"shot_id,omitempty"`
+	Damage uint32 `protobuf:"varint,3,opt,name=damage,proto3" json:"damage,omitempty"`
 	// Deprecated: the hub tests its companions' shots itself (#51); a hit with
 	// a companion set is ignored.
 	//
@@ -1803,7 +1804,10 @@ type EnemyState struct {
 	X       float32                `protobuf:"fixed32,3,opt,name=x,proto3" json:"x,omitempty"`
 	Y       float32                `protobuf:"fixed32,4,opt,name=y,proto3" json:"y,omitempty"`
 	// Facing in radians; 0 is +x and y grows downward.
-	Angle         float32 `protobuf:"fixed32,5,opt,name=angle,proto3" json:"angle,omitempty"`
+	Angle float32 `protobuf:"fixed32,5,opt,name=angle,proto3" json:"angle,omitempty"`
+	// Velocity in px/s, for the closing speed of a ram (#48).
+	Vx            float32 `protobuf:"fixed32,6,opt,name=vx,proto3" json:"vx,omitempty"`
+	Vy            float32 `protobuf:"fixed32,7,opt,name=vy,proto3" json:"vy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1869,6 +1873,20 @@ func (x *EnemyState) GetY() float32 {
 func (x *EnemyState) GetAngle() float32 {
 	if x != nil {
 		return x.Angle
+	}
+	return 0
+}
+
+func (x *EnemyState) GetVx() float32 {
+	if x != nil {
+		return x.Vx
+	}
+	return 0
+}
+
+func (x *EnemyState) GetVy() float32 {
+	if x != nil {
+		return x.Vy
 	}
 	return 0
 }
@@ -2886,14 +2904,16 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x0fSquadronOrdered\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\x86\x01\n" +
+	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xa6\x01\n" +
 	"\n" +
 	"EnemyState\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x17.voidmarch.v1.EnemyKindR\x04kind\x12\f\n" +
 	"\x01x\x18\x03 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x04 \x01(\x02R\x01y\x12\x14\n" +
-	"\x05angle\x18\x05 \x01(\x02R\x05angle\"\x8a\x01\n" +
+	"\x05angle\x18\x05 \x01(\x02R\x05angle\x12\x0e\n" +
+	"\x02vx\x18\x06 \x01(\x02R\x02vx\x12\x0e\n" +
+	"\x02vy\x18\a \x01(\x02R\x02vy\"\x8a\x01\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
