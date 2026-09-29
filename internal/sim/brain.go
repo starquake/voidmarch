@@ -101,6 +101,9 @@ type BrainView struct {
 	// Slot is its place in the formation, an index into FormationSlots.
 	Slot    int
 	Enemies []BrainEnemy
+	// Friends are the other friendly ships it keeps BrainSpacing from: its
+	// wingmates and other players' ships.
+	Friends []Vec
 }
 
 // BrainStep is one decision: the command for this tick, and whether the
@@ -359,6 +362,29 @@ func chooseGoal(view *BrainView, orders *Orders, target *BrainEnemy) goal {
 	return stanceGoal(view, orders)
 }
 
+// spaced is the goal point moved away from each friend closer than
+// BrainSpacing, by how much closer it is, so companions sent to one place
+// spread out instead of bumping.
+func spaced(view *BrainView, point Vec) Vec {
+	self := view.Self
+	for _, f := range view.Friends {
+		dx, dy := self.X-f.X, self.Y-f.Y
+		d := math.Hypot(dx, dy)
+		if d >= BrainSpacing {
+			continue
+		}
+		if d == 0 {
+			turn := float64(view.Slot) * BrainSplitTurn
+			dx, dy, d = math.Cos(turn), math.Sin(turn), 1
+		}
+		push := BrainSpacing - d
+		point.X += dx / d * push
+		point.Y += dy / d * push
+	}
+
+	return point
+}
+
 // oneShotDone reports whether the one-shot order is finished.
 func oneShotDone(view *BrainView, orders *Orders, target *BrainEnemy) bool {
 	switch orders.OneShot.Kind {
@@ -399,7 +425,7 @@ func Think(view BrainView, orders Orders, random *Random) BrainStep {
 		}
 	}
 	g := chooseGoal(&view, &orders, target)
-	move := Arrive(self, g.point, g.velocity)
+	move := Arrive(self, spaced(&view, g.point), g.velocity)
 
 	var aim Vec
 	fire := false

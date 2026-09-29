@@ -144,7 +144,7 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 		)
 		events.Shots = append(events.Shots, FiredShot{ShotSpawn: shot, ID: p.ShotID})
 	}
-	for _, shot := range s.Step(enemies) {
+	for _, shot := range s.Step(enemies, nil) {
 		p := s.Projectiles.Spawn(
 			ProjectileSpawn{
 				Kind:  ProjectileKind(shot.Weapon),

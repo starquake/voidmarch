@@ -54,6 +54,12 @@ const (
 	BrainTightFormation = 0.6
 	// BrainInFormation: a companion this close to its slot is in formation.
 	BrainInFormation = 16
+	// BrainSpacing is how far, center to center, a companion keeps from other
+	// friendly ships where it can: ships touch at 24 and bump (#48).
+	BrainSpacing = 40
+	// BrainSplitTurn is the turn, in radians, between the ways companions on
+	// one point leave it, by formation slot: the golden angle.
+	BrainSplitTurn = 2.39996
 	// BrainLookAhead is how far ahead along the owner's facing a companion
 	// looks when nothing needs shooting.
 	BrainLookAhead = 200

@@ -108,6 +108,9 @@ As built (#48), in `internal/sim/bump.go`: ships and enemies don't overlap.
   latest states, and applies the companions' rams, so every ship is moved
   by whoever flies it.
 - A downed ship won't bump once going down exists (#47).
+- Companions keep a little room from other friendly ships, so orders that
+  send a wing to one place don't make it ram itself (see §13, "Keeping
+  apart").
 
 ## 5. Going down (death without setbacks)
 
@@ -321,6 +324,7 @@ With health (milestone 4), a **Support** mode fits in: stay close, revive downed
 As built (#26, moved to Go in #50 and to the server in #51): the brain is `Think` in `internal/sim/brain.go`, a pure function from what a companion sees (its own ship, its owner, its formation slot, the enemies as drawn and whether each has attacked the wing) and its orders to a move, aim and fire command, plus whether a one-shot order is done. It is seeded, so every scenario is reproducible, and its distances live in `internal/sim/tuning.go`.
 
 - **Moving:** it steers toward the velocity that closes on its goal and brakes on arrival, so it holds formation even with the owner at full speed.
+- **Keeping apart** (#48): it nudges its goal away from its wingmates and other players' ships (and their companions) closer than 40 px, center to center, harder the closer they are, so companions sent to one place (a hold point, a focus target, home) spread out instead of bumping. Companions on one exact point leave it in different directions by formation slot. Its owner isn't counted: the formation already keeps it about 60 px away.
 - **Targets:** escorting and defending, enemies within 300 px of the owner; aggressive, within a 450 px leash, the weakest first. Defensive and return fire shoot only enemies that have attacked the wing.
 - **Firing:** only within the weapon's reach and when facing within 0.2 rad of the target.
 - **Falling back:** badly damaged, a defensive or conserving companion falls back into a tight formation. Until health exists (milestone 4), the damage state stands in for it.
