@@ -39,12 +39,8 @@ const nearest = (s: DebugState): DebugState['enemies'][number] | undefined =>
     undefined,
   );
 
-test('enemies come for a player out of the safe zone and can be shot down', async ({ page }) => {
-  test.setTimeout(90_000);
-  await page.goto('/');
-  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-
-  // Fly away from the home planet, where nothing spawns.
+/** Flies from wherever the ship is, down and away from the home planet, out of the safe zone. */
+async function flyOut(page: Page): Promise<void> {
   const start = await state(page);
   await aimAt(page, start, start.ship.x, start.ship.y + 150);
   await page.keyboard.down('w');
@@ -56,15 +52,17 @@ test('enemies come for a player out of the safe zone and can be shot down', asyn
     })
     .toBeGreaterThan(OUT_OF_SAFE_ZONE);
   await page.keyboard.up('w');
+}
 
-  // An enemy shows up near the player.
-  await expect
-    .poll(async () => (await state(page)).enemies.length, { timeout: 20_000 })
-    .toBeGreaterThan(0);
+/**
+ * Keeps the nearest enemy in the sights until one this player shot down is
+ * gone, or the ship goes down. Chasing one strafing enemy at a slow runner's
+ * frame rate can miss for good (#31).
+ */
+async function hunt(page: Page): Promise<'shot' | 'down'> {
   const before = (await state(page)).enemiesDestroyed;
-
-  // Keep the nearest in the sights until one this player shot down is gone.
-  // Chasing one strafing enemy at a slow runner's frame rate can miss for good (#31).
+  const shot = (s: DebugState): boolean =>
+    s.enemiesDestroyed > before && !s.enemies.some((e) => e.id === s.lastEnemyDestroyed);
   await page.mouse.down();
   await expect
     .poll(
@@ -75,12 +73,36 @@ test('enemies come for a player out of the safe zone and can be shot down', asyn
           await aimAt(page, s, target.x, target.y);
         }
 
-        return s.enemiesDestroyed > before && !s.enemies.some((e) => e.id === s.lastEnemyDestroyed);
+        return shot(s) || s.downed;
       },
       { message: 'an enemy this player shot down is gone', timeout: 45_000, intervals: [100] },
     )
     .toBe(true);
   await page.mouse.up();
+
+  return shot(await state(page)) ? 'shot' : 'down';
+}
+
+test('enemies come for a player out of the safe zone and can be shot down', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+
+  // Out there the ship can go down before it hits anything (#47): then it
+  // respawns at home and goes again.
+  for (let tries = 1; ; tries++) {
+    await flyOut(page);
+    await expect
+      .poll(async () => (await state(page)).enemies.length, { message: 'an enemy shows up', timeout: 20_000 })
+      .toBeGreaterThan(0);
+    if ((await hunt(page)) === 'shot') {
+      break;
+    }
+    expect(tries, 'went down three times without shooting an enemy down').toBeLessThan(3);
+    await expect.poll(async () => (await state(page)).canRespawn, { timeout: 10_000 }).toBe(true);
+    await page.keyboard.press('h');
+    await expect.poll(async () => (await state(page)).downed).toBe(false);
+  }
 });
 
 test('a parked ship loses its shield charge, then hull', async ({ page }) => {

@@ -19,6 +19,8 @@ const OUT_OF_SAFE_ZONE = 340;
 const JUST_OUT = 306;
 /** Inside the safe zone, where enemies neither target nor go. */
 const JUST_IN = 290;
+/** How far inside the downed ship Mo hovers: within the revive reach, 60 px. */
+const REACH_INSIDE = 40;
 
 /**
  * Takes the round shield, one charge all around, flies out of the safe zone
@@ -43,6 +45,17 @@ async function goDown(page: Page, atEdge = false): Promise<void> {
       await page.keyboard.up('s');
       await page.waitForTimeout(400);
     }
+    // Come to rest, so it goes down where it parks rather than drifting on.
+    let last = await out();
+    await expect
+      .poll(async () => {
+        const now = await out();
+        const still = Math.abs(now - last) < 0.5;
+        last = now;
+
+        return still;
+      }, { intervals: [250] })
+      .toBe(true);
   } else {
     const view = page.viewportSize() ?? { width: 640, height: 360 };
     await page.mouse.move(view.width / 2, view.height - 10);
@@ -169,10 +182,15 @@ test('a squadmate hovering next to a downed player revives it', async ({ page, b
     // inside it: enemies turn on anyone hovering by a downed ship out there,
     // but neither target nor enter the zone. A squadmate revives in 1.5 s.
     await goDown(page, true);
-    const down = (await state(page)).ship;
-    const out = Math.hypot(down.x, down.y);
-    const spot = { x: (down.x / out) * JUST_IN, y: (down.y / out) * JUST_IN };
-    await hoverAt(mo, page, () => Promise.resolve(spot), 12, 120, async () => (await state(page)).revives > 0);
+    // Mo's spot follows the downed ship, just inside the zone and within reach.
+    const spot = async (): Promise<{ x: number; y: number }> => {
+      const { x, y } = (await state(page)).ship;
+      const out = Math.hypot(x, y);
+      const at = Math.min(JUST_IN, out - REACH_INSIDE) / out;
+
+      return { x: x * at, y: y * at };
+    };
+    await hoverAt(mo, page, spot, 12, 120, async () => (await state(page)).revives > 0);
     const up = await state(page);
     expect(up.revives).toBeGreaterThan(0);
   } finally {
