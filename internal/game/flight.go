@@ -82,18 +82,99 @@ func (h *Hub) fireCompanionShot(owner string, shot sim.CompanionShot) {
 	}}}, "")
 }
 
-// stepCompanionShots moves the companions' shots one sim tick and applies
-// those that hit an enemy on the way.
+// volley is an enemy's volley, announced to clients with a warning and
+// fired at tick from wherever the enemy is by then, as clients fire it.
+type volley struct {
+	tick    uint32
+	enemyID uint32
+	angle   float64
+	seed    uint32
+}
+
+// volleyRange is how close a companion must be to an enemy for the hub to
+// fly its volley; clients skip the ones past the same range.
+const volleyRange = 800
+
+// fireVolleys puts the volleys due by now into the hub's projectiles, the
+// same bullets every client expands from the same seed. A volley from an
+// enemy shot down meanwhile never leaves, and one with no companion in
+// reach isn't flown.
+func (h *Hub) fireVolleys() {
+	var companions []point
+	for _, m := range h.members {
+		for _, c := range m.wing.Companions {
+			companions = append(companions, point{c.Ship.X, c.Ship.Y})
+		}
+	}
+	pending := h.volleys[:0]
+	for _, v := range h.volleys {
+		if v.tick > h.tick {
+			pending = append(pending, v)
+
+			continue
+		}
+		e, ok := h.enemies[v.enemyID]
+		if !ok || !withinReach(point{e.x, e.y}, companions) {
+			continue
+		}
+		for _, bullet := range sim.EnemyPattern(simEnemyKind(e.kind), e.x, e.y, v.angle, v.seed) {
+			h.shots.Spawn(bullet, sim.SpawnOptions{Faction: sim.FactionEnemy})
+		}
+	}
+	h.volleys = pending
+}
+
+// withinReach reports whether any companion is within volleyRange of p.
+func withinReach(p point, companions []point) bool {
+	return slices.ContainsFunc(companions, func(c point) bool {
+		return math.Hypot(c.x-p.x, c.y-p.y) <= volleyRange
+	})
+}
+
+// stepCompanionShots moves the hub's projectiles one sim tick: companions'
+// shots that hit an enemy count, and enemy bullets that hit a companion
+// wear its shield or hull.
 func (h *Hub) stepCompanionShots() {
 	h.shots.Step(sim.TickSeconds, sim.ProjectileInBounds)
-	if len(h.enemies) == 0 {
-		return
+	enemies := h.enemyTargets()
+	companions, ships := h.companionTargets()
+	items := h.shots.Items()
+	for i := range items {
+		p := &items[i]
+		if !p.Active {
+			continue
+		}
+		from := sim.PositionAt(p, math.Max(0, p.Age-sim.TickSeconds))
+		switch p.Faction {
+		case sim.FactionEnemy:
+			if i, direction, ok := sim.FirstShipHit(companions, from.X, from.Y, p.X, p.Y); ok {
+				p.Active = false
+				sim.TakeHit(ships[i], direction)
+				// Its shield may be spent now, for the next bullet this step.
+				companions[i] = sim.TargetOf(ships[i])
+			}
+		case sim.FactionOwn, sim.FactionRemote:
+			fallthrough
+		default:
+			if target, ok := sim.HitTargetAlong(from.X, from.Y, p.X, p.Y, enemies); ok {
+				p.Active = false
+				damage := sim.WeaponStatsOf(sim.WeaponID(p.Kind)).Damage
+				shotID := uint32(p.ShotID) //nolint:gosec // shot ids count up from 1.
+				h.hit("", p.Owner, target.ID, shotID, uint32(damage))
+				// The enemy may be gone now: test the rest against the ones left.
+				enemies = h.enemyTargets()
+			}
+		}
 	}
-	targets := make([]sim.Target[uint32], 0, len(h.enemies))
+}
+
+// enemyTargets are the enemies as hit circles.
+func (h *Hub) enemyTargets() []sim.Target[uint32] {
+	out := make([]sim.Target[uint32], 0, len(h.enemies))
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
-		targets = append(
-			targets,
+		out = append(
+			out,
 			sim.Target[uint32]{
 				ID:     id,
 				X:      e.x,
@@ -102,22 +183,23 @@ func (h *Hub) stepCompanionShots() {
 			},
 		)
 	}
-	items := h.shots.Items()
-	for i := range items {
-		p := &items[i]
-		if !p.Active {
-			continue
+
+	return out
+}
+
+// companionTargets are every companion as enemy bullets meet it, with its
+// ship at the same index.
+func (h *Hub) companionTargets() ([]sim.ShipTarget, []*sim.Ship) {
+	var targets []sim.ShipTarget
+	var ships []*sim.Ship
+	for _, id := range slices.Sorted(maps.Keys(h.members)) {
+		for _, c := range h.members[id].wing.Companions {
+			targets = append(targets, sim.TargetOf(c.Ship))
+			ships = append(ships, c.Ship)
 		}
-		from := sim.PositionAt(p, math.Max(0, p.Age-sim.TickSeconds))
-		target, ok := sim.HitTargetAlong(from.X, from.Y, p.X, p.Y, targets)
-		if !ok {
-			continue
-		}
-		p.Active = false
-		damage := sim.WeaponStatsOf(sim.WeaponID(p.Kind)).Damage
-		shotID := uint32(p.ShotID) //nolint:gosec // shot ids count up from 1.
-		h.hit("", p.Owner, target.ID, shotID, uint32(damage))
 	}
+
+	return targets, ships
 }
 
 // noteAttack marks e as an attacker of every wing it fired near, which
@@ -196,6 +278,7 @@ func companionState(c *sim.Companion) *pb.ShipState {
 			Shield: pbShield(s.Loadout.Shield),
 		},
 		Damage: uint32(s.Damage), //nolint:gosec // hits taken, 0 to 3.
+		Shield: float32(s.Shield),
 	}
 }
 

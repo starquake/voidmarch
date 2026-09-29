@@ -90,6 +90,26 @@ const (
 	BrainOrderJitter = 0.25
 )
 
+// Damage and recovery (docs/design.md, section 4; #46).
+const (
+	// MaxDamage is the hits a hull takes: very damaged, and down once #47
+	// lands.
+	MaxDamage = 3
+	// ShieldRechargeDelay is the seconds without a hit before a shield
+	// recharges.
+	ShieldRechargeDelay float64 = 3
+	// HullRegenDelay is the seconds without a hit before the hull heals.
+	HullRegenDelay float64 = 8
+	// HullRegenEvery is the seconds per hull step healed, after the delay.
+	HullRegenEvery float64 = 10
+	// FormationRadius is how close a squadmate must be for the formation
+	// bonus: shields recharge FormationRecharge times as fast.
+	FormationRadius   = 200
+	FormationRecharge = 2
+	// NoSquadmate is the squadmate distance when there's none near.
+	NoSquadmate = math.MaxFloat64
+)
+
 // EngineStats is how an engine flies.
 type EngineStats struct {
 	// Acceleration is in px/s^2 while thrusting.
@@ -225,21 +245,29 @@ type ShieldStats struct {
 	Strength float64
 	// Recharge is the seconds out of combat to recharge fully.
 	Recharge float64
+	// Radius is where the shield is drawn, from the sprite's opaque extent:
+	// bullets meet it there, before the hull.
+	Radius float64
+}
+
+// Covers reports whether a hit from offset radians off the aim is inside the arc.
+func (s ShieldStats) Covers(offset float64) bool {
+	return math.Abs(WrapAngle(offset)) <= s.Coverage/2
 }
 
 // ShieldStatsOf is a shield's stats.
 func ShieldStatsOf(id ShieldID) ShieldStats {
 	switch id {
 	case ShieldFrontAndSide:
-		return ShieldStats{Coverage: math.Pi, Strength: 2, Recharge: 5}
+		return ShieldStats{Coverage: math.Pi, Strength: 2, Recharge: 5, Radius: 23}
 	case ShieldRound:
-		return ShieldStats{Coverage: Tau, Strength: 1, Recharge: 3}
+		return ShieldStats{Coverage: Tau, Strength: 1, Recharge: 3, Radius: 25}
 	case ShieldInvincibility:
-		return ShieldStats{Coverage: Tau, Strength: 3, Recharge: 12}
+		return ShieldStats{Coverage: Tau, Strength: 3, Recharge: 12, Radius: 14}
 	case ShieldFront:
 		fallthrough
 	default:
-		return ShieldStats{Coverage: math.Pi * half, Strength: 3, Recharge: 5}
+		return ShieldStats{Coverage: math.Pi * half, Strength: 3, Recharge: 5, Radius: 21}
 	}
 }
 

@@ -12,6 +12,7 @@ const ship = (x: number, y: number, angle = 0, thrusting = false): RemoteShip =>
   thrusting,
   loadout: { ...DEFAULT_LOADOUT },
   damage: 0,
+  shield: 3,
 });
 
 const close = (actual: number | undefined, expected: number): void => {

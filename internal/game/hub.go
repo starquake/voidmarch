@@ -136,8 +136,10 @@ type Hub struct {
 	squadrons map[string]*squadron
 	// hangar is how many companion ships wait to be drawn (docs/design.md, section 13).
 	hangar int
-	// shots are the companions' shots in flight.
+	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
+	// volleys are enemy volleys announced but not yet fired.
+	volleys []volley
 }
 
 // HubOption configures a [Hub].
@@ -353,6 +355,7 @@ func (h *Hub) step() {
 	}
 
 	h.stepEnemies()
+	h.fireVolleys()
 	h.flyCompanions()
 	enemies := h.enemySnapshot()
 	companions := h.companionSnapshots()

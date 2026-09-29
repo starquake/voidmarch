@@ -6,6 +6,7 @@
 package simbridge
 
 import (
+	"math"
 	"slices"
 
 	"github.com/starquake/voidmarch/internal/sim"
@@ -37,6 +38,8 @@ const (
 	HeaderShots
 	HeaderCharges
 	HeaderExpired
+	HeaderShipShieldCharge
+	HeaderShipSinceHit
 	HeaderSize
 )
 
@@ -86,9 +89,20 @@ const (
 	patternSize  = 4
 	maxPatterns  = 8
 	targetSize   = 3
-	// MaxTargets is how many targets HitAlong reads from Scratch.
-	MaxTargets    = 128
-	scratchFloats = MaxTargets * targetSize
+	// ShipTargetSize is the numbers per ship ShipScan reads: x, y, angle,
+	// shield index and charges.
+	ShipTargetSize = 5
+	shipX          = 0
+	shipY          = 1
+	shipAngle      = 2
+	shipShield     = 3
+	shipCharges    = 4
+	// hitTriple is the numbers per hit ShipScan writes.
+	hitTriple = 3
+	// MaxTargets is how many targets HitScan and ShipScan read from Scratch.
+	MaxTargets = 128
+	// ScratchSize is the numbers Scratch holds, enough for the largest use.
+	ScratchSize = MaxTargets * ShipTargetSize
 )
 
 // Offsets of the sections of State.
@@ -107,9 +121,10 @@ type Bridge struct {
 	State [StateSize]float64
 	// Scratch passes a call's extra numbers both ways: hit targets in, a
 	// position or an enemy pattern out.
-	Scratch [scratchFloats]float64
-	// Hits is HitScan's answer: pairs of (slot, target index).
-	Hits [ProjectileCapacity * 2]float64
+	Scratch [ScratchSize]float64
+	// Hits is HitScan's answer, pairs of (slot, target index), and
+	// ShipScan's, triples of (slot, ship index, direction of the contact).
+	Hits [ProjectileCapacity * hitTriple]float64
 }
 
 // New returns a bridge around a fresh sandbox, its state already written.
@@ -121,9 +136,20 @@ func New() *Bridge {
 }
 
 // Advance runs the frame with the input as a command, like
-// [sim.Sandbox.Advance], and writes the state.
-func (b *Bridge) Advance(frameSeconds float64, cmd sim.Command) {
+// [sim.Sandbox.Advance], and writes the state. squadmateDistance is how far
+// the nearest squadmate is, for the shield's formation bonus.
+func (b *Bridge) Advance(frameSeconds float64, cmd sim.Command, squadmateDistance float64) {
+	b.sandbox.SquadmateDistance = squadmateDistance
 	b.write(b.sandbox.AdvanceCommand(frameSeconds, cmd))
+}
+
+// TakeHit applies a hit on the ship from direction from, as ShipScan
+// reports it, and reports whether the shield absorbed it.
+func (b *Bridge) TakeHit(from float64) bool {
+	absorbed := sim.TakeHit(b.sandbox.Ship, from)
+	b.write(sim.FrameEvents{})
+
+	return absorbed
 }
 
 // SetControlMode sets how WASD maps to movement.
@@ -152,6 +178,8 @@ func (b *Bridge) SetLoadout(weapon, engine, shield int) {
 	}
 	l.Engine = pick(sim.Engines(), engine, l.Engine)
 	l.Shield = pick(sim.Shields(), shield, l.Shield)
+	// A swap never adds charges: the new shield holds what's left, up to its strength.
+	s.Shield = math.Min(s.Shield, sim.ShieldStatsOf(l.Shield).Strength)
 	b.write(sim.FrameEvents{})
 }
 
@@ -240,6 +268,46 @@ func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
 	return hits
 }
 
+// ShipScan tests every active enemy bullet along the path it flew in the
+// last stepSeconds against n ships in Scratch (ShipTargetSize numbers each),
+// a charged shield's arc before the hull, and ends the ones that hit. It
+// writes (slot, ship index, direction of the contact) triples into Hits for
+// TakeHit, and returns how many hit.
+func (b *Bridge) ShipScan(stepSeconds float64, n int) int {
+	n = min(max(n, 0), MaxTargets)
+	ships := make([]sim.ShipTarget, n)
+	for i := range n {
+		at := b.Scratch[i*ShipTargetSize:]
+		ships[i] = sim.ShipTarget{
+			X: at[shipX], Y: at[shipY], Angle: at[shipAngle],
+			Shield:  pick(sim.Shields(), int(at[shipShield]), sim.ShieldFront),
+			Charges: at[shipCharges],
+		}
+	}
+	hits := 0
+	items := b.sandbox.Projectiles.Items()
+	for slot := range items {
+		p := &items[slot]
+		if !p.Active || p.Faction != sim.FactionEnemy {
+			continue
+		}
+		from := sim.PositionAt(p, max(0, p.Age-stepSeconds))
+		ship, direction, ok := sim.FirstShipHit(ships, from.X, from.Y, p.X, p.Y)
+		if !ok {
+			continue
+		}
+		p.Active = false
+		at := b.Hits[hits*hitTriple:]
+		at[0], at[1], at[2] = float64(slot), float64(ship), direction
+		hits++
+	}
+	if hits > 0 {
+		b.write(sim.FrameEvents{})
+	}
+
+	return hits
+}
+
 // EnemyPattern writes the bullets of an enemy's volley into Scratch (kind
 // index, x, y, angle each) and returns how many there are.
 func (b *Bridge) EnemyPattern(kind int, x, y, angle float64, seed uint32) int {
@@ -286,6 +354,7 @@ func (b *Bridge) write(events sim.FrameEvents) {
 	st[HeaderShipEngine] = float64(slices.Index(sim.Engines(), s.Loadout.Engine))
 	st[HeaderShipShield] = float64(slices.Index(sim.Shields(), s.Loadout.Shield))
 	st[HeaderPreviousX], st[HeaderPreviousY] = b.sandbox.Previous.X, b.sandbox.Previous.Y
+	st[HeaderShipShieldCharge], st[HeaderShipSinceHit] = s.Shield, s.SinceHit
 
 	kinds, factions := ProjectileKinds(), Factions()
 	for i, p := range b.sandbox.Projectiles.Items() {

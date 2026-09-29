@@ -333,12 +333,18 @@ func nearest(e *enemy, players []point) (target point, distance float64, found b
 
 func (h *Hub) fire(e *enemy) {
 	h.noteAttack(e)
+	seed := h.rng.Uint32()
+	// The hub flies the bullets too, against its companions (#46).
+	h.volleys = append(
+		h.volleys,
+		volley{tick: h.tick + fireWarning, enemyID: e.id, angle: e.angle, seed: seed},
+	)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
 		EnemyId:   e.id,
 		Kind:      e.kind,
 		Tick:      h.tick + fireWarning,
 		WarnTicks: fireWarning,
-		Seed:      h.rng.Uint32(),
+		Seed:      seed,
 		X:         float32(e.x),
 		Y:         float32(e.y),
 		Angle:     float32(e.angle),

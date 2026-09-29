@@ -149,6 +149,12 @@ func (w *Wing) Step(enemies []BrainEnemy) []CompanionShot {
 		}
 		StepShip(c.Ship, step.Command, TickSeconds)
 		ApplyWorldEdge(c.Ship, TickSeconds)
+		// Its owner is a squadmate: flying with them gives the formation bonus.
+		Recover(
+			c.Ship,
+			TickSeconds,
+			math.Hypot(c.Ship.X-seen.X, c.Ship.Y-seen.Y),
+		)
 		for _, shot := range StepWeapon(c.Ship, step.Command.Fire, TickSeconds).Shots {
 			shots = append(shots, CompanionShot{ShotSpawn: shot, Companion: c.Number})
 		}

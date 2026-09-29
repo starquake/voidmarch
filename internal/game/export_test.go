@@ -11,3 +11,16 @@ const SilenceTicks = silenceTicks
 
 // MaxHitDamage exposes maxHitDamage for tests.
 const MaxHitDamage = maxHitDamage
+
+// WithinReach exposes withinReach for tests, with points as pairs.
+func WithinReach(x, y float64, companions [][2]float64) bool {
+	ps := make([]point, len(companions))
+	for i, c := range companions {
+		ps[i] = point{c[0], c[1]}
+	}
+
+	return withinReach(point{x, y}, ps)
+}
+
+// VolleyRange exposes volleyRange for tests.
+const VolleyRange = volleyRange

@@ -428,7 +428,9 @@ type ShipState struct {
 	Thrusting bool     `protobuf:"varint,6,opt,name=thrusting,proto3" json:"thrusting,omitempty"`
 	Loadout   *Loadout `protobuf:"bytes,7,opt,name=loadout,proto3" json:"loadout,omitempty"`
 	// Hits taken: 0 is full health, 3 is downed.
-	Damage        uint32 `protobuf:"varint,8,opt,name=damage,proto3" json:"damage,omitempty"`
+	Damage uint32 `protobuf:"varint,8,opt,name=damage,proto3" json:"damage,omitempty"`
+	// Shield charges left, fractional while recharging (#46).
+	Shield        float32 `protobuf:"fixed32,9,opt,name=shield,proto3" json:"shield,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -515,6 +517,13 @@ func (x *ShipState) GetLoadout() *Loadout {
 func (x *ShipState) GetDamage() uint32 {
 	if x != nil {
 		return x.Damage
+	}
+	return 0
+}
+
+func (x *ShipState) GetShield() float32 {
+	if x != nil {
+		return x.Shield
 	}
 	return 0
 }
@@ -2779,7 +2788,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\aLoadout\x12,\n" +
 	"\x06weapon\x18\x01 \x01(\x0e2\x14.voidmarch.v1.WeaponR\x06weapon\x12,\n" +
 	"\x06engine\x18\x02 \x01(\x0e2\x14.voidmarch.v1.EngineR\x06engine\x12,\n" +
-	"\x06shield\x18\x03 \x01(\x0e2\x14.voidmarch.v1.ShieldR\x06shield\"\xc4\x01\n" +
+	"\x06shield\x18\x03 \x01(\x0e2\x14.voidmarch.v1.ShieldR\x06shield\"\xdc\x01\n" +
 	"\tShipState\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x02R\x01y\x12\x0e\n" +
@@ -2788,7 +2797,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x05angle\x18\x05 \x01(\x02R\x05angle\x12\x1c\n" +
 	"\tthrusting\x18\x06 \x01(\bR\tthrusting\x12/\n" +
 	"\aloadout\x18\a \x01(\v2\x15.voidmarch.v1.LoadoutR\aloadout\x12\x16\n" +
-	"\x06damage\x18\b \x01(\rR\x06damage\"\x1d\n" +
+	"\x06damage\x18\b \x01(\rR\x06damage\x12\x16\n" +
+	"\x06shield\x18\t \x01(\x02R\x06shield\"\x1d\n" +
 	"\x05Hello\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"\xb1\x01\n" +
 	"\tShotFired\x12\x0e\n" +

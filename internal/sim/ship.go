@@ -93,13 +93,22 @@ type Ship struct {
 	// RotationSnap is 0 for free rotation, else the number of facing
 	// directions.
 	RotationSnap int
+	// Shield is the charges left, fractional while recharging (#46).
+	Shield float64
+	// SinceHit is the seconds since the ship was last hit.
+	SinceHit float64
+	// hullRegen counts toward the next hull step healed.
+	hullRegen float64
 }
 
 // NewShip returns a ship at (x, y), facing up, with the loadout.
 func NewShip(x, y float64, loadout Loadout) *Ship {
 	const facingUp = -math.Pi / 2
 
-	return &Ship{X: x, Y: y, Angle: facingUp, Loadout: loadout}
+	return &Ship{
+		X: x, Y: y, Angle: facingUp, Loadout: loadout,
+		Shield: ShieldStatsOf(loadout.Shield).Strength,
+	}
 }
 
 // Mover is where a ship is and how it moves, as another ship sees it.

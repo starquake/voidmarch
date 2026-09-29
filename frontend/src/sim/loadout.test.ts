@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { DEFAULT_LOADOUT, ENGINES, SHIELDS, WEAPONS, nextInCycle } from './loadout.ts';
+import { MAX_DAMAGE } from './tuning.ts';
+import { DAMAGE_STATES, DEFAULT_LOADOUT, ENGINES, SHIELDS, WEAPONS, damageState, nextInCycle } from './loadout.ts';
 
 test('each slot has four parts, like the Main Ship pack', () => {
   assert.equal(WEAPONS.length, 4);
@@ -22,4 +23,12 @@ test('nextInCycle walks the list and wraps', () => {
 
 test('nextInCycle rejects an empty list', () => {
   assert.throws(() => nextInCycle([], 'x'), /empty list/);
+});
+
+test('damageState names the hull sprite for the hits taken, clamped', () => {
+  assert.equal(damageState(0), 'fullHealth');
+  assert.equal(damageState(2), 'damaged');
+  assert.equal(damageState(MAX_DAMAGE), DAMAGE_STATES.at(-1));
+  assert.equal(damageState(99), 'veryDamaged');
+  assert.equal(damageState(-1), 'fullHealth');
 });

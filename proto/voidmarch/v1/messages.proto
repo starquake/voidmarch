@@ -60,6 +60,8 @@ message ShipState {
   Loadout loadout = 7;
   // Hits taken: 0 is full health, 3 is downed.
   uint32 damage = 8;
+  // Shield charges left, fractional while recharging (#46).
+  float shield = 9;
 }
 
 // Hello is the first message on a connection.

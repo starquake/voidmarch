@@ -9,6 +9,9 @@ import (
 	"github.com/starquake/voidmarch/internal/simbridge"
 )
 
+// endObject closes an object literal of constants.
+const endObject = "} as const;\n\n"
+
 // generate is the TypeScript module, deterministic so drift is a diff.
 func generate() string {
 	var b strings.Builder
@@ -67,7 +70,21 @@ func writeTunables(w writer) {
 	w("export const WORLD_HALF_SIZE = %d;\n", sim.WorldHalfSize)
 	w("export const WORLD_EDGE_BAND = %d;\n", sim.WorldEdgeBand)
 	w("export const SAFE_ZONE_RADIUS = %d;\n", sim.SafeZoneRadius)
-	w("export const SHIP_RADIUS = %d;\n\n", sim.ShipRadius)
+	w("export const SHIP_RADIUS = %d;\n", sim.ShipRadius)
+	w("export const MAX_DAMAGE = %d;\n\n", sim.MaxDamage)
+
+	w("export const SHIELD_STATS = {\n")
+	for _, id := range sim.Shields() {
+		s := sim.ShieldStatsOf(id)
+		w(
+			"  %s: { coverage: %s, strength: %s, recharge: %s },\n",
+			id,
+			num(s.Coverage),
+			num(s.Strength),
+			num(s.Recharge),
+		)
+	}
+	w(endObject)
 
 	w("export const ENGINE_STATS = {\n")
 	for _, id := range sim.Engines() {
@@ -80,7 +97,7 @@ func writeTunables(w writer) {
 			num(s.Drag),
 		)
 	}
-	w("} as const;\n\n")
+	w(endObject)
 
 	w("export const WEAPON_STATS = {\n")
 	for _, id := range sim.Weapons() {
@@ -104,14 +121,14 @@ func writeTunables(w writer) {
 		w("    alternate: %t,\n    shake: %s,\n", s.Alternate, num(s.Shake))
 		w("  },\n")
 	}
-	w("} as const;\n\n")
+	w(endObject)
 
 	w("/** Hit circles in art pixels, from the sprites' opaque extent. */\n")
 	w("export const ENEMY_RADIUS = {\n")
 	for _, k := range sim.EnemyKinds() {
 		w("  %s: %s,\n", k, num(sim.EnemyRadius(k)))
 	}
-	w("} as const;\n\n")
+	w(endObject)
 }
 
 // writeLayout writes where the state sits in the WebAssembly sim's array.
@@ -138,6 +155,8 @@ func writeLayout(w writer) {
 		{"shipWeapon", simbridge.HeaderShipWeapon},
 		{"shipEngine", simbridge.HeaderShipEngine},
 		{"shipShield", simbridge.HeaderShipShield},
+		{"shipShieldCharge", simbridge.HeaderShipShieldCharge},
+		{"shipSinceHit", simbridge.HeaderShipSinceHit},
 		{"previousX", simbridge.HeaderPreviousX},
 		{"previousY", simbridge.HeaderPreviousY},
 		{"shots", simbridge.HeaderShots},
@@ -171,6 +190,8 @@ func writeLayout(w writer) {
 		{"expiredY", simbridge.ExpiredY},
 		{"stateSize", simbridge.StateSize},
 		{"maxTargets", simbridge.MaxTargets},
+		{"shipTargetSize", simbridge.ShipTargetSize},
+		{"scratchSize", simbridge.ScratchSize},
 	}
 	for _, f := range fields {
 		w("  %s: %d,\n", f.name, f.value)

@@ -34,7 +34,7 @@ func TestAdvance_MovesAndReportsShots(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds*3, sim.Command{MoveY: -1, AimY: -1000, Fire: true})
+	b.Advance(sim.TickSeconds*3, sim.Command{MoveY: -1, AimY: -1000, Fire: true}, sim.NoSquadmate)
 	if got := b.State[HeaderTicks]; got != 3 {
 		t.Errorf("ticks = %v, want 3", got)
 	}
@@ -64,7 +64,7 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 
 	b := New()
 	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), -1, -1)
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000, Fire: true})
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000, Fire: true}, sim.NoSquadmate)
 	if b.State[HeaderCharges] != 1 ||
 		b.State[ChargesOffset] != index(sim.Weapons(), sim.WeaponBigSpaceGun) {
 		t.Errorf("charges = %v, want the big space gun's", b.State[HeaderCharges])
@@ -72,7 +72,7 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 
 	b = New()
 	b.Spawn(0, 0, 0, 0, 0, 10, 0)
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000})
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
 	if b.State[HeaderExpired] != 1 {
 		t.Errorf("expired = %v, want the spawned-old shot", b.State[HeaderExpired])
 	}
@@ -116,7 +116,7 @@ func TestControlMode(t *testing.T) {
 	b := New()
 	b.SetControlMode(sim.ControlScreen)
 	for range 30 {
-		b.Advance(sim.TickSeconds, sim.Command{MoveY: -1, AimX: 10_000, AimY: 160})
+		b.Advance(sim.TickSeconds, sim.Command{MoveY: -1, AimX: 10_000, AimY: 160}, sim.NoSquadmate)
 	}
 	if math.Abs(b.State[HeaderShipX]) > 1e-9 || b.State[HeaderShipY] >= 140 {
 		t.Errorf(
@@ -176,7 +176,7 @@ func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.Advance(sim.TickSeconds*3, sim.Command{AimY: -1000, Fire: true})
+	b.Advance(sim.TickSeconds*3, sim.Command{AimY: -1000, Fire: true}, sim.NoSquadmate)
 	if b.State[HeaderShipCooldown] <= 0 || b.State[HeaderShipNextMuzzle] == 0 {
 		t.Fatalf(
 			"after firing: cooldown %v, next muzzle %v, want both set",
@@ -194,6 +194,22 @@ func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
 	}
 }
 
+func TestSetLoadout_ASwapNeverAddsCharges(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	shield := func(id sim.ShieldID) int { return slices.Index(sim.Shields(), id) }
+	round := sim.ShieldStatsOf(sim.ShieldRound).Strength
+	b.SetLoadout(-1, -1, shield(sim.ShieldRound))
+	if got := b.State[HeaderShipShieldCharge]; got != round {
+		t.Errorf("round shield charges = %v, want its strength %v", got, round)
+	}
+	b.SetLoadout(-1, -1, shield(sim.ShieldFront))
+	if got := b.State[HeaderShipShieldCharge]; got != round {
+		t.Errorf("front shield after round = %v charges, want the %v left", got, round)
+	}
+}
+
 func TestHitScan(t *testing.T) {
 	t.Parallel()
 
@@ -208,7 +224,7 @@ func TestHitScan(t *testing.T) {
 	hitting := b.Spawn(0, own, -20, 0, 0, 0, 0)
 	missing := b.Spawn(0, own, -20, 100, 0, 0, 0)
 	bullet := b.Spawn(4, enemy, -20, 0, 0, 0, 0)
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000})
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
 	copy(b.Scratch[:], []float64{0, 0, 10})
 
 	if got := b.HitScan(own, sim.TickSeconds, 1); got != 1 {
@@ -225,5 +241,82 @@ func TestHitScan(t *testing.T) {
 	}
 	if b.HitScan(9, sim.TickSeconds, 1) != 0 {
 		t.Error("an unknown faction hit something")
+	}
+}
+
+func TestShipScan(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	x, y, angle := b.State[HeaderShipX], b.State[HeaderShipY], b.State[HeaderShipAngle]
+	enemy := slices.Index(Factions(), sim.FactionEnemy)
+	kind := sim.ProjectileKind(sim.KlaedBullet)
+	bullet := slices.Index(ProjectileKinds(), kind)
+	// Flying down at the ship from 80 px above, now 5 px from its center:
+	// on the way it met the front shield.
+	age := 75 / sim.ProjectileStatsOf(kind).Speed
+	slot := b.Spawn(bullet, enemy, x, y-80, math.Pi/2, age, 0)
+	b.Spawn(0, slices.Index(Factions(), sim.FactionOwn), x, y-80, math.Pi/2, age, 0)
+	copy(
+		b.Scratch[:],
+		[]float64{x, y, angle, float64(slices.Index(sim.Shields(), sim.ShieldFront)), 3},
+	)
+
+	if n := b.ShipScan(age, 1); n != 1 || b.Hits[0] != float64(slot) || b.Hits[1] != 0 {
+		t.Fatalf("ShipScan() = %d, hits %v, want the enemy bullet on ship 0", n, b.Hits[:3])
+	}
+	if from := b.Hits[2]; math.Abs(from+math.Pi/2) > 1e-9 {
+		t.Errorf("contact from %v, want -Pi/2, ahead", from)
+	}
+	if b.ShipScan(age, 1) != 0 {
+		t.Error("an ended bullet hit again")
+	}
+	if b.ShipScan(age, -1) != 0 {
+		t.Error("ShipScan() over no ships hit something")
+	}
+}
+
+func TestTakeHit(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+	full := b.State[HeaderShipShieldCharge]
+	if !b.TakeHit(-math.Pi/2) || b.State[HeaderShipShieldCharge] != full-1 ||
+		b.State[HeaderShipDamage] != 0 {
+		t.Errorf(
+			"hit ahead: shield %v, damage %v, want one charge less",
+			b.State[HeaderShipShieldCharge],
+			b.State[HeaderShipDamage],
+		)
+	}
+	if b.TakeHit(math.Pi/2) || b.State[HeaderShipDamage] != 1 || b.State[HeaderShipSinceHit] != 0 {
+		t.Errorf("hit from behind: damage %v, want the hull hit", b.State[HeaderShipDamage])
+	}
+}
+
+func TestAdvance_FormationBonus(t *testing.T) {
+	t.Parallel()
+
+	alone, together := New(), New()
+	for _, b := range []*Bridge{alone, together} {
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+		b.TakeHit(-math.Pi / 2)
+		// A frame covers at most a few ticks, so wait out the delay tick by tick.
+		for range int(sim.ShieldRechargeDelay/sim.TickSeconds) + 1 {
+			b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+		}
+	}
+	for range 30 {
+		alone.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate)
+		together.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.FormationRadius)
+	}
+	if together.State[HeaderShipShieldCharge] <= alone.State[HeaderShipShieldCharge] {
+		t.Errorf(
+			"with a squadmate near: shield %v, alone %v, want faster",
+			together.State[HeaderShipShieldCharge],
+			alone.State[HeaderShipShieldCharge],
+		)
 	}
 }

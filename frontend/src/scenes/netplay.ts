@@ -32,12 +32,11 @@ import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
 import type { WeaponId } from '../sim/loadout.ts';
-import { isWeapon, type FrameEvents, type Sandbox, type ShotSpawn } from '../simwasm.ts';
+import { isWeapon, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn } from '../simwasm.ts';
 import {
   ENEMY_SOUND_RANGE,
   ENEMY_VOLLEY_RANGE,
   SAFE_ZONE_RADIUS,
-  SHIP_RADIUS,
   TICK_SECONDS,
   WEAPON_STATS,
 } from '../sim/tuning.ts';
@@ -67,6 +66,8 @@ interface Remote {
   ownerId: string;
   /** The squadron shown in a player's label. */
   squadron: string;
+  /** Where it was drawn this frame. */
+  drawn: RemoteShip | undefined;
 }
 
 /** How long a notice (a refused summon, a companion sent home) stays in the HUD. */
@@ -364,6 +365,7 @@ export class NetPlay {
 
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
+      remote.drawn = ship;
       if (ship === undefined) {
         continue;
       }
@@ -373,6 +375,7 @@ export class NetPlay {
       }
       remote.view.setLoadout(ship.loadout);
       remote.view.setDamage(ship.damage);
+      remote.view.setShield(ship.shield);
       remote.view.setThrusting(ship.thrusting);
       remote.view.place(ship.x, ship.y, ship.angle);
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
@@ -486,13 +489,21 @@ export class NetPlay {
     return [...this.remotes.values()].filter((r) => r.ownerId !== '' && r.ownerId === this.playerId);
   }
 
+  /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
+  get squadmateDistance(): number {
+    const { ship } = this.options.sim;
+    const squadmates = [...this.remotes.values()].filter((r) => this.squadron !== '' && r.squadron === this.squadron);
+
+    return Math.min(Infinity, ...squadmates.map((r) => Math.hypot(r.view.root.x - ship.x, r.view.root.y - ship.y)));
+  }
+
   /**
    * The player's shots against enemies as drawn, reported to the server (the
-   * design's trust model); enemy bullets against the local ship and the
-   * player's companions, which only flash them until health exists (#5). The
-   * hub tests the companions' own shots. Each projectile is tested along the
-   * path it flew during the frame's stepSeconds, so low frame rates don't skip
-   * hits.
+   * design's trust model); enemy bullets against the local ship, which take
+   * its shield or hull. Bullets that touch other ships end there, for the
+   * picture only: the hub and their owners count that damage. Each projectile
+   * is tested along the path it flew during the frame's stepSeconds, so low
+   * frame rates don't skip hits.
    */
   private testHits(frame: NetFrame, stepSeconds: number): void {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
@@ -501,14 +512,18 @@ export class NetPlay {
       y: e.view.y,
       radius: ENEMY_RADIUS[e.view.kind],
     }));
-    const { ship } = this.options.sim;
-    // The player's own ship, then their companions as drawn.
-    const companions = this.ownCompanions();
-    const wing = [
-      { id: -1, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
-      ...companions.map((c, i) => ({ id: i, x: c.view.root.x, y: c.view.root.y, radius: SHIP_RADIUS })),
-    ];
     const { sim } = this.options;
+    // The player's own ship, then everyone else's as drawn.
+    const { ship } = sim;
+    const ships: ShipTarget<number>[] = [
+      { id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield },
+    ];
+    for (const r of this.remotes.values()) {
+      const s = r.drawn;
+      if (s !== undefined) {
+        ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
+      }
+    }
     for (const { projectile: p, target } of sim.hitScan('own', stepSeconds, targets)) {
       if (!isWeapon(p.kind)) {
         continue;
@@ -518,12 +533,12 @@ export class NetPlay {
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
     }
-    for (const { projectile: p, target } of sim.hitScan('enemy', stepSeconds, wing)) {
+    for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
       if (target.id === -1) {
         this.hitsTaken++;
+        sim.takeHit(from);
         frame.hitsOnMe.push({ x: p.x, y: p.y });
       } else {
-        companions[target.id]?.view.flash(this.options.scene);
         frame.enemyHits.push({ x: p.x, y: p.y });
       }
     }
@@ -679,6 +694,7 @@ export class NetPlay {
       colour,
       ownerId,
       squadron,
+      drawn: undefined,
     };
     this.remotes.set(id, remote);
 

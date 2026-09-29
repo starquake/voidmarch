@@ -144,7 +144,12 @@ var TICK_SECONDS = 1 / TICK_RATE;
 var WORLD_HALF_SIZE = 2e3;
 var WORLD_EDGE_BAND = 200;
 var SAFE_ZONE_RADIUS = 300;
-var SHIP_RADIUS = 12;
+var SHIELD_STATS = {
+  front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
+  frontAndSide: { coverage: 3.141592653589793, strength: 2, recharge: 5 },
+  round: { coverage: 6.283185307179586, strength: 1, recharge: 3 },
+  invincibility: { coverage: 6.283185307179586, strength: 3, recharge: 12 }
+};
 var ENGINE_STATS = {
   base: { acceleration: 900, maxSpeed: 220, drag: 3.5 },
   bigPulse: { acceleration: 520, maxSpeed: 300, drag: 1.2 },
@@ -214,13 +219,15 @@ var LAYOUT = {
   shipWeapon: 13,
   shipEngine: 14,
   shipShield: 15,
+  shipShieldCharge: 21,
+  shipSinceHit: 22,
   previousX: 16,
   previousY: 17,
   shots: 18,
   charges: 19,
   expired: 20,
   projectileCapacity: 256,
-  poolOffset: 21,
+  poolOffset: 23,
   projectileSize: 8,
   projectileActive: 0,
   projectileKind: 1,
@@ -230,7 +237,7 @@ var LAYOUT = {
   projectileAngle: 5,
   projectileAge: 6,
   projectileShotId: 7,
-  shotsOffset: 2069,
+  shotsOffset: 2071,
   shotSize: 6,
   shotId: 0,
   shotWeapon: 1,
@@ -238,19 +245,22 @@ var LAYOUT = {
   shotX: 3,
   shotY: 4,
   shotAngle: 5,
-  chargesOffset: 2129,
-  expiredOffset: 2134,
+  chargesOffset: 2131,
+  expiredOffset: 2136,
   expiredSize: 4,
   expiredKind: 0,
   expiredFaction: 1,
   expiredX: 2,
   expiredY: 3,
-  stateSize: 3158,
-  maxTargets: 128
+  stateSize: 3160,
+  maxTargets: 128,
+  shipTargetSize: 5,
+  scratchSize: 640
 };
 
 // src/sim/loadout.ts
 var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
+var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
 function nextInCycle(list, current) {
   const next = list[(list.indexOf(current) + 1) % list.length];
   if (next === void 0) {
@@ -554,7 +564,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIpMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJPCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYASIICgZTdW1tb24iTwoOQ29tcGFuaW9uU3RhdGUSEQoJY29tcGFuaW9uGAEgASgNEiYKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZToCGAEiHgoOQ2hvb3NlU3F1YWRyb24SDAoEbmFtZRgBIAEoCSKaAQoNU3F1YWRyb25PcmRlchIpCgRtb2RlGAEgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSMAoIb25lX3Nob3QYAiABKA4yHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uT25lU2hvdBIJCgF4GAMgASgCEgkKAXkYBCABKAISFgoOZm9jdXNfZW5lbXlfaWQYBSABKA0iHAoHRGlzbWlzcxIRCgljb21wYW5pb24YASABKA0iqwMKDUNsaWVudE1lc3NhZ2USJAoFaGVsbG8YASABKAsyEy52b2lkbWFyY2gudjEuSGVsbG9IABIoCgVzdGF0ZRgCIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGVIABInCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZEgAEiAKA2hpdBgEIAEoCzIRLnZvaWRtYXJjaC52MS5IaXRIABImCgZzdW1tb24YBSABKAsyFC52b2lkbWFyY2gudjEuU3VtbW9uSAASNQoJY29tcGFuaW9uGAYgASgLMhwudm9pZG1hcmNoLnYxLkNvbXBhbmlvblN0YXRlQgIYAUgAEigKB2Rpc21pc3MYByABKAsyFS52b2lkbWFyY2gudjEuRGlzbWlzc0gAEjcKD2Nob29zZV9zcXVhZHJvbhgIIAEoCzIcLnZvaWRtYXJjaC52MS5DaG9vc2VTcXVhZHJvbkgAEjUKDnNxdWFkcm9uX29yZGVyGAkgASgLMhsudm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJIAEIGCgRraW5kIv8BCgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRIOCgZjb2xvdXIYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCUoECAgQCVIPc3VtbW9uX2FueXdoZXJlIo0BCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIOCgZjb2xvdXIYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlEhAKCG93bmVyX2lkGAUgASgJEhAKCHNxdWFkcm9uGAYgASgJIkUKDlNxdWFkcm9uTWVtYmVyEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCmNvbXBhbmlvbnMYAyABKA0idgoMU3F1YWRyb25JbmZvEgwKBG5hbWUYASABKAkSLQoHbWVtYmVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbk1lbWJlchIpCgRtb2RlGAMgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUiXQoJU3F1YWRyb25zEi0KCXNxdWFkcm9ucxgBIAMoCzIaLnZvaWRtYXJjaC52MS5TcXVhZHJvbkluZm8SEQoJbmV4dF9uYW1lGAIgASgJEg4KBmhhbmdhchgDIAEoDSJyCg5TcXVhZHJvbkpvaW5lZBIMCgRuYW1lGAEgASgJEikKBG1vZGUYAiABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIRCgl0b29rX292ZXIYAyABKAgSCQoBeBgEIAEoAhIJCgF5GAUgASgCIiEKD1NxdWFkcm9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiXgoPU3F1YWRyb25PcmRlcmVkEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEioKBW9yZGVyGAMgASgLMhsudm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXIiagoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAIicgoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZSKaAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiI9CglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSI5ChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNEhAKCHRha2VuX2J5GAIgASgJIgYKBEZ1bGwilgYKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSAASLAoJc3F1YWRyb25zGAwgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9uc0gAEjcKD3NxdWFkcm9uX2pvaW5lZBgNIAEoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbkpvaW5lZEgAEjkKEHNxdWFkcm9uX3JlZnVzZWQYDiABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25SZWZ1c2VkSAASOQoQc3F1YWRyb25fb3JkZXJlZBgPIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyZWRIAEIGCgRraW5kKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqVQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAIqtAEKDUNvbXBhbmlvbk1vZGUSHgoaQ09NUEFOSU9OX01PREVfVU5TUEVDSUZJRUQQABIZChVDT01QQU5JT05fTU9ERV9FU0NPUlQQARIZChVDT01QQU5JT05fTU9ERV9BVFRBQ0sQAhIYChRDT01QQU5JT05fTU9ERV9HVUFSRBADEhcKE0NPTVBBTklPTl9NT0RFX0hPTEQQBBIaChZDT01QQU5JT05fTU9ERV9TVEVBTFRIEAUqlAEKEENvbXBhbmlvbk9uZVNob3QSIgoeQ09NUEFOSU9OX09ORV9TSE9UX1VOU1BFQ0lGSUVEEAASHAoYQ09NUEFOSU9OX09ORV9TSE9UX0ZPQ1VTEAESHgoaQ09NUEFOSU9OX09ORV9TSE9UX1JFR1JPVVAQAhIeChpDT01QQU5JT05fT05FX1NIT1RfR09fSE9NRRADQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSJ7CgdMb2Fkb3V0EiQKBndlYXBvbhgBIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SJAoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZRIkCgZzaGllbGQYAyABKA4yFC52b2lkbWFyY2gudjEuU2hpZWxkIqMBCglTaGlwU3RhdGUSCQoBeBgBIAEoAhIJCgF5GAIgASgCEgoKAnZ4GAMgASgCEgoKAnZ5GAQgASgCEg0KBWFuZ2xlGAUgASgCEhEKCXRocnVzdGluZxgGIAEoCBImCgdsb2Fkb3V0GAcgASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSDgoGZGFtYWdlGAggASgNEg4KBnNoaWVsZBgJIAEoAiIWCgVIZWxsbxINCgV0b2tlbhgBIAEoCSKFAQoJU2hvdEZpcmVkEgoKAmlkGAEgASgNEiQKBndlYXBvbhgCIAEoDjIULnZvaWRtYXJjaC52MS5XZWFwb24SDgoGbXV6emxlGAMgASgNEgkKAXgYBCABKAISCQoBeRgFIAEoAhINCgVhbmdsZRgGIAEoAhIRCgljb21wYW5pb24YByABKA0iTwoDSGl0EhAKCGVuZW15X2lkGAEgASgNEg8KB3Nob3RfaWQYAiABKA0SDgoGZGFtYWdlGAMgASgNEhUKCWNvbXBhbmlvbhgEIAEoDUICGAEiCAoGU3VtbW9uIk8KDkNvbXBhbmlvblN0YXRlEhEKCWNvbXBhbmlvbhgBIAEoDRImCgVzdGF0ZRgCIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGU6AhgBIh4KDkNob29zZVNxdWFkcm9uEgwKBG5hbWUYASABKAkimgEKDVNxdWFkcm9uT3JkZXISKQoEbW9kZRgBIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEjAKCG9uZV9zaG90GAIgASgOMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbk9uZVNob3QSCQoBeBgDIAEoAhIJCgF5GAQgASgCEhYKDmZvY3VzX2VuZW15X2lkGAUgASgNIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIqsDCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjUKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUICGAFIABIoCgdkaXNtaXNzGAcgASgLMhUudm9pZG1hcmNoLnYxLkRpc21pc3NIABI3Cg9jaG9vc2Vfc3F1YWRyb24YCCABKAsyHC52b2lkbWFyY2gudjEuQ2hvb3NlU3F1YWRyb25IABI1Cg5zcXVhZHJvbl9vcmRlchgJIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVySABCBgoEa2luZCL/AQoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDgoGY29sb3VyGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDRIXCg9jb21wYW5pb25fbGltaXQYByABKA0SDAoEbmFtZRgJIAEoCRISCgpjb21wYW5pb25zGAogAygNEioKCXNxdWFkcm9ucxgLIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnMSEAoIc3F1YWRyb24YDCABKAlKBAgIEAlSD3N1bW1vbl9hbnl3aGVyZSKNAQoOUGxheWVyU25hcHNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSDgoGY29sb3VyGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNInYKDFNxdWFkcm9uSW5mbxIMCgRuYW1lGAEgASgJEi0KB21lbWJlcnMYAiADKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25NZW1iZXISKQoEbW9kZRgDIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlIl0KCVNxdWFkcm9ucxItCglzcXVhZHJvbnMYASADKAsyGi52b2lkbWFyY2gudjEuU3F1YWRyb25JbmZvEhEKCW5leHRfbmFtZRgCIAEoCRIOCgZoYW5nYXIYAyABKA0icgoOU3F1YWRyb25Kb2luZWQSDAoEbmFtZRgBIAEoCRIpCgRtb2RlGAIgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAiIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIl4KD1NxdWFkcm9uT3JkZXJlZBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIqCgVvcmRlchgDIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyImoKCkVuZW15U3RhdGUSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEg0KBWFuZ2xlGAUgASgCInIKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUimgEKCkVuZW15RmlyZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSDAoEdGljaxgDIAEoDRIMCgRzZWVkGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAhINCgVhbmdsZRgHIAEoAhISCgp3YXJuX3RpY2tzGAggASgNIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiPQoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSI7ChBDb21wYW5pb25HcmFudGVkEhEKCWNvbXBhbmlvbhgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAIiIgoQQ29tcGFuaW9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiOQoSQ29tcGFuaW9uRGlzbWlzc2VkEhEKCWNvbXBhbmlvbhgBIAEoDRIQCgh0YWtlbl9ieRgCIAEoCSIGCgRGdWxsIpYGCg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSAASOwoRY29tcGFuaW9uX2dyYW50ZWQYCSABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uR3JhbnRlZEgAEjsKEWNvbXBhbmlvbl9yZWZ1c2VkGAogASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvblJlZnVzZWRIABI/ChNjb21wYW5pb25fZGlzbWlzc2VkGAsgASgLMiAudm9pZG1hcmNoLnYxLkNvbXBhbmlvbkRpc21pc3NlZEgAEiwKCXNxdWFkcm9ucxgMIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnNIABI3Cg9zcXVhZHJvbl9qb2luZWQYDSABKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25Kb2luZWRIABI5ChBzcXVhZHJvbl9yZWZ1c2VkGA4gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uUmVmdXNlZEgAEjkKEHNxdWFkcm9uX29yZGVyZWQYDyABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlcmVkSABCBgoEa2luZCp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKlUKCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACKrQBCg1Db21wYW5pb25Nb2RlEh4KGkNPTVBBTklPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGQoVQ09NUEFOSU9OX01PREVfRVNDT1JUEAESGQoVQ09NUEFOSU9OX01PREVfQVRUQUNLEAISGAoUQ09NUEFOSU9OX01PREVfR1VBUkQQAxIXChNDT01QQU5JT05fTU9ERV9IT0xEEAQSGgoWQ09NUEFOSU9OX01PREVfU1RFQUxUSBAFKpQBChBDb21wYW5pb25PbmVTaG90EiIKHkNPTVBBTklPTl9PTkVfU0hPVF9VTlNQRUNJRklFRBAAEhwKGENPTVBBTklPTl9PTkVfU0hPVF9GT0NVUxABEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9SRUdST1VQEAISHgoaQ09NUEFOSU9OX09ORV9TSE9UX0dPX0hPTUUQA0JGWkRnaXRodWIuY29tL3N0YXJxdWFrZS92b2lkbWFyY2gvaW50ZXJuYWwvZ2VuL3ZvaWRtYXJjaC92MTt2b2lkbWFyY2h2MWIGcHJvdG8z");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 1);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 10);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 30);
@@ -627,7 +637,8 @@ function toShipState(ship) {
       engine: ENGINES2[ship.loadout.engine],
       shield: SHIELDS2[ship.loadout.shield]
     },
-    damage: ship.damage
+    damage: ship.damage,
+    shield: ship.shield
   });
 }
 function fromShipState(state) {
@@ -642,7 +653,8 @@ function fromShipState(state) {
       engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
       shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield
     },
-    damage: Math.min(state.damage, DAMAGE_STATES.length - 1)
+    damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
+    shield: state.shield
   };
 }
 var MODES = {
@@ -824,7 +836,7 @@ function saveLastSquadron(name, store = browserStorage()) {
 }
 
 // src/simwasm.ts
-var SCRATCH_SIZE = LAYOUT.maxTargets * 3;
+var SCRATCH_SIZE = LAYOUT.scratchSize;
 var PATTERN_SIZE = 4;
 var at = (list, i, fallback) => list[i] ?? fallback;
 async function instantiate(bytes, go) {
@@ -852,6 +864,8 @@ var Sandbox = class {
       thrusting: false,
       loadout: { weapon: WEAPONS[0], engine: ENGINES[0], shield: SHIELDS[0] },
       damage: 0,
+      shield: 0,
+      sinceHit: 0,
       cooldown: 0,
       charging: 0,
       nextMuzzle: 0,
@@ -873,11 +887,20 @@ var Sandbox = class {
     this.mode = mode;
     this.exports.setControlMode(mode === "screen" ? 1 : 0);
   }
-  /** Runs as many fixed ticks as frameSeconds covers, using the same input for each. */
-  advance(frameSeconds, input) {
+  /**
+   * Runs as many fixed ticks as frameSeconds covers, using the same input for
+   * each; the nearest squadmate's distance decides the shield's formation bonus.
+   */
+  advance(frameSeconds, input, squadmateDistance = Infinity) {
     const cmd = toCommand(input);
-    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0);
+    this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance);
     return this.read();
+  }
+  /** Applies a hit on the ship from direction from, as shipScan reports it; true when the shield took it. */
+  takeHit(from) {
+    const absorbed = this.exports.takeHit(from) !== 0;
+    this.read();
+    return absorbed;
   }
   /** Puts the ship at (x, y) at rest, as a spawn or a takeover does. */
   placeShip(x, y) {
@@ -928,6 +951,38 @@ var Sandbox = class {
       const target = targets[index];
       if (projectile !== void 0 && target !== void 0) {
         out.push({ projectile, target });
+      }
+    }
+    return out;
+  }
+  /**
+   * Tests every enemy bullet along the path it flew in the last stepSeconds
+   * against the ships, a charged shield's arc before the hull, and ends the
+   * ones that hit. Returns what hit which ship, and the direction of the
+   * contact from it, for takeHit.
+   */
+  shipScan(stepSeconds, ships) {
+    const n = Math.min(ships.length, LAYOUT.maxTargets);
+    const scratch = this.scratch();
+    for (let i = 0; i < n; i++) {
+      const s = ships[i];
+      if (s !== void 0) {
+        scratch.set([s.x, s.y, s.angle, SHIELDS.indexOf(s.shield), s.charges], i * LAYOUT.shipTargetSize);
+      }
+    }
+    const count = this.exports.shipScan(stepSeconds, n);
+    if (count === 0) {
+      return [];
+    }
+    const triples = new Float64Array(this.memory(), this.exports.hitsPointer(), count * 3);
+    const hits = Array.from({ length: count }, (_, i) => [triples[i * 3] ?? -1, triples[i * 3 + 1] ?? -1, triples[i * 3 + 2] ?? 0]);
+    this.read();
+    const out = [];
+    for (const [slot, index, from] of hits) {
+      const projectile = this.projectiles.items[slot];
+      const ship = ships[index];
+      if (projectile !== void 0 && ship !== void 0) {
+        out.push({ projectile, ship, from });
       }
     }
     return out;
@@ -986,6 +1041,8 @@ var Sandbox = class {
     ship.charging = get(LAYOUT.shipCharging);
     ship.nextMuzzle = get(LAYOUT.shipNextMuzzle);
     ship.damage = get(LAYOUT.shipDamage);
+    ship.shield = get(LAYOUT.shipShieldCharge);
+    ship.sinceHit = get(LAYOUT.shipSinceHit);
     ship.rotationSnap = get(LAYOUT.shipRotationSnap);
     ship.loadout.weapon = at(WEAPONS, get(LAYOUT.shipWeapon), WEAPONS[0]);
     ship.loadout.engine = at(ENGINES, get(LAYOUT.shipEngine), ENGINES[0]);
@@ -1819,6 +1876,7 @@ var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
 var ShipView = class {
   root;
+  scene;
   weapon;
   engine;
   flame;
@@ -1828,7 +1886,11 @@ var ShipView = class {
   loadout;
   tint;
   thrusting = false;
+  /** The state last drawn, so a drop flashes; undefined until the first. */
+  damage;
+  charges;
   constructor(scene, layer, x, y) {
+    this.scene = scene;
     this.engine = scene.add.image(0, 0, keys.engine("base"));
     this.flame = scene.add.sprite(0, 0, keys.flameIdle("base"));
     this.hull = scene.add.image(0, 0, keys.hull("fullHealth"));
@@ -1870,9 +1932,30 @@ var ShipView = class {
     }
     this.loadout = { ...loadout };
   }
+  /** Draws the hull for the hits taken; a new hit flashes it. */
   setDamage(damage) {
-    const state = DAMAGE_STATES[Math.min(Math.max(0, damage), DAMAGE_STATES.length - 1)] ?? "fullHealth";
-    this.hull.setTexture(keys.hull(state));
+    if (damage === this.damage) {
+      return;
+    }
+    this.hull.setTexture(keys.hull(damageState(damage)));
+    if (this.damage !== void 0 && damage > this.damage) {
+      this.flash(this.hull);
+    }
+    this.damage = damage;
+  }
+  /** Draws the shield while it holds a whole charge; a lost charge flashes it. */
+  setShield(charges) {
+    const whole = Math.floor(charges);
+    if (whole === this.charges) {
+      return;
+    }
+    const lost = this.charges !== void 0 && whole < this.charges;
+    this.charges = whole;
+    if (lost) {
+      this.flash(this.shield);
+    } else {
+      this.shield.setVisible(whole > 0);
+    }
   }
   setThrusting(thrusting) {
     this.thrusting = thrusting;
@@ -1884,15 +1967,22 @@ var ShipView = class {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
   }
-  /** A short white flash of the hull where an enemy bullet hit. */
-  flash(scene) {
-    this.hull.setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
-    scene.time.delayedCall(HIT_FLASH_MS, () => {
-      this.hull.setTintMode(Phaser3.TintModes.MULTIPLY);
+  /** Whether the shield is drawn, for the E2E tests. */
+  get shieldShown() {
+    return this.shield.visible;
+  }
+  /** A short white flash of a part; the shield then shows only while charged. */
+  flash(part) {
+    part.setVisible(true).setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
+    this.scene.time.delayedCall(HIT_FLASH_MS, () => {
+      part.setTintMode(Phaser3.TintModes.MULTIPLY);
       if (this.tint === void 0) {
-        this.hull.clearTint();
+        part.clearTint();
       } else {
-        this.hull.setTint(this.tint);
+        part.setTint(this.tint);
+      }
+      if (part === this.shield) {
+        part.setVisible((this.charges ?? 0) > 0);
       }
     });
   }
@@ -2161,6 +2251,7 @@ var NetPlay = class {
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
+      remote.drawn = ship;
       if (ship === void 0) {
         continue;
       }
@@ -2170,6 +2261,7 @@ var NetPlay = class {
       }
       remote.view.setLoadout(ship.loadout);
       remote.view.setDamage(ship.damage);
+      remote.view.setShield(ship.shield);
       remote.view.setThrusting(ship.thrusting);
       remote.view.place(ship.x, ship.y, ship.angle);
       remote.view.weapon.setFrame(remote.animator.frame(seconds));
@@ -2268,13 +2360,19 @@ var NetPlay = class {
   ownCompanions() {
     return [...this.remotes.values()].filter((r) => r.ownerId !== "" && r.ownerId === this.playerId);
   }
+  /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
+  get squadmateDistance() {
+    const { ship } = this.options.sim;
+    const squadmates = [...this.remotes.values()].filter((r) => this.squadron !== "" && r.squadron === this.squadron);
+    return Math.min(Infinity, ...squadmates.map((r) => Math.hypot(r.view.root.x - ship.x, r.view.root.y - ship.y)));
+  }
   /**
    * The player's shots against enemies as drawn, reported to the server (the
-   * design's trust model); enemy bullets against the local ship and the
-   * player's companions, which only flash them until health exists (#5). The
-   * hub tests the companions' own shots. Each projectile is tested along the
-   * path it flew during the frame's stepSeconds, so low frame rates don't skip
-   * hits.
+   * design's trust model); enemy bullets against the local ship, which take
+   * its shield or hull. Bullets that touch other ships end there, for the
+   * picture only: the hub and their owners count that damage. Each projectile
+   * is tested along the path it flew during the frame's stepSeconds, so low
+   * frame rates don't skip hits.
    */
   testHits(frame, stepSeconds) {
     const targets = [...this.enemies.entries()].map(([id, e]) => ({
@@ -2283,13 +2381,17 @@ var NetPlay = class {
       y: e.view.y,
       radius: ENEMY_RADIUS[e.view.kind]
     }));
-    const { ship } = this.options.sim;
-    const companions = this.ownCompanions();
-    const wing = [
-      { id: -1, x: ship.x, y: ship.y, radius: SHIP_RADIUS },
-      ...companions.map((c, i) => ({ id: i, x: c.view.root.x, y: c.view.root.y, radius: SHIP_RADIUS }))
-    ];
     const { sim } = this.options;
+    const { ship } = sim;
+    const ships = [
+      { id: -1, x: ship.x, y: ship.y, angle: ship.angle, shield: ship.loadout.shield, charges: ship.shield }
+    ];
+    for (const r of this.remotes.values()) {
+      const s = r.drawn;
+      if (s !== void 0) {
+        ships.push({ id: ships.length, x: s.x, y: s.y, angle: s.angle, shield: s.loadout.shield, charges: s.shield });
+      }
+    }
     for (const { projectile: p, target } of sim.hitScan("own", stepSeconds, targets)) {
       if (!isWeapon(p.kind)) {
         continue;
@@ -2299,12 +2401,12 @@ var NetPlay = class {
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
     }
-    for (const { projectile: p, target } of sim.hitScan("enemy", stepSeconds, wing)) {
+    for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
       if (target.id === -1) {
         this.hitsTaken++;
+        sim.takeHit(from);
         frame.hitsOnMe.push({ x: p.x, y: p.y });
       } else {
-        companions[target.id]?.view.flash(this.options.scene);
         frame.enemyHits.push({ x: p.x, y: p.y });
       }
     }
@@ -2444,7 +2546,8 @@ var NetPlay = class {
       name,
       colour,
       ownerId,
-      squadron
+      squadron,
+      drawn: void 0
     };
     this.remotes.set(id, remote);
     return remote;
@@ -2513,7 +2616,6 @@ var SandboxScene = class extends Phaser5.Scene {
   hudCamera;
   hud;
   moveKeys;
-  damage = "fullHealth";
   effects = true;
   shotsFired = 0;
   hudUpdatedAt = 0;
@@ -2551,7 +2653,9 @@ var SandboxScene = class extends Phaser5.Scene {
       scene: this.scene.key,
       ship: { x: 0, y: 0, angle: 0, thrusting: false },
       loadout: this.sim.ship.loadout,
-      damage: this.damage,
+      damage: "fullHealth",
+      shield: 0,
+      shieldShown: false,
       rotationSnap: 0,
       controlMode: this.sim.controlMode,
       effects: this.effects,
@@ -2579,7 +2683,7 @@ var SandboxScene = class extends Phaser5.Scene {
     this.publish();
   }
   update(time, deltaMs) {
-    const events = this.sim.advance(deltaMs / 1e3, this.readInput());
+    const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.squadmateDistance);
     const net = this.net?.update(events);
     this.drawShip(events);
     if (net !== void 0) {
@@ -2782,11 +2886,6 @@ var SandboxScene = class extends Phaser5.Scene {
         this.audio.toggleMusic();
         saveAudioSettings(this.audioSettings);
         this.updateHud();
-        break;
-      case "KeyH":
-        this.damage = nextInCycle(DAMAGE_STATES, this.damage);
-        this.sim.setDamage(DAMAGE_STATES.indexOf(this.damage));
-        this.ship.setDamage(ship.damage);
         break;
       case "KeyC":
         this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
@@ -3013,6 +3112,8 @@ ${modeName(info)}`,
     const { ship, previous, alpha } = this.sim;
     this.ship.place(previous.x + (ship.x - previous.x) * alpha, previous.y + (ship.y - previous.y) * alpha, ship.angle);
     this.ship.setThrusting(ship.thrusting);
+    this.ship.setDamage(ship.damage);
+    this.ship.setShield(ship.shield);
     this.animateWeapon(events);
   }
   animateWeapon(events) {
@@ -3074,9 +3175,6 @@ ${modeName(info)}`,
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
     }
-    if (net.hitsOnMe.length > 0) {
-      this.ship.flash(this);
-    }
   }
   /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
   scrollBackgrounds(time) {
@@ -3092,11 +3190,11 @@ ${modeName(info)}`,
     }
   }
   updateHud() {
-    const { loadout, rotationSnap } = this.sim.ship;
+    const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
-      `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield}  hull ${this.damage}`,
+      `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 H hull \xB7 R rotation \xB7 F effects",
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -3151,7 +3249,9 @@ ${modeName(info)}`,
     this.debug.ship.y = ship.y;
     this.debug.ship.angle = ship.angle;
     this.debug.ship.thrusting = ship.thrusting;
-    this.debug.damage = this.damage;
+    this.debug.damage = damageState(ship.damage);
+    this.debug.shield = ship.shield;
+    this.debug.shieldShown = this.ship.shieldShown;
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;

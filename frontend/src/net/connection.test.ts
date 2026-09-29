@@ -30,6 +30,8 @@ const createShip = (x: number, y: number): Ship => ({
   thrusting: false,
   loadout: { weapon: 'autoCannon', engine: 'base', shield: 'front' },
   damage: 0,
+  shield: 3,
+  sinceHit: 0,
   cooldown: 0,
   charging: 0,
   nextMuzzle: 0,

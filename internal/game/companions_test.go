@@ -474,6 +474,61 @@ func TestCompanions_ClientsCantShootForThem(t *testing.T) {
 	}
 }
 
+func TestCompanions_EnemyBulletsWearThemDown(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	// Stealth: the companion never fires back, so the enemies keep shooting.
+	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
+		Mode: pb.CompanionMode_COMPANION_MODE_STEALTH,
+	}}})
+
+	var full, worn *pb.ShipState
+	outThere(t, a, tick, func(snap *pb.Snapshot, _ []*pb.ServerMessage) bool {
+		for _, p := range snap.GetPlayers() {
+			if p.GetPlayerId() != "a/1" {
+				continue
+			}
+			if full == nil {
+				full = p.GetState()
+			}
+			if p.GetState().GetShield() < full.GetShield() || p.GetState().GetDamage() > 0 {
+				worn = p.GetState()
+			}
+		}
+
+		return worn != nil
+	})
+	if full.GetShield() <= 0 {
+		t.Errorf("a/1's shield at first = %v, want charged", full.GetShield())
+	}
+}
+
+func TestWithinReach(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name       string
+		companions [][2]float64
+		want       bool
+	}{
+		{name: "no companions", want: false},
+		{name: "one in reach", companions: [][2]float64{{5000, 0}, {VolleyRange, 0}}, want: true},
+		{name: "all too far", companions: [][2]float64{{VolleyRange + 1, 0}, {0, -VolleyRange - 1}}, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := WithinReach(0, 0, tc.companions); got != tc.want {
+				t.Errorf("WithinReach() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // nextHangar reads s's messages until a squadron list and returns the ships
 // waiting in the hangar.
 func nextHangar(t *testing.T, s *Session) uint32 {
