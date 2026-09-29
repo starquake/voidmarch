@@ -13,6 +13,9 @@ const state = (page: Page): Promise<DebugState> =>
     return structuredClone(window.voidmarch);
   });
 
+/** Goes down and respawns this many times at most before the hunt fails. */
+const TRIES = 5;
+
 /** Past the server's safe zone around the home planet (300). */
 const OUT_OF_SAFE_ZONE = 340;
 
@@ -84,9 +87,14 @@ async function hunt(page: Page): Promise<'shot' | 'down'> {
 }
 
 test('enemies come for a player out of the safe zone and can be shot down', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+
+  // Rockets: a Scout goes down in one hit and a Fighter in two, where the
+  // auto cannon needs two and six (#73).
+  await page.keyboard.press('1');
+  await expect.poll(async () => (await state(page)).loadout.weapon).toBe('rockets');
 
   // Out there the ship can go down before it hits anything (#47): then it
   // respawns at home and goes again.
@@ -98,7 +106,7 @@ test('enemies come for a player out of the safe zone and can be shot down', asyn
     if ((await hunt(page)) === 'shot') {
       break;
     }
-    expect(tries, 'went down three times without shooting an enemy down').toBeLessThan(3);
+    expect(tries, 'went down five times without shooting an enemy down').toBeLessThan(TRIES);
     await expect.poll(async () => (await state(page)).canRespawn, { timeout: 10_000 }).toBe(true);
     await page.keyboard.press('h');
     await expect.poll(async () => (await state(page)).downed).toBe(false);
