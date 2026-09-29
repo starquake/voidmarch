@@ -15,26 +15,41 @@ const state = (page: Page): Promise<DebugState> =>
 
 /** Past the server's safe zone around the home planet (300). */
 const OUT_OF_SAFE_ZONE = 340;
+/** Just past the safe zone's edge, where a squadmate inside it can reach (60 px). */
+const JUST_OUT = 306;
+/** Inside the safe zone, where enemies neither target nor go. */
+const JUST_IN = 290;
 
 /**
  * Takes the round shield, one charge all around, flies out of the safe zone
- * and parks until enemy fire takes the ship down.
+ * and parks until enemy fire takes the ship down. At the edge, it creeps out
+ * with screen-relative taps and parks just past it.
  */
-async function goDown(page: Page): Promise<void> {
+async function goDown(page: Page, atEdge = false): Promise<void> {
   await page.keyboard.press('3');
   await page.keyboard.press('3');
   await expect.poll(async () => (await state(page)).loadout.shield).toBe('round');
-  const view = page.viewportSize() ?? { width: 640, height: 360 };
-  await page.mouse.move(view.width / 2, view.height - 10);
-  await page.keyboard.down('w');
-  await expect
-    .poll(async () => {
-      const s = await state(page);
+  const out = async (): Promise<number> => {
+    const s = await state(page);
 
-      return Math.hypot(s.ship.x, s.ship.y);
-    })
-    .toBeGreaterThan(OUT_OF_SAFE_ZONE);
-  await page.keyboard.up('w');
+    return Math.hypot(s.ship.x, s.ship.y);
+  };
+  if (atEdge) {
+    await page.keyboard.press('c');
+    await expect.poll(async () => (await state(page)).controlMode).toBe('screen');
+    while ((await out()) < JUST_OUT) {
+      await page.keyboard.down('s');
+      await page.waitForTimeout(60);
+      await page.keyboard.up('s');
+      await page.waitForTimeout(400);
+    }
+  } else {
+    const view = page.viewportSize() ?? { width: 640, height: 360 };
+    await page.mouse.move(view.width / 2, view.height - 10);
+    await page.keyboard.down('w');
+    await expect.poll(out).toBeGreaterThan(OUT_OF_SAFE_ZONE);
+    await page.keyboard.up('w');
+  }
   await expect
     .poll(async () => (await state(page)).downed, { message: 'enemy fire takes the ship down', timeout: 150_000 })
     .toBe(true);
@@ -82,10 +97,18 @@ async function otherPlayer(browser: Browser, baseURL: string, name: string): Pro
 }
 
 /**
- * Steers page's ship with screen-relative keys toward where target is,
- * holding it within reach, until done says so or seconds pass.
+ * Steers page's ship with screen-relative keys toward the point spot gives,
+ * holding it within reach, until done says so or seconds pass. Given up, it
+ * says where the ship and the other stood.
  */
-async function hoverBy(page: Page, target: Page, reach: number, seconds: number, done: () => Promise<boolean>): Promise<void> {
+async function hoverAt(
+  page: Page,
+  other: Page,
+  spot: () => Promise<{ x: number; y: number }>,
+  reach: number,
+  seconds: number,
+  done: () => Promise<boolean>,
+): Promise<void> {
   const held = new Set<string>();
   const hold = async (keys: string[]): Promise<void> => {
     for (const key of held) {
@@ -103,14 +126,16 @@ async function hoverBy(page: Page, target: Page, reach: number, seconds: number,
   };
   const deadline = Date.now() + seconds * 1000;
   while (!(await done())) {
-    const [me, them] = await Promise.all([state(page), state(target)]);
+    const me = await state(page);
     if (Date.now() > deadline) {
+      const them = await state(other);
       const show = (s: DebugState): string =>
         `(${s.ship.x.toFixed(0)}, ${s.ship.y.toFixed(0)}) ${s.damage}${s.downed ? ` down, revive ${s.revive.toFixed(2)}` : ''}`;
-      throw new Error(`gave up after ${String(seconds)} s: hovering ship at ${show(me)}, target at ${show(them)}`);
+      throw new Error(`gave up after ${String(seconds)} s: hovering ship at ${show(me)}, the other at ${show(them)}`);
     }
-    const dx = them.ship.x - me.ship.x;
-    const dy = them.ship.y - me.ship.y;
+    const to = await spot();
+    const dx = to.x - me.ship.x;
+    const dy = to.y - me.ship.y;
     const keys: string[] = [];
     if (Math.hypot(dx, dy) > reach) {
       const slack = reach / 2;
@@ -140,10 +165,14 @@ test('a squadmate hovering next to a downed player revives it', async ({ page, b
     await mo.keyboard.press('c');
     await expect.poll(async () => (await state(mo)).controlMode).toBe('screen');
 
-    await goDown(page);
-    // Mo sets off only now, fresh: flying out alongside, enemy fire tends to
-    // take both down. A squadmate close by revives in 1.5 s.
-    await hoverBy(mo, page, 35, 120, async () => (await state(page)).revives > 0);
+    // Down just past the safe zone's edge, the player is revived by Mo from
+    // inside it: enemies turn on anyone hovering by a downed ship out there,
+    // but neither target nor enter the zone. A squadmate revives in 1.5 s.
+    await goDown(page, true);
+    const down = (await state(page)).ship;
+    const out = Math.hypot(down.x, down.y);
+    const spot = { x: (down.x / out) * JUST_IN, y: (down.y / out) * JUST_IN };
+    await hoverAt(mo, page, () => Promise.resolve(spot), 12, 120, async () => (await state(page)).revives > 0);
     const up = await state(page);
     expect(up.revives).toBeGreaterThan(0);
   } finally {
