@@ -396,3 +396,41 @@ func TestHandleWS_BadFrameEndsConnection(t *testing.T) {
 		s.tick(1)
 	}
 }
+
+func TestHandleWS_JoiningKeepsTheRegistration(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	var mu sync.Mutex
+	clock := func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+
+		return now
+	}
+	store := players.NewStore(testutil.OpenDB(t), players.WithClock(clock))
+	_, token, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	srv := httptest.NewServer(HandleWS(slog.New(slog.DiscardHandler), hub, store, false))
+	t.Cleanup(srv.Close)
+
+	c := dialWS(t, "ws"+strings.TrimPrefix(srv.URL, "http"), wire.Binary)
+	c.send(hello(token))
+	if c.must().GetWelcome() == nil {
+		t.Fatal("no welcome")
+	}
+
+	// A day on, only registrations that never played expire.
+	mu.Lock()
+	now = now.Add(2 * players.UnusedLifetime)
+	mu.Unlock()
+	if _, err = store.Expire(t.Context()); err != nil {
+		t.Fatalf("Expire() error = %v", err)
+	}
+	if _, ok, err := store.ByToken(t.Context(), token); err != nil || !ok {
+		t.Errorf("ByToken() after Expire = _, %t, %v: a player who joined was expired", ok, err)
+	}
+}
