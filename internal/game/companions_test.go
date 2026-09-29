@@ -322,21 +322,88 @@ func TestCompanions_DismissedOnesLeave(t *testing.T) {
 	}
 }
 
-func TestCompanions_LeaveWithTheirOwner(t *testing.T) {
+// flyOut takes a and its companions out of the safe zone to (0, 700), where
+// they fly for a few seconds.
+func flyOut(t *testing.T, a *Session, tick func(int)) {
+	t.Helper()
+
+	latest(t, a, tick, 4*TickRate, 0, 700)
+}
+
+func TestCompanions_FlyHomeWhenTheirOwnerDrops(t *testing.T) {
 	t.Parallel()
 
-	hub, _ := testHub(t)
+	hub, tick := testHub(t)
 	a, _ := pilot(t, hub, "a")
-	b, _ := pilot(t, hub, "b")
 	a.Send(state(0, 180))
 	grant(t, a)
+	flyOut(t, a, tick)
+	// b joins now, so its queue holds nothing from before the drop.
+	b, _ := pilot(t, hub, "b")
 	a.Leave()
 
-	if got, want := nextLeft(t, b), "a/1"; got != want {
-		t.Errorf("first left = %q, want %q", got, want)
+	// a's ship goes at once; a/1 flies on toward the home planet, then docks.
+	var gone []string
+	var out float64
+	for range 30 * TickRate {
+		snap, messages := latest(t, b, tick, 1, 0, -180)
+		for _, msg := range messages {
+			if l := msg.GetLeft(); l != nil {
+				gone = append(gone, l.GetPlayerId())
+			}
+		}
+		if slices.Contains(gone, "a/1") {
+			break
+		}
+		for _, p := range snap.GetPlayers() {
+			if p.GetPlayerId() == "a" {
+				t.Fatal("a's ship is still in snapshots after a dropped")
+			}
+			if p.GetPlayerId() == "a/1" {
+				d := math.Hypot(float64(p.GetState().GetX()), float64(p.GetState().GetY()))
+				if out != 0 && d > out+1 {
+					t.Fatalf("a/1 went from %v to %v px from home, want it heading home", out, d)
+				}
+				out = d
+			}
+		}
 	}
-	if got, want := nextLeft(t, b), "a"; got != want {
-		t.Errorf("then left = %q, want %q", got, want)
+	if !slices.Equal(gone, []string{"a", "a/1"}) {
+		t.Errorf("left = %v, want a, then a/1 once it's home", gone)
+	}
+	if out == 0 {
+		t.Error("a/1 never showed in snapshots after a dropped")
+	}
+}
+
+func TestCompanions_ABackPlayerTakesThemBack(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	flyOut(t, a, tick)
+	a.Leave()
+	tick(1)
+
+	back, welcome := pilot(t, hub, "a")
+	if got := welcome.GetCompanions(); !slices.Equal(got, []uint32{1}) {
+		t.Fatalf("welcome companions = %v, want [1] kept", got)
+	}
+	// With a back out there, a/1 turns back to them instead of docking.
+	for range 10 * TickRate {
+		snap, messages := latest(t, back, tick, 1, 0, 700)
+		for _, msg := range messages {
+			if l := msg.GetLeft(); l != nil && l.GetPlayerId() == "a/1" {
+				t.Fatal("a/1 docked after a came back")
+			}
+		}
+		_ = snap
+	}
+	c := snapshotPlayers(t, back, tick)["a/1"].GetState()
+	if d := math.Hypot(float64(c.GetX()), float64(c.GetY())-700); d > 150 {
+		t.Errorf("a/1 is %v px from a after they came back, want it with them", d)
 	}
 }
 
@@ -594,11 +661,11 @@ func TestHangar_ShipsComeBack(t *testing.T) {
 	tests := []struct {
 		name string
 		// giveBack returns a's companion to the hangar.
-		giveBack func(a *Session)
+		giveBack func(a *Session, tick func(int))
 	}{
 		{
 			name: "dismissed",
-			giveBack: func(a *Session) {
+			giveBack: func(a *Session, _ func(int)) {
 				a.Send(
 					&pb.ClientMessage{
 						Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: 1}},
@@ -607,8 +674,12 @@ func TestHangar_ShipsComeBack(t *testing.T) {
 			},
 		},
 		{
-			name:     "owner dropped",
-			giveBack: func(a *Session) { a.Leave() },
+			name: "owner dropped, at home",
+			giveBack: func(a *Session, tick func(int)) {
+				a.Leave()
+				// Already in the safe zone, it docks on the next tick.
+				tick(1)
+			},
 		},
 	}
 
@@ -616,14 +687,14 @@ func TestHangar_ShipsComeBack(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hub, _ := testHub(t, WithPoolStart(1))
+			hub, tick := testHub(t, WithPoolStart(1))
 			a, _ := pilot(t, hub, "a")
 			b, _ := pilot(t, hub, "b")
 			a.Send(state(0, 180))
 			b.Send(state(0, -180))
 			grant(t, a)
 
-			tc.giveBack(a)
+			tc.giveBack(a, tick)
 			waitHangar(t, b, 1)
 			if g, reason := summonReply(t, b); g == nil {
 				t.Errorf("summon after the ship came back refused: %q", reason)

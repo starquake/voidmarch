@@ -115,3 +115,55 @@ test('without the server, G summons nothing and says why', async ({ page }) => {
   await expect.poll(async () => (await state(page)).notice).toBe('companions need the server');
   expect((await state(page)).companions).toEqual([]);
 });
+
+test('a dropped player\'s companion flies on home, then leaves', async ({ page, browser, baseURL }) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const mo = await otherPlayer(browser, baseURL ?? '', `Mo${String(Date.now() % 100000)}`);
+  let closed = false;
+  try {
+    // Mo joins a squadron (on the join screen, if one has room), summons one
+    // companion at home and flies out of the safe zone with it.
+    await expect
+      .poll(async () => {
+        const s = await state(mo);
+        if (s.squadronScreen) {
+          await mo.keyboard.press('Enter');
+        }
+
+        return s.squadron;
+      })
+      .not.toBe('');
+    await mo.keyboard.press('g');
+    await expect.poll(async () => (await state(mo)).companions.length).toBe(1);
+    const moId = (await state(mo)).net.playerId ?? '';
+    await mo.mouse.move(VIEWPORT.width / 2, VIEWPORT.height - 5);
+    await mo.keyboard.down('w');
+    await expect
+      .poll(async () => {
+        const c = (await state(mo)).companions[0];
+
+        return c === undefined ? 0 : Math.hypot(c.x, c.y);
+      }, { message: 'the companion follows Mo out of the safe zone', timeout: 20_000 })
+      .toBeGreaterThan(420);
+    await mo.keyboard.up('w');
+
+    // Mo drops; his ship leaves at once, his companion flies on, then docks.
+    await mo.context().close();
+    closed = true;
+    const seen = async (): Promise<{ ship: boolean; companion: boolean }> => {
+      const others = (await state(page)).net.others;
+
+      return { ship: others.some((o) => o.id === moId), companion: others.some((o) => o.id === `${moId}/1`) };
+    };
+    await expect.poll(seen, { message: 'Mo\'s ship leaves, his companion stays' }).toEqual({ ship: false, companion: true });
+    await expect
+      .poll(async () => (await seen()).companion, { message: 'the companion reaches home and leaves', timeout: 60_000 })
+      .toBe(false);
+  } finally {
+    if (!closed) {
+      await mo.context().close();
+    }
+  }
+});

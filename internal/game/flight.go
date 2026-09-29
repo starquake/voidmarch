@@ -26,10 +26,14 @@ func (h *Hub) flyCompanions() {
 	for range substeps {
 		for _, id := range owners {
 			m := h.members[id]
-			if m == nil || m.state == nil || len(m.wing.Companions) == 0 {
+			if m == nil || len(m.wing.Companions) == 0 || (m.state == nil && !m.gone) {
 				continue
 			}
-			m.wing.Observe(mover(m.state))
+			owner := m.last
+			if m.state != nil {
+				owner = mover(m.state)
+			}
+			m.wing.Observe(owner)
 			for _, shot := range m.wing.Step(h.brainEnemies(m), h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}
