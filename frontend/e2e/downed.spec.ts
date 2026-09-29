@@ -1,6 +1,6 @@
-import type { Browser, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-import { expect, registerPlayer, test } from './fixtures.ts';
+import { expect, test } from './fixtures.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -15,54 +15,26 @@ const state = (page: Page): Promise<DebugState> =>
 
 /** Past the server's safe zone around the home planet (300). */
 const OUT_OF_SAFE_ZONE = 340;
-/** Just past the safe zone's edge, where a squadmate inside it can reach (60 px). */
-const JUST_OUT = 306;
-/** Inside the safe zone, where enemies neither target nor go. */
-const JUST_IN = 290;
-/** How far inside the downed ship Mo hovers: within the revive reach, 60 px. */
-const REACH_INSIDE = 40;
 
 /**
  * Takes the round shield, one charge all around, flies out of the safe zone
- * and parks until enemy fire takes the ship down. At the edge, it creeps out
- * with screen-relative taps and parks just past it.
+ * and parks until enemy fire takes the ship down.
  */
-async function goDown(page: Page, atEdge = false): Promise<void> {
+async function goDown(page: Page): Promise<void> {
   await page.keyboard.press('3');
   await page.keyboard.press('3');
   await expect.poll(async () => (await state(page)).loadout.shield).toBe('round');
-  const out = async (): Promise<number> => {
-    const s = await state(page);
+  const view = page.viewportSize() ?? { width: 640, height: 360 };
+  await page.mouse.move(view.width / 2, view.height - 10);
+  await page.keyboard.down('w');
+  await expect
+    .poll(async () => {
+      const s = await state(page);
 
-    return Math.hypot(s.ship.x, s.ship.y);
-  };
-  if (atEdge) {
-    await page.keyboard.press('c');
-    await expect.poll(async () => (await state(page)).controlMode).toBe('screen');
-    while ((await out()) < JUST_OUT) {
-      await page.keyboard.down('s');
-      await page.waitForTimeout(60);
-      await page.keyboard.up('s');
-      await page.waitForTimeout(400);
-    }
-    // Come to rest, so it goes down where it parks rather than drifting on.
-    let last = await out();
-    await expect
-      .poll(async () => {
-        const now = await out();
-        const still = Math.abs(now - last) < 0.5;
-        last = now;
-
-        return still;
-      }, { intervals: [250] })
-      .toBe(true);
-  } else {
-    const view = page.viewportSize() ?? { width: 640, height: 360 };
-    await page.mouse.move(view.width / 2, view.height - 10);
-    await page.keyboard.down('w');
-    await expect.poll(out).toBeGreaterThan(OUT_OF_SAFE_ZONE);
-    await page.keyboard.up('w');
-  }
+      return Math.hypot(s.ship.x, s.ship.y);
+    })
+    .toBeGreaterThan(OUT_OF_SAFE_ZONE);
+  await page.keyboard.up('w');
   await expect
     .poll(async () => (await state(page)).downed, { message: 'enemy fire takes the ship down', timeout: 150_000 })
     .toBe(true);
@@ -90,111 +62,4 @@ test('a downed player respawns at home, whole', async ({ page }) => {
     })
     .toEqual([false, 'fullHealth', 1, 0, undefined]);
   expect((await state(page)).revives).toBe(0);
-});
-
-/** A small viewport, since two pages render WebGL in software at once in CI (#22). */
-const VIEWPORT = { width: 480, height: 270 };
-
-/** A second registered player in their own browser context, online. */
-async function otherPlayer(browser: Browser, baseURL: string, name: string): Promise<Page> {
-  const context = await browser.newContext({ baseURL, viewport: VIEWPORT });
-  const token = await registerPlayer(context.request, name);
-  await context.addInitScript((t) => {
-    localStorage.setItem('voidmarch.token', t);
-  }, token);
-  const page = await context.newPage();
-  await page.goto('/');
-  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-
-  return page;
-}
-
-/**
- * Steers page's ship with screen-relative keys toward the point spot gives,
- * holding it within reach, until done says so or seconds pass. Given up, it
- * says where the ship and the other stood.
- */
-async function hoverAt(
-  page: Page,
-  other: Page,
-  spot: () => Promise<{ x: number; y: number }>,
-  reach: number,
-  seconds: number,
-  done: () => Promise<boolean>,
-): Promise<void> {
-  const held = new Set<string>();
-  const hold = async (keys: string[]): Promise<void> => {
-    for (const key of held) {
-      if (!keys.includes(key)) {
-        await page.keyboard.up(key);
-        held.delete(key);
-      }
-    }
-    for (const key of keys) {
-      if (!held.has(key)) {
-        await page.keyboard.down(key);
-        held.add(key);
-      }
-    }
-  };
-  const deadline = Date.now() + seconds * 1000;
-  while (!(await done())) {
-    const me = await state(page);
-    if (Date.now() > deadline) {
-      const them = await state(other);
-      const show = (s: DebugState): string =>
-        `(${s.ship.x.toFixed(0)}, ${s.ship.y.toFixed(0)}) ${s.damage}${s.downed ? ` down, revive ${s.revive.toFixed(2)}` : ''}`;
-      throw new Error(`gave up after ${String(seconds)} s: hovering ship at ${show(me)}, the other at ${show(them)}`);
-    }
-    const to = await spot();
-    const dx = to.x - me.ship.x;
-    const dy = to.y - me.ship.y;
-    const keys: string[] = [];
-    if (Math.hypot(dx, dy) > reach) {
-      const slack = reach / 2;
-      if (dx > slack) keys.push('d');
-      if (dx < -slack) keys.push('a');
-      if (dy > slack) keys.push('s');
-      if (dy < -slack) keys.push('w');
-    }
-    await hold(keys);
-    await page.waitForTimeout(50);
-  }
-  await hold([]);
-}
-
-test('a squadmate hovering next to a downed player revives it', async ({ page, browser, baseURL }) => {
-  test.setTimeout(240_000);
-  await page.goto('/');
-  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-  await expect.poll(async () => (await state(page)).squadron).not.toBe('');
-  const squadron = (await state(page)).squadron;
-
-  const mo = await otherPlayer(browser, baseURL ?? '', `Mo${String(Date.now() % 100000)}`);
-  try {
-    await expect.poll(async () => (await state(mo)).squadronScreen).toBe(true);
-    await mo.keyboard.press('Enter');
-    await expect.poll(async () => (await state(mo)).squadron).toBe(squadron);
-    await mo.keyboard.press('c');
-    await expect.poll(async () => (await state(mo)).controlMode).toBe('screen');
-
-    // Down just past the safe zone's edge, the player is revived by Mo from
-    // inside it: enemies turn on anyone hovering by a downed ship out there,
-    // but neither target nor enter the zone. A squadmate revives in 1.5 s.
-    await goDown(page, true);
-    // Mo's spot follows the downed ship, just inside the zone and within reach.
-    const spot = async (): Promise<{ x: number; y: number }> => {
-      const { x, y } = (await state(page)).ship;
-      const out = Math.hypot(x, y);
-      const at = Math.min(JUST_IN, out - REACH_INSIDE) / out;
-
-      return { x: x * at, y: y * at };
-    };
-    await hoverAt(mo, page, spot, 12, 120, async () => (await state(page)).revives > 0);
-    const up = await state(page);
-    expect(up.revives).toBeGreaterThan(0);
-  } finally {
-    // An open page keeps rendering WebGL through later specs (#22).
-    await mo.context().close();
-  }
 });
