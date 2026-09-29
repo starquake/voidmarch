@@ -507,6 +507,28 @@ func TestCompanions_EnemyBulletsWearThemDown(t *testing.T) {
 	}
 }
 
+func TestWithinReach(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name       string
+		companions [][2]float64
+		want       bool
+	}{
+		{name: "no companions", want: false},
+		{name: "one in reach", companions: [][2]float64{{5000, 0}, {VolleyRange, 0}}, want: true},
+		{name: "all too far", companions: [][2]float64{{VolleyRange + 1, 0}, {0, -VolleyRange - 1}}, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := WithinReach(0, 0, tc.companions); got != tc.want {
+				t.Errorf("WithinReach() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // nextHangar reads s's messages until a squadron list and returns the ships
 // waiting in the hangar.
 func nextHangar(t *testing.T, s *Session) uint32 {

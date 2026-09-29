@@ -91,10 +91,21 @@ type volley struct {
 	seed    uint32
 }
 
+// volleyRange is how close a companion must be to an enemy for the hub to
+// fly its volley; clients skip the ones past the same range.
+const volleyRange = 800
+
 // fireVolleys puts the volleys due by now into the hub's projectiles, the
 // same bullets every client expands from the same seed. A volley from an
-// enemy shot down meanwhile never leaves.
+// enemy shot down meanwhile never leaves, and one with no companion in
+// reach isn't flown.
 func (h *Hub) fireVolleys() {
+	var companions []point
+	for _, m := range h.members {
+		for _, c := range m.wing.Companions {
+			companions = append(companions, point{c.Ship.X, c.Ship.Y})
+		}
+	}
 	pending := h.volleys[:0]
 	for _, v := range h.volleys {
 		if v.tick > h.tick {
@@ -103,7 +114,7 @@ func (h *Hub) fireVolleys() {
 			continue
 		}
 		e, ok := h.enemies[v.enemyID]
-		if !ok {
+		if !ok || !withinReach(point{e.x, e.y}, companions) {
 			continue
 		}
 		for _, bullet := range sim.EnemyPattern(simEnemyKind(e.kind), e.x, e.y, v.angle, v.seed) {
@@ -111,6 +122,13 @@ func (h *Hub) fireVolleys() {
 		}
 	}
 	h.volleys = pending
+}
+
+// withinReach reports whether any companion is within volleyRange of p.
+func withinReach(p point, companions []point) bool {
+	return slices.ContainsFunc(companions, func(c point) bool {
+		return math.Hypot(c.x-p.x, c.y-p.y) <= volleyRange
+	})
 }
 
 // stepCompanionShots moves the hub's projectiles one sim tick: companions'
