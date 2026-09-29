@@ -17,8 +17,15 @@ const LABEL_OFFSET = 26;
 /** Where DOWN sits below a downed ship: under its name when it has one. */
 const DOWN_OFFSET = 18;
 const DOWN_UNDER_NAME = 36;
-/** The DOWN label's color, the mockup's gold. */
+/** The DOWN label's color, the mockup's gold, and the revive bar's in it. */
 const DOWN_COLOR = '#ffd27a';
+const REVIVE_FILL = 0xffd27a;
+/** The revive bar under DOWN (#66): its size, how far below the label's top it sits, and its track. */
+const REVIVE_BAR_WIDTH = 32;
+const REVIVE_BAR_HEIGHT = 3;
+const REVIVE_BAR_BELOW = 11;
+const REVIVE_TRACK = 0x05030a;
+const REVIVE_TRACK_ALPHA = 0.85;
 
 /**
  * A Main Ship drawn from its parts, engine to shield, with an optional name
@@ -34,6 +41,9 @@ export class ShipView {
   private readonly shield: Phaser.GameObjects.Sprite;
   private label: Phaser.GameObjects.Text | undefined;
   private downLabel: Phaser.GameObjects.Text | undefined;
+  private reviveBar: Phaser.GameObjects.Graphics | undefined;
+  /** The revive progress the bar shows, from 0 to 1. */
+  private revive = 0;
   private readonly layer: ShipParent;
   private loadout: Loadout | undefined;
   private tint: number | undefined;
@@ -130,33 +140,62 @@ export class ShipView {
   place(x: number, y: number, angle: number): void {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
-    this.downLabel?.setPosition(x, y + (this.label === undefined ? DOWN_OFFSET : DOWN_UNDER_NAME));
+    const down = y + (this.label === undefined ? DOWN_OFFSET : DOWN_UNDER_NAME);
+    this.downLabel?.setPosition(x, down);
+    this.reviveBar?.setPosition(x - REVIVE_BAR_WIDTH / 2, down + REVIVE_BAR_BELOW);
   }
 
-  /** Shows DOWN under a downed ship, with its revive progress once it has some; gone when it's up (#47). */
+  /**
+   * Shows DOWN under a downed ship (#47), and under it a bar of its revive
+   * progress once it has some (#66); gone when it's up.
+   */
   setDown(down: boolean, revive: number, resolution: number): void {
     if (!down) {
       this.downLabel?.destroy();
       this.downLabel = undefined;
+      this.reviveBar?.destroy();
+      this.reviveBar = undefined;
+      this.revive = 0;
 
       return;
     }
-    const text = revive > 0 ? `DOWN · reviving ${String(Math.floor(revive * 100))}%` : 'DOWN';
     if (this.downLabel === undefined) {
       this.downLabel = this.scene.add
-        .text(0, 0, text, { fontFamily: 'monospace', fontSize: '8px', color: DOWN_COLOR, resolution })
+        .text(0, 0, 'DOWN', { fontFamily: 'monospace', fontSize: '8px', color: DOWN_COLOR, resolution })
         .setOrigin(0.5, 0)
         .setShadow(1, 1, '#000000', 0);
-      this.layer.add(this.downLabel);
+      this.reviveBar = this.scene.add.graphics();
+      this.layer.add([this.downLabel, this.reviveBar]);
       this.place(this.root.x, this.root.y, this.root.rotation - SPRITE_FACING);
-    } else if (this.downLabel.text !== text) {
-      this.downLabel.setText(text);
     }
+    // Redraw only when the fill moves by a pixel.
+    const fill = Math.round(Math.min(Math.max(revive, 0), 1) * REVIVE_BAR_WIDTH) / REVIVE_BAR_WIDTH;
+    if (fill !== this.revive) {
+      this.revive = fill;
+      this.drawReviveBar();
+    }
+  }
+
+  private drawReviveBar(): void {
+    const bar = this.reviveBar?.clear();
+    if (bar === undefined || this.revive <= 0) {
+      return;
+    }
+    bar
+      .fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA)
+      .fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2)
+      .fillStyle(REVIVE_FILL, 1)
+      .fillRect(0, 0, REVIVE_BAR_WIDTH * this.revive, REVIVE_BAR_HEIGHT);
   }
 
   /** Whether DOWN is shown, and its text, for the E2E tests. */
   get downText(): string | undefined {
     return this.downLabel?.text;
+  }
+
+  /** The revive bar's fill while it's shown, for the E2E tests. */
+  get reviveShown(): number | undefined {
+    return this.downLabel === undefined || this.revive <= 0 ? undefined : this.revive;
   }
 
   /** Whether the shield is drawn, for the E2E tests. */
@@ -184,5 +223,6 @@ export class ShipView {
     this.root.destroy();
     this.label?.destroy();
     this.downLabel?.destroy();
+    this.reviveBar?.destroy();
   }
 }

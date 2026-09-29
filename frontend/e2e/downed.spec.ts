@@ -47,7 +47,8 @@ test('a downed player respawns at home, whole', async ({ page }) => {
   await goDown(page);
 
   const down = await state(page);
-  expect(down.downLabel).toMatch(/^DOWN/);
+  // Alone out there, nobody revives: DOWN, and no bar yet.
+  expect([down.downLabel, down.reviveBar]).toEqual(['DOWN', undefined]);
   expect(down.downPanel).toContain("You're down");
   await expect
     .poll(async () => (await state(page)).downPanel ?? '', { timeout: 10_000 })

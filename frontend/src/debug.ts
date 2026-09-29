@@ -44,6 +44,8 @@ export interface DebugState {
   canRespawn: boolean;
   /** The DOWN label under the ship and the respawn panel, as shown. */
   downLabel: string | undefined;
+  /** The revive bar's fill under the ship while it's shown (#66). */
+  reviveBar: number | undefined;
   /** Times a friend revived the ship. */
   revives: number;
   downPanel: string | undefined;

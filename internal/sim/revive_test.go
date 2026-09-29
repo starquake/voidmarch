@@ -238,9 +238,11 @@ func TestWing_CompanionsReviveADownedOwner(t *testing.T) {
 				w.Observe(owner)
 				w.Step(nil, nil)
 			}
-			if near := dist(c.Ship.X, c.Ship.Y, 0, 0) <= ReviveRadius; near != tc.want {
-				t.Errorf("%s: %v from its downed owner; within ReviveRadius %v, want %v",
-					tc.mode, dist(c.Ship.X, c.Ship.Y, 0, 0), near, tc.want)
+			// Coming over means hovering BrainSpacing out; a Stealth companion
+			// keeps its formation slot, which can still be in reach.
+			if came := dist(c.Ship.X, c.Ship.Y, 0, 0) <= BrainSpacing+5; came != tc.want {
+				t.Errorf("%s: %v from its downed owner; came over %v, want %v",
+					tc.mode, dist(c.Ship.X, c.Ship.Y, 0, 0), came, tc.want)
 			}
 		})
 	}
