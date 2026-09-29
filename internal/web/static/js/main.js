@@ -1934,6 +1934,12 @@ var LABEL_OFFSET = 26;
 var DOWN_OFFSET = 18;
 var DOWN_UNDER_NAME = 36;
 var DOWN_COLOR = "#ffd27a";
+var REVIVE_FILL = 16765562;
+var REVIVE_BAR_WIDTH = 32;
+var REVIVE_BAR_HEIGHT = 3;
+var REVIVE_BAR_BELOW = 11;
+var REVIVE_TRACK = 328458;
+var REVIVE_TRACK_ALPHA = 0.85;
 var ShipView = class {
   root;
   scene;
@@ -1944,6 +1950,9 @@ var ShipView = class {
   shield;
   label;
   downLabel;
+  reviveBar;
+  /** The revive progress the bar shows, from 0 to 1. */
+  revive = 0;
   layer;
   loadout;
   tint;
@@ -2029,27 +2038,49 @@ var ShipView = class {
   place(x, y, angle) {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
-    this.downLabel?.setPosition(x, y + (this.label === void 0 ? DOWN_OFFSET : DOWN_UNDER_NAME));
+    const down = y + (this.label === void 0 ? DOWN_OFFSET : DOWN_UNDER_NAME);
+    this.downLabel?.setPosition(x, down);
+    this.reviveBar?.setPosition(x - REVIVE_BAR_WIDTH / 2, down + REVIVE_BAR_BELOW);
   }
-  /** Shows DOWN under a downed ship, with its revive progress once it has some; gone when it's up (#47). */
+  /**
+   * Shows DOWN under a downed ship (#47), and under it a bar of its revive
+   * progress once it has some (#66); gone when it's up.
+   */
   setDown(down, revive, resolution) {
     if (!down) {
       this.downLabel?.destroy();
       this.downLabel = void 0;
+      this.reviveBar?.destroy();
+      this.reviveBar = void 0;
+      this.revive = 0;
       return;
     }
-    const text = revive > 0 ? `DOWN \xB7 reviving ${String(Math.floor(revive * 100))}%` : "DOWN";
     if (this.downLabel === void 0) {
-      this.downLabel = this.scene.add.text(0, 0, text, { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
-      this.layer.add(this.downLabel);
+      this.downLabel = this.scene.add.text(0, 0, "DOWN", { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+      this.reviveBar = this.scene.add.graphics();
+      this.layer.add([this.downLabel, this.reviveBar]);
       this.place(this.root.x, this.root.y, this.root.rotation - SPRITE_FACING);
-    } else if (this.downLabel.text !== text) {
-      this.downLabel.setText(text);
     }
+    const fill = Math.round(Math.min(Math.max(revive, 0), 1) * REVIVE_BAR_WIDTH) / REVIVE_BAR_WIDTH;
+    if (fill !== this.revive) {
+      this.revive = fill;
+      this.drawReviveBar();
+    }
+  }
+  drawReviveBar() {
+    const bar = this.reviveBar?.clear();
+    if (bar === void 0 || this.revive <= 0) {
+      return;
+    }
+    bar.fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA).fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2).fillStyle(REVIVE_FILL, 1).fillRect(0, 0, REVIVE_BAR_WIDTH * this.revive, REVIVE_BAR_HEIGHT);
   }
   /** Whether DOWN is shown, and its text, for the E2E tests. */
   get downText() {
     return this.downLabel?.text;
+  }
+  /** The revive bar's fill while it's shown, for the E2E tests. */
+  get reviveShown() {
+    return this.downLabel === void 0 || this.revive <= 0 ? void 0 : this.revive;
   }
   /** Whether the shield is drawn, for the E2E tests. */
   get shieldShown() {
@@ -2074,6 +2105,7 @@ var ShipView = class {
     this.root.destroy();
     this.label?.destroy();
     this.downLabel?.destroy();
+    this.reviveBar?.destroy();
   }
 };
 
@@ -2853,6 +2885,7 @@ var SandboxScene = class extends Phaser5.Scene {
       revive: 0,
       canRespawn: false,
       downLabel: void 0,
+      reviveBar: void 0,
       revives: 0,
       downPanel: void 0,
       companions: [],
@@ -3515,6 +3548,7 @@ ${modeName(info)}`,
     this.debug.revive = ship.revive;
     this.debug.canRespawn = this.sim.canRespawn;
     this.debug.downLabel = this.ship.downText;
+    this.debug.reviveBar = this.ship.reviveShown;
     this.debug.revives = this.revives;
     this.debug.downPanel = this.downPanel.visible ? this.downPanel.text : void 0;
     this.debug.companions = (this.net?.others ?? []).filter((o) => o.ownerId !== "" && o.ownerId === this.net?.playerId).map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));

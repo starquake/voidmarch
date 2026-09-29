@@ -123,9 +123,9 @@ const (
 // its player respawns.
 const (
 	// ReviveRadius is how close, center to center, a friendly ship must stay
-	// to revive a downed one: past BrainSpacing, so a companion keeping its
-	// distance still reaches.
-	ReviveRadius = 60
+	// to revive a downed one: about a ship and a half between hulls (#66),
+	// and past BrainSpacing, so a companion keeping its distance reaches.
+	ReviveRadius = 100
 	// ReviveSeconds is how long a friend nearby takes to revive a downed
 	// ship, and how long its progress takes to drain with nobody near; a
 	// squadmate takes ReviveSquadmateSeconds.

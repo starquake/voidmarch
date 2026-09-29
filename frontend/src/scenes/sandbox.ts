@@ -219,6 +219,7 @@ export class SandboxScene extends Phaser.Scene {
       revive: 0,
       canRespawn: false,
       downLabel: undefined,
+      reviveBar: undefined,
       revives: 0,
       downPanel: undefined,
       companions: [],
@@ -959,6 +960,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.revive = ship.revive;
     this.debug.canRespawn = this.sim.canRespawn;
     this.debug.downLabel = this.ship.downText;
+    this.debug.reviveBar = this.ship.reviveShown;
     this.debug.revives = this.revives;
     this.debug.downPanel = this.downPanel.visible ? this.downPanel.text : undefined;
     this.debug.companions = (this.net?.others ?? [])
