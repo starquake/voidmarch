@@ -8,12 +8,19 @@ import (
 	"github.com/starquake/voidmarch/internal/handlers"
 )
 
-// errRegisterFailed is what a player sees when the database fails them.
-var errRegisterFailed = errors.New("the server couldn't save your name, try again")
+var (
+	// errRegisterFailed is what a player sees when the database fails them.
+	errRegisterFailed = errors.New("the server couldn't save your name, try again")
+	// errTooManyRegistrations is what a player sees over the limit (#19).
+	errTooManyRegistrations = errors.New(
+		"too many new names from your address, try again in a minute",
+	)
+)
 
 // HandleRegister registers a player by name and returns their id and token,
-// which the browser keeps for the WebSocket's Hello.
-func HandleRegister(logger *slog.Logger, store *Store) http.Handler {
+// which the browser keeps for the WebSocket's Hello. limiter caps how often
+// one address may register.
+func HandleRegister(logger *slog.Logger, store *Store, limiter *Limiter) http.Handler {
 	type request struct {
 		Name string `json:"name"`
 	}
@@ -25,6 +32,13 @@ func HandleRegister(logger *slog.Logger, store *Store) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+
+		if !limiter.Allow(r) {
+			logger.InfoContext(ctx, "registration limited", slog.String("addr", r.RemoteAddr))
+			writeError(w, r, logger, http.StatusTooManyRequests, errTooManyRegistrations)
+
+			return
+		}
 
 		req, err := handlers.DecodeJSON[request](w, r)
 		if errors.Is(err, handlers.ErrNotJSON) {

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -23,7 +24,7 @@ func register(t *testing.T, store *Store, contentType, body string) *httptest.Re
 		strings.NewReader(body),
 	)
 	req.Header.Set("Content-Type", contentType)
-	HandleRegister(slog.New(slog.DiscardHandler), store).ServeHTTP(w, req)
+	HandleRegister(slog.New(slog.DiscardHandler), store, NewLimiter(0)).ServeHTTP(w, req)
 
 	return w
 }
@@ -129,5 +130,38 @@ func TestHandleRegister_DatabaseFailure(t *testing.T) {
 	}
 	if got, want := w.Body.String(), "couldn't save your name"; !strings.Contains(got, want) {
 		t.Errorf("body = %q, should contain %q", got, want)
+	}
+}
+
+func TestHandleRegister_Limited(t *testing.T) {
+	t.Parallel()
+
+	handler := HandleRegister(
+		slog.New(slog.DiscardHandler),
+		NewStore(testutil.OpenDB(t)),
+		NewLimiter(1),
+	)
+	codes := make([]int, 0, 2)
+	for range 2 {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			"/api/players",
+			strings.NewReader(`{"name":"Sanne"}`),
+		)
+		req.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(w, req)
+		codes = append(codes, w.Code)
+		if w.Code == http.StatusTooManyRequests {
+			if got, want := w.Body.String(), "try again in a minute"; !strings.Contains(got, want) {
+				t.Errorf("body = %q, should contain %q", got, want)
+			}
+		}
+	}
+
+	want := []int{http.StatusCreated, http.StatusTooManyRequests}
+	if !slices.Equal(codes, want) {
+		t.Errorf("status codes = %v, want %v", codes, want)
 	}
 }

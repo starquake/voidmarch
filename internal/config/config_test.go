@@ -38,6 +38,9 @@ func TestParse_Defaults(t *testing.T) {
 	if got, want := cfg.DBPath, DBPathDefault; got != want {
 		t.Errorf("cfg.DBPath = %q, want %q", got, want)
 	}
+	if got, want := cfg.RegisterLimit, RegisterLimitDefault; got != want {
+		t.Errorf("cfg.RegisterLimit = %d, want %d", got, want)
+	}
 }
 
 func TestParse_Values(t *testing.T) {
@@ -45,13 +48,14 @@ func TestParse_Values(t *testing.T) {
 
 	dbPath := filepath.Join(t.TempDir(), "players.db")
 	cfg, err := Parse(envFunc(map[string]string{
-		"APP_ENV":    "development",
-		"HOST":       "127.0.0.1",
-		"PORT":       "9000",
-		"WEB_DIR":    "internal/web/static",
-		"WIRE_LOG":   "true",
-		"POOL_START": "0",
-		"DB_PATH":    dbPath,
+		"APP_ENV":        "development",
+		"HOST":           "127.0.0.1",
+		"PORT":           "9000",
+		"WEB_DIR":        "internal/web/static",
+		"WIRE_LOG":       "true",
+		"POOL_START":     "0",
+		"DB_PATH":        dbPath,
+		"REGISTER_LIMIT": "0",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -74,6 +78,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := cfg.DBPath, dbPath; got != want {
 		t.Errorf("cfg.DBPath = %q, want %q", got, want)
+	}
+	if got, want := cfg.RegisterLimit, 0; got != want {
+		t.Errorf("cfg.RegisterLimit = %d, want %d", got, want)
 	}
 }
 
@@ -112,6 +119,16 @@ func TestParse_Errors(t *testing.T) {
 			name: "pool start negative",
 			env:  map[string]string{"POOL_START": "-1"},
 			want: ErrInvalidPoolStart,
+		},
+		{
+			name: "register limit not a number",
+			env:  map[string]string{"REGISTER_LIMIT": "lots"},
+			want: ErrInvalidRegisterLimit,
+		},
+		{
+			name: "register limit negative",
+			env:  map[string]string{"REGISTER_LIMIT": "-1"},
+			want: ErrInvalidRegisterLimit,
 		},
 		{
 			name: "db path in a missing directory",

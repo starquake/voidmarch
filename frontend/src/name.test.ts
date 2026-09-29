@@ -41,3 +41,13 @@ test('register passes on the server refusal', async () => {
   });
   await assert.rejects(register('Mo', reply(500, {})), /500/);
 });
+
+test('register passes on the registration limit', async () => {
+  const limited = reply(429, { error: 'too many new names from your address, try again in a minute' });
+  await assert.rejects(register('Mo', limited), (err: unknown) => {
+    assert.ok(err instanceof RegisterError);
+    assert.match(err.message, /try again in a minute/);
+
+    return true;
+  });
+});

@@ -23,6 +23,10 @@ const PortDefault = "8080"
 // POOL_START is unset, until fights can be won (see #49).
 const PoolStartDefault = 3
 
+// RegisterLimitDefault is how many names one address may register a minute
+// when REGISTER_LIMIT is unset (#19).
+const RegisterLimitDefault = 5
+
 // DBPathDefault is the database file when DB_PATH is unset: beside the
 // working directory, so a development server keeps its players too.
 const DBPathDefault = "voidmarch.db"
@@ -41,6 +45,9 @@ var (
 	ErrInvalidWireLog = errors.New("invalid WIRE_LOG")
 	// ErrInvalidPoolStart is returned when POOL_START is not a non-negative number.
 	ErrInvalidPoolStart = errors.New("invalid POOL_START")
+	// ErrInvalidRegisterLimit is returned when REGISTER_LIMIT is not a
+	// non-negative number.
+	ErrInvalidRegisterLimit = errors.New("invalid REGISTER_LIMIT")
 	// ErrInvalidDBPath is returned when DB_PATH is in a directory that doesn't exist.
 	ErrInvalidDBPath = errors.New("invalid DB_PATH")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
@@ -64,6 +71,9 @@ type Config struct {
 	PoolStart int
 	// DBPath is the SQLite file that keeps players and the hangar.
 	DBPath string
+	// RegisterLimit is how many names one address may register a minute; 0
+	// lifts the limit.
+	RegisterLimit int
 }
 
 // Parse reads the configuration through getenv, applying defaults for unset
@@ -73,6 +83,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 		AppEnvironment: AppEnvironmentProduction,
 		Port:           PortDefault,
 		PoolStart:      PoolStartDefault,
+		RegisterLimit:  RegisterLimitDefault,
 	}
 
 	if val := getenv("APP_ENV"); val != "" {
@@ -107,12 +118,13 @@ func Parse(getenv func(string) string) (*Config, error) {
 		c.WireLog = wireLog
 	}
 
-	if val := getenv("POOL_START"); val != "" {
-		n, err := strconv.Atoi(val)
-		if err != nil || n < 0 {
-			return nil, fmt.Errorf(invalidValue, ErrInvalidPoolStart, val)
-		}
-		c.PoolStart = n
+	err := parseCount(getenv("POOL_START"), ErrInvalidPoolStart, &c.PoolStart)
+	if err != nil {
+		return nil, err
+	}
+	err = parseCount(getenv("REGISTER_LIMIT"), ErrInvalidRegisterLimit, &c.RegisterLimit)
+	if err != nil {
+		return nil, err
 	}
 
 	dbPath, err := parseDBPath(getenv("DB_PATH"))
@@ -122,6 +134,20 @@ func Parse(getenv func(string) string) (*Config, error) {
 	c.DBPath = dbPath
 
 	return c, nil
+}
+
+// parseCount sets *n from val, a non-negative number, unless val is empty.
+func parseCount(val string, invalid error, n *int) error {
+	if val == "" {
+		return nil
+	}
+	parsed, err := strconv.Atoi(val)
+	if err != nil || parsed < 0 {
+		return fmt.Errorf(invalidValue, invalid, val)
+	}
+	*n = parsed
+
+	return nil
 }
 
 // parseDBPath is DB_PATH, or the default, in a directory that exists.
