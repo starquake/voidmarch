@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"io/fs"
@@ -21,6 +22,10 @@ import (
 	"github.com/starquake/voidmarch/internal/version"
 	"github.com/starquake/voidmarch/internal/web"
 )
+
+// fleetSaveTimeout bounds a save of the fleet, so a stuck disk can't hold up
+// shutdown for long.
+const fleetSaveTimeout = 5 * time.Second
 
 // Run starts the server and blocks until ctx is canceled or the process gets
 // SIGINT or SIGTERM. When ln is nil, Run listens on the configured address.
@@ -74,7 +79,16 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		}
 	}
 
-	hub := game.NewHub(logger, game.WithPoolStart(cfg.PoolStart))
+	poolStart, err := fleetStart(signalCtx, db, cfg.PoolStart)
+	if err != nil {
+		logger.ErrorContext(signalCtx, "error reading hangar", slog.Any("err", err))
+
+		return err
+	}
+	hub := game.NewHub(logger,
+		game.WithPoolStart(poolStart),
+		game.WithSaveFleet(fleetSaver(signalCtx, logger, db)),
+	)
 	ticker := time.NewTicker(time.Second / game.TickRate)
 	defer ticker.Stop()
 	hubDone := make(chan struct{})
@@ -89,6 +103,33 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 	svc := server.Services{Players: players.NewStore(db), Hub: hub}
 
 	return runHTTPServer(ctx, signalCtx, ln, server.New(logger, cfg, static, svc), logger)
+}
+
+// fleetStart is the saved fleet, or poolStart on a fresh database.
+func fleetStart(ctx context.Context, db *sql.DB, poolStart int) (int, error) {
+	ships, ok, err := store.Hangar(ctx, db)
+	if err != nil {
+		return 0, fmt.Errorf("error loading fleet: %w", err)
+	}
+	if !ok {
+		return poolStart, nil
+	}
+
+	return ships, nil
+}
+
+// fleetSaver saves the hub's fleet. It outlives ctx's cancellation, since the
+// hub saves once more while it stops.
+func fleetSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(int) {
+	ctx = context.WithoutCancel(ctx)
+
+	return func(ships int) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := store.SaveHangar(saveCtx, db, ships); err != nil {
+			logger.ErrorContext(saveCtx, "error saving fleet", slog.Any("err", err))
+		}
+	}
 }
 
 // staticFiles returns the web client: from WEB_DIR when set, else embedded.

@@ -1,9 +1,13 @@
 package game_test
 
 import (
+	"context"
+	"log/slog"
 	"math"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -789,4 +793,58 @@ func TestHangar_JoiningNeverAddsShips(t *testing.T) {
 		e.Leave()
 		waitHangar(t, owners[0], 1)
 	})
+}
+
+// fleetSaves collects what a hub saves through WithSaveFleet.
+type fleetSaves struct {
+	mu    sync.Mutex
+	ships []int
+}
+
+func (f *fleetSaves) save(ships int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ships = append(f.ships, ships)
+}
+
+func (f *fleetSaves) all() []int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.ships)
+}
+
+func TestHangar_SavesTheFleetOnce(t *testing.T) {
+	t.Parallel()
+
+	saves := &fleetSaves{}
+	ctx, cancel := context.WithCancel(t.Context())
+	ticks := make(chan time.Time)
+	hub := NewHub(
+		slog.New(slog.DiscardHandler),
+		WithSeed(1),
+		WithPoolStart(3),
+		WithSaveFleet(saves.save),
+	)
+	done := make(chan struct{})
+	go func() {
+		hub.Run(ctx, ticks)
+		close(done)
+	}()
+
+	// Ships going out and a joiner holding one change where they are, not
+	// how many there are, so nothing is saved after the start.
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	grant(t, a)
+	for range 3 {
+		ticks <- time.Time{}
+	}
+	cancel()
+	<-done
+
+	if got, want := saves.all(), []int{3}; !slices.Equal(got, want) {
+		t.Errorf("saved fleets = %v, want %v", got, want)
+	}
 }
