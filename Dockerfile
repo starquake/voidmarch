@@ -13,13 +13,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
       -X github.com/starquake/voidmarch/internal/version.Commit=${COMMIT} \
       -X github.com/starquake/voidmarch/internal/version.Date=${DATE}" \
     -o /voidmarch ./cmd/voidmarch
+# distroless has no shell to make the database directory, so it's made here.
+RUN mkdir /data
 
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /voidmarch /voidmarch
+COPY --from=build --chown=nonroot:nonroot /data /data
 EXPOSE 8080
 USER nonroot
 ENV APP_ENV=production
 ENV PORT=8080
+ENV DB_PATH=/data/voidmarch.db
+VOLUME /data
 # distroless has no shell or curl, so the binary checks its own health.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["/voidmarch", "-healthcheck"]
