@@ -15,10 +15,12 @@ the work is tracked on the [project board](https://github.com/users/starquake/pr
 With Docker:
 
 ```bash
-docker run -p 8080:8080 ghcr.io/starquake/voidmarch:edge
+docker run -p 8080:8080 -v voidmarch-data:/data ghcr.io/starquake/voidmarch:edge
 ```
 
-Then open http://localhost:8080.
+Then open http://localhost:8080. Players and the hangar are kept in a SQLite
+file, `/data/voidmarch.db` in the image, so the volume keeps them across
+restarts and upgrades.
 
 From a checkout (needs Go and Node.js 24):
 
@@ -62,7 +64,8 @@ Press **G** at the home planet to draw a companion from the hangar, up to
 three: AI wingmates that fly in formation with you, in your colour. The hangar
 is shared by everyone on the server; the HUD shows its ships while you're at
 the home planet. A companion sent home, or one whose player leaves, docks back
-into it. The server starts with `POOL_START` ships in it (3 unless set). Hold **Q**
+into it. A new server starts with `POOL_START` ships in it (3 unless set), and
+keeps the count across restarts. Hold **Q**
 for a ring of orders, point at one and let go; tap Q to repeat the last. Every
 order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
 Hold here and Stealth, and three one-shots that return to the mode when done:
@@ -108,6 +111,9 @@ the browser's network panel.
 | `PORT`    | `8080`       | Port to listen on. |
 | `WEB_DIR` | (embedded)   | Serve the client from this directory instead of the embedded copy. Development only. |
 | `WIRE_LOG` | `false`     | Log every WebSocket message, decoded. For debugging. |
+| `DB_PATH` | `voidmarch.db` (`/data/voidmarch.db` in the image) | The SQLite file that keeps players and the hangar. Its directory must exist. |
+| `POOL_START` | `3`       | Companion ships in the hangar on a fresh database; after that the saved count is used. |
+| `REGISTER_LIMIT` | `5`   | New names one address may register a minute; `0` lifts the limit. A name never used to play is deleted after a day. |
 
 ## Development
 

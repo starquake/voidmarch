@@ -107,8 +107,17 @@ pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
   companion's state, shot or hit (#51). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
   home planet, 4 ships per squadron). Summons draw from the shared hangar,
-  `POOL_START` ships at start (3 by default); the E2E server sets 15, since the
-  specs share it, and hub tests without `WithPoolStart` get a ship per seat.
+  `POOL_START` ships on a fresh database (3 by default); the E2E server sets 15,
+  since the specs share it, and hub tests without `WithPoolStart` get a ship
+  per seat. The hub saves the fleet through `WithSaveFleet`.
+- **Persistence** (`internal/store`, #76): a SQLite file at `DB_PATH` through
+  `modernc.org/sqlite`, pure Go so the build stays cgo-free. Migrations are
+  embedded `internal/store/migrations/NNN_*.sql`, applied in order and
+  tracked by `PRAGMA user_version`; add a new file, never edit an applied
+  one. It keeps players (`players.Store`, tokens as SHA-256 hashes) and the
+  fleet. Tests open a real temporary database with `testutil.OpenDB`;
+  `startServer` and the E2E server each get their own file, and E2E sets
+  `REGISTER_LIMIT=0`.
 - **Squadrons** (`internal/game/squadrons.go`): everyone picks one with
   `ChooseSquadron` (empty starts a new one, Greek-named); the server sends
   `Squadrons` on every change and caps them at 4 ships. `SquadronOrder` is
