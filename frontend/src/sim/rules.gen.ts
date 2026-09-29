@@ -79,7 +79,7 @@ export const WEAPON_STATS = {
     charge: 0.45,
     damage: 12,
     speed: 300,
-    lifetime: 0.6666666666666666,
+    lifetime: 0.5,
     muzzles: [{ forward: 16, right: 0 }],
     alternate: false,
     shake: 0.002,

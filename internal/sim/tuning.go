@@ -252,9 +252,9 @@ type Burst struct {
 	Damage float64
 }
 
-// ShardStats is how a burst's shard flies: 260 px/s for 0.35 s, about 90 px.
+// ShardStats is how a burst's shard flies: 260 px/s for 0.46 s, about 120 px.
 func ShardStats() ProjectileStats {
-	return ProjectileStats{Speed: 260, MaxSpeed: 260, Lifetime: 0.35}
+	return ProjectileStats{Speed: 260, MaxSpeed: 260, Lifetime: 0.46}
 }
 
 // WeaponStatsOf is a weapon's stats. Sidegrades: a new player's auto cannon
@@ -274,7 +274,7 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 		}
 	case WeaponBigSpaceGun:
 		return WeaponStats{
-			Speed: 300, MaxSpeed: 300, Lifetime: 2.0 / 3,
+			Speed: 300, MaxSpeed: 300, Lifetime: 0.5,
 			Interval: 0.9,
 			Charge:   0.45,
 			Damage:   12,
