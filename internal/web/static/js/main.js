@@ -468,6 +468,82 @@ var BootScene = class extends Phaser.Scene {
 // src/scenes/sandbox.ts
 import Phaser5 from "./vendor/phaser.js";
 
+// src/background.ts
+var BACKGROUND_INTERVAL_MS = 50;
+var WORKER_SOURCE = `let timer;
+onmessage = (event) => {
+  clearInterval(timer);
+  if (event.data > 0) {
+    timer = setInterval(() => postMessage(0), event.data);
+  }
+};`;
+function workerTimer() {
+  let worker;
+  return {
+    start(intervalMs, tick) {
+      worker ??= new Worker(URL.createObjectURL(new Blob([WORKER_SOURCE], { type: "text/javascript" })));
+      worker.onmessage = tick;
+      worker.postMessage(intervalMs);
+    },
+    stop() {
+      worker?.postMessage(0);
+    }
+  };
+}
+var BackgroundTicker = class {
+  page;
+  timer;
+  now;
+  onTick;
+  last = 0;
+  running = false;
+  changed = () => {
+    this.sync();
+  };
+  constructor(onTick, page, timer, now2) {
+    this.onTick = onTick;
+    this.page = page;
+    this.timer = timer;
+    this.now = now2;
+  }
+  /** Starts watching the page's visibility. */
+  start() {
+    this.page.addEventListener("visibilitychange", this.changed);
+    this.sync();
+  }
+  /** Stops watching, and ticking. */
+  stop() {
+    this.page.removeEventListener("visibilitychange", this.changed);
+    this.halt();
+  }
+  /** Whether the worker is stepping the game. */
+  get ticking() {
+    return this.running;
+  }
+  sync() {
+    if (this.page.visibilityState !== "hidden") {
+      this.halt();
+      return;
+    }
+    if (this.running) {
+      return;
+    }
+    this.running = true;
+    this.last = this.now();
+    this.timer.start(BACKGROUND_INTERVAL_MS, () => {
+      const at2 = this.now();
+      this.onTick(at2 - this.last);
+      this.last = at2;
+    });
+  }
+  halt() {
+    if (this.running) {
+      this.running = false;
+      this.timer.stop();
+    }
+  }
+};
+
 // src/debug.ts
 function publishDebugState(state) {
   window.voidmarch = state;
@@ -2557,6 +2633,29 @@ var SandboxScene = class extends Phaser5.Scene {
     });
     this.net.start();
     this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    const background = new BackgroundTicker(
+      (deltaMs) => {
+        this.stepHidden(deltaMs);
+      },
+      document,
+      workerTimer(),
+      () => performance.now()
+    );
+    background.start();
+    this.events.once(Phaser5.Scenes.Events.SHUTDOWN, () => {
+      background.stop();
+    });
+  }
+  /**
+   * One step while the tab is hidden: the ship coasts with nothing held, its
+   * state goes to the server, and nothing is drawn. The ship stays in the
+   * world, exposed (#57).
+   */
+  stepHidden(deltaMs) {
+    const { pointerX, pointerY } = this.readInput();
+    const idle = { up: false, down: false, left: false, right: false, pointerX, pointerY, fire: false };
+    this.net?.update(this.sim.advance(deltaMs / 1e3, idle));
+    this.publish();
   }
   createProjectiles() {
     this.projectileSprites = this.sim.projectiles.items.map(() => {

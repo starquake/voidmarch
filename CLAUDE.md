@@ -115,6 +115,10 @@ pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
   relayed to squadmates as `SquadronOrdered`, and every client applies it to its
   own companions. The join screen (`frontend/src/squadrons.ts`) only shows when
   there's a squadron with room; E2E's first page per spec starts its own.
+- **A hidden tab keeps playing** (#57): browsers stop a hidden tab's
+  animation frames, so a worker (`frontend/src/background.ts`) steps the sim
+  and sends the ship's state instead, drawing nothing. The hub drops a player
+  only after 10 s of silence (`silenceTicks`).
 - **E2E runs everyone on one server**: each test's page is a registered player
   (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
   Assert on your own state (`shotsFired`, `ship`), never on shared counts.

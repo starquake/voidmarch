@@ -289,10 +289,22 @@ func TestHub_SilentPlayerLeaves(t *testing.T) {
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
 
-	for range 3 * TickRate {
+	// Five seconds of silence, as a hidden tab or a blip, is ridden out.
+	// a still reads, so it isn't dropped as too slow instead.
+	for range 5 * TickRate {
 		b.Send(state(0, 0))
 		tick(1)
 		drain(b)
+		drain(a)
+	}
+	if closed(a) {
+		t.Fatal("a player silent for 5 s was dropped, want kept")
+	}
+	for range SilenceTicks - 5*TickRate {
+		b.Send(state(0, 0))
+		tick(1)
+		drain(b)
+		drain(a)
 	}
 	b.Send(state(0, 0))
 	tick(1)
