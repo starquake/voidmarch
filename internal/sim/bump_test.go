@@ -20,7 +20,14 @@ func TestTouching(t *testing.T) {
 		{
 			name: "apart",
 			a:    Body{X: 0, Radius: 12},
-			b:    Body{X: 30, Radius: 12},
+			b:    Body{X: 24 + RammingReach, Radius: 12},
+		},
+		{
+			name:  "close, not touching: near enough to ram",
+			a:     Body{X: 0, VX: 200, Radius: 12},
+			b:     Body{X: 28, Radius: 12},
+			want:  Contact{NX: -1, Depth: -4, Closing: 200},
+			touch: true,
 		},
 		{
 			name:  "overlapping at rest",
@@ -100,7 +107,7 @@ func TestApart(t *testing.T) {
 	c, _ := Touching(a, b, 1)
 
 	whole := Apart(a, c, 1)
-	if _, touch := Touching(whole, b, 1); touch || whole.X != -4 {
+	if after, _ := Touching(whole, b, 1); after.Depth > 1e-9 || whole.X != -4 {
 		t.Errorf("Apart(share 1) at x %v, want -4, out of b", whole.X)
 	}
 	if whole.VX != 0 || whole.VY != 30 {
@@ -112,6 +119,10 @@ func TestApart(t *testing.T) {
 	}
 	if half := Apart(a, c, 0.5); half.X != -2 {
 		t.Errorf("Apart(share 0.5) at x %v, want -2", half.X)
+	}
+	near, _ := Touching(Body{X: 0, VX: 100, Radius: 12}, Body{X: 28, Radius: 12}, 1)
+	if got := Apart(Body{X: 0, VX: 100, Radius: 12}, near, 1); got.X != 0 || got.VX != 100 {
+		t.Errorf("Apart() of bodies only close = %+v, want it untouched", got)
 	}
 	leaving := Body{X: 0, VX: -100, Radius: 12}
 	if got := Apart(leaving, c, 1); got.VX != -100 {

@@ -123,6 +123,8 @@ test('two ships flown into each other bump apart', async ({ browser, baseURL }) 
     }
     await mo.keyboard.up(toward);
     expect(closest, 'the closest the ships came, center to center').toBeGreaterThan(SHIPS_TOUCH / 2);
+    // Rams hurt both: Sanne's own client counts his ram on her too.
+    await expect.poll(async () => (await state(sanne)).rams, { message: 'Sanne counts the ram' }).toBeGreaterThan(0);
   } finally {
     await sanne.context().close();
     await mo.context().close();

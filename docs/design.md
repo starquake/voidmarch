@@ -98,7 +98,10 @@ As built (#48), in `internal/sim/bump.go`: ships and enemies don't overlap.
   apart along the line between their centers, and the one pushed loses its
   speed into the other. Two ships on one point, as at the spawn, part along
   x, each to its own side.
-- A collision closing at 120 px/s or more is a ram. It costs each ship a
+- A collision closing at 120 px/s or more is a ram. It counts from 8 px
+  short of touching (`RammingReach`): each ship sees the other as it was, and
+  the rammer's own client stops it at the touch, so the rammed ship would
+  otherwise rarely see an overlap. It costs each ship a
   shield charge, if the shield covers the side it came from, or a hull
   step. An enemy takes 2 damage, like a zapper hit. The same two bodies ram
   at most once a second.

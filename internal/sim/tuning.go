@@ -120,6 +120,9 @@ const (
 const (
 	// RammingSpeed is the closing speed, in px/s, from which a collision is a ram.
 	RammingSpeed float64 = 120
+	// RammingReach is how close, in px past touching, bodies count as meeting
+	// for a ram.
+	RammingReach float64 = 8
 	// RammingCooldown is the seconds before the same two bodies can ram again.
 	RammingCooldown float64 = 1
 	// RammingDamage is what a ram does to an enemy, like a zapper hit.

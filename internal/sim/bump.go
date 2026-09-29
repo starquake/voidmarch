@@ -8,20 +8,24 @@ type Body struct {
 }
 
 // Contact is how one body touches another: the normal pointing from the
-// other to it, how deep they overlap, and how fast they close along it.
+// other to it, how deep they overlap (below 0 when they're only close), and
+// how fast they close along it.
 type Contact struct {
 	NX, NY, Depth, Closing float64
 }
 
-// Touching reports how a touches b, if they overlap. When their centers
-// coincide, side (+1 or -1) picks which way along x a is pushed, so two
-// ships that tell each other apart by side separate instead of both moving
-// the same way.
+// Touching reports how a touches b, if they overlap or come within
+// RammingReach: close enough to ram, though only an overlap pushes. A ship
+// sees another as it was, and that one's own client stops it at the touch,
+// so a ship that is rammed would rarely see an overlap. When their centers
+// coincide, side (+1 or -1) picks which way along x a is pushed, so two ships
+// that tell each other apart by side separate instead of both moving the
+// same way.
 func Touching(a, b Body, side float64) (Contact, bool) {
 	dx, dy := a.X-b.X, a.Y-b.Y
 	dist := math.Hypot(dx, dy)
 	depth := a.Radius + b.Radius - dist
-	if depth <= 0 {
+	if depth <= -RammingReach {
 		return Contact{}, false
 	}
 	var nx, ny float64
@@ -48,8 +52,12 @@ func (c Contact) From() float64 {
 
 // Apart is b moved out of the contact by share of the overlap (1 when the
 // other body stays put, a half when both move), with the part of its
-// velocity into the other removed.
+// velocity into the other removed. Bodies that only come close stay as they
+// are.
 func Apart(b Body, c Contact, share float64) Body {
+	if c.Depth <= 0 {
+		return b
+	}
 	b.X += c.NX * c.Depth * share
 	b.Y += c.NY * c.Depth * share
 	if into := b.VX*c.NX + b.VY*c.NY; into < 0 {
