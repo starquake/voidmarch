@@ -295,7 +295,7 @@ func TestCompanions_OthersSeeThemAsPlayers(t *testing.T) {
 		t.Fatalf("b's snapshot players = %v, want a/1", seen)
 	}
 	if c.GetOwnerId() != "a" || c.GetName() != "name-a" ||
-		math.Abs(float64(c.GetState().GetY())-180) > 20 {
+		math.Abs(float64(c.GetState().GetY())-180) > 30 {
 		t.Errorf("a/1 = %v, want owner a, a's name, beside a", c)
 	}
 	if got, want := c.GetColor(), seen["a"].GetColor(); got != want {

@@ -157,6 +157,6 @@ export const LAYOUT = {
   stateSize: 3162,
   maxTargets: 128,
   shipTargetSize: 5,
-  bumpSize: 7,
-  scratchSize: 896,
+  bumpSize: 8,
+  scratchSize: 1024,
 } as const;

@@ -449,7 +449,7 @@ func TestThink_BadlyDamagedFallsBack(t *testing.T) {
 	if d := hunt(ResourcesSpend); d <= 200 {
 		t.Errorf("spending: %v from its owner, want fighting on", d)
 	}
-	if d := hunt(ResourcesConserve); d >= 60 {
+	if d := hunt(ResourcesConserve); d >= 100 {
 		t.Errorf("conserving: %v from its owner, want staying close", d)
 	}
 }

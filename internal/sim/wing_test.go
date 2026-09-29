@@ -113,3 +113,18 @@ func TestWing_KeepsClearOfOtherShips(t *testing.T) {
 		)
 	}
 }
+
+func TestWing_KeepsClearOfItsOwner(t *testing.T) {
+	t.Parallel()
+
+	// Told to hold right where its owner parks, it keeps its distance.
+	var w Wing
+	c := w.Add(1, 10, 0, ModeOrders(ModeHold, DefaultOrders(), 0, 0))
+	for range 4 * TickRate {
+		w.Observe(Mover{Angle: -1.5707963267948966})
+		w.Step(nil, nil)
+	}
+	if d := dist(c.Ship.X, c.Ship.Y, 0, 0); d < BrainOwnerSpacing-5 {
+		t.Errorf("%v from its owner, want about BrainOwnerSpacing (%v)", d, BrainOwnerSpacing)
+	}
+}

@@ -18,7 +18,9 @@ const tolerance = 1e-9
 // sim before the port (#50); the TypeScript rules and that script are gone
 // since #53, so the file is a fixed record. The sandboxes' companion traces
 // and shots were re-recorded from Go when companions began keeping apart
-// (#48): their three companions start 30 px apart.
+// (#48): their three companions start 30 px apart. The brain cases'
+// formation points and commands, and those traces again, were re-recorded
+// when the formation widened and companions kept clear of their owner (#68).
 type golden struct {
 	Math        goldenMath         `json:"math"`
 	Ships       []goldenShip       `json:"ships"`

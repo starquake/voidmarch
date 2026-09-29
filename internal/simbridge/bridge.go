@@ -104,9 +104,10 @@ const (
 	// MaxTargets is how many targets HitScan, ShipScan and Bump read from Scratch.
 	MaxTargets = 128
 	// BumpSize is the numbers per body Bump reads: x, y, radius, vx, vy, a
-	// key naming it for the ram cooldown, and the side it pushes the ship
-	// to when they sit on the same point.
-	BumpSize   = 7
+	// key naming it for the ram cooldown, the side it pushes the ship to when
+	// they sit on the same point, and 1 when it only pushes, never rams (the
+	// player's own companions, #68).
+	BumpSize   = 8
 	bumpX      = 0
 	bumpY      = 1
 	bumpRadius = 2
@@ -114,6 +115,7 @@ const (
 	bumpVY     = 4
 	bumpKey    = 5
 	bumpSide   = 6
+	bumpGentle = 7
 	// ScratchSize is the numbers Scratch holds, enough for the largest use.
 	ScratchSize = MaxTargets * BumpSize
 )
@@ -191,7 +193,7 @@ func (b *Bridge) Bump(n int) int {
 			continue
 		}
 		ship.MoveTo(sim.Apart(sim.ShipBody(ship), c, 1))
-		if !c.Hurts() || !b.rams.Ready(at[bumpKey], b.clock) {
+		if at[bumpGentle] != 0 || !c.Hurts() || !b.rams.Ready(at[bumpKey], b.clock) {
 			continue
 		}
 		b.Hits[rams*2], b.Hits[rams*2+1] = float64(i), boolFloat(sim.TakeHit(ship, c.From()))

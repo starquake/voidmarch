@@ -263,8 +263,8 @@ var LAYOUT = {
   stateSize: 3162,
   maxTargets: 128,
   shipTargetSize: 5,
-  bumpSize: 7,
-  scratchSize: 896
+  bumpSize: 8,
+  scratchSize: 1024
 };
 
 // src/sim/loadout.ts
@@ -1028,7 +1028,7 @@ var Sandbox = class {
     for (let i = 0; i < n; i++) {
       const b = bodies[i];
       if (b !== void 0) {
-        scratch.set([b.x, b.y, b.radius, b.vx, b.vy, b.key, b.side], i * LAYOUT.bumpSize);
+        scratch.set([b.x, b.y, b.radius, b.vx, b.vy, b.key, b.side, b.gentle === true ? 1 : 0], i * LAYOUT.bumpSize);
       }
     }
     const count = this.exports.bump(n);
@@ -2546,7 +2546,8 @@ var NetPlay = class {
       const s = remote.drawn;
       if (s !== void 0 && s.damage < MAX_DAMAGE) {
         const side = this.playerId !== void 0 && this.playerId < id ? 1 : -1;
-        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side });
+        const gentle = remote.ownerId !== "" && remote.ownerId === this.playerId;
+        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side, gentle });
         rammed.push(void 0);
       }
     }
