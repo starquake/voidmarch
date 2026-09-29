@@ -417,11 +417,11 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
   playerId: string;
 
   /**
-   * The player's name colour as 0xRRGGBB.
+   * The player's name color as 0xRRGGBB.
    *
-   * @generated from field: uint32 colour = 2;
+   * @generated from field: uint32 color = 2;
    */
-  colour: number;
+  color: number;
 
   /**
    * @generated from field: float spawn_x = 3;
@@ -451,7 +451,7 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
   companionLimit: number;
 
   /**
-   * The player's name, for labelling their own companions.
+   * The player's name, for labeling their own companions.
    *
    * @generated from field: string name = 9;
    */
@@ -503,9 +503,9 @@ export declare type PlayerSnapshot = Message<"voidmarch.v1.PlayerSnapshot"> & {
   name: string;
 
   /**
-   * @generated from field: uint32 colour = 3;
+   * @generated from field: uint32 color = 3;
    */
-  colour: number;
+  color: number;
 
   /**
    * @generated from field: voidmarch.v1.ShipState state = 4;
@@ -514,7 +514,7 @@ export declare type PlayerSnapshot = Message<"voidmarch.v1.PlayerSnapshot"> & {
 
   /**
    * Set for a companion: the player who owns it. Its player_id is the seat,
-   * "<owner_id>/<n>", and name and colour are its owner's.
+   * "<owner_id>/<n>", and name and color are its owner's.
    *
    * @generated from field: string owner_id = 5;
    */

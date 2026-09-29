@@ -1,4 +1,4 @@
-"""Recolours a sprite from the Void packs by rotating the hue of every pixel.
+"""Recolors a sprite from the Void packs by rotating the hue of every pixel.
 
 Brightness, saturation and alpha stay as drawn, so the pack's shading survives:
 it is a palette swap, which the art rule allows (CLAUDE.md). Needs Pillow:
@@ -7,7 +7,7 @@ it is a palette swap, which the art rule allows (CLAUDE.md). Needs Pillow:
     ~/.venvs/voidmarch-tools/bin/pip install pillow
     ~/.venvs/voidmarch-tools/bin/python tools/recolor.py SRC OUT DEGREES
 
-The recoloured files, and the degrees each used, are listed in
+The recolored files, and the degrees each used, are listed in
 internal/web/static/assets/LICENSE.md.
 """
 

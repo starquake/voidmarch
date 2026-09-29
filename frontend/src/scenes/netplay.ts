@@ -61,7 +61,7 @@ interface Remote {
   animator: WeaponAnimator;
   weapon: WeaponId;
   name: string;
-  colour: number;
+  color: number;
   /** Set for another player's companion: its owner's id. */
   ownerId: string;
   /** The squadron shown in a player's label. */
@@ -134,7 +134,7 @@ export interface EnemyDebug {
 export interface RemoteDebug {
   id: string;
   name: string;
-  colour: number;
+  color: number;
   x: number;
   y: number;
   /** Set for a companion: its owner's player id. */
@@ -285,7 +285,7 @@ export class NetPlay {
     return [...this.remotes.entries()].map(([id, r]) => ({
       id,
       name: r.name,
-      colour: r.colour,
+      color: r.color,
       x: r.view.root.x,
       y: r.view.root.y,
       ownerId: r.ownerId,
@@ -645,14 +645,14 @@ export class NetPlay {
       }
       const remote =
         this.remotes.get(player.playerId) ??
-        this.add(player.playerId, player.name, player.colour, player.ownerId, player.squadron);
+        this.add(player.playerId, player.name, player.color, player.ownerId, player.squadron);
       if (player.ownerId === '' && remote.squadron !== player.squadron) {
         remote.squadron = player.squadron;
         remote.view.setLabel(
           this.options.scene,
           this.options.ships,
           playerLabel(player.name, player.squadron),
-          player.colour,
+          player.color,
           this.options.labelResolution(),
         );
       }
@@ -676,22 +676,22 @@ export class NetPlay {
   }
 
   /** A remote ship: another player, or (with an owner) one of their companions. */
-  private add(id: string, name: string, colour: number, ownerId: string, squadron: string): Remote {
+  private add(id: string, name: string, color: number, ownerId: string, squadron: string): Remote {
     const { scene, ships } = this.options;
     const view = new ShipView(scene, ships, 0, 0);
-    // A companion's seat is "<owner>/<n>": tinted in its owner's colour, labelled "name n".
+    // A companion's seat is "<owner>/<n>": tinted in its owner's color, labeled "name n".
     const label = ownerId === '' ? playerLabel(name, squadron) : `${name} ${id.slice(ownerId.length + 1)}`;
     if (ownerId !== '') {
-      view.setTint(colour);
+      view.setTint(color);
     }
-    view.setLabel(scene, ships, label, colour, this.options.labelResolution());
+    view.setLabel(scene, ships, label, color, this.options.labelResolution());
     const remote: Remote = {
       view,
       buffer: new StateBuffer<RemoteShip>(),
       animator: new WeaponAnimator(weaponTiming('autoCannon')),
       weapon: 'autoCannon',
       name,
-      colour,
+      color,
       ownerId,
       squadron,
       drawn: undefined,

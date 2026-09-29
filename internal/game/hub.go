@@ -45,11 +45,11 @@ var ErrFull = errors.New("the frontier is full, try again soon")
 // ErrStopped is returned by [Hub.Join] once the hub has stopped.
 var ErrStopped = errors.New("the hub has stopped")
 
-// colours are the name colours, one per player slot, readable on the dark
+// colors are the name colors, one per player slot, readable on the dark
 // background.
 //
-//nolint:revive // a colour palette is data, not magic numbers.
-func colours() [MaxPlayers]uint32 {
+//nolint:revive // a color palette is data, not magic numbers.
+func colors() [MaxPlayers]uint32 {
 	return [MaxPlayers]uint32{
 		0x8fd8ff, 0xffb070, 0xb4ff8c, 0xff8fc8, 0xfff08a, 0xb9a0ff, 0x7fffd4, 0xff9a8a,
 		0xa0c4ff, 0xe0ff70, 0xffc0f0, 0x70e0ff, 0xffd0a0, 0x9affb0, 0xd8b0ff, 0xf0f0f0,
@@ -101,7 +101,7 @@ type joinResult struct {
 
 type member struct {
 	session    *Session
-	colour     uint32
+	color      uint32
 	state      *pb.ShipState
 	lastSeen   uint32
 	companions map[uint32]*companion
@@ -269,11 +269,11 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 
 	out := make(chan *pb.ServerMessage, sendQueue)
 	s := &Session{Player: player, Out: out, queue: out, hub: h}
-	colour := h.freeColour()
+	color := h.freeColor()
 	spawnX, spawnY := h.freeSpawn()
 	h.members[player.ID] = &member{
 		session:    s,
-		colour:     colour,
+		color:      color,
 		lastSeen:   h.tick,
 		companions: companions,
 		wing:       wing,
@@ -290,7 +290,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	welcome := &pb.Welcome{
 		PlayerId: player.ID,
 		Name:     player.Name,
-		Colour:   colour,
+		Color:    color,
 		SpawnX:   spawnX,
 		SpawnY:   spawnY,
 		Tick:     h.tick,
@@ -369,7 +369,7 @@ func (h *Hub) step() {
 			snapshot.Players = append(snapshot.Players, &pb.PlayerSnapshot{
 				PlayerId: otherID,
 				Name:     other.session.Player.Name,
-				Colour:   other.colour,
+				Color:    other.color,
 				State:    other.state,
 				Squadron: other.squadron,
 			})
@@ -425,12 +425,12 @@ func (h *Hub) remove(id string) {
 	delete(h.members, id)
 }
 
-// freeColour returns the first palette colour nobody is using.
-func (h *Hub) freeColour() uint32 {
-	palette := colours()
+// freeColor returns the first palette color nobody is using.
+func (h *Hub) freeColor() uint32 {
+	palette := colors()
 	used := make(map[uint32]bool, len(h.members))
 	for _, m := range h.members {
-		used[m.colour] = true
+		used[m.color] = true
 	}
 	for _, c := range palette {
 		if !used[c] {

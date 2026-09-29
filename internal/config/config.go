@@ -42,7 +42,7 @@ var (
 // Config is the server configuration.
 type Config struct {
 	// AppEnvironment is development or production. Unset means production, so a
-	// forgotten variable never enables development-only behaviour.
+	// forgotten variable never enables development-only behavior.
 	AppEnvironment string
 	Host           string
 	Port           string

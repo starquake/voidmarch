@@ -159,7 +159,7 @@ func distance(ax, ay, bx, by float64) float64 {
 func weaponRange(self *Ship) float64 {
 	stats := WeaponStatsOf(self.Loadout.Weapon).ProjectileStats
 
-	return Travelled(stats, stats.Lifetime)
+	return Traveled(stats, stats.Lifetime)
 }
 
 func ownerVelocity(owner Mover) Vec {

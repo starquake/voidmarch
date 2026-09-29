@@ -164,8 +164,8 @@ message ClientMessage {
 // Welcome answers Hello: who you are and where to appear.
 message Welcome {
   string player_id = 1;
-  // The player's name colour as 0xRRGGBB.
-  uint32 colour = 2;
+  // The player's name color as 0xRRGGBB.
+  uint32 color = 2;
   float spawn_x = 3;
   float spawn_y = 4;
   uint32 tick = 5;
@@ -175,7 +175,7 @@ message Welcome {
   // Was summon_anywhere: development servers lifted the companion limits.
   reserved 8;
   reserved "summon_anywhere";
-  // The player's name, for labelling their own companions.
+  // The player's name, for labeling their own companions.
   string name = 9;
   // The player's companions the server kept (a reconnect), so the client can
   // fly on with them and give back any it doesn't know.
@@ -190,10 +190,10 @@ message Welcome {
 message PlayerSnapshot {
   string player_id = 1;
   string name = 2;
-  uint32 colour = 3;
+  uint32 color = 3;
   ShipState state = 4;
   // Set for a companion: the player who owns it. Its player_id is the seat,
-  // "<owner_id>/<n>", and name and colour are its owner's.
+  // "<owner_id>/<n>", and name and color are its owner's.
   string owner_id = 5;
   // The squadron the player, or the companion's owner, flies in.
   string squadron = 6;

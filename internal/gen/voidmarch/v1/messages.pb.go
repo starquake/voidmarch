@@ -1208,15 +1208,15 @@ func (*ClientMessage_SquadronOrder) isClientMessage_Kind() {}
 type Welcome struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	PlayerId string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
-	// The player's name colour as 0xRRGGBB.
-	Colour   uint32  `protobuf:"varint,2,opt,name=colour,proto3" json:"colour,omitempty"`
+	// The player's name color as 0xRRGGBB.
+	Color    uint32  `protobuf:"varint,2,opt,name=color,proto3" json:"color,omitempty"`
 	SpawnX   float32 `protobuf:"fixed32,3,opt,name=spawn_x,json=spawnX,proto3" json:"spawn_x,omitempty"`
 	SpawnY   float32 `protobuf:"fixed32,4,opt,name=spawn_y,json=spawnY,proto3" json:"spawn_y,omitempty"`
 	Tick     uint32  `protobuf:"varint,5,opt,name=tick,proto3" json:"tick,omitempty"`
 	TickRate uint32  `protobuf:"varint,6,opt,name=tick_rate,json=tickRate,proto3" json:"tick_rate,omitempty"`
 	// How many companions the player may have at once.
 	CompanionLimit uint32 `protobuf:"varint,7,opt,name=companion_limit,json=companionLimit,proto3" json:"companion_limit,omitempty"`
-	// The player's name, for labelling their own companions.
+	// The player's name, for labeling their own companions.
 	Name string `protobuf:"bytes,9,opt,name=name,proto3" json:"name,omitempty"`
 	// The player's companions the server kept (a reconnect), so the client can
 	// fly on with them and give back any it doesn't know.
@@ -1266,9 +1266,9 @@ func (x *Welcome) GetPlayerId() string {
 	return ""
 }
 
-func (x *Welcome) GetColour() uint32 {
+func (x *Welcome) GetColor() uint32 {
 	if x != nil {
-		return x.Colour
+		return x.Color
 	}
 	return 0
 }
@@ -1341,10 +1341,10 @@ type PlayerSnapshot struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	PlayerId string                 `protobuf:"bytes,1,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
 	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Colour   uint32                 `protobuf:"varint,3,opt,name=colour,proto3" json:"colour,omitempty"`
+	Color    uint32                 `protobuf:"varint,3,opt,name=color,proto3" json:"color,omitempty"`
 	State    *ShipState             `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
 	// Set for a companion: the player who owns it. Its player_id is the seat,
-	// "<owner_id>/<n>", and name and colour are its owner's.
+	// "<owner_id>/<n>", and name and color are its owner's.
 	OwnerId string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// The squadron the player, or the companion's owner, flies in.
 	Squadron      string `protobuf:"bytes,6,opt,name=squadron,proto3" json:"squadron,omitempty"`
@@ -1396,9 +1396,9 @@ func (x *PlayerSnapshot) GetName() string {
 	return ""
 }
 
-func (x *PlayerSnapshot) GetColour() uint32 {
+func (x *PlayerSnapshot) GetColor() uint32 {
 	if x != nil {
-		return x.Colour
+		return x.Color
 	}
 	return 0
 }
@@ -2838,10 +2838,10 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\adismiss\x18\a \x01(\v2\x15.voidmarch.v1.DismissH\x00R\adismiss\x12G\n" +
 	"\x0fchoose_squadron\x18\b \x01(\v2\x1c.voidmarch.v1.ChooseSquadronH\x00R\x0echooseSquadron\x12D\n" +
 	"\x0esquadron_order\x18\t \x01(\v2\x1b.voidmarch.v1.SquadronOrderH\x00R\rsquadronOrderB\x06\n" +
-	"\x04kind\"\xe8\x02\n" +
+	"\x04kind\"\xe6\x02\n" +
 	"\aWelcome\x12\x1b\n" +
-	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x16\n" +
-	"\x06colour\x18\x02 \x01(\rR\x06colour\x12\x17\n" +
+	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x14\n" +
+	"\x05color\x18\x02 \x01(\rR\x05color\x12\x17\n" +
 	"\aspawn_x\x18\x03 \x01(\x02R\x06spawnX\x12\x17\n" +
 	"\aspawn_y\x18\x04 \x01(\x02R\x06spawnY\x12\x12\n" +
 	"\x04tick\x18\x05 \x01(\rR\x04tick\x12\x1b\n" +
@@ -2853,11 +2853,11 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	" \x03(\rR\n" +
 	"companions\x125\n" +
 	"\tsquadrons\x18\v \x01(\v2\x17.voidmarch.v1.SquadronsR\tsquadrons\x12\x1a\n" +
-	"\bsquadron\x18\f \x01(\tR\bsquadronJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbf\x01\n" +
+	"\bsquadron\x18\f \x01(\tR\bsquadronJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
-	"\x06colour\x18\x03 \x01(\rR\x06colour\x12-\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05color\x18\x03 \x01(\rR\x05color\x12-\n" +
 	"\x05state\x18\x04 \x01(\v2\x17.voidmarch.v1.ShipStateR\x05state\x12\x19\n" +
 	"\bowner_id\x18\x05 \x01(\tR\aownerId\x12\x1a\n" +
 	"\bsquadron\x18\x06 \x01(\tR\bsquadron\"a\n" +

@@ -10,7 +10,7 @@ import {
   pickItem,
 } from './ordermenu.ts';
 
-test('pointing at an item from the centre picks it, all the way around the ring', () => {
+test('pointing at an item from the center picks it, all the way around the ring', () => {
   ORDER_ITEMS.forEach((_, i) => {
     const p = itemPosition(i, 100);
     assert.equal(pickItem(p.x, p.y, 20), i);

@@ -35,7 +35,7 @@ test('client messages encode as readable JSON text', () => {
 
 test('server messages decode from binary and text frames alike', () => {
   const message = create(ServerMessageSchema, {
-    kind: { case: 'welcome', value: { playerId: 'p1', colour: 0x8fd8ff, spawnX: 180, spawnY: 0, tick: 42, tickRate: 20 } },
+    kind: { case: 'welcome', value: { playerId: 'p1', color: 0x8fd8ff, spawnX: 180, spawnY: 0, tick: 42, tickRate: 20 } },
   });
   const bytes = toBinary(ServerMessageSchema, message);
 

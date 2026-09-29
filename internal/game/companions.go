@@ -154,7 +154,7 @@ func (h *Hub) companionSnapshots() []*pb.PlayerSnapshot {
 			out = append(out, &pb.PlayerSnapshot{
 				PlayerId: seatID(owner, number),
 				Name:     m.session.Player.Name,
-				Colour:   m.colour,
+				Color:    m.color,
 				State:    companionState(m.companions[number].flight),
 				OwnerId:  owner,
 				Squadron: m.squadron,
