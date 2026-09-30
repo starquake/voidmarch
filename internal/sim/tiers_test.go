@@ -289,3 +289,32 @@ func TestCompanionLoadout_OnlyTheOwnersParts(t *testing.T) {
 		t.Errorf("CompanionLoadout() = %+v, want the Hyper round shield and the base engine", got)
 	}
 }
+
+func TestUnlocks_Allows(t *testing.T) {
+	t.Parallel()
+
+	u := DefaultUnlocks()
+	if !u.Allows(DefaultLoadout()) {
+		t.Error("the default loadout isn't allowed with the default parts")
+	}
+	zapper := DefaultLoadout()
+	zapper.Weapon = WeaponZapper
+	if u.Allows(zapper) {
+		t.Error("a loadout with a locked zapper is allowed")
+	}
+	u.Grant(Part(WeaponZapper))
+	if !u.Allows(zapper) {
+		t.Error("a loadout with an unlocked zapper isn't allowed")
+	}
+}
+
+func TestCanChangeLoadout(t *testing.T) {
+	t.Parallel()
+
+	if !CanChangeLoadout(0, SafeZoneRadius) {
+		t.Error("can't change parts at the edge of the safe zone")
+	}
+	if CanChangeLoadout(SafeZoneRadius, 1) {
+		t.Error("can change parts outside the safe zone")
+	}
+}
