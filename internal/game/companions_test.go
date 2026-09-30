@@ -3,6 +3,7 @@ package game_test
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"math"
 	"slices"
 	"sync"
@@ -846,5 +847,38 @@ func TestHangar_SavesTheFleetOnce(t *testing.T) {
 
 	if got, want := saves.all(), []int{3}; !slices.Equal(got, want) {
 		t.Errorf("saved fleets = %v, want %v", got, want)
+	}
+}
+
+func TestCompanions_PickBalancedLoadoutsFromTheOwnersUnlocks(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	unlocks := sim.DefaultUnlocks()
+	for _, w := range []sim.WeaponID{sim.WeaponRockets, sim.WeaponBigSpaceGun, sim.WeaponZapper} {
+		unlocks.Grant(sim.Part(w))
+	}
+	unlocks[sim.Part(sim.WeaponZapper)] = sim.TierMega
+	a, _ := joinWith(t, hub, "a", unlocks)
+	chooseAndWait(t, a, "")
+	a.Send(state(0, 180))
+	for range 3 {
+		grant(t, a)
+	}
+
+	seen := snapshotPlayers(t, a, tick)
+	weapons := map[pb.Weapon]uint32{}
+	for _, id := range []string{"a/1", "a/2", "a/3"} {
+		l := seen[id].GetState().GetLoadout()
+		weapons[l.GetWeapon()] = l.GetWeaponTier()
+	}
+	// a flies the auto cannon, so its three companions take the other three.
+	want := map[pb.Weapon]uint32{
+		pb.Weapon_WEAPON_ROCKETS:       0,
+		pb.Weapon_WEAPON_BIG_SPACE_GUN: 0,
+		pb.Weapon_WEAPON_ZAPPER:        uint32(sim.TierMega),
+	}
+	if !maps.Equal(weapons, want) {
+		t.Errorf("companions' weapons and tiers = %v, want %v", weapons, want)
 	}
 }

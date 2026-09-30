@@ -66,6 +66,7 @@ func (h *Hub) summon(owner string, m *member) {
 		float64(m.state.GetY()),
 		h.squadronModeOrders(m),
 	)
+	flight.Fit(sim.CompanionLoadout(m.unlocks, h.squadronLoadouts(owner, m)))
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, flight: flight}
 	h.broadcastSquadrons()
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
@@ -75,6 +76,23 @@ func (h *Hub) summon(owner string, m *member) {
 			Y:         m.state.GetY(),
 		},
 	}})
+}
+
+// squadronLoadouts are the loadouts of every ship in owner's squadron: its
+// players and their companions, or just the owner's own without one.
+func (h *Hub) squadronLoadouts(owner string, m *member) []sim.Loadout {
+	var out []sim.Loadout
+	for _, id := range append([]string{owner}, h.squadmates(owner, m)...) {
+		mate := h.members[id]
+		if mate.state != nil {
+			out = append(out, simLoadout(mate.state.GetLoadout()))
+		}
+		for _, c := range mate.wing.Companions {
+			out = append(out, c.Ship.Loadout)
+		}
+	}
+
+	return out
 }
 
 // summonRefusal is why the owner can't have another companion, or "".
