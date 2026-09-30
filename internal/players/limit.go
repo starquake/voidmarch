@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/starquake/voidmarch/internal/request"
 )
 
 // limitWindow is the span a Limiter counts registrations over.
@@ -19,6 +21,7 @@ const sweepSize = 1024
 type Limiter struct {
 	perMinute int
 	now       func() time.Time
+	trusted   []*net.IPNet
 
 	mu      sync.Mutex
 	windows map[string]window
@@ -49,16 +52,19 @@ func WithLimiterClock(now func() time.Time) LimiterOption {
 	return func(l *Limiter) { l.now = now }
 }
 
+// WithTrustedProxies has the limiter count the client behind these reverse
+// proxies rather than the proxy itself.
+func WithTrustedProxies(cidrs []*net.IPNet) LimiterOption {
+	return func(l *Limiter) { l.trusted = cidrs }
+}
+
 // Allow counts a registration from r's address and reports whether it is
 // within the limit.
 func (l *Limiter) Allow(r *http.Request) bool {
 	if l.perMinute <= 0 {
 		return true
 	}
-	addr := r.RemoteAddr
-	if host, _, err := net.SplitHostPort(addr); err == nil {
-		addr = host
-	}
+	addr := request.ClientIP(r, l.trusted)
 	now := l.now()
 
 	l.mu.Lock()

@@ -48,14 +48,15 @@ func TestParse_Values(t *testing.T) {
 
 	dbPath := filepath.Join(t.TempDir(), "players.db")
 	cfg, err := Parse(envFunc(map[string]string{
-		"APP_ENV":        "development",
-		"HOST":           "127.0.0.1",
-		"PORT":           "9000",
-		"WEB_DIR":        "internal/web/static",
-		"WIRE_LOG":       "true",
-		"POOL_START":     "0",
-		"DB_PATH":        dbPath,
-		"REGISTER_LIMIT": "0",
+		"APP_ENV":           "development",
+		"HOST":              "127.0.0.1",
+		"PORT":              "9000",
+		"WEB_DIR":           "internal/web/static",
+		"WIRE_LOG":          "true",
+		"POOL_START":        "0",
+		"DB_PATH":           dbPath,
+		"REGISTER_LIMIT":    "0",
+		"TRUSTED_PROXY_IPS": "10.0.0.0/8, 127.0.0.1/32",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -81,6 +82,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := cfg.RegisterLimit, 0; got != want {
 		t.Errorf("cfg.RegisterLimit = %d, want %d", got, want)
+	}
+	if got, want := len(cfg.TrustedProxyCIDRs), 2; got != want {
+		t.Errorf("len(cfg.TrustedProxyCIDRs) = %d, want %d", got, want)
 	}
 }
 
@@ -129,6 +133,11 @@ func TestParse_Errors(t *testing.T) {
 			name: "register limit negative",
 			env:  map[string]string{"REGISTER_LIMIT": "-1"},
 			want: ErrInvalidRegisterLimit,
+		},
+		{
+			name: "trusted proxy not a CIDR",
+			env:  map[string]string{"TRUSTED_PROXY_IPS": "10.0.0.1"},
+			want: ErrInvalidTrustedProxyIPs,
 		},
 		{
 			name: "db path in a missing directory",

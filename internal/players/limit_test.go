@@ -1,6 +1,7 @@
 package players_test
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -69,5 +70,28 @@ func TestLimiter_ForgetsOldAddresses(t *testing.T) {
 	// The first address's window passed, so a sweep forgot it.
 	if got, want := limiter.Tracked(), 1100; got != want {
 		t.Errorf("tracked addresses = %d, want %d", got, want)
+	}
+}
+
+func TestLimiter_BehindATrustedProxy(t *testing.T) {
+	t.Parallel()
+
+	_, proxy, err := net.ParseCIDR("10.0.0.2/32")
+	if err != nil {
+		t.Fatalf("ParseCIDR() error = %v", err)
+	}
+	limiter := NewLimiter(1, WithTrustedProxies([]*net.IPNet{proxy}))
+	via := func(client string) *http.Request {
+		r := requestFrom(t, "10.0.0.2:5000")
+		r.Header.Set("X-Forwarded-For", client)
+
+		return r
+	}
+
+	if !limiter.Allow(via("198.51.100.1")) || !limiter.Allow(via("198.51.100.2")) {
+		t.Error("two clients behind one proxy shared a limit")
+	}
+	if limiter.Allow(via("198.51.100.1")) {
+		t.Error("a client behind the proxy got past its limit")
 	}
 }

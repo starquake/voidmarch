@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/starquake/voidmarch/internal/request"
 )
 
 // Application environments accepted in APP_ENV.
@@ -49,6 +51,9 @@ var (
 	// ErrInvalidRegisterLimit is returned when REGISTER_LIMIT is not a
 	// non-negative number.
 	ErrInvalidRegisterLimit = errors.New("invalid REGISTER_LIMIT")
+	// ErrInvalidTrustedProxyIPs is returned when TRUSTED_PROXY_IPS is not a
+	// comma-separated CIDR list.
+	ErrInvalidTrustedProxyIPs = errors.New("invalid TRUSTED_PROXY_IPS")
 	// ErrInvalidDBPath is returned when DB_PATH is in a directory that doesn't exist.
 	ErrInvalidDBPath = errors.New("invalid DB_PATH")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
@@ -75,6 +80,9 @@ type Config struct {
 	// RegisterLimit is how many names one address may register a minute; 0
 	// lifts the limit.
 	RegisterLimit int
+	// TrustedProxyCIDRs are the reverse proxies whose X-Forwarded-For names
+	// the client's address. Empty, the default, trusts nobody's.
+	TrustedProxyCIDRs []*net.IPNet
 }
 
 // Parse reads the configuration through getenv, applying defaults for unset
@@ -126,6 +134,11 @@ func Parse(getenv func(string) string) (*Config, error) {
 	err = parseCount(getenv("REGISTER_LIMIT"), ErrInvalidRegisterLimit, &c.RegisterLimit)
 	if err != nil {
 		return nil, err
+	}
+
+	c.TrustedProxyCIDRs, err = request.ParseTrustedProxyCIDRs(getenv("TRUSTED_PROXY_IPS"))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidTrustedProxyIPs, err)
 	}
 
 	dbPath, err := parseDBPath(getenv("DB_PATH"))

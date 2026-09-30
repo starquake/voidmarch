@@ -114,6 +114,7 @@ the browser's network panel.
 | `DB_PATH` | `voidmarch.db` (`/data/voidmarch.db` in the image) | The SQLite file that keeps players and the hangar. Its directory must exist. |
 | `POOL_START` | `3`       | Companion ships in the hangar on a fresh database; after that the saved count is used. |
 | `REGISTER_LIMIT` | `20`  | New names one address may register a minute, enough for a full server of friends on one network; `0` lifts the limit. A name never used to play is deleted after a day. |
+| `TRUSTED_PROXY_IPS` | (none) | Comma-separated CIDRs of reverse proxies in front of the server, such as `10.0.0.0/8`. The limit then counts the address in their `X-Forwarded-For`, not the proxy's. |
 
 ## Development
 
