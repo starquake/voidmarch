@@ -623,6 +623,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: voidmarch.v1.Loadout loadout = 15;
    */
   loadout?: Loadout | undefined;
+
+  /**
+   * Whether this is a development server, where the 1/2/3 keys fit any part.
+   *
+   * @generated from field: bool development = 16;
+   */
+  development: boolean;
 };
 
 /**

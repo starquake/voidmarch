@@ -1498,7 +1498,9 @@ type Welcome struct {
 	// The pickups on the ground right now.
 	Pickups []*PickupDropped `protobuf:"bytes,14,rep,name=pickups,proto3" json:"pickups,omitempty"`
 	// The loadout the player last fitted at home, unset for none (#78).
-	Loadout       *Loadout `protobuf:"bytes,15,opt,name=loadout,proto3" json:"loadout,omitempty"`
+	Loadout *Loadout `protobuf:"bytes,15,opt,name=loadout,proto3" json:"loadout,omitempty"`
+	// Whether this is a development server, where the 1/2/3 keys fit any part.
+	Development   bool `protobuf:"varint,16,opt,name=development,proto3" json:"development,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1629,6 +1631,13 @@ func (x *Welcome) GetLoadout() *Loadout {
 		return x.Loadout
 	}
 	return nil
+}
+
+func (x *Welcome) GetDevelopment() bool {
+	if x != nil {
+		return x.Development
+	}
+	return false
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -3417,7 +3426,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	" \x01(\v2\x15.voidmarch.v1.CollectH\x00R\acollectB\x06\n" +
 	"\x04kind\"\x19\n" +
 	"\aCollect\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\"\xfe\x03\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\"\xa0\x04\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\rR\x05color\x12\x17\n" +
@@ -3435,7 +3444,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\bsquadron\x18\f \x01(\tR\bsquadron\x12.\n" +
 	"\aunlocks\x18\r \x03(\v2\x14.voidmarch.v1.UnlockR\aunlocks\x125\n" +
 	"\apickups\x18\x0e \x03(\v2\x1b.voidmarch.v1.PickupDroppedR\apickups\x12/\n" +
-	"\aloadout\x18\x0f \x01(\v2\x15.voidmarch.v1.LoadoutR\aloadoutJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
+	"\aloadout\x18\x0f \x01(\v2\x15.voidmarch.v1.LoadoutR\aloadout\x12 \n" +
+	"\vdevelopment\x18\x10 \x01(\bR\vdevelopmentJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +

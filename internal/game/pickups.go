@@ -257,3 +257,11 @@ func savedLoadout(l sim.Loadout, unlocks sim.Unlocks) *pb.Loadout {
 		ShieldTier: wireTier(unlocks[sim.Part(l.Shield)]),
 	}
 }
+
+// WithDevelopment tells the players this is a development server, where the
+// 1/2/3 keys fit any part (#78, decision 6).
+func WithDevelopment() HubOption {
+	return func(o *hubOptions) {
+		o.development = true
+	}
+}

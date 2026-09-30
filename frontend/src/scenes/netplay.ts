@@ -211,6 +211,8 @@ export class NetPlay {
   unlocks: Map<PartId, number> = defaultUnlocks();
   /** The player's name, for their own notices. */
   private name = '';
+  /** Whether the server is for development, where 1/2/3 fit any part (#78). */
+  development = false;
   /** Pickups this ship reported flying over, until it leaves them. */
   private readonly collecting = new Set<number>();
   private clock = new ServerClock(20);
@@ -790,6 +792,7 @@ export class NetPlay {
       }
     }
     this.companionLimit = welcome.companionLimit;
+    this.development = welcome.development;
     this.squadrons = welcome.squadrons;
     this.squadron = welcome.squadron;
     if (welcome.squadron === '') {

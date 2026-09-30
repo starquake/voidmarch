@@ -319,3 +319,16 @@ func TestLoadouts_ASavedLoadoutComesBackInTheWelcome(t *testing.T) {
 		t.Errorf("a new player's welcome loadout = %v, want none", fresh.GetLoadout())
 	}
 }
+
+func TestWelcome_SaysWhetherTheServerIsForDevelopment(t *testing.T) {
+	t.Parallel()
+
+	dev, _ := testHub(t, WithDevelopment())
+	if _, w := join(t, dev, "a"); !w.GetDevelopment() {
+		t.Error("a development server's welcome says it isn't")
+	}
+	prod, _ := testHub(t)
+	if _, w := join(t, prod, "a"); w.GetDevelopment() {
+		t.Error("a production server's welcome says it's for development")
+	}
+}

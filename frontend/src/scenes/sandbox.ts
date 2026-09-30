@@ -470,8 +470,16 @@ export class SandboxScene extends Phaser.Scene {
     });
   }
 
+  /** The 1/2/3 keys fit any part in development and offline; elsewhere the loadout screen does (#78). */
+  private get partKeys(): boolean {
+    return this.net?.status !== 'online' || this.net.development;
+  }
+
   private handleDebugKey(code: string): void {
     const ship = this.sim.ship;
+    if (!this.partKeys && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3')) {
+      return;
+    }
     switch (code) {
       case 'Digit1':
         this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });

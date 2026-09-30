@@ -163,6 +163,7 @@ type Hub struct {
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
 	saveLoadout   func(player string, l sim.Loadout)
 	saves         chan func()
+	development   bool
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
 	// volleys are enemy volleys announced but not yet fired.
@@ -184,6 +185,7 @@ type hubOptions struct {
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
 	saveLoadout   func(player string, l sim.Loadout)
+	development   bool
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -242,6 +244,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		dropChanceSet: o.dropChanceSet,
 		saveUnlock:    o.saveUnlock,
 		saveLoadout:   o.saveLoadout,
+		development:   o.development,
 	}
 	for _, setup := range o.setup {
 		setup(h)
@@ -442,6 +445,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Unlocks:        pbUnlocks(unlocks),
 		Pickups:        h.pickupMessages(),
 		Loadout:        savedLoadout(loadout, unlocks),
+		Development:    h.development,
 	}
 
 	return joinResult{session: s, welcome: welcome}
