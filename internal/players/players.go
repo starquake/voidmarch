@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/starquake/voidmarch/internal/db"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 const (
@@ -31,10 +32,13 @@ const (
 // ErrInvalidName is returned for an empty, too long or oddly spelled name.
 var ErrInvalidName = errors.New("a name is 1 to 16 letters, digits, spaces, - or _")
 
-// Player is someone who has picked a name.
+// Player is someone who has picked a name, with the parts they own.
 type Player struct {
 	ID   string
 	Name string
+	// Unlocks are the parts saved for them, at their tiers; the defaults need
+	// no saving.
+	Unlocks sim.Unlocks
 }
 
 // Store holds the players in the database. It is safe for concurrent use.
@@ -95,7 +99,12 @@ func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error)
 		return Player{}, false, fmt.Errorf("error finding player: %w", err)
 	}
 
-	return Player{ID: row.ID, Name: row.Name}, true, nil
+	unlocks, err := s.unlocksOf(ctx, row.ID)
+	if err != nil {
+		return Player{}, false, err
+	}
+
+	return Player{ID: row.ID, Name: row.Name, Unlocks: unlocks}, true, nil
 }
 
 // Touch records that the player connected now.
@@ -111,6 +120,20 @@ func (s *Store) Touch(ctx context.Context, id string) error {
 	return nil
 }
 
+// SaveUnlock records that player owns part at tier.
+func (s *Store) SaveUnlock(ctx context.Context, player string, part sim.Part, tier sim.Tier) error {
+	err := s.queries.SaveUnlock(ctx, db.SaveUnlockParams{
+		PlayerID: player,
+		Part:     string(part),
+		Tier:     int64(tier),
+	})
+	if err != nil {
+		return fmt.Errorf("error saving %s's %s: %w", player, part, err)
+	}
+
+	return nil
+}
+
 // Expire deletes the registrations that never connected within
 // UnusedLifetime, and returns how many went.
 func (s *Store) Expire(ctx context.Context) (int, error) {
@@ -120,6 +143,20 @@ func (s *Store) Expire(ctx context.Context) (int, error) {
 	}
 
 	return int(n), nil
+}
+
+// unlocksOf are the parts saved for player; empty for none.
+func (s *Store) unlocksOf(ctx context.Context, player string) (sim.Unlocks, error) {
+	rows, err := s.queries.UnlocksOf(ctx, player)
+	if err != nil {
+		return nil, fmt.Errorf("error reading %s's unlocks: %w", player, err)
+	}
+	unlocks := make(sim.Unlocks, len(rows))
+	for _, r := range rows {
+		unlocks[sim.Part(r.Part)] = sim.Tier(r.Tier)
+	}
+
+	return unlocks, nil
 }
 
 // hashToken is what the database keeps of a token, so a copy of the file

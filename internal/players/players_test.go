@@ -2,12 +2,14 @@ package players_test
 
 import (
 	"errors"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	. "github.com/starquake/voidmarch/internal/players"
+	"github.com/starquake/voidmarch/internal/sim"
 	"github.com/starquake/voidmarch/internal/testutil"
 )
 
@@ -44,8 +46,32 @@ func TestStore_Register(t *testing.T) {
 	if got, want := ok, true; got != want {
 		t.Fatalf("ByToken() ok = %t, want %t", got, want)
 	}
-	if got, want := found, player; got != want {
-		t.Errorf("ByToken() = %v, want %v", got, want)
+	if found.ID != player.ID || found.Name != player.Name || len(found.Unlocks) != 0 {
+		t.Errorf("ByToken() = %+v, want %+v with no unlocks yet", found, player)
+	}
+}
+
+func TestStore_SaveUnlock(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+	player, token, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	zapper := sim.Part(sim.WeaponZapper)
+	for _, tier := range []sim.Tier{sim.TierPlain, sim.TierMega} {
+		if err = store.SaveUnlock(t.Context(), player.ID, zapper, tier); err != nil {
+			t.Fatalf("SaveUnlock(%v) error = %v", tier, err)
+		}
+	}
+
+	found, _, err := store.ByToken(t.Context(), token)
+	if err != nil {
+		t.Fatalf("ByToken() error = %v", err)
+	}
+	if got, want := found.Unlocks, (sim.Unlocks{zapper: sim.TierMega}); !maps.Equal(got, want) {
+		t.Errorf("ByToken().Unlocks = %v, want %v", got, want)
 	}
 }
 

@@ -50,6 +50,8 @@ export default defineConfig({
       DB_PATH: dbPath,
       // Every spec registers its players from one address.
       REGISTER_LIMIT: '0',
+      // Every kill drops a part, so the pickup spec needn't wait for luck.
+      DROP_CHANCE: '1',
     },
     reuseExistingServer: !ci,
     timeout: 120_000,

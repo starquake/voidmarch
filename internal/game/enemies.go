@@ -390,6 +390,7 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		}}},
 		"",
 	)
+	h.dropPickup(e)
 }
 
 // shotHit names what hit: a shot by its id, or 0 for a ram; a shard of its
