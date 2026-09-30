@@ -233,3 +233,102 @@ func TestPickups_ALaterPlayerSeesThemUntilTheyGo(t *testing.T) {
 		t.Errorf("c's welcome pickups = %v, want none after the lifetime", got)
 	}
 }
+
+// stateWith is a ship state at (0, y), on the line through home, with a loadout.
+func stateWith(y float32, l *pb.Loadout) *pb.ClientMessage {
+	return &pb.ClientMessage{
+		Kind: &pb.ClientMessage_State{State: &pb.ShipState{Y: y, Loadout: l}},
+	}
+}
+
+func TestLoadouts_OnlyOwnedPartsFittedAtHomeAreSaved(t *testing.T) {
+	t.Parallel()
+
+	saved := make(chan sim.Loadout, 8)
+	save := func(_ string, l sim.Loadout) { saved <- l }
+	hub, _ := testHub(t, WithSaveLoadout(save))
+	unlocks := sim.DefaultUnlocks()
+	unlocks[sim.Part(sim.WeaponZapper)] = sim.TierMega
+	a, _ := joinWith(t, hub, "a", unlocks)
+
+	zapper := &pb.Loadout{
+		Weapon: pb.Weapon_WEAPON_ZAPPER,
+		Engine: pb.Engine_ENGINE_BASE,
+		Shield: pb.Shield_SHIELD_FRONT,
+	}
+	locked := &pb.Loadout{
+		Weapon: pb.Weapon_WEAPON_ROCKETS,
+		Engine: pb.Engine_ENGINE_BASE,
+		Shield: pb.Shield_SHIELD_FRONT,
+	}
+	a.Send(stateWith(180, zapper))
+	a.Send(
+		stateWith(180, zapper),
+	) // unchanged: no second save
+	a.Send(
+		stateWith(180, locked),
+	) // a part a doesn't own
+	a.Send(stateWith(1000, &pb.Loadout{Weapon: pb.Weapon_WEAPON_AUTO_CANNON})) // away from home
+
+	select {
+	case got := <-saved:
+		if want := (sim.Loadout{Weapon: sim.WeaponZapper, Engine: sim.EngineBase, Shield: sim.ShieldFront}); got != want {
+			t.Errorf("saved %+v, want %+v", got, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the fitted loadout was never saved")
+	}
+	// A reconnect gets it back, at a's tiers.
+	_, w := join(t, hub, "a")
+	if got := w.GetLoadout(); got.GetWeapon() != pb.Weapon_WEAPON_ZAPPER ||
+		got.GetWeaponTier() != uint32(sim.TierMega) {
+		t.Errorf("welcome loadout = %v, want the Mega zapper", got)
+	}
+	select {
+	case got := <-saved:
+		t.Errorf("saved %+v too: only an owned loadout fitted at home counts", got)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestLoadouts_ASavedLoadoutComesBackInTheWelcome(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	unlocks := sim.Unlocks{sim.Part(sim.ShieldRound): sim.TierSuper}
+	s, w, err := hub.Join(t.Context(), players.Player{
+		ID:      "a",
+		Name:    "a",
+		Unlocks: unlocks,
+		Loadout: sim.Loadout{
+			Weapon: sim.WeaponAutoCannon,
+			Engine: sim.EngineBase,
+			Shield: sim.ShieldRound,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Join() error = %v", err)
+	}
+	_ = s
+	if got := w.GetLoadout(); got.GetShield() != pb.Shield_SHIELD_ROUND ||
+		got.GetShieldTier() != uint32(sim.TierSuper) {
+		t.Errorf("welcome loadout = %v, want the Super round shield", got)
+	}
+	_, fresh := join(t, hub, "b")
+	if fresh.GetLoadout() != nil {
+		t.Errorf("a new player's welcome loadout = %v, want none", fresh.GetLoadout())
+	}
+}
+
+func TestWelcome_SaysWhetherTheServerIsForDevelopment(t *testing.T) {
+	t.Parallel()
+
+	dev, _ := testHub(t, WithDevelopment())
+	if _, w := join(t, dev, "a"); !w.GetDevelopment() {
+		t.Error("a development server's welcome says it isn't")
+	}
+	prod, _ := testHub(t)
+	if _, w := join(t, prod, "a"); w.GetDevelopment() {
+		t.Error("a production server's welcome says it's for development")
+	}
+}

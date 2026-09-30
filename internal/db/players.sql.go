@@ -44,19 +44,49 @@ func (q *Queries) DeleteUnusedPlayers(ctx context.Context, createdAt int64) (int
 }
 
 const playerByTokenHash = `-- name: PlayerByTokenHash :one
-SELECT id, name FROM players WHERE token_hash = ?
+SELECT id, name, weapon, engine, shield FROM players WHERE token_hash = ?
 `
 
 type PlayerByTokenHashRow struct {
-	ID   string
-	Name string
+	ID     string
+	Name   string
+	Weapon string
+	Engine string
+	Shield string
 }
 
 func (q *Queries) PlayerByTokenHash(ctx context.Context, tokenHash string) (PlayerByTokenHashRow, error) {
 	row := q.db.QueryRowContext(ctx, playerByTokenHash, tokenHash)
 	var i PlayerByTokenHashRow
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Weapon,
+		&i.Engine,
+		&i.Shield,
+	)
 	return i, err
+}
+
+const saveLoadout = `-- name: SaveLoadout :exec
+UPDATE players SET weapon = ?, engine = ?, shield = ? WHERE id = ?
+`
+
+type SaveLoadoutParams struct {
+	Weapon string
+	Engine string
+	Shield string
+	ID     string
+}
+
+func (q *Queries) SaveLoadout(ctx context.Context, arg SaveLoadoutParams) error {
+	_, err := q.db.ExecContext(ctx, saveLoadout,
+		arg.Weapon,
+		arg.Engine,
+		arg.Shield,
+		arg.ID,
+	)
+	return err
 }
 
 const touchPlayer = `-- name: TouchPlayer :exec

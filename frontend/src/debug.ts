@@ -66,6 +66,8 @@ export interface DebugState {
   /** The player's squadron, "" before choosing, and whether the join screen is up. */
   squadron: string;
   squadronScreen: boolean;
+  /** Whether the loadout screen is open (#78). */
+  loadoutScreen: boolean;
   /** Companion ships waiting in the shared hangar, once the server has listed them. */
   hangar: number | undefined;
   /** The squadron's mode as the ring labels it ("Attack"), once in a squadron. */

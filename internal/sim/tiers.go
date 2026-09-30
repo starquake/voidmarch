@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"math"
 	"slices"
 )
 
@@ -117,6 +118,11 @@ func (u Unlocks) Grant(part Part) bool {
 	}
 
 	return true
+}
+
+// Allows reports whether the player owns every part of l.
+func (u Unlocks) Allows(l Loadout) bool {
+	return !u.Lacks(Part(l.Weapon)) && !u.Lacks(Part(l.Engine)) && !u.Lacks(Part(l.Shield))
 }
 
 // Level is how far a player has come: a point for each part owned and each
@@ -243,4 +249,10 @@ func partsOf[T ~string](ids []T) []Part {
 	}
 
 	return parts
+}
+
+// CanChangeLoadout reports whether a ship at (x, y) can change its parts:
+// only at the home planet, inside the safe zone (#6, decision 3).
+func CanChangeLoadout(x, y float64) bool {
+	return math.Hypot(x, y) <= SafeZoneRadius
 }

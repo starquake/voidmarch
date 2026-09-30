@@ -21,6 +21,7 @@ import {
   fromCompanionMode,
   fromCompanionOneShot,
   fromEnemyKind,
+  fromLoadout,
   fromPart,
   fromShipState,
   fromUnlocks,
@@ -36,8 +37,8 @@ import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
-import { DEFAULT_LOADOUT, type WeaponId } from '../sim/loadout.ts';
-import { partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
+import type { WeaponId } from '../sim/loadout.ts';
+import { defaultUnlocks, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { PICKUP_REACH } from '../sim/rules.gen.ts';
 import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn, type Target } from '../simwasm.ts';
 import {
@@ -210,6 +211,8 @@ export class NetPlay {
   unlocks: Map<PartId, number> = defaultUnlocks();
   /** The player's name, for their own notices. */
   private name = '';
+  /** Whether the server is for development, where 1/2/3 fit any part (#78). */
+  development = false;
   /** Pickups this ship reported flying over, until it leaves them. */
   private readonly collecting = new Set<number>();
   private clock = new ServerClock(20);
@@ -789,6 +792,7 @@ export class NetPlay {
       }
     }
     this.companionLimit = welcome.companionLimit;
+    this.development = welcome.development;
     this.squadrons = welcome.squadrons;
     this.squadron = welcome.squadron;
     if (welcome.squadron === '') {
@@ -798,10 +802,14 @@ export class NetPlay {
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
-    // A reconnect keeps the ship where it is; only the first join places it.
+    // A reconnect keeps the ship where it is; only the first join places it,
+    // with the loadout the player last fitted at home (#78).
     if (!this.spawned) {
       this.spawned = true;
       this.options.sim.placeShip(welcome.spawnX, welcome.spawnY);
+      if (welcome.loadout !== undefined) {
+        this.options.sim.setLoadout(withTiers(fromLoadout(welcome.loadout), this.unlocks));
+      }
     }
   }
 
@@ -932,14 +940,6 @@ export class NetPlay {
     this.remotes.delete(id);
   }
 }
-
-/** The default parts, plain: what every player owns from the start. */
-const defaultUnlocks = (): Map<PartId, number> =>
-  new Map<PartId, number>([
-    [DEFAULT_LOADOUT.weapon, 0],
-    [DEFAULT_LOADOUT.engine, 0],
-    [DEFAULT_LOADOUT.shield, 0],
-  ]);
 
 /** A dropped pickup as drawn, or undefined for a part this client doesn't know. */
 function fromPickup(dropped: PickupDropped): Pickup | undefined {

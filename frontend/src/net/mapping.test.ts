@@ -12,6 +12,7 @@ import {
   fromCompanionMode,
   fromCompanionOneShot,
   fromEnemyKind,
+  fromLoadout,
   fromPart,
   fromShipState,
   fromUnlocks,
@@ -107,4 +108,16 @@ test('wire parts and unlocks map to the sim ids', () => {
     ],
   );
   assert.equal(fromPart(undefined), undefined);
+});
+
+test('a wire loadout maps with its tiers, and a missing one is the default', () => {
+  assert.deepEqual(fromLoadout({ $typeName: 'voidmarch.v1.Loadout', weapon: Weapon.ZAPPER, engine: Engine.BURST, shield: Shield.ROUND, weaponTier: 3, engineTier: 1, shieldTier: 0 }), {
+    weapon: 'zapper',
+    engine: 'burst',
+    shield: 'round',
+    weaponTier: 3,
+    engineTier: 1,
+    shieldTier: 0,
+  });
+  assert.equal(fromLoadout(undefined).weapon, 'autoCannon');
 });

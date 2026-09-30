@@ -8,6 +8,7 @@ import {
   Shield,
   ShipStateSchema,
   Weapon,
+  type Loadout as WireLoadout,
   type Part,
   type ShipState,
   type Unlock,
@@ -122,6 +123,18 @@ export function toShipState(ship: Ship): ShipState {
   });
 }
 
+/** A wire loadout as the sim's, with unknown or missing parts as the defaults. */
+export function fromLoadout(loadout: WireLoadout | undefined): Loadout {
+  return {
+    weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
+    engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
+    shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield,
+    weaponTier: tierOf(loadout?.weaponTier),
+    engineTier: tierOf(loadout?.engineTier),
+    shieldTier: tierOf(loadout?.shieldTier),
+  };
+}
+
 /** A wire tier held to plain through Hyper. */
 export const tierOf = (tier: number | undefined): number => Math.min(tier ?? 0, MAX_TIER);
 
@@ -136,14 +149,7 @@ export function fromShipState(state: ShipState): RemoteShip {
     vy: state.vy,
     angle: state.angle,
     thrusting: state.thrusting,
-    loadout: {
-      weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
-      engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
-      shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield,
-      weaponTier: tierOf(loadout?.weaponTier),
-      engineTier: tierOf(loadout?.engineTier),
-      shieldTier: tierOf(loadout?.shieldTier),
-    },
+    loadout: fromLoadout(loadout),
     damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
     shield: state.shield,
     revive: state.revive,

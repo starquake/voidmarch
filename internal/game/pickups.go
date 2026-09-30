@@ -12,22 +12,15 @@ import (
 // pickupTicks is how long a pickup waits, in hub ticks.
 const pickupTicks = sim.PickupLifetime * TickRate
 
-// unlockSaveQueue is how many unlocks may wait for the saver before the hub
-// waits for it.
-const unlockSaveQueue = 256
+// saveQueue is how many saves may wait for the saver before the hub waits
+// for it.
+const saveQueue = 256
 
 // pickup is a part a kill left behind, until someone collects it (#77).
 type pickup struct {
 	part           sim.Part
 	x, y           float64
 	tick, goneTick uint32
-}
-
-// unlockSave is one granted unlock on its way to the database.
-type unlockSave struct {
-	player string
-	part   sim.Part
-	tier   sim.Tier
 }
 
 // WithDropChance makes every kill drop a part at chance instead of its
@@ -46,20 +39,21 @@ func WithSaveUnlock(save func(player string, part sim.Part, tier sim.Tier)) HubO
 	}
 }
 
-// startUnlockSaver starts the goroutine that saves granted unlocks, if there's
-// a saver, and returns a channel closed once it has stopped.
-func (h *Hub) startUnlockSaver() <-chan struct{} {
+// startSaver starts the goroutine that runs the saves the hub queues, in
+// order, if it has a saver at all, and returns a channel closed once it has
+// stopped.
+func (h *Hub) startSaver() <-chan struct{} {
 	done := make(chan struct{})
-	if h.saveUnlock == nil {
+	if h.saveUnlock == nil && h.saveLoadout == nil {
 		close(done)
 
 		return done
 	}
-	h.unlockSaves = make(chan unlockSave, unlockSaveQueue)
+	h.saves = make(chan func(), saveQueue)
 	go func() {
 		defer close(done)
-		for s := range h.unlockSaves {
-			h.saveUnlock(s.player, s.part, s.tier)
+		for save := range h.saves {
+			save()
 		}
 	}()
 
@@ -145,8 +139,9 @@ func (h *Hub) collect(id string, m *member, pickupID uint32) {
 				Tier: wireTier(tier),
 			},
 		})
-		if h.unlockSaves != nil {
-			h.unlockSaves <- unlockSave{player: who, part: p.part, tier: tier}
+		if h.saveUnlock != nil {
+			part := p.part
+			h.saves <- func() { h.saveUnlock(who, part, tier) }
 		}
 	}
 	if len(gains) == 0 {
@@ -220,4 +215,53 @@ func pbPart(part sim.Part) *pb.Part {
 // wireTier is a tier on the wire.
 func wireTier(t sim.Tier) uint32 {
 	return uint32(min(max(t, sim.TierPlain), sim.TierHyper)) //nolint:gosec // held to 0 through 3.
+}
+
+// WithSaveLoadout has the hub call save with each loadout a player fits at
+// home (#78). save runs off the tick goroutine.
+func WithSaveLoadout(save func(player string, l sim.Loadout)) HubOption {
+	return func(o *hubOptions) {
+		o.saveLoadout = save
+	}
+}
+
+// saveFittedLoadout saves the loadout m's ship reports, when it changed and
+// was fitted at home from parts the player owns (#78); tiers come from the
+// unlocks, so they aren't saved.
+func (h *Hub) saveFittedLoadout(id string, m *member) {
+	l := simLoadout(m.state.GetLoadout())
+	l.WeaponTier, l.EngineTier, l.ShieldTier = 0, 0, 0
+	if l == m.loadout || !m.unlocks.Allows(l) ||
+		!sim.CanChangeLoadout(float64(m.state.GetX()), float64(m.state.GetY())) {
+		return
+	}
+	m.loadout = l
+	if h.saveLoadout != nil {
+		h.saves <- func() { h.saveLoadout(id, l) }
+	}
+}
+
+// savedLoadout is a saved loadout for a Welcome, at the player's tiers; nil
+// for none, or one with a part they no longer own.
+func savedLoadout(l sim.Loadout, unlocks sim.Unlocks) *pb.Loadout {
+	if l.Weapon == "" || !unlocks.Allows(l) {
+		return nil
+	}
+
+	return &pb.Loadout{
+		Weapon:     pbWeapon(l.Weapon),
+		Engine:     pbEngine(l.Engine),
+		Shield:     pbShield(l.Shield),
+		WeaponTier: wireTier(unlocks[sim.Part(l.Weapon)]),
+		EngineTier: wireTier(unlocks[sim.Part(l.Engine)]),
+		ShieldTier: wireTier(unlocks[sim.Part(l.Shield)]),
+	}
+}
+
+// WithDevelopment tells the players this is a development server, where the
+// 1/2/3 keys fit any part (#78, decision 6).
+func WithDevelopment() HubOption {
+	return func(o *hubOptions) {
+		o.development = true
+	}
 }
