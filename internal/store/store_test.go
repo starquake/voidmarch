@@ -25,6 +25,13 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := version, 1; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
+	var mode string
+	if err = db.QueryRowContext(t.Context(), "PRAGMA journal_mode").Scan(&mode); err != nil {
+		t.Fatalf("reading journal_mode: %v", err)
+	}
+	if got, want := mode, "wal"; got != want {
+		t.Errorf("journal_mode = %q, want %q", got, want)
+	}
 	for _, table := range []string{"players", "unlocks", "hangar"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)

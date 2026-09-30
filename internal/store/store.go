@@ -1,5 +1,5 @@
 // Package store opens the SQLite database that keeps players and the hangar
-// across restarts (docs/design.md, section 10).
+// across restarts (docs/design.md, section 9).
 package store
 
 import (
@@ -14,13 +14,24 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	// The pure Go SQLite driver keeps the build cgo-free (#6, decision 16).
-	_ "modernc.org/sqlite"
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 //go:embed migrations/*.sql
 var migrations embed.FS
+
+const (
+	// walAttempts and walRetryDelay bound how long Open waits for another
+	// server to finish setting up the same file.
+	walAttempts   = 100
+	walRetryDelay = 20 * time.Millisecond
+	// primaryCode masks an extended SQLite result code down to its primary one.
+	primaryCode = 0xff
+)
 
 var (
 	// ErrNewerSchema is returned for a database written by a newer server.
@@ -35,7 +46,7 @@ func Open(ctx context.Context, file string) (*sql.DB, error) {
 	// Immediate transactions take the write lock up front, so two servers
 	// migrating one file take turns.
 	query := url.Values{"_txlock": {"immediate"}}
-	for _, pragma := range []string{"journal_mode(WAL)", "busy_timeout(5000)", "foreign_keys(1)"} {
+	for _, pragma := range []string{"busy_timeout(5000)", "foreign_keys(1)"} {
 		query.Add("_pragma", pragma)
 	}
 	db, err := sql.Open("sqlite", "file:"+file+"?"+query.Encode())
@@ -50,8 +61,42 @@ func Open(ctx context.Context, file string) (*sql.DB, error) {
 
 		return nil, fmt.Errorf("error migrating database %s: %w", file, err)
 	}
+	if err = useWAL(ctx, db); err != nil {
+		_ = db.Close()
+
+		return nil, fmt.Errorf("error setting up database %s: %w", file, err)
+	}
 
 	return db, nil
+}
+
+// useWAL switches the file to write-ahead logging, which it then keeps. The
+// switch doesn't wait out busy_timeout while another server holds the file
+// (pinned by TestOpen_ConcurrentOpensMigrateOnce), so it retries.
+func useWAL(ctx context.Context, db *sql.DB) error {
+	var err error
+	for range walAttempts {
+		if _, err = db.ExecContext(ctx, "PRAGMA journal_mode = WAL"); !isBusy(err) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("error waiting for the database: %w", ctx.Err())
+		case <-time.After(walRetryDelay):
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("error switching to WAL: %w", err)
+	}
+
+	return nil
+}
+
+// isBusy reports whether err is SQLite's "database is locked".
+func isBusy(err error) bool {
+	var sqliteErr *sqlite.Error
+
+	return errors.As(err, &sqliteErr) && sqliteErr.Code()&primaryCode == sqlite3.SQLITE_BUSY
 }
 
 // migrate applies the migrations newer than the database's user_version, one
