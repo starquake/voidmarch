@@ -74,8 +74,15 @@ func placeShip(x, y float64) {
 }
 
 //go:wasmexport setLoadout
-func setLoadout(weapon, engine, shield int32) {
-	bridge.SetLoadout(int(weapon), int(engine), int(shield))
+func setLoadout(weapon, engine, shield, weaponTier, engineTier, shieldTier int32) {
+	bridge.SetLoadout(
+		int(weapon),
+		int(engine),
+		int(shield),
+		int(weaponTier),
+		int(engineTier),
+		int(shieldTier),
+	)
 }
 
 //go:wasmexport setDamage

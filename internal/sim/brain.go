@@ -147,7 +147,7 @@ func FormationPoint(owner Mover, slot int, scale float64) Vec {
 // only when a tick of thrust gets closer to that velocity than coasting under
 // drag, so it neither jitters at rest nor falls behind at full speed.
 func Arrive(self *Ship, target, targetVelocity Vec) Vec {
-	engine := EngineStatsOf(self.Loadout.Engine)
+	engine := self.Loadout.EngineStats()
 	wantX := targetVelocity.X + (target.X-self.X)/BrainArriveSeconds
 	wantY := targetVelocity.Y + (target.Y-self.Y)/BrainArriveSeconds
 	if wantSpeed := math.Hypot(wantX, wantY); wantSpeed > engine.MaxSpeed {

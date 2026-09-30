@@ -48,11 +48,29 @@ func Shields() []ShieldID {
 	return []ShieldID{ShieldFront, ShieldFrontAndSide, ShieldRound, ShieldInvincibility}
 }
 
-// Loadout is one part per slot (docs/design.md, "Loadout").
+// Loadout is one part per slot (docs/design.md, "Loadout"), each at its tier.
 type Loadout struct {
-	Weapon WeaponID `json:"weapon"`
-	Engine EngineID `json:"engine"`
-	Shield ShieldID `json:"shield"`
+	Weapon     WeaponID `json:"weapon"`
+	Engine     EngineID `json:"engine"`
+	Shield     ShieldID `json:"shield"`
+	WeaponTier Tier     `json:"weaponTier,omitempty"`
+	EngineTier Tier     `json:"engineTier,omitempty"`
+	ShieldTier Tier     `json:"shieldTier,omitempty"`
+}
+
+// WeaponStats is the fitted weapon's stats at its tier.
+func (l Loadout) WeaponStats() WeaponStats {
+	return WeaponStatsAt(l.Weapon, l.WeaponTier)
+}
+
+// EngineStats is the fitted engine's stats at its tier.
+func (l Loadout) EngineStats() EngineStats {
+	return EngineStatsAt(l.Engine, l.EngineTier)
+}
+
+// ShieldStats is the fitted shield's stats at its tier.
+func (l Loadout) ShieldStats() ShieldStats {
+	return ShieldStatsAt(l.Shield, l.ShieldTier)
 }
 
 // DefaultLoadout is the parts every new player starts with.

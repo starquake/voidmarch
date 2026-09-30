@@ -12,7 +12,7 @@ func TakeHit(ship *Ship, fromAngle float64) bool {
 	}
 	ship.SinceHit = 0
 	ship.hullRegen = 0
-	shield := ShieldStatsOf(ship.Loadout.Shield)
+	shield := ship.Loadout.ShieldStats()
 	if shield.Covers(fromAngle-ship.Angle) && ship.Shield >= 1 {
 		ship.Shield--
 
@@ -39,7 +39,7 @@ func Recover(ship *Ship, dt, squadmateDistance float64) {
 	past := func(delay float64) float64 {
 		return math.Max(0, math.Min(dt, ship.SinceHit-delay))
 	}
-	shield := ShieldStatsOf(ship.Loadout.Shield)
+	shield := ship.Loadout.ShieldStats()
 	if recharging := past(ShieldRechargeDelay); recharging > 0 && ship.Shield < shield.Strength {
 		rate := shield.Strength / shield.Recharge
 		if squadmateDistance <= FormationRadius {

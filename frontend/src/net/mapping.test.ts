@@ -6,6 +6,7 @@ import { create } from '@bufbuild/protobuf';
 import { CompanionMode, CompanionOneShot, EnemyKind, ShipStateSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
 import { MODES } from '../ordermenu.ts';
 import { ENGINES, SHIELDS, WEAPONS } from '../sim/loadout.ts';
+import { MAX_TIER } from '../sim/rules.gen.ts';
 import type { Ship } from '../simwasm.ts';
 import {
   fromCompanionMode,
@@ -13,6 +14,7 @@ import {
   fromEnemyKind,
   fromShipState,
   fromWeapon,
+  tierOf,
   toCompanionMode,
   toCompanionOneShot,
   toShipState,
@@ -27,7 +29,7 @@ const createShip = (x: number, y: number): Ship => ({
   vy: 0,
   angle: -Math.PI / 2,
   thrusting: false,
-  loadout: { weapon: 'autoCannon', engine: 'base', shield: 'front' },
+  loadout: { weapon: 'autoCannon', engine: 'base', shield: 'front', weaponTier: 0, engineTier: 0, shieldTier: 0 },
   damage: 0,
   shield: 3,
   sinceHit: 0,
@@ -43,9 +45,9 @@ test('every loadout survives the round trip through the wire', () => {
   for (const weapon of WEAPONS) {
     for (const engine of ENGINES) {
       for (const shield of SHIELDS) {
-        const ship = { ...createShip(12, -3), loadout: { weapon, engine, shield }, angle: 1.5, thrusting: true, damage: 2, shield: 1.5, revive: 0 };
+        const ship = { ...createShip(12, -3), loadout: { weapon, engine, shield, weaponTier: 3, engineTier: 2, shieldTier: 1 }, angle: 1.5, thrusting: true, damage: 2, shield: 1.5, revive: 0 };
         const remote = fromShipState(toShipState(ship));
-        assert.deepEqual(remote, { x: 12, y: -3, vx: 0, vy: 0, angle: 1.5, thrusting: true, loadout: { weapon, engine, shield }, damage: 2, shield: 1.5, revive: 0 });
+        assert.deepEqual(remote, { x: 12, y: -3, vx: 0, vy: 0, angle: 1.5, thrusting: true, loadout: { weapon, engine, shield, weaponTier: 3, engineTier: 2, shieldTier: 1 }, damage: 2, shield: 1.5, revive: 0 });
       }
     }
   }
@@ -59,7 +61,7 @@ test('weapons map both ways', () => {
 
 test('unknown or missing parts fall back to the defaults', () => {
   const remote = fromShipState(create(ShipStateSchema, { x: 1, damage: 99 }));
-  assert.deepEqual(remote.loadout, { weapon: 'autoCannon', engine: 'base', shield: 'front' });
+  assert.deepEqual(remote.loadout, { weapon: 'autoCannon', engine: 'base', shield: 'front', weaponTier: 0, engineTier: 0, shieldTier: 0 });
   assert.equal(remote.damage, 3);
   assert.equal(fromWeapon(Weapon.UNSPECIFIED), 'autoCannon');
 });
@@ -79,4 +81,10 @@ test('modes and one-shots round-trip through the wire', () => {
   }
   assert.equal(fromCompanionMode(CompanionMode.UNSPECIFIED), undefined);
   assert.equal(fromCompanionOneShot(CompanionOneShot.UNSPECIFIED), undefined);
+});
+
+test('a wire tier above Hyper is held to Hyper', () => {
+  assert.equal(tierOf(undefined), 0);
+  assert.equal(tierOf(2), 2);
+  assert.equal(tierOf(9), MAX_TIER);
 });

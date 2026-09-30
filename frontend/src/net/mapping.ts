@@ -14,6 +14,7 @@ import type { Mode } from '../ordermenu.ts';
 import type { OneShotOrder } from '../ordermenu.ts';
 import type { EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
+import { MAX_TIER } from '../sim/rules.gen.ts';
 import type { Ship } from '../simwasm.ts';
 
 const WEAPONS: Readonly<Record<WeaponId, Weapon>> = {
@@ -81,12 +82,18 @@ export function toShipState(ship: Ship): ShipState {
       weapon: WEAPONS[ship.loadout.weapon],
       engine: ENGINES[ship.loadout.engine],
       shield: SHIELDS[ship.loadout.shield],
+      weaponTier: ship.loadout.weaponTier,
+      engineTier: ship.loadout.engineTier,
+      shieldTier: ship.loadout.shieldTier,
     },
     damage: ship.damage,
     shield: ship.shield,
     revive: ship.revive,
   });
 }
+
+/** A wire tier held to plain through Hyper. */
+export const tierOf = (tier: number | undefined): number => Math.min(tier ?? 0, MAX_TIER);
 
 /** A wire state as a remote ship, with unknown parts shown as the defaults. */
 export function fromShipState(state: ShipState): RemoteShip {
@@ -103,6 +110,9 @@ export function fromShipState(state: ShipState): RemoteShip {
       weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
       engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
       shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield,
+      weaponTier: tierOf(loadout?.weaponTier),
+      engineTier: tierOf(loadout?.engineTier),
+      shieldTier: tierOf(loadout?.shieldTier),
     },
     damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
     shield: state.shield,

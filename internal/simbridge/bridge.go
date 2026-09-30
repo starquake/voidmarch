@@ -43,6 +43,9 @@ const (
 	HeaderShipSinceHit
 	HeaderShipDownFor
 	HeaderShipRevive
+	HeaderShipWeaponTier
+	HeaderShipEngineTier
+	HeaderShipShieldTier
 	HeaderSize
 )
 
@@ -252,9 +255,9 @@ func (b *Bridge) Respawn(x, y float64) bool {
 }
 
 // SetLoadout fits the parts at the indexes of [sim.Weapons], [sim.Engines]
-// and [sim.Shields]; an index out of range keeps that part. A new weapon
-// starts ready.
-func (b *Bridge) SetLoadout(weapon, engine, shield int) {
+// and [sim.Shields], at their tiers; an index out of range keeps that part,
+// and a tier is held to plain through Hyper. A new weapon starts ready.
+func (b *Bridge) SetLoadout(weapon, engine, shield, weaponTier, engineTier, shieldTier int) {
 	s := b.sandbox.Ship
 	l := &s.Loadout
 	if next := pick(sim.Weapons(), weapon, l.Weapon); next != l.Weapon {
@@ -264,9 +267,15 @@ func (b *Bridge) SetLoadout(weapon, engine, shield int) {
 	}
 	l.Engine = pick(sim.Engines(), engine, l.Engine)
 	l.Shield = pick(sim.Shields(), shield, l.Shield)
+	l.WeaponTier, l.EngineTier, l.ShieldTier = tier(weaponTier), tier(engineTier), tier(shieldTier)
 	// A swap never adds charges: the new shield holds what's left, up to its strength.
-	s.Shield = math.Min(s.Shield, sim.ShieldStatsOf(l.Shield).Strength)
+	s.Shield = math.Min(s.Shield, l.ShieldStats().Strength)
 	b.write(sim.FrameEvents{})
+}
+
+// tier is t held to plain through Hyper.
+func tier(t int) sim.Tier {
+	return sim.Tier(min(max(t, int(sim.TierPlain)), int(sim.TierHyper)))
 }
 
 // SetDamage sets the hits the ship has taken.
@@ -500,6 +509,9 @@ func (b *Bridge) write(events sim.FrameEvents) {
 	st[HeaderShipWeapon] = float64(slices.Index(sim.Weapons(), s.Loadout.Weapon))
 	st[HeaderShipEngine] = float64(slices.Index(sim.Engines(), s.Loadout.Engine))
 	st[HeaderShipShield] = float64(slices.Index(sim.Shields(), s.Loadout.Shield))
+	st[HeaderShipWeaponTier] = float64(s.Loadout.WeaponTier)
+	st[HeaderShipEngineTier] = float64(s.Loadout.EngineTier)
+	st[HeaderShipShieldTier] = float64(s.Loadout.ShieldTier)
 	st[HeaderPreviousX], st[HeaderPreviousY] = b.sandbox.Previous.X, b.sandbox.Previous.Y
 	st[HeaderShipShieldCharge], st[HeaderShipSinceHit] = s.Shield, s.SinceHit
 	st[HeaderShipDownFor], st[HeaderShipRevive] = s.DownFor, s.Revive
