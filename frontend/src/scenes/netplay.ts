@@ -37,8 +37,8 @@ import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
-import { DEFAULT_LOADOUT, type WeaponId } from '../sim/loadout.ts';
-import { partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
+import type { WeaponId } from '../sim/loadout.ts';
+import { defaultUnlocks, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { PICKUP_REACH } from '../sim/rules.gen.ts';
 import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn, type Target } from '../simwasm.ts';
 import {
@@ -940,14 +940,6 @@ export class NetPlay {
     this.remotes.delete(id);
   }
 }
-
-/** The default parts, plain: what every player owns from the start. */
-const defaultUnlocks = (): Map<PartId, number> =>
-  new Map<PartId, number>([
-    [DEFAULT_LOADOUT.weapon, 0],
-    [DEFAULT_LOADOUT.engine, 0],
-    [DEFAULT_LOADOUT.shield, 0],
-  ]);
 
 /** A dropped pickup as drawn, or undefined for a part this client doesn't know. */
 function fromPickup(dropped: PickupDropped): Pickup | undefined {

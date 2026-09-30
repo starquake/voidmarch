@@ -349,6 +349,11 @@ function withTiers(loadout, unlocks) {
     shieldTier: unlocks.get(loadout.shield) ?? 0
   };
 }
+var defaultUnlocks = () => /* @__PURE__ */ new Map([
+  [DEFAULT_LOADOUT.weapon, 0],
+  [DEFAULT_LOADOUT.engine, 0],
+  [DEFAULT_LOADOUT.shield, 0]
+]);
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -941,6 +946,168 @@ function saveLastSquadron(name, store = browserStorage()) {
   } catch {
   }
 }
+
+// src/loadout.ts
+var SLOTS = ["weapon", "engine", "shield"];
+var SLOT_PARTS = { weapon: WEAPONS, engine: ENGINES, shield: SHIELDS };
+var PART_HINTS = {
+  autoCannon: "steady and precise",
+  rockets: "seek their target",
+  bigSpaceGun: "bursts into a star",
+  zapper: "pierces",
+  base: "balanced",
+  bigPulse: "fast, drifts",
+  burst: "quick off the mark",
+  supercharged: "fast and quick",
+  front: "strong ahead",
+  frontAndSide: "wider cover",
+  round: "all around, one charge",
+  invincibility: "three charges, slow to recharge"
+};
+function loadoutEntries(slot, unlocks, fitted) {
+  return SLOT_PARTS[slot].map((part) => {
+    const tier = unlocks.get(part);
+    const locked = tier === void 0;
+    return {
+      part,
+      label: partLabel(part, tier ?? 0),
+      color: tierCss(tier ?? 0),
+      hint: locked ? "not found yet" : PART_HINTS[part],
+      locked,
+      fitted: fitted[slot] === part,
+      tier: tier ?? 0
+    };
+  });
+}
+function fitPart(loadout, slot, part, unlocks) {
+  const tier = unlocks.get(part) ?? 0;
+  switch (slot) {
+    case "weapon":
+      return { ...loadout, weapon: part, weaponTier: tier };
+    case "engine":
+      return { ...loadout, engine: part, engineTier: tier };
+    case "shield":
+      return { ...loadout, shield: part, shieldTier: tier };
+  }
+}
+function stepPart(slot, unlocks, fitted, step) {
+  const parts = SLOT_PARTS[slot];
+  const from = parts.indexOf(fitted[slot]);
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[(from + step * i + parts.length) % parts.length];
+    if (part !== void 0 && unlocks.has(part)) {
+      return part;
+    }
+  }
+  return void 0;
+}
+var LoadoutScreen = class {
+  form;
+  slots;
+  hangar;
+  slot = "weapon";
+  unlocks = /* @__PURE__ */ new Map();
+  loadout;
+  actions = { fit: () => void 0, summon: () => void 0 };
+  constructor(doc = document) {
+    this.form = doc.querySelector("#loadout-form");
+    this.slots = doc.querySelector("#loadout-slots");
+    this.hangar = doc.querySelector("#loadout-hangar");
+    this.form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+    });
+    doc.querySelector("#loadout-summon")?.addEventListener("click", () => {
+      this.actions.summon();
+    });
+  }
+  get open() {
+    return this.form !== null && !this.form.hidden;
+  }
+  show(actions) {
+    this.actions = actions;
+    if (this.form !== null) {
+      this.form.hidden = false;
+    }
+  }
+  hide() {
+    if (this.form !== null) {
+      this.form.hidden = true;
+    }
+  }
+  /** Redraws the parts and the hangar line when anything changed. */
+  update(unlocks, loadout, hangar) {
+    this.unlocks = unlocks;
+    const changed = this.loadout === void 0 || JSON.stringify(this.loadout) !== JSON.stringify(loadout);
+    this.loadout = { ...loadout };
+    if (this.hangar !== null && this.hangar.textContent !== hangar) {
+      this.hangar.textContent = hangar;
+    }
+    if (changed || this.slots?.childElementCount === 0) {
+      this.slots?.replaceChildren(...SLOTS.map((slot) => this.column(slot)));
+    }
+  }
+  /** Handles a key while the screen is open, and reports whether it was the screen's. */
+  key(code) {
+    const slot = { Digit1: "weapon", Digit2: "engine", Digit3: "shield" }[code];
+    if (slot !== void 0) {
+      this.slot = slot;
+      this.redraw();
+      return true;
+    }
+    const step = code === "ArrowDown" ? 1 : code === "ArrowUp" ? -1 : 0;
+    if (step === 0 || this.loadout === void 0) {
+      return false;
+    }
+    const part = stepPart(this.slot, this.unlocks, this.loadout, step);
+    if (part !== void 0) {
+      this.actions.fit(fitPart(this.loadout, this.slot, part, this.unlocks));
+    }
+    return true;
+  }
+  redraw() {
+    this.slots?.replaceChildren(...SLOTS.map((slot) => this.column(slot)));
+  }
+  column(slot) {
+    const doc = this.slots?.ownerDocument ?? document;
+    const column = doc.createElement("div");
+    column.className = slot === this.slot ? "loadout-slot picked" : "loadout-slot";
+    const title = doc.createElement("h3");
+    title.textContent = slot;
+    column.append(title);
+    const fitted = this.loadout;
+    if (fitted === void 0) {
+      return column;
+    }
+    for (const entry of loadoutEntries(slot, this.unlocks, fitted)) {
+      column.append(this.row(doc, slot, entry, fitted));
+    }
+    return column;
+  }
+  row(doc, slot, entry, fitted) {
+    const row = doc.createElement("button");
+    row.type = "button";
+    row.className = `loadout-part${entry.locked ? " locked" : ""}${entry.fitted ? " fitted" : ""}`;
+    row.disabled = entry.locked;
+    row.dataset.part = entry.part;
+    const icon = doc.createElement("span");
+    icon.className = "icon";
+    icon.style.backgroundImage = `url(${ASSETS}/pickups/${pickupFile(entry.part)}.png)`;
+    const name = doc.createElement("span");
+    name.className = "label";
+    name.textContent = entry.label;
+    name.style.color = entry.locked ? "" : entry.color;
+    const hint = doc.createElement("span");
+    hint.className = "hint";
+    hint.textContent = entry.fitted ? `fitted \xB7 ${entry.hint}` : entry.hint;
+    name.append(hint);
+    row.append(icon, name);
+    row.addEventListener("click", () => {
+      this.slot = slot;
+      this.actions.fit(fitPart(fitted, slot, entry.part, this.unlocks));
+    });
+    return row;
+  }
+};
 
 // src/simwasm.ts
 var SCRATCH_SIZE = LAYOUT.scratchSize;
@@ -3055,11 +3222,6 @@ var NetPlay = class {
     this.remotes.delete(id);
   }
 };
-var defaultUnlocks = () => /* @__PURE__ */ new Map([
-  [DEFAULT_LOADOUT.weapon, 0],
-  [DEFAULT_LOADOUT.engine, 0],
-  [DEFAULT_LOADOUT.shield, 0]
-]);
 function fromPickup(dropped) {
   const part = fromPart(dropped.part);
   return part === void 0 ? void 0 : { id: dropped.id, part, x: dropped.x, y: dropped.y, tick: dropped.tick, goneTick: dropped.goneTick };
@@ -3187,6 +3349,8 @@ var SandboxScene = class extends Phaser6.Scene {
   shownLoadout = "";
   ship;
   net;
+  /** The loadout screen at the home planet (#78). */
+  loadoutScreen = new LoadoutScreen();
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   enemyFire;
@@ -3280,6 +3444,7 @@ var SandboxScene = class extends Phaser6.Scene {
       orderMenuOpen: false,
       squadron: "",
       squadronScreen: false,
+      loadoutScreen: false,
       hangar: void 0,
       squadronMode: void 0
     };
@@ -3292,6 +3457,7 @@ var SandboxScene = class extends Phaser6.Scene {
     if (loadoutKey(this.sim.ship.loadout) !== this.shownLoadout) {
       this.applyLoadout();
     }
+    this.updateLoadoutScreen();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -3457,7 +3623,11 @@ var SandboxScene = class extends Phaser6.Scene {
       if (event.repeat) {
         return;
       }
-      if (event.code === "KeyQ") {
+      if (this.loadoutScreen.open) {
+        this.loadoutKey(event);
+      } else if (event.code === "KeyL") {
+        this.openLoadout();
+      } else if (event.code === "KeyQ") {
         this.pressOrders();
       } else {
         this.handleDebugKey(event.code);
@@ -3479,6 +3649,53 @@ var SandboxScene = class extends Phaser6.Scene {
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     });
+  }
+  /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
+  openLoadout() {
+    const ship = this.sim.ship;
+    const squadronScreen = document.querySelector("#squadron-form");
+    const busy = this.orderPress !== void 0 || squadronScreen?.hidden === false;
+    if (busy || this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      return;
+    }
+    this.loadoutScreen.show({
+      fit: (loadout) => {
+        this.fit(loadout);
+        this.applyLoadout();
+        this.audio.partSwitched();
+      },
+      summon: () => this.net?.summon()
+    });
+    this.updateLoadoutScreen();
+  }
+  /** A key while the loadout screen is open: L and Esc close it, and the rest are its own. */
+  loadoutKey(event) {
+    if (event.code === "KeyL" || event.code === "Escape") {
+      this.loadoutScreen.hide();
+    } else if (event.code === "KeyG") {
+      this.net?.summon();
+    } else if (this.loadoutScreen.key(event.code)) {
+      event.preventDefault();
+    }
+  }
+  /** Keeps the open screen current, and closes it once the ship is away from home or down. */
+  updateLoadoutScreen() {
+    if (!this.loadoutScreen.open) {
+      return;
+    }
+    const ship = this.sim.ship;
+    if (this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      this.loadoutScreen.hide();
+      return;
+    }
+    const net = this.net;
+    const hangar = net === void 0 ? "Hangar: offline" : hangarLine(net.hangar, true) ?? "Hangar: \u2026";
+    const out = net === void 0 ? "" : ` \xB7 ${String(net.companionCount)} of ${String(net.companionLimit)} companions out`;
+    this.loadoutScreen.update(
+      this.net?.unlocks ?? defaultUnlocks(),
+      ship.loadout,
+      `${hangar}${out} \xB7 they pick from your parts, spread across the squadron`
+    );
   }
   /** The 1/2/3 keys fit any part in development and offline; elsewhere the loadout screen does (#78). */
   get partKeys() {
@@ -3742,6 +3959,18 @@ ${modeName(info)}`,
   readInput() {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main);
+    if (this.loadoutScreen.open) {
+      const { x, y, angle } = this.sim.ship;
+      return {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        pointerX: x + Math.cos(angle),
+        pointerY: y + Math.sin(angle),
+        fire: false
+      };
+    }
     return {
       up: this.moveKeys.up.isDown,
       down: this.moveKeys.down.isDown,
@@ -3895,7 +4124,7 @@ ${modeName(info)}`,
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -4013,6 +4242,7 @@ ${modeName(info)}`,
     this.debug.squadron = this.net?.squadron ?? "";
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
+    this.debug.loadoutScreen = this.loadoutScreen.open;
     publishDebugState(this.debug);
   }
 };

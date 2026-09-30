@@ -1,5 +1,5 @@
 /** Parts as players see them: their names, tiers and colors (#77). */
-import { ENGINES, SHIELDS, TIER_NAMES, WEAPONS, type EngineId, type ShieldId, type WeaponId } from './rules.gen.ts';
+import { DEFAULT_LOADOUT, ENGINES, SHIELDS, TIER_NAMES, WEAPONS, type EngineId, type ShieldId, type WeaponId } from './rules.gen.ts';
 import { TIER_COLORS } from './tuning.ts';
 import type { Loadout } from '../simwasm.ts';
 
@@ -67,3 +67,11 @@ export function withTiers(loadout: Readonly<Loadout>, unlocks: Unlocks): Loadout
     shieldTier: unlocks.get(loadout.shield) ?? 0,
   };
 }
+
+/** The default parts, plain: what every player owns from the start. */
+export const defaultUnlocks = (): Map<PartId, number> =>
+  new Map<PartId, number>([
+    [DEFAULT_LOADOUT.weapon, 0],
+    [DEFAULT_LOADOUT.engine, 0],
+    [DEFAULT_LOADOUT.shield, 0],
+  ]);

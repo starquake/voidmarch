@@ -24,7 +24,8 @@ import {
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type Loadout, type WeaponId } from '../sim/loadout.ts';
-import { partLabel, tierCss, withTiers } from '../sim/parts.ts';
+import { defaultUnlocks, partLabel, tierCss, withTiers } from '../sim/parts.ts';
+import { LoadoutScreen } from '../loadout.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
@@ -147,6 +148,8 @@ export class SandboxScene extends Phaser.Scene {
   private shownLoadout = '';
   private ship!: ShipView;
   private net: NetPlay | undefined;
+  /** The loadout screen at the home planet (#78). */
+  private readonly loadoutScreen = new LoadoutScreen();
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   private enemyFire!: Phaser.GameObjects.Layer;
@@ -243,6 +246,7 @@ export class SandboxScene extends Phaser.Scene {
       orderMenuOpen: false,
       squadron: '',
       squadronScreen: false,
+      loadoutScreen: false,
       hangar: undefined,
       squadronMode: undefined,
     };
@@ -256,6 +260,7 @@ export class SandboxScene extends Phaser.Scene {
     if (loadoutKey(this.sim.ship.loadout) !== this.shownLoadout) {
       this.applyLoadout();
     }
+    this.updateLoadoutScreen();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -445,7 +450,11 @@ export class SandboxScene extends Phaser.Scene {
       if (event.repeat) {
         return;
       }
-      if (event.code === 'KeyQ') {
+      if (this.loadoutScreen.open) {
+        this.loadoutKey(event);
+      } else if (event.code === 'KeyL') {
+        this.openLoadout();
+      } else if (event.code === 'KeyQ') {
         this.pressOrders();
       } else {
         this.handleDebugKey(event.code);
@@ -468,6 +477,58 @@ export class SandboxScene extends Phaser.Scene {
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     });
+  }
+
+  /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
+  private openLoadout(): void {
+    const ship = this.sim.ship;
+    const squadronScreen = document.querySelector<HTMLFormElement>('#squadron-form');
+    const busy = this.orderPress !== undefined || squadronScreen?.hidden === false;
+    if (busy || this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      return;
+    }
+    this.loadoutScreen.show({
+      fit: (loadout) => {
+        this.fit(loadout);
+        this.applyLoadout();
+        this.audio.partSwitched();
+      },
+      summon: () => this.net?.summon(),
+    });
+    this.updateLoadoutScreen();
+  }
+
+  /** A key while the loadout screen is open: L and Esc close it, and the rest are its own. */
+  private loadoutKey(event: KeyboardEvent): void {
+    if (event.code === 'KeyL' || event.code === 'Escape') {
+      this.loadoutScreen.hide();
+    } else if (event.code === 'KeyG') {
+      this.net?.summon();
+    } else if (this.loadoutScreen.key(event.code)) {
+      event.preventDefault();
+    }
+  }
+
+  /** Keeps the open screen current, and closes it once the ship is away from home or down. */
+  private updateLoadoutScreen(): void {
+    if (!this.loadoutScreen.open) {
+      return;
+    }
+    const ship = this.sim.ship;
+    if (this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+      this.loadoutScreen.hide();
+
+      return;
+    }
+    const net = this.net;
+    const hangar = net === undefined ? 'Hangar: offline' : (hangarLine(net.hangar, true) ?? 'Hangar: …');
+    const out =
+      net === undefined ? '' : ` · ${String(net.companionCount)} of ${String(net.companionLimit)} companions out`;
+    this.loadoutScreen.update(
+      this.net?.unlocks ?? defaultUnlocks(),
+      ship.loadout,
+      `${hangar}${out} · they pick from your parts, spread across the squadron`,
+    );
   }
 
   /** The 1/2/3 keys fit any part in development and offline; elsewhere the loadout screen does (#78). */
@@ -766,6 +827,20 @@ export class SandboxScene extends Phaser.Scene {
   private readInput(): InputSnapshot {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    if (this.loadoutScreen.open) {
+      // The ship holds still under the screen, still facing where it was (#78, decision 8).
+      const { x, y, angle } = this.sim.ship;
+
+      return {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        pointerX: x + Math.cos(angle),
+        pointerY: y + Math.sin(angle),
+        fire: false,
+      };
+    }
 
     return {
       up: this.moveKeys.up.isDown,
@@ -938,7 +1013,7 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
+      'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       this.netStatus(),
       this.squadronStatus(),
     ]);
@@ -1064,6 +1139,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadron = this.net?.squadron ?? '';
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
+    this.debug.loadoutScreen = this.loadoutScreen.open;
     publishDebugState(this.debug);
   }
 }
