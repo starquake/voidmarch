@@ -110,3 +110,80 @@ export async function shootOneDown(page: Page): Promise<void> {
     await expect.poll(async () => (await state(page)).downed).toBe(false);
   }
 }
+
+/**
+ * Flies at the nearest pickup until this player owns more than owned parts,
+ * and reports whether they do; false when the ship goes down first. It keeps
+ * thrusting: flying through a pickup collects it, and a ship left to coast can
+ * stop just short of its reach (#84).
+ */
+export async function collectNearest(page: Page, owned: number): Promise<boolean> {
+  await page.keyboard.down('w');
+  await expect
+    .poll(
+      async () => {
+        const s = await state(page);
+        const target = s.pickups.reduce<(typeof s.pickups)[number] | undefined>(
+          (best, p) =>
+            best === undefined || Math.hypot(p.x - s.ship.x, p.y - s.ship.y) < Math.hypot(best.x - s.ship.x, best.y - s.ship.y)
+              ? p
+              : best,
+          undefined,
+        );
+        if (target !== undefined) {
+          await aimAt(page, s, target.x, target.y);
+        }
+
+        return Object.keys(s.unlocks).length > owned || s.downed;
+      },
+      { message: 'the part is unlocked, or the ship went down', timeout: 30_000, intervals: [100] },
+    )
+    .toBe(true);
+  await page.keyboard.up('w');
+
+  return Object.keys((await state(page)).unlocks).length > owned;
+}
+
+/**
+ * Shoots enemies down and collects a part they drop, until this player owns
+ * more than owned parts. The E2E server sets DROP_CHANCE=1, so every kill
+ * drops one (#77). Enemies keep shooting while the ship collects: going down
+ * means going home and shooting down another.
+ */
+export async function collectAPart(page: Page, owned: number): Promise<void> {
+  for (let tries = 1; ; tries++) {
+    await shootOneDown(page);
+    await expect.poll(async () => (await state(page)).pickups.length, { message: 'a part drops' }).toBeGreaterThan(0);
+    if (await collectNearest(page, owned)) {
+      break;
+    }
+    expect(tries, 'went down five times without collecting a part').toBeLessThan(TRIES);
+    await expect.poll(async () => (await state(page)).canRespawn, { timeout: 10_000 }).toBe(true);
+    await page.keyboard.press('h');
+    await expect.poll(async () => (await state(page)).downed).toBe(false);
+  }
+}
+
+/** Flies home and eases off inside the safe zone, so the ship comes to rest there. */
+export async function flyHome(page: Page): Promise<void> {
+  let last = { x: Number.NaN, y: Number.NaN };
+  await expect
+    .poll(
+      async () => {
+        const s = await state(page);
+        const far = Math.hypot(s.ship.x, s.ship.y) > HOME;
+        await aimAt(page, s, 0, 0);
+        await (far ? page.keyboard.down('w') : page.keyboard.up('w'));
+        const still = Math.hypot(s.ship.x - last.x, s.ship.y - last.y) < 1;
+        last = { x: s.ship.x, y: s.ship.y };
+
+        return !far && still;
+      },
+      { message: 'the ship is home, at rest', timeout: 60_000, intervals: [100] },
+    )
+    .toBe(true);
+  await page.keyboard.up('w');
+}
+
+/** Well inside the server's safe zone around the home planet (300). */
+const HOME = 150;
