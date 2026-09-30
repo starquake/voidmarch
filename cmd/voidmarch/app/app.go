@@ -88,6 +88,7 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 		game.WithPoolStart(poolStart),
 		game.WithSaveFleet(fleetSaver(signalCtx, logger, db)),
 		game.WithSaveUnlock(unlockSaver(signalCtx, logger, playerStore)),
+		game.WithSaveLoadout(loadoutSaver(signalCtx, logger, playerStore)),
 	}
 	if cfg.DropChance != nil {
 		hubOptions = append(hubOptions, game.WithDropChance(*cfg.DropChance))
@@ -200,6 +201,23 @@ func unlockSaver(
 		defer cancel()
 		if err := playerStore.SaveUnlock(saveCtx, player, part, tier); err != nil {
 			logger.ErrorContext(saveCtx, "error saving unlock", slog.Any("err", err))
+		}
+	}
+}
+
+// loadoutSaver saves the loadouts players fit at home, like unlockSaver.
+func loadoutSaver(
+	ctx context.Context,
+	logger *slog.Logger,
+	playerStore *players.Store,
+) func(string, sim.Loadout) {
+	ctx = context.WithoutCancel(ctx)
+
+	return func(player string, l sim.Loadout) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := playerStore.SaveLoadout(saveCtx, player, l); err != nil {
+			logger.ErrorContext(saveCtx, "error saving loadout", slog.Any("err", err))
 		}
 	}
 }

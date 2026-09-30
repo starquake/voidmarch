@@ -39,6 +39,9 @@ type Player struct {
 	// Unlocks are the parts saved for them, at their tiers; the defaults need
 	// no saving.
 	Unlocks sim.Unlocks
+	// Loadout is the loadout they last fitted at home (#78); a zero Loadout
+	// for none. Its tiers come from Unlocks.
+	Loadout sim.Loadout
 }
 
 // Store holds the players in the database. It is safe for concurrent use.
@@ -104,7 +107,13 @@ func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error)
 		return Player{}, false, err
 	}
 
-	return Player{ID: row.ID, Name: row.Name, Unlocks: unlocks}, true, nil
+	loadout := sim.Loadout{
+		Weapon: sim.WeaponID(row.Weapon),
+		Engine: sim.EngineID(row.Engine),
+		Shield: sim.ShieldID(row.Shield),
+	}
+
+	return Player{ID: row.ID, Name: row.Name, Unlocks: unlocks, Loadout: loadout}, true, nil
 }
 
 // Touch records that the player connected now.
@@ -115,6 +124,22 @@ func (s *Store) Touch(ctx context.Context, id string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("error touching player %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// SaveLoadout records the parts player fitted; their tiers come from the
+// unlocks.
+func (s *Store) SaveLoadout(ctx context.Context, player string, l sim.Loadout) error {
+	err := s.queries.SaveLoadout(ctx, db.SaveLoadoutParams{
+		Weapon: string(l.Weapon),
+		Engine: string(l.Engine),
+		Shield: string(l.Shield),
+		ID:     player,
+	})
+	if err != nil {
+		return fmt.Errorf("error saving %s's loadout: %w", player, err)
 	}
 
 	return nil

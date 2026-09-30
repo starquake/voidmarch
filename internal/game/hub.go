@@ -127,6 +127,8 @@ type member struct {
 	homeBy uint32
 	// unlocks are the parts the player owns, at their tiers (#77).
 	unlocks sim.Unlocks
+	// loadout is the loadout last saved for them (#78).
+	loadout sim.Loadout
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -152,14 +154,15 @@ type Hub struct {
 	saveFleet  func(ships int)
 	fleetSaves chan int
 	savedFleet int
-	// pickups are the parts on the ground (#77); unlockSaves carries the
-	// parts granted to saveUnlock.
+	// pickups are the parts on the ground (#77). saves carries the unlocks
+	// and loadouts to save, in order, to the saver goroutine.
 	pickups       map[uint32]*pickup
 	nextPickup    uint32
 	dropChance    float64
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
-	unlockSaves   chan unlockSave
+	saveLoadout   func(player string, l sim.Loadout)
+	saves         chan func()
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
 	// volleys are enemy volleys announced but not yet fired.
@@ -180,6 +183,7 @@ type hubOptions struct {
 	dropChance    float64
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
+	saveLoadout   func(player string, l sim.Loadout)
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -237,6 +241,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		dropChance:    o.dropChance,
 		dropChanceSet: o.dropChanceSet,
 		saveUnlock:    o.saveUnlock,
+		saveLoadout:   o.saveLoadout,
 	}
 	for _, setup := range o.setup {
 		setup(h)
@@ -277,7 +282,7 @@ func (h *Hub) Join(ctx context.Context, player players.Player) (*Session, *pb.We
 // Run steps the hub on every tick until ctx is done, then closes every session.
 func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 	saverDone := h.startFleetSaver()
-	unlocksDone := h.startUnlockSaver()
+	savesDone := h.startSaver()
 	defer func() {
 		// Saved before the members go: removing them doesn't dock their ships.
 		h.queueFleetSave()
@@ -287,11 +292,11 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 		if h.fleetSaves != nil {
 			close(h.fleetSaves)
 		}
-		if h.unlockSaves != nil {
-			close(h.unlockSaves)
+		if h.saves != nil {
+			close(h.saves)
 		}
 		<-saverDone
-		<-unlocksDone
+		<-savesDone
 		close(h.done)
 	}()
 	h.queueFleetSave()
@@ -376,9 +381,10 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	var held int
 	unlocks := sim.DefaultUnlocks()
 	maps.Copy(unlocks, player.Unlocks)
+	loadout := player.Loadout
 	if old, ok := h.members[player.ID]; ok {
-		// The hub's copy is the newest: saving it may still be under way.
-		unlocks = old.unlocks
+		// The hub's copies are the newest: saving them may still be under way.
+		unlocks, loadout = old.unlocks, old.loadout
 		companions, wing, attackers = old.companions, old.wing, old.attackers
 		squadron = old.squadron
 		held = old.held
@@ -412,6 +418,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		squadron:   squadron,
 		held:       held,
 		unlocks:    unlocks,
+		loadout:    loadout,
 	}
 	h.logger.Info(
 		"player joined",
@@ -434,6 +441,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Squadron:       squadron,
 		Unlocks:        pbUnlocks(unlocks),
 		Pickups:        h.pickupMessages(),
+		Loadout:        savedLoadout(loadout, unlocks),
 	}
 
 	return joinResult{session: s, welcome: welcome}
@@ -449,6 +457,7 @@ func (h *Hub) handleMessage(in inbound) {
 	switch kind := in.msg.GetKind().(type) {
 	case *pb.ClientMessage_State:
 		m.state = kind.State
+		h.saveFittedLoadout(in.session.Player.ID, m)
 	case *pb.ClientMessage_Hit:
 		// The hub tests its companions' shots itself; a client reports its own.
 		if kind.Hit.GetCompanion() == 0 { //nolint:staticcheck // ignoring the deprecated field is the point.

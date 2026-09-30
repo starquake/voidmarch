@@ -46,7 +46,8 @@ func TestStore_Register(t *testing.T) {
 	if got, want := ok, true; got != want {
 		t.Fatalf("ByToken() ok = %t, want %t", got, want)
 	}
-	if found.ID != player.ID || found.Name != player.Name || len(found.Unlocks) != 0 {
+	if found.ID != player.ID || found.Name != player.Name || len(found.Unlocks) != 0 ||
+		found.Loadout != (sim.Loadout{}) {
 		t.Errorf("ByToken() = %+v, want %+v with no unlocks yet", found, player)
 	}
 }
@@ -238,5 +239,27 @@ func TestStore_Expire(t *testing.T) {
 		if err != nil || ok != want {
 			t.Errorf("ByToken() after Expire = _, %t, %v, want %t, nil", ok, err, want)
 		}
+	}
+}
+
+func TestStore_SaveLoadout(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+	player, token, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	want := sim.Loadout{Weapon: sim.WeaponZapper, Engine: sim.EngineBurst, Shield: sim.ShieldRound}
+	if err = store.SaveLoadout(t.Context(), player.ID, want); err != nil {
+		t.Fatalf("SaveLoadout() error = %v", err)
+	}
+
+	found, _, err := store.ByToken(t.Context(), token)
+	if err != nil {
+		t.Fatalf("ByToken() error = %v", err)
+	}
+	if got := found.Loadout; got != want {
+		t.Errorf("ByToken().Loadout = %+v, want %+v", got, want)
 	}
 }

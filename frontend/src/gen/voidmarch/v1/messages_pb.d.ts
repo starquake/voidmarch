@@ -616,6 +616,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: repeated voidmarch.v1.PickupDropped pickups = 14;
    */
   pickups: PickupDropped[];
+
+  /**
+   * The loadout the player last fitted at home, unset for none (#78).
+   *
+   * @generated from field: voidmarch.v1.Loadout loadout = 15;
+   */
+  loadout?: Loadout | undefined;
 };
 
 /**

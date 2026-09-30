@@ -2,7 +2,10 @@
 INSERT INTO players (id, name, token_hash, created_at) VALUES (?, ?, ?, ?);
 
 -- name: PlayerByTokenHash :one
-SELECT id, name FROM players WHERE token_hash = ?;
+SELECT id, name, weapon, engine, shield FROM players WHERE token_hash = ?;
+
+-- name: SaveLoadout :exec
+UPDATE players SET weapon = ?, engine = ?, shield = ? WHERE id = ?;
 
 -- name: TouchPlayer :exec
 UPDATE players SET last_seen_at = ? WHERE id = ?;

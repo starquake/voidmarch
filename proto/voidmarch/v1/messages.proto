@@ -222,6 +222,8 @@ message Welcome {
   repeated Unlock unlocks = 13;
   // The pickups on the ground right now.
   repeated PickupDropped pickups = 14;
+  // The loadout the player last fitted at home, unset for none (#78).
+  Loadout loadout = 15;
 }
 
 // PlayerSnapshot is one other player at a tick.

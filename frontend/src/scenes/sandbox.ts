@@ -143,8 +143,8 @@ export class SandboxScene extends Phaser.Scene {
   private ships!: Phaser.GameObjects.Container;
   private pickups!: PickupsView;
   private partsLine: Phaser.GameObjects.Text[] = [];
-  /** The own ship's tiers as last drawn, so a new tier redraws it. */
-  private shownTiers = '';
+  /** The own ship's loadout as last drawn, so any change redraws it. */
+  private shownLoadout = '';
   private ship!: ShipView;
   private net: NetPlay | undefined;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
@@ -253,8 +253,7 @@ export class SandboxScene extends Phaser.Scene {
     const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     const net = this.net?.update(events);
-    const { weaponTier, engineTier, shieldTier } = this.sim.ship.loadout;
-    if (`${String(weaponTier)}${String(engineTier)}${String(shieldTier)}` !== this.shownTiers) {
+    if (loadoutKey(this.sim.ship.loadout) !== this.shownLoadout) {
       this.applyLoadout();
     }
     this.drawShip(events);
@@ -722,8 +721,8 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private applyLoadout(): void {
-    const { weapon, engine, weaponTier, engineTier, shieldTier } = this.sim.ship.loadout;
-    this.shownTiers = `${String(weaponTier)}${String(engineTier)}${String(shieldTier)}`;
+    const { weapon, engine } = this.sim.ship.loadout;
+    this.shownLoadout = loadoutKey(this.sim.ship.loadout);
     this.ship.setLoadout(this.sim.ship.loadout);
     this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
     this.audio.setEngine(engine);
@@ -1060,3 +1059,7 @@ export class SandboxScene extends Phaser.Scene {
     publishDebugState(this.debug);
   }
 }
+
+/** A loadout as one string, to see when it changed. */
+const loadoutKey = (l: Loadout): string =>
+  `${l.weapon}:${l.engine}:${l.shield}:${String(l.weaponTier)}${String(l.engineTier)}${String(l.shieldTier)}`;

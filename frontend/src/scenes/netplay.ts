@@ -21,6 +21,7 @@ import {
   fromCompanionMode,
   fromCompanionOneShot,
   fromEnemyKind,
+  fromLoadout,
   fromPart,
   fromShipState,
   fromUnlocks,
@@ -798,10 +799,14 @@ export class NetPlay {
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
     this.clock.observe(welcome.tick, now());
-    // A reconnect keeps the ship where it is; only the first join places it.
+    // A reconnect keeps the ship where it is; only the first join places it,
+    // with the loadout the player last fitted at home (#78).
     if (!this.spawned) {
       this.spawned = true;
       this.options.sim.placeShip(welcome.spawnX, welcome.spawnY);
+      if (welcome.loadout !== undefined) {
+        this.options.sim.setLoadout(withTiers(fromLoadout(welcome.loadout), this.unlocks));
+      }
     }
   }
 
