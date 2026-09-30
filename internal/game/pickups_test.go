@@ -2,8 +2,8 @@ package game_test
 
 import (
 	"slices"
-	"sync"
 	"testing"
+	"time"
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -114,12 +114,11 @@ func pbPartMatches(p *pb.Part, part sim.Part) bool {
 func TestPickups_AKillDropsAPartTheCollectorLacks(t *testing.T) {
 	t.Parallel()
 
-	var mu sync.Mutex
-	var saved []string
+	// The hub saves off its tick goroutine, so a save can land after the
+	// messages the test waits on (#86).
+	saved := make(chan string, 4)
 	save := func(player string, part sim.Part, tier sim.Tier) {
-		mu.Lock()
-		defer mu.Unlock()
-		saved = append(saved, player+" "+string(part)+" "+tier.Name())
+		saved <- player + " " + string(part) + " " + tier.Name()
 	}
 	hub, _ := testHub(t, WithEnemyAt(0, 200), WithDropChance(1), WithSaveUnlock(save))
 	a, welcome := join(t, hub, "a")
@@ -154,10 +153,13 @@ func TestPickups_AKillDropsAPartTheCollectorLacks(t *testing.T) {
 	if got, want := len(again.GetUnlocks()), 4; got != want {
 		t.Errorf("unlocks after collecting = %d parts, want %d", got, want)
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	if got, want := saved, []string{"a " + string(part) + " "}; !slices.Equal(got, want) {
-		t.Errorf("saved = %q, want %q", got, want)
+	select {
+	case got := <-saved:
+		if want := "a " + string(part) + " "; got != want {
+			t.Errorf("saved %q, want %q", got, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the unlock was never saved")
 	}
 }
 
