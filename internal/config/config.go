@@ -36,6 +36,9 @@ const DBPathDefault = "voidmarch.db"
 
 const maxPort = 65535
 
+// float64Bits is the precision DROP_CHANCE parses at.
+const float64Bits = 64
+
 // invalidValue wraps an Err sentinel with the value that failed.
 const invalidValue = "%w: %q"
 
@@ -56,6 +59,10 @@ var (
 	ErrInvalidTrustedProxyIPs = errors.New("invalid TRUSTED_PROXY_IPS")
 	// ErrInvalidDBPath is returned when DB_PATH is in a directory that doesn't exist.
 	ErrInvalidDBPath = errors.New("invalid DB_PATH")
+	// ErrInvalidDropChance is returned when DROP_CHANCE is not a number from 0 to 1.
+	ErrInvalidDropChance = errors.New("invalid DROP_CHANCE")
+	// ErrDropChanceNotAllowed is returned when DROP_CHANCE is set outside development.
+	ErrDropChanceNotAllowed = errors.New("DROP_CHANCE is only allowed when APP_ENV=development")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
 	ErrWebDirNotAllowed = errors.New("WEB_DIR is only allowed when APP_ENV=development")
 )
@@ -80,6 +87,9 @@ type Config struct {
 	// RegisterLimit is how many names one address may register a minute; 0
 	// lifts the limit.
 	RegisterLimit int
+	// DropChance, when set, is every kill's chance to drop a part instead of
+	// its kind's. Development only, for E2E.
+	DropChance *float64
 	// TrustedProxyCIDRs are the reverse proxies whose X-Forwarded-For names
 	// the client's address. Empty, the default, trusts nobody's.
 	TrustedProxyCIDRs []*net.IPNet
@@ -136,6 +146,10 @@ func Parse(getenv func(string) string) (*Config, error) {
 		return nil, err
 	}
 
+	if c.DropChance, err = parseDropChance(getenv("DROP_CHANCE"), c.AppEnvironment); err != nil {
+		return nil, err
+	}
+
 	c.TrustedProxyCIDRs, err = request.ParseTrustedProxyCIDRs(getenv("TRUSTED_PROXY_IPS"))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidTrustedProxyIPs, err)
@@ -162,6 +176,22 @@ func parseCount(val string, invalid error, n *int) error {
 	*n = parsed
 
 	return nil
+}
+
+// parseDropChance is DROP_CHANCE, nil when unset.
+func parseDropChance(val, appEnv string) (*float64, error) {
+	if val == "" {
+		return nil, nil //nolint:nilnil // unset is no override, not an error.
+	}
+	if appEnv != AppEnvironmentDevelopment {
+		return nil, ErrDropChanceNotAllowed
+	}
+	chance, err := strconv.ParseFloat(val, float64Bits)
+	if err != nil || chance < 0 || chance > 1 {
+		return nil, fmt.Errorf(invalidValue, ErrInvalidDropChance, val)
+	}
+
+	return &chance, nil
 }
 
 // parseDBPath is DB_PATH, or the default, in a directory that exists.

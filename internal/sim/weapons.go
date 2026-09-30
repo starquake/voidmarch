@@ -26,7 +26,7 @@ type WeaponStep struct {
 //
 //nolint:revive // fire is the trigger held this tick, not a mode.
 func StepWeapon(ship *Ship, fire bool, dt float64) WeaponStep {
-	stats := WeaponStatsOf(ship.Loadout.Weapon)
+	stats := ship.Loadout.WeaponStats()
 	var step WeaponStep
 
 	ship.Cooldown -= dt

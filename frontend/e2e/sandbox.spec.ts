@@ -96,7 +96,7 @@ test('debug keys cycle parts, rotation and effects', async ({ page }) => {
       };
     })
     .toEqual({
-      loadout: { weapon: 'rockets', engine: 'bigPulse', shield: 'frontAndSide' },
+      loadout: { weapon: 'rockets', engine: 'bigPulse', shield: 'frontAndSide', weaponTier: 0, engineTier: 0, shieldTier: 0 },
       rotationSnap: 16,
       effects: false,
       enemyFireGlow: false,

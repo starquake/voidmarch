@@ -343,6 +343,10 @@ func companionState(c *sim.Companion) *pb.ShipState {
 			Weapon: pbWeapon(s.Loadout.Weapon),
 			Engine: pbEngine(s.Loadout.Engine),
 			Shield: pbShield(s.Loadout.Shield),
+			//nolint:gosec // tiers are 0 to 3.
+			WeaponTier: uint32(s.Loadout.WeaponTier),
+			EngineTier: uint32(s.Loadout.EngineTier), //nolint:gosec // tiers are 0 to 3.
+			ShieldTier: uint32(s.Loadout.ShieldTier), //nolint:gosec // tiers are 0 to 3.
 		},
 		Damage: uint32(s.Damage), //nolint:gosec // hits taken, 0 to 3.
 		Shield: float32(s.Shield),

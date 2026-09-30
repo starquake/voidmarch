@@ -380,3 +380,17 @@ func TestHub_JoinHonorsContext(t *testing.T) {
 		t.Errorf("Join() error = %v, want %v", got, want)
 	}
 }
+
+func TestHub_TwoSlowPlayersAreBothDropped(t *testing.T) {
+	t.Parallel()
+
+	// Neither reads, so each drop tells the other, whose queue is full too.
+	hub, tick := testHub(t)
+	a, _ := join(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	tick(2 * SendQueue)
+
+	if !closed(a) || !closed(b) {
+		t.Error("a slow player was kept")
+	}
+}

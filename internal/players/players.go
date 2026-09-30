@@ -14,6 +14,9 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/starquake/voidmarch/internal/db"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 const (
@@ -29,16 +32,19 @@ const (
 // ErrInvalidName is returned for an empty, too long or oddly spelled name.
 var ErrInvalidName = errors.New("a name is 1 to 16 letters, digits, spaces, - or _")
 
-// Player is someone who has picked a name.
+// Player is someone who has picked a name, with the parts they own.
 type Player struct {
 	ID   string
 	Name string
+	// Unlocks are the parts saved for them, at their tiers; the defaults need
+	// no saving.
+	Unlocks sim.Unlocks
 }
 
 // Store holds the players in the database. It is safe for concurrent use.
 type Store struct {
-	db  *sql.DB
-	now func() time.Time
+	queries *db.Queries
+	now     func() time.Time
 }
 
 // Option configures a Store.
@@ -50,8 +56,8 @@ func WithClock(now func() time.Time) Option {
 }
 
 // NewStore returns a store on db, which store.Open has migrated.
-func NewStore(db *sql.DB, opts ...Option) *Store {
-	s := &Store{db: db, now: time.Now}
+func NewStore(conn *sql.DB, opts ...Option) *Store {
+	s := &Store{queries: db.New(conn), now: time.Now}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -69,10 +75,12 @@ func (s *Store) Register(ctx context.Context, name string) (Player, string, erro
 
 	player := Player{ID: randomHex(idBytes), Name: name}
 	token := randomHex(tokenBytes)
-	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO players (id, name, token_hash, created_at) VALUES (?, ?, ?, ?)",
-		player.ID, player.Name, hashToken(token), s.now().Unix(),
-	)
+	err := s.queries.CreatePlayer(ctx, db.CreatePlayerParams{
+		ID:        player.ID,
+		Name:      player.Name,
+		TokenHash: hashToken(token),
+		CreatedAt: s.now().Unix(),
+	})
 	if err != nil {
 		return Player{}, "", fmt.Errorf("error registering player: %w", err)
 	}
@@ -83,10 +91,7 @@ func (s *Store) Register(ctx context.Context, name string) (Player, string, erro
 // ByToken returns the player a token belongs to, and false for a token nobody
 // has.
 func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error) {
-	var player Player
-	err := s.db.QueryRowContext(ctx,
-		"SELECT id, name FROM players WHERE token_hash = ?", hashToken(token),
-	).Scan(&player.ID, &player.Name)
+	row, err := s.queries.PlayerByTokenHash(ctx, hashToken(token))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Player{}, false, nil
 	}
@@ -94,16 +99,36 @@ func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error)
 		return Player{}, false, fmt.Errorf("error finding player: %w", err)
 	}
 
-	return player, true, nil
+	unlocks, err := s.unlocksOf(ctx, row.ID)
+	if err != nil {
+		return Player{}, false, err
+	}
+
+	return Player{ID: row.ID, Name: row.Name, Unlocks: unlocks}, true, nil
 }
 
 // Touch records that the player connected now.
 func (s *Store) Touch(ctx context.Context, id string) error {
-	_, err := s.db.ExecContext(ctx,
-		"UPDATE players SET last_seen_at = ? WHERE id = ?", s.now().Unix(), id,
-	)
+	err := s.queries.TouchPlayer(ctx, db.TouchPlayerParams{
+		LastSeenAt: sql.NullInt64{Int64: s.now().Unix(), Valid: true},
+		ID:         id,
+	})
 	if err != nil {
 		return fmt.Errorf("error touching player %s: %w", id, err)
+	}
+
+	return nil
+}
+
+// SaveUnlock records that player owns part at tier.
+func (s *Store) SaveUnlock(ctx context.Context, player string, part sim.Part, tier sim.Tier) error {
+	err := s.queries.SaveUnlock(ctx, db.SaveUnlockParams{
+		PlayerID: player,
+		Part:     string(part),
+		Tier:     int64(tier),
+	})
+	if err != nil {
+		return fmt.Errorf("error saving %s's %s: %w", player, part, err)
 	}
 
 	return nil
@@ -112,19 +137,26 @@ func (s *Store) Touch(ctx context.Context, id string) error {
 // Expire deletes the registrations that never connected within
 // UnusedLifetime, and returns how many went.
 func (s *Store) Expire(ctx context.Context) (int, error) {
-	res, err := s.db.ExecContext(ctx,
-		"DELETE FROM players WHERE last_seen_at IS NULL AND created_at <= ?",
-		s.now().Add(-UnusedLifetime).Unix(),
-	)
+	n, err := s.queries.DeleteUnusedPlayers(ctx, s.now().Add(-UnusedLifetime).Unix())
 	if err != nil {
 		return 0, fmt.Errorf("error expiring players: %w", err)
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("error counting expired players: %w", err)
-	}
 
 	return int(n), nil
+}
+
+// unlocksOf are the parts saved for player; empty for none.
+func (s *Store) unlocksOf(ctx context.Context, player string) (sim.Unlocks, error) {
+	rows, err := s.queries.UnlocksOf(ctx, player)
+	if err != nil {
+		return nil, fmt.Errorf("error reading %s's unlocks: %w", player, err)
+	}
+	unlocks := make(sim.Unlocks, len(rows))
+	for _, r := range rows {
+		unlocks[sim.Part(r.Part)] = sim.Tier(r.Tier)
+	}
+
+	return unlocks, nil
 }
 
 // hashToken is what the database keeps of a token, so a copy of the file

@@ -23,7 +23,8 @@ import {
 } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
-import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type WeaponId } from '../sim/loadout.ts';
+import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type Loadout, type WeaponId } from '../sim/loadout.ts';
+import { partLabel, tierCss, withTiers } from '../sim/parts.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
@@ -45,6 +46,7 @@ import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { ShipAudio } from './audio.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
+import { PickupsView } from './pickups.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 
 /** How far each background layer moves relative to the camera. */
@@ -139,6 +141,10 @@ export class SandboxScene extends Phaser.Scene {
   private backgrounds: Background[] = [];
   private backgroundFrame = 0;
   private ships!: Phaser.GameObjects.Container;
+  private pickups!: PickupsView;
+  private partsLine: Phaser.GameObjects.Text[] = [];
+  /** The own ship's tiers as last drawn, so a new tier redraws it. */
+  private shownTiers = '';
   private ship!: ShipView;
   private net: NetPlay | undefined;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
@@ -179,6 +185,9 @@ export class SandboxScene extends Phaser.Scene {
     this.world = this.add.layer();
     this.createBackgrounds();
     this.createScenery();
+    const pickupLayer = this.add.layer();
+    this.world.add(pickupLayer);
+    this.pickups = new PickupsView(this, pickupLayer);
     this.ships = this.add.container(0, 0);
     this.world.add(this.ships);
     this.ship = new ShipView(this, this.ships, this.sim.ship.x, this.sim.ship.y);
@@ -207,6 +216,8 @@ export class SandboxScene extends Phaser.Scene {
       projectiles: 0,
       ownShards: 0,
       shakes: 0,
+      unlocks: {},
+      pickups: [],
       shotsFired: 0,
       zoom: 1,
       fps: 0,
@@ -242,6 +253,10 @@ export class SandboxScene extends Phaser.Scene {
     const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     const net = this.net?.update(events);
+    const { weaponTier, engineTier, shieldTier } = this.sim.ship.loadout;
+    if (`${String(weaponTier)}${String(engineTier)}${String(shieldTier)}` !== this.shownTiers) {
+      this.applyLoadout();
+    }
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -297,6 +312,7 @@ export class SandboxScene extends Phaser.Scene {
         window.location.reload();
       },
       squadronScreen: new SquadronScreen(),
+      pickups: this.pickups,
     });
     this.net.start();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.net?.stop());
@@ -387,6 +403,13 @@ export class SandboxScene extends Phaser.Scene {
       .text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' })
       .setShadow(1, 1, '#000000', 0);
     main.ignore(this.hud);
+    // The parts line (#77): "parts", then each fitted part in its tier's color.
+    this.partsLine = Array.from({ length: 4 }, () => {
+      const text = this.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' }).setShadow(1, 1, '#000000', 0);
+      main.ignore(text);
+
+      return text;
+    });
     this.downPanel = this.add
       .text(0, 0, '', {
         fontFamily: 'monospace',
@@ -452,17 +475,17 @@ export class SandboxScene extends Phaser.Scene {
     const ship = this.sim.ship;
     switch (code) {
       case 'Digit1':
-        this.sim.setLoadout({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
+        this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case 'Digit2':
-        this.sim.setLoadout({ ...ship.loadout, engine: nextInCycle(ENGINES, ship.loadout.engine) });
+        this.fit({ ...ship.loadout, engine: nextInCycle(ENGINES, ship.loadout.engine) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case 'Digit3':
-        this.sim.setLoadout({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
+        this.fit({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
@@ -693,8 +716,14 @@ export class SandboxScene extends Phaser.Scene {
     return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
   }
 
+  /** Fits a loadout, each part at the tier this player owns it at. */
+  private fit(loadout: Loadout): void {
+    this.sim.setLoadout(withTiers(loadout, this.net?.unlocks ?? new Map()));
+  }
+
   private applyLoadout(): void {
-    const { weapon, engine } = this.sim.ship.loadout;
+    const { weapon, engine, weaponTier, engineTier, shieldTier } = this.sim.ship.loadout;
+    this.shownTiers = `${String(weaponTier)}${String(engineTier)}${String(shieldTier)}`;
     this.ship.setLoadout(this.sim.ship.loadout);
     this.weaponFrames = new WeaponAnimator(weaponTiming(weapon));
     this.audio.setEngine(engine);
@@ -906,6 +935,26 @@ export class SandboxScene extends Phaser.Scene {
       this.netStatus(),
       this.squadronStatus(),
     ]);
+    this.updatePartsLine();
+  }
+
+  /** The fitted parts under the HUD, each named in its tier's color (#77, decision 12). */
+  private updatePartsLine(): void {
+    const l = this.sim.ship.loadout;
+    const words: [string, string][] = [
+      ['parts', tierCss(0)],
+      [partLabel(l.weapon, l.weaponTier), tierCss(l.weaponTier)],
+      [partLabel(l.engine, l.engineTier), tierCss(l.engineTier)],
+      [partLabel(l.shield, l.shieldTier), tierCss(l.shieldTier)],
+    ];
+    let x = this.hud.x;
+    const y = this.hud.y + this.hud.height;
+    const gap = Number.parseFloat(String(this.hud.style.fontSize));
+    this.partsLine.forEach((text, i) => {
+      const [word, color] = words[i] ?? ['', tierCss(0)];
+      text.setFontSize(this.hud.style.fontSize).setColor(color).setText(word).setPosition(x, y);
+      x += text.width + gap;
+    });
   }
 
   /** The squadron, its players and companions and orders, then the latest notice on its own line. */
@@ -970,6 +1019,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.effects = this.effects;
     this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
     this.debug.projectiles = projectiles.activeCount;
+    this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
+    this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
     this.debug.ownShards = projectiles.items.filter((p) => p.active && p.faction === 'own' && p.kind === 'shard').length;
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;

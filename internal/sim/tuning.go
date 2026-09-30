@@ -359,3 +359,23 @@ func FormationSlots() []Offset {
 		{Forward: -128},
 	}
 }
+
+// Progression (#6, #77).
+const (
+	// TierBoost is how much more of its own strength each tier gives a part:
+	// fire rate, acceleration or recharge, so Hyper is about 1.45 times plain.
+	TierBoost = 0.15
+	// ScoutDropChance and FighterDropChance are the chances a kill drops a
+	// part; catch-up doubles them.
+	ScoutDropChance   = 0.1
+	FighterDropChance = 0.3
+	CatchUpDrops      = 2
+	// DropReach is how close to a kill a player counts as nearby: the part
+	// favors what they lack, and a player behind their squadron makes drops
+	// likelier.
+	DropReach = 800
+	// PickupLifetime is how long a pickup waits to be collected, in seconds.
+	PickupLifetime = 30
+	// PickupReach is how close a ship's center comes to collect a pickup.
+	PickupReach = 24
+)

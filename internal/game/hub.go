@@ -125,6 +125,8 @@ type member struct {
 	gone   bool
 	last   sim.Mover
 	homeBy uint32
+	// unlocks are the parts the player owns, at their tiers (#77).
+	unlocks sim.Unlocks
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -150,6 +152,14 @@ type Hub struct {
 	saveFleet  func(ships int)
 	fleetSaves chan int
 	savedFleet int
+	// pickups are the parts on the ground (#77); unlockSaves carries the
+	// parts granted to saveUnlock.
+	pickups       map[uint32]*pickup
+	nextPickup    uint32
+	dropChance    float64
+	dropChanceSet bool
+	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
+	unlockSaves   chan unlockSave
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
 	// volleys are enemy volleys announced but not yet fired.
@@ -166,6 +176,10 @@ type hubOptions struct {
 	seeded    bool
 	poolStart int
 	saveFleet func(ships int)
+	// dropChance replaces every kind's chance when dropChanceSet.
+	dropChance    float64
+	dropChanceSet bool
+	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -218,6 +232,11 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 
 		saveFleet:  o.saveFleet,
 		savedFleet: -1,
+
+		pickups:       make(map[uint32]*pickup),
+		dropChance:    o.dropChance,
+		dropChanceSet: o.dropChanceSet,
+		saveUnlock:    o.saveUnlock,
 	}
 	for _, setup := range o.setup {
 		setup(h)
@@ -258,6 +277,7 @@ func (h *Hub) Join(ctx context.Context, player players.Player) (*Session, *pb.We
 // Run steps the hub on every tick until ctx is done, then closes every session.
 func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 	saverDone := h.startFleetSaver()
+	unlocksDone := h.startUnlockSaver()
 	defer func() {
 		// Saved before the members go: removing them doesn't dock their ships.
 		h.queueFleetSave()
@@ -267,7 +287,11 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 		if h.fleetSaves != nil {
 			close(h.fleetSaves)
 		}
+		if h.unlockSaves != nil {
+			close(h.unlockSaves)
+		}
 		<-saverDone
+		<-unlocksDone
 		close(h.done)
 	}()
 	h.queueFleetSave()
@@ -286,6 +310,7 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 			h.handleMessage(in)
 		case <-ticks:
 			h.step()
+			h.expirePickups()
 			h.queueFleetSave()
 		}
 	}
@@ -349,7 +374,11 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	attackers := make(map[uint32]bool)
 	var squadron string
 	var held int
+	unlocks := sim.DefaultUnlocks()
+	maps.Copy(unlocks, player.Unlocks)
 	if old, ok := h.members[player.ID]; ok {
+		// The hub's copy is the newest: saving it may still be under way.
+		unlocks = old.unlocks
 		companions, wing, attackers = old.companions, old.wing, old.attackers
 		squadron = old.squadron
 		held = old.held
@@ -382,6 +411,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		attackers:  attackers,
 		squadron:   squadron,
 		held:       held,
+		unlocks:    unlocks,
 	}
 	h.logger.Info(
 		"player joined",
@@ -402,6 +432,8 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Companions:     slices.Sorted(maps.Keys(companions)),
 		Squadrons:      h.squadronsMessage(),
 		Squadron:       squadron,
+		Unlocks:        pbUnlocks(unlocks),
+		Pickups:        h.pickupMessages(),
 	}
 
 	return joinResult{session: s, welcome: welcome}
@@ -436,6 +468,8 @@ func (h *Hub) handleMessage(in inbound) {
 		h.chooseSquadron(in.session.Player.ID, m, kind.ChooseSquadron.GetName())
 	case *pb.ClientMessage_SquadronOrder:
 		h.squadronOrder(in.session.Player.ID, m, kind.SquadronOrder)
+	case *pb.ClientMessage_Collect:
+		h.collect(in.session.Player.ID, m, kind.Collect.GetId())
 	case *pb.ClientMessage_Shot:
 		if kind.Shot.GetCompanion() != 0 {
 			return
@@ -525,13 +559,15 @@ func (h *Hub) drop(id, reason string) {
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
 	h.hangar += m.held
 	m.held = 0
-	h.broadcast(left(id), id)
 	h.leaveSquadron(id, m)
+	// Gone before anyone is told: telling a slow player drops them too,
+	// and they tell this one (pinned by TestHub_TwoSlowPlayersAreBothDropped).
 	if len(m.companions) == 0 {
 		h.remove(id)
 	} else {
 		h.sendHome(m)
 	}
+	h.broadcast(left(id), id)
 	h.broadcastSquadrons()
 }
 

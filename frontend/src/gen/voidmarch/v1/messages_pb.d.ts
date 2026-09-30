@@ -15,7 +15,8 @@ import type { Message } from "@bufbuild/protobuf";
 export declare const file_voidmarch_v1_messages: GenFile;
 
 /**
- * Loadout is the part fitted in each slot.
+ * Loadout is the part fitted in each slot, each at its tier: 0 plain, then
+ * Super, Mega and Hyper (#77).
  *
  * @generated from message voidmarch.v1.Loadout
  */
@@ -34,6 +35,21 @@ export declare type Loadout = Message<"voidmarch.v1.Loadout"> & {
    * @generated from field: voidmarch.v1.Shield shield = 3;
    */
   shield: Shield;
+
+  /**
+   * @generated from field: uint32 weapon_tier = 4;
+   */
+  weaponTier: number;
+
+  /**
+   * @generated from field: uint32 engine_tier = 5;
+   */
+  engineTier: number;
+
+  /**
+   * @generated from field: uint32 shield_tier = 6;
+   */
+  shieldTier: number;
 };
 
 /**
@@ -41,6 +57,65 @@ export declare type Loadout = Message<"voidmarch.v1.Loadout"> & {
  * Use `create(LoadoutSchema)` to create a new message.
  */
 export declare const LoadoutSchema: GenMessage<Loadout>;
+
+/**
+ * Part is one weapon, engine or shield (#77).
+ *
+ * @generated from message voidmarch.v1.Part
+ */
+export declare type Part = Message<"voidmarch.v1.Part"> & {
+  /**
+   * @generated from oneof voidmarch.v1.Part.kind
+   */
+  kind: {
+    /**
+     * @generated from field: voidmarch.v1.Weapon weapon = 1;
+     */
+    value: Weapon;
+    case: "weapon";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Engine engine = 2;
+     */
+    value: Engine;
+    case: "engine";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Shield shield = 3;
+     */
+    value: Shield;
+    case: "shield";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message voidmarch.v1.Part.
+ * Use `create(PartSchema)` to create a new message.
+ */
+export declare const PartSchema: GenMessage<Part>;
+
+/**
+ * Unlock is a part a player owns, at its tier.
+ *
+ * @generated from message voidmarch.v1.Unlock
+ */
+export declare type Unlock = Message<"voidmarch.v1.Unlock"> & {
+  /**
+   * @generated from field: voidmarch.v1.Part part = 1;
+   */
+  part?: Part | undefined;
+
+  /**
+   * @generated from field: uint32 tier = 2;
+   */
+  tier: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.Unlock.
+ * Use `create(UnlockSchema)` to create a new message.
+ */
+export declare const UnlockSchema: GenMessage<Unlock>;
 
 /**
  * ShipState is a ship as its own client simulates it; the server trusts it.
@@ -420,6 +495,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: SquadronOrder;
     case: "squadronOrder";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Collect collect = 10;
+     */
+    value: Collect;
+    case: "collect";
   } | { case: undefined; value?: undefined };
 };
 
@@ -428,6 +509,25 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export declare const ClientMessageSchema: GenMessage<ClientMessage>;
+
+/**
+ * Collect says this client's ship flew over a pickup; the server decides who
+ * gets what (#77).
+ *
+ * @generated from message voidmarch.v1.Collect
+ */
+export declare type Collect = Message<"voidmarch.v1.Collect"> & {
+  /**
+   * @generated from field: uint32 id = 1;
+   */
+  id: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.Collect.
+ * Use `create(CollectSchema)` to create a new message.
+ */
+export declare const CollectSchema: GenMessage<Collect>;
 
 /**
  * Welcome answers Hello: who you are and where to appear.
@@ -502,6 +602,20 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: string squadron = 12;
    */
   squadron: string;
+
+  /**
+   * The parts the player owns, at their tiers (#77).
+   *
+   * @generated from field: repeated voidmarch.v1.Unlock unlocks = 13;
+   */
+  unlocks: Unlock[];
+
+  /**
+   * The pickups on the ground right now.
+   *
+   * @generated from field: repeated voidmarch.v1.PickupDropped pickups = 14;
+   */
+  pickups: PickupDropped[];
 };
 
 /**
@@ -1180,6 +1294,18 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: SquadronOrdered;
     case: "squadronOrdered";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.PickupDropped pickup_dropped = 16;
+     */
+    value: PickupDropped;
+    case: "pickupDropped";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.PickupTaken pickup_taken = 17;
+     */
+    value: PickupTaken;
+    case: "pickupTaken";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1188,6 +1314,106 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
  * Use `create(ServerMessageSchema)` to create a new message.
  */
 export declare const ServerMessageSchema: GenMessage<ServerMessage>;
+
+/**
+ * PickupDropped is a part a kill left behind, collectable until gone_tick
+ * (#77).
+ *
+ * @generated from message voidmarch.v1.PickupDropped
+ */
+export declare type PickupDropped = Message<"voidmarch.v1.PickupDropped"> & {
+  /**
+   * @generated from field: uint32 id = 1;
+   */
+  id: number;
+
+  /**
+   * @generated from field: voidmarch.v1.Part part = 2;
+   */
+  part?: Part | undefined;
+
+  /**
+   * @generated from field: float x = 3;
+   */
+  x: number;
+
+  /**
+   * @generated from field: float y = 4;
+   */
+  y: number;
+
+  /**
+   * The tick it dropped at and the tick it's gone at.
+   *
+   * @generated from field: uint32 tick = 5;
+   */
+  tick: number;
+
+  /**
+   * @generated from field: uint32 gone_tick = 6;
+   */
+  goneTick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.PickupDropped.
+ * Use `create(PickupDroppedSchema)` to create a new message.
+ */
+export declare const PickupDroppedSchema: GenMessage<PickupDropped>;
+
+/**
+ * PickupTaken is a pickup collected: gone from the world, and a part gained
+ * by the collector's squadmates.
+ *
+ * @generated from message voidmarch.v1.PickupTaken
+ */
+export declare type PickupTaken = Message<"voidmarch.v1.PickupTaken"> & {
+  /**
+   * @generated from field: uint32 id = 1;
+   */
+  id: number;
+
+  /**
+   * Who flew over it.
+   *
+   * @generated from field: string player_id = 2;
+   */
+  playerId: string;
+
+  /**
+   * @generated from field: repeated voidmarch.v1.PickupGain gains = 3;
+   */
+  gains: PickupGain[];
+};
+
+/**
+ * Describes the message voidmarch.v1.PickupTaken.
+ * Use `create(PickupTakenSchema)` to create a new message.
+ */
+export declare const PickupTakenSchema: GenMessage<PickupTaken>;
+
+/**
+ * PickupGain is one player's new tier of a part (0 when newly unlocked).
+ *
+ * @generated from message voidmarch.v1.PickupGain
+ */
+export declare type PickupGain = Message<"voidmarch.v1.PickupGain"> & {
+  /**
+   * @generated from field: string player_id = 1;
+   */
+  playerId: string;
+
+  /**
+   * @generated from field: voidmarch.v1.Unlock unlock = 2;
+   */
+  unlock?: Unlock | undefined;
+};
+
+/**
+ * Describes the message voidmarch.v1.PickupGain.
+ * Use `create(PickupGainSchema)` to create a new message.
+ */
+export declare const PickupGainSchema: GenMessage<PickupGain>;
 
 /**
  * Weapons from the Void Main Ship pack.

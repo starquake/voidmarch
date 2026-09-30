@@ -69,7 +69,7 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 	t.Parallel()
 
 	b := New()
-	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), -1, -1)
+	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), -1, -1, 0, 0, 0)
 	b.Advance(
 		sim.TickSeconds,
 		sim.Command{AimY: -1000, Fire: true},
@@ -97,12 +97,17 @@ func TestShipSetters(t *testing.T) {
 	if b.State[HeaderShipX] != 50 || b.State[HeaderPreviousY] != 60 {
 		t.Errorf("placed at (%v, %v), want (50, 60)", b.State[HeaderShipX], b.State[HeaderShipY])
 	}
-	b.SetLoadout(1, 2, 3)
+	b.SetLoadout(1, 2, 3, 0, 0, 0)
 	if b.State[HeaderShipWeapon] != 1 || b.State[HeaderShipEngine] != 2 ||
 		b.State[HeaderShipShield] != 3 {
 		t.Errorf("loadout = %v, want 1 2 3", b.State[HeaderShipWeapon:HeaderShipShield+1])
 	}
-	b.SetLoadout(9, -1, 0)
+	b.SetLoadout(-1, -1, -1, 3, 9, -2)
+	if got := b.State[HeaderShipWeaponTier : HeaderShipShieldTier+1]; got[0] != 3 || got[1] != 3 ||
+		got[2] != 0 {
+		t.Errorf("tiers = %v, want 3 3 0: each held to plain through Hyper", got)
+	}
+	b.SetLoadout(9, -1, 0, 0, 0, 0)
 	if b.State[HeaderShipWeapon] != 1 || b.State[HeaderShipEngine] != 2 ||
 		b.State[HeaderShipShield] != 0 {
 		t.Errorf(
@@ -205,7 +210,7 @@ func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
 			b.State[HeaderShipNextMuzzle],
 		)
 	}
-	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponRockets), -1, -1)
+	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponRockets), -1, -1, 0, 0, 0)
 	if b.State[HeaderShipCooldown] != 0 || b.State[HeaderShipNextMuzzle] != 0 {
 		t.Errorf(
 			"new weapon: cooldown %v, next muzzle %v, want ready",
@@ -221,11 +226,11 @@ func TestSetLoadout_ASwapNeverAddsCharges(t *testing.T) {
 	b := New()
 	shield := func(id sim.ShieldID) int { return slices.Index(sim.Shields(), id) }
 	round := sim.ShieldStatsOf(sim.ShieldRound).Strength
-	b.SetLoadout(-1, -1, shield(sim.ShieldRound))
+	b.SetLoadout(-1, -1, shield(sim.ShieldRound), 0, 0, 0)
 	if got := b.State[HeaderShipShieldCharge]; got != round {
 		t.Errorf("round shield charges = %v, want its strength %v", got, round)
 	}
-	b.SetLoadout(-1, -1, shield(sim.ShieldFront))
+	b.SetLoadout(-1, -1, shield(sim.ShieldFront), 0, 0, 0)
 	if got := b.State[HeaderShipShieldCharge]; got != round {
 		t.Errorf("front shield after round = %v charges, want the %v left", got, round)
 	}

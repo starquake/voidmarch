@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { keys } from '../sprites.ts';
 import { damageState, type Loadout } from '../sim/loadout.ts';
+import { tierColor } from '../sim/parts.ts';
 
 /** Sprites face up; Phaser's rotation 0 faces right. */
 export const SPRITE_FACING = Math.PI / 2;
@@ -12,8 +13,9 @@ export type ShipParent = Phaser.GameObjects.Layer | Phaser.GameObjects.Container
 /** How long a hit flashes the hull or shield white. */
 const HIT_FLASH_MS = 70;
 
-/** Where a name sits below the ship's center, in art pixels. */
+/** Where a name sits below the ship's center, in art pixels, and a line under it. */
 const LABEL_OFFSET = 26;
+const LABEL_LINE = 9;
 /** Where DOWN sits below a downed ship: under its name when it has one. */
 const DOWN_OFFSET = 18;
 const DOWN_UNDER_NAME = 36;
@@ -40,6 +42,8 @@ export class ShipView {
   private readonly hull: Phaser.GameObjects.Image;
   private readonly shield: Phaser.GameObjects.Sprite;
   private label: Phaser.GameObjects.Text | undefined;
+  /** The weapon under the name, in its tier's color (#77). */
+  private partLabel: Phaser.GameObjects.Text | undefined;
   private downLabel: Phaser.GameObjects.Text | undefined;
   private reviveBar: Phaser.GameObjects.Graphics | undefined;
   /** The revive progress the bar shows, from 0 to 1. */
@@ -79,6 +83,29 @@ export class ShipView {
     layer.add(this.label);
   }
 
+  /** Shows a second line under the name, such as the weapon in its tier's color (#77, decision 11). */
+  setLabelPart(text: string, color: string, resolution: number): void {
+    if (this.label === undefined || (this.partLabel?.text === text && this.partLabel.style.color === color)) {
+      return;
+    }
+    this.partLabel?.destroy();
+    this.partLabel = this.scene.add
+      .text(this.root.x, this.root.y + LABEL_OFFSET + LABEL_LINE, text, {
+        fontFamily: 'monospace',
+        fontSize: '8px',
+        color,
+        resolution,
+      })
+      .setOrigin(0.5, 0)
+      .setShadow(1, 1, '#000000', 0);
+    this.layer.add(this.partLabel);
+  }
+
+  /** The weapon line under the name, for the E2E tests. */
+  get labelPart(): string | undefined {
+    return this.partLabel?.text;
+  }
+
   /** Tints every part, for a companion in its owner's color (0xRRGGBB). */
   setTint(color: number): void {
     this.tint = color;
@@ -101,6 +128,23 @@ export class ShipView {
       this.shield.play(keys.shield(loadout.shield));
     }
     this.loadout = { ...loadout };
+    for (const part of [this.weapon, this.engine, this.shield]) {
+      this.restoreTint(part);
+    }
+  }
+
+  /** A part's own tint: the owner's color for a companion, else its tier's (#77, decision 12). */
+  private restoreTint(part: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
+    part.setTintMode(Phaser.TintModes.MULTIPLY);
+    const l = this.loadout;
+    const tier =
+      l === undefined ? 0 : part === this.weapon ? l.weaponTier : part === this.engine ? l.engineTier : part === this.shield ? l.shieldTier : 0;
+    const color = this.tint ?? tierColor(tier);
+    if (color === undefined) {
+      part.clearTint();
+    } else {
+      part.setTint(color);
+    }
   }
 
   /** Draws the hull for the hits taken; a new hit flashes it. */
@@ -140,7 +184,9 @@ export class ShipView {
   place(x: number, y: number, angle: number): void {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
     this.label?.setPosition(x, y + LABEL_OFFSET);
-    const down = y + (this.label === undefined ? DOWN_OFFSET : DOWN_UNDER_NAME);
+    this.partLabel?.setPosition(x, y + LABEL_OFFSET + LABEL_LINE);
+    const down =
+      y + (this.label === undefined ? DOWN_OFFSET : DOWN_UNDER_NAME + (this.partLabel === undefined ? 0 : LABEL_LINE));
     this.downLabel?.setPosition(x, down);
     this.reviveBar?.setPosition(x - REVIVE_BAR_WIDTH / 2, down + REVIVE_BAR_BELOW);
   }
@@ -207,12 +253,7 @@ export class ShipView {
   private flash(part: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite): void {
     part.setVisible(true).setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
     this.scene.time.delayedCall(HIT_FLASH_MS, () => {
-      part.setTintMode(Phaser.TintModes.MULTIPLY);
-      if (this.tint === undefined) {
-        part.clearTint();
-      } else {
-        part.setTint(this.tint);
-      }
+      this.restoreTint(part);
       if (part === this.shield) {
         part.setVisible((this.charges ?? 0) > 0);
       }
@@ -222,6 +263,7 @@ export class ShipView {
   destroy(): void {
     this.root.destroy();
     this.label?.destroy();
+    this.partLabel?.destroy();
     this.downLabel?.destroy();
     this.reviveBar?.destroy();
   }

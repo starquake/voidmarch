@@ -1,4 +1,5 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
+import { PARTS, type PartId } from './sim/parts.ts';
 import type { EnemyBulletId, EnemyKind } from './sim/enemies.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
@@ -145,7 +146,15 @@ export const keys = {
   enemyWeapons: (kind: EnemyKind): string => `klaed-${kind}-weapons`,
   enemyDestruction: (kind: EnemyKind): string => `klaed-${kind}-destruction`,
   enemyBullet: (id: EnemyBulletId): string => (id === 'klaedBullet' ? 'klaed-bullet' : 'klaed-big-bullet'),
+  pickup: (part: PartId): string => `pickup-${part}`,
 };
+
+/** A pickup's sheet (#77): its slot, then its part in kebab case, as in assets/pickups. */
+const pickupFile = (part: PartId): string =>
+  `${(WEAPONS as readonly string[]).includes(part) ? 'weapon' : (ENGINES as readonly string[]).includes(part) ? 'engine' : 'shield'}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+
+/** The Pickups Pack's strips: 15 frames of 32 px, a wipe that blinks the icon out and back. */
+const PICKUP_FRAMES = 15;
 
 /** Every sheet the client loads, with its frame layout from the Void packs. */
 export function sheets(): Sheet[] {
@@ -184,6 +193,7 @@ export function sheets(): Sheet[] {
       loop: true,
     })),
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
+    ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
     ...(['scout', 'fighter'] as const).flatMap((kind) => {
       const f = KLAED_FILES[kind];

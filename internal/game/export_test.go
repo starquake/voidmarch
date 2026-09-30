@@ -31,3 +31,6 @@ func WithEnemyAt(x, y float64) HubOption {
 		o.setup = append(o.setup, func(h *Hub) { h.addEnemy(x, y) })
 	}
 }
+
+// SendQueue exposes sendQueue for tests.
+const SendQueue = sendQueue

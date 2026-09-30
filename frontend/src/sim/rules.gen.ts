@@ -22,7 +22,7 @@ export type EnemyBulletId = Exclude<ProjectileKind, WeaponId>;
 export type Faction = (typeof FACTIONS)[number];
 
 /** The parts every new player starts with. */
-export const DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front" } as const;
+export const DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", weaponTier: 0, engineTier: 0, shieldTier: 0 } as const;
 
 export const TICK_RATE = 60;
 export const TICK_SECONDS = 1 / TICK_RATE;
@@ -38,6 +38,11 @@ export const BRAIN_SPACING = 40;
 export const RAM_DAMAGE = 2;
 export const RAM_SPEED = 120;
 export const SHARD_DAMAGE = 2;
+/** Tier names from plain to Hyper; the index is the tier. */
+export const TIER_NAMES = ['', 'Super', 'Mega', 'Hyper'] as const;
+export const MAX_TIER = 3;
+export const PICKUP_LIFETIME = 30;
+export const PICKUP_REACH = 24;
 
 export const SHIELD_STATS = {
   front: { coverage: 1.5707963267948966, strength: 3, recharge: 5 },
@@ -124,13 +129,16 @@ export const LAYOUT = {
   shipSinceHit: 22,
   shipDownFor: 23,
   shipRevive: 24,
+  shipWeaponTier: 25,
+  shipEngineTier: 26,
+  shipShieldTier: 27,
   previousX: 16,
   previousY: 17,
   shots: 18,
   charges: 19,
   expired: 20,
   projectileCapacity: 256,
-  poolOffset: 25,
+  poolOffset: 28,
   projectileSize: 9,
   projectileActive: 0,
   projectileKind: 1,
@@ -141,7 +149,7 @@ export const LAYOUT = {
   projectileAge: 6,
   projectileShotId: 7,
   projectileShard: 8,
-  shotsOffset: 2329,
+  shotsOffset: 2332,
   shotSize: 6,
   shotId: 0,
   shotWeapon: 1,
@@ -149,8 +157,8 @@ export const LAYOUT = {
   shotX: 3,
   shotY: 4,
   shotAngle: 5,
-  chargesOffset: 2389,
-  expiredOffset: 2394,
+  chargesOffset: 2392,
+  expiredOffset: 2397,
   expiredSize: 6,
   expiredKind: 0,
   expiredFaction: 1,
@@ -158,7 +166,7 @@ export const LAYOUT = {
   expiredY: 3,
   expiredShotId: 4,
   expiredSlot: 5,
-  stateSize: 3930,
+  stateSize: 3933,
   maxTargets: 128,
   targetSize: 4,
   shipTargetSize: 5,

@@ -41,11 +41,30 @@ enum EnemyKind {
   ENEMY_KIND_FIGHTER = 2;
 }
 
-// Loadout is the part fitted in each slot.
+// Loadout is the part fitted in each slot, each at its tier: 0 plain, then
+// Super, Mega and Hyper (#77).
 message Loadout {
   Weapon weapon = 1;
   Engine engine = 2;
   Shield shield = 3;
+  uint32 weapon_tier = 4;
+  uint32 engine_tier = 5;
+  uint32 shield_tier = 6;
+}
+
+// Part is one weapon, engine or shield (#77).
+message Part {
+  oneof kind {
+    Weapon weapon = 1;
+    Engine engine = 2;
+    Shield shield = 3;
+  }
+}
+
+// Unlock is a part a player owns, at its tier.
+message Unlock {
+  Part part = 1;
+  uint32 tier = 2;
 }
 
 // ShipState is a ship as its own client simulates it; the server trusts it.
@@ -166,7 +185,14 @@ message ClientMessage {
     Dismiss dismiss = 7;
     ChooseSquadron choose_squadron = 8;
     SquadronOrder squadron_order = 9;
+    Collect collect = 10;
   }
+}
+
+// Collect says this client's ship flew over a pickup; the server decides who
+// gets what (#77).
+message Collect {
+  uint32 id = 1;
 }
 
 // Welcome answers Hello: who you are and where to appear.
@@ -192,6 +218,10 @@ message Welcome {
   Squadrons squadrons = 11;
   // The player's squadron, kept on a reconnect; empty until they choose one.
   string squadron = 12;
+  // The parts the player owns, at their tiers (#77).
+  repeated Unlock unlocks = 13;
+  // The pickups on the ground right now.
+  repeated PickupDropped pickups = 14;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -363,5 +393,34 @@ message ServerMessage {
     SquadronJoined squadron_joined = 13;
     SquadronRefused squadron_refused = 14;
     SquadronOrdered squadron_ordered = 15;
+    PickupDropped pickup_dropped = 16;
+    PickupTaken pickup_taken = 17;
   }
+}
+
+// PickupDropped is a part a kill left behind, collectable until gone_tick
+// (#77).
+message PickupDropped {
+  uint32 id = 1;
+  Part part = 2;
+  float x = 3;
+  float y = 4;
+  // The tick it dropped at and the tick it's gone at.
+  uint32 tick = 5;
+  uint32 gone_tick = 6;
+}
+
+// PickupTaken is a pickup collected: gone from the world, and a part gained
+// by the collector's squadmates.
+message PickupTaken {
+  uint32 id = 1;
+  // Who flew over it.
+  string player_id = 2;
+  repeated PickupGain gains = 3;
+}
+
+// PickupGain is one player's new tier of a part (0 when newly unlocked).
+message PickupGain {
+  string player_id = 1;
+  Unlock unlock = 2;
 }

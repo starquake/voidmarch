@@ -24,11 +24,14 @@ import {
 import { toCommand, type ControlMode, type InputSnapshot } from './sim/input.ts';
 import type { Vec } from './sim/math.ts';
 
-/** One part per slot; see docs/design.md, "Loadout". */
+/** One part per slot, each at its tier (0 plain to MAX_TIER); see docs/design.md, "Loadout". */
 export interface Loadout {
   weapon: WeaponId;
   engine: EngineId;
   shield: ShieldId;
+  weaponTier: number;
+  engineTier: number;
+  shieldTier: number;
 }
 
 /** The player's ship, as the sim last left it. Change it through the Sandbox. */
@@ -171,7 +174,7 @@ interface Exports {
   shipScan(stepSeconds: number, n: number): number;
   setControlMode(screen: number): void;
   placeShip(x: number, y: number): void;
-  setLoadout(weapon: number, engine: number, shield: number): void;
+  setLoadout(weapon: number, engine: number, shield: number, weaponTier: number, engineTier: number, shieldTier: number): void;
   setDamage(damage: number): void;
   setRotationSnap(steps: number): void;
   spawn(kind: number, faction: number, x: number, y: number, angle: number, age: number, shotId: number): number;
@@ -229,7 +232,7 @@ export class Sandbox {
       vy: 0,
       angle: 0,
       thrusting: false,
-      loadout: { weapon: WEAPONS[0], engine: ENGINES[0], shield: SHIELDS[0] },
+      loadout: { weapon: WEAPONS[0], engine: ENGINES[0], shield: SHIELDS[0], weaponTier: 0, engineTier: 0, shieldTier: 0 },
       damage: 0,
       shield: 0,
       sinceHit: 0,
@@ -309,6 +312,9 @@ export class Sandbox {
       WEAPONS.indexOf(loadout.weapon),
       ENGINES.indexOf(loadout.engine),
       SHIELDS.indexOf(loadout.shield),
+      loadout.weaponTier,
+      loadout.engineTier,
+      loadout.shieldTier,
     );
     this.read();
   }
@@ -530,6 +536,9 @@ export class Sandbox {
     ship.loadout.weapon = at(WEAPONS, get(LAYOUT.shipWeapon), WEAPONS[0]);
     ship.loadout.engine = at(ENGINES, get(LAYOUT.shipEngine), ENGINES[0]);
     ship.loadout.shield = at(SHIELDS, get(LAYOUT.shipShield), SHIELDS[0]);
+    ship.loadout.weaponTier = get(LAYOUT.shipWeaponTier);
+    ship.loadout.engineTier = get(LAYOUT.shipEngineTier);
+    ship.loadout.shieldTier = get(LAYOUT.shipShieldTier);
     this.previous.x = get(LAYOUT.previousX);
     this.previous.y = get(LAYOUT.previousY);
     this.alphaValue = get(LAYOUT.alpha);

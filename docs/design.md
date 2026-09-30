@@ -73,8 +73,14 @@ Decided in #6 (@starquake, 2026-09-29: "Should we consider upgrades. Doesn't it 
 - **A part grows through three tiers: Super, Mega and Hyper.** A part starts plain ("Auto Cannon"). Picking up a part you already own upgrades it one tier: Super Auto Cannon, Mega Auto Cannon, then Hyper Auto Cannon, the cap.
 - **Each tier adds about 15%** to that part's own strength: a weapon's fire rate, a shield's recharge, an engine's acceleration (tunable; @starquake picked 15 over 10: "Is the +10% enough? Shouldn't it be more?"). A Hyper part is about 1.45× a plain one, so each tier is felt in a fight. A veteran is stronger than a newcomer but never in a different league, and a newcomer with plain parts still pulls their weight.
 - **The parts stay sidegrades of each other**: a Hyper Zapper and a Hyper Rocket are equals, and so are two plain ones. Tiers reward playing, not a best loadout.
-- **Each tier has its own color**, which tints the part sprite, outlines its pickup and colors the name in the HUD and on the player's label (@starquake: "We could use colors and show super mega and hyper in front of the name"). The packs have one sprite per part and no tier art, so tier colors are recolors, which the art rule allows. The colors come in a mockup.
-- Still open in #6: how later joiners catch up (catch-up drops while below their squadmates, or a rising floor), and what happens to a pickup of a part you already have at Hyper.
+- **Each tier has its own color**: Super blue, Mega violet, Hyper gold (#77's mockup). It tints the part on the ship, makes a pickup glow, and colors the part's name in the HUD's parts line and under a player's name (@starquake: "We could use colors and show super mega and hyper in front of the name"). The packs have one sprite per part and no tier art, so tier colors are recolors, which the art rule allows.
+
+As built (#77):
+
+- **Drops:** a Scout drops a part 10% of the time, a Fighter 30%, and a boss always (#7). The part is one a player behind their squadron can use, else one a nearby player lacks, else one a nearby player can raise; nobody within 800 px able to use anything means no drop. A player below their squadmates' average level (a point per part owned and per tier) doubles the chance while nearby: catch-up drops.
+- **Pickups** drift where the enemy fell, the Pickups Pack's icon glowing in the tier it would give you (plain parts don't glow, and one you have at Hyper is drawn faint). A pickup starts blinking after 20 s and is gone at 30 s.
+- **Collecting:** a client reports flying over a pickup (the trust model), and the hub grants the part to the collector's whole squadron, wherever they are: each unlocks it or raises its tier. A pickup nobody in the squadron can use stays for someone who can. The HUD says who collected what ("Sanne: Mega Zapper").
+- **Unlocks** are saved in the database (`unlocks`, #76) and sent in `Welcome`. Until the loadout screen (#78), the development keys 1/2/3 fit any part, at the tier the player owns it at.
 
 ### Shields and facing
 

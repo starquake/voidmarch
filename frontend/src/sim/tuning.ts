@@ -50,3 +50,14 @@ export const ENEMY_FIRE_GLOW_COLOR = 0x3fa8ff;
 export const ENEMY_FIRE_GLOW_STRENGTH = 6;
 export const ENEMY_FIRE_GLOW_QUALITY = 3;
 export const ENEMY_FIRE_GLOW_DISTANCE = 4;
+
+/** A tier's color, from #77's mockup: none for plain, then Super blue, Mega violet, Hyper gold. */
+export const TIER_COLORS: readonly (number | undefined)[] = [undefined, 0x5ad1ff, 0xc77dff, 0xffc93c];
+/** When a pickup starts blinking before it's gone, in seconds after it dropped. */
+export const PICKUP_BLINK_AFTER = 20;
+/** A pickup's tier glow: its strength and quality, as Phaser's glow filter takes them. */
+export const PICKUP_GLOW_STRENGTH = 6;
+export const PICKUP_GLOW_QUALITY = 12;
+export const PICKUP_GLOW_DISTANCE = 6;
+/** A pickup the viewer has no use for (every tier already), drawn faint. */
+export const PICKUP_USELESS_ALPHA = 0.45;

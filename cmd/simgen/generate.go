@@ -58,7 +58,7 @@ func writeTunables(w writer) {
 	d := sim.DefaultLoadout()
 	w("/** The parts every new player starts with. */\n")
 	w(
-		"export const DEFAULT_LOADOUT = { weapon: %q, engine: %q, shield: %q } as const;\n\n",
+		"export const DEFAULT_LOADOUT = { weapon: %q, engine: %q, shield: %q, weaponTier: 0, engineTier: 0, shieldTier: 0 } as const;\n\n",
 		d.Weapon,
 		d.Engine,
 		d.Shield,
@@ -77,7 +77,12 @@ func writeTunables(w writer) {
 	w("export const BRAIN_SPACING = %d;\n", sim.BrainSpacing)
 	w("export const RAM_DAMAGE = %d;\n", sim.RammingDamage)
 	w("export const RAM_SPEED = %s;\n", num(sim.RammingSpeed))
-	w("export const SHARD_DAMAGE = %s;\n\n", num(sim.ShotDamage(sim.ProjectileShard)))
+	w("export const SHARD_DAMAGE = %s;\n", num(sim.ShotDamage(sim.ProjectileShard)))
+	w("/** Tier names from plain to Hyper; the index is the tier. */\n")
+	w("export const TIER_NAMES = %s as const;\n", list(tierNames()))
+	w("export const MAX_TIER = %d;\n", sim.TierHyper)
+	w("export const PICKUP_LIFETIME = %s;\n", num(sim.PickupLifetime))
+	w("export const PICKUP_REACH = %s;\n\n", num(sim.PickupReach))
 
 	writeShieldStats(w)
 
@@ -170,6 +175,9 @@ func writeLayout(w writer) {
 		{"shipSinceHit", simbridge.HeaderShipSinceHit},
 		{"shipDownFor", simbridge.HeaderShipDownFor},
 		{"shipRevive", simbridge.HeaderShipRevive},
+		{"shipWeaponTier", simbridge.HeaderShipWeaponTier},
+		{"shipEngineTier", simbridge.HeaderShipEngineTier},
+		{"shipShieldTier", simbridge.HeaderShipShieldTier},
 		{"previousX", simbridge.HeaderPreviousX},
 		{"previousY", simbridge.HeaderPreviousY},
 		{"shots", simbridge.HeaderShots},
@@ -231,4 +239,14 @@ func num(v float64) string {
 	const float64Bits = 64
 
 	return strconv.FormatFloat(v, 'g', -1, float64Bits)
+}
+
+// tierNames are the tiers' names, plain first.
+func tierNames() []string {
+	names := make([]string, 0, sim.TierHyper+1)
+	for t := sim.TierPlain; t <= sim.TierHyper; t++ {
+		names = append(names, t.Name())
+	}
+
+	return names
 }

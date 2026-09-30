@@ -41,6 +41,9 @@ func TestParse_Defaults(t *testing.T) {
 	if got, want := cfg.RegisterLimit, RegisterLimitDefault; got != want {
 		t.Errorf("cfg.RegisterLimit = %d, want %d", got, want)
 	}
+	if cfg.DropChance != nil {
+		t.Errorf("cfg.DropChance = %v, want unset", *cfg.DropChance)
+	}
 }
 
 func TestParse_Values(t *testing.T) {
@@ -57,6 +60,7 @@ func TestParse_Values(t *testing.T) {
 		"DB_PATH":           dbPath,
 		"REGISTER_LIMIT":    "0",
 		"TRUSTED_PROXY_IPS": "10.0.0.0/8, 127.0.0.1/32",
+		"DROP_CHANCE":       "1",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -85,6 +89,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := len(cfg.TrustedProxyCIDRs), 2; got != want {
 		t.Errorf("len(cfg.TrustedProxyCIDRs) = %d, want %d", got, want)
+	}
+	if cfg.DropChance == nil || *cfg.DropChance != 1 {
+		t.Errorf("cfg.DropChance = %v, want 1", cfg.DropChance)
 	}
 }
 
@@ -133,6 +140,21 @@ func TestParse_Errors(t *testing.T) {
 			name: "register limit negative",
 			env:  map[string]string{"REGISTER_LIMIT": "-1"},
 			want: ErrInvalidRegisterLimit,
+		},
+		{
+			name: "drop chance in production",
+			env:  map[string]string{"DROP_CHANCE": "1"},
+			want: ErrDropChanceNotAllowed,
+		},
+		{
+			name: "drop chance above 1",
+			env:  map[string]string{"APP_ENV": "development", "DROP_CHANCE": "2"},
+			want: ErrInvalidDropChance,
+		},
+		{
+			name: "drop chance not a number",
+			env:  map[string]string{"APP_ENV": "development", "DROP_CHANCE": "always"},
+			want: ErrInvalidDropChance,
 		},
 		{
 			name: "trusted proxy not a CIDR",

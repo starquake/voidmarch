@@ -18,6 +18,7 @@ import (
 	"github.com/starquake/voidmarch/internal/game"
 	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/server"
+	"github.com/starquake/voidmarch/internal/sim"
 	"github.com/starquake/voidmarch/internal/store"
 	"github.com/starquake/voidmarch/internal/version"
 	"github.com/starquake/voidmarch/internal/web"
@@ -83,10 +84,15 @@ func Run(ctx context.Context, getenv func(string) string, stdout io.Writer, ln n
 
 		return err
 	}
-	hub := game.NewHub(logger,
+	hubOptions := []game.HubOption{
 		game.WithPoolStart(poolStart),
 		game.WithSaveFleet(fleetSaver(signalCtx, logger, db)),
-	)
+		game.WithSaveUnlock(unlockSaver(signalCtx, logger, playerStore)),
+	}
+	if cfg.DropChance != nil {
+		hubOptions = append(hubOptions, game.WithDropChance(*cfg.DropChance))
+	}
+	hub := game.NewHub(logger, hubOptions...)
 	ticker := time.NewTicker(time.Second / game.TickRate)
 	defer ticker.Stop()
 	hubDone := make(chan struct{})
@@ -176,6 +182,24 @@ func fleetSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(int) 
 		defer cancel()
 		if err := store.SaveHangar(saveCtx, db, ships); err != nil {
 			logger.ErrorContext(saveCtx, "error saving fleet", slog.Any("err", err))
+		}
+	}
+}
+
+// unlockSaver saves the parts the hub grants. Like fleetSaver, it outlives
+// ctx's cancellation, since the hub drains its saves while it stops.
+func unlockSaver(
+	ctx context.Context,
+	logger *slog.Logger,
+	playerStore *players.Store,
+) func(string, sim.Part, sim.Tier) {
+	ctx = context.WithoutCancel(ctx)
+
+	return func(player string, part sim.Part, tier sim.Tier) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := playerStore.SaveUnlock(saveCtx, player, part, tier); err != nil {
+			logger.ErrorContext(saveCtx, "error saving unlock", slog.Any("err", err))
 		}
 	}
 }

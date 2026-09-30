@@ -28,7 +28,7 @@ const createShip = (x: number, y: number): Ship => ({
   vy: 0,
   angle: -Math.PI / 2,
   thrusting: false,
-  loadout: { weapon: 'autoCannon', engine: 'base', shield: 'front' },
+  loadout: { weapon: 'autoCannon', engine: 'base', shield: 'front', weaponTier: 0, engineTier: 0, shieldTier: 0 },
   damage: 0,
   shield: 3,
   sinceHit: 0,
@@ -123,6 +123,8 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     squadronJoined: (j) => log.events.push(`joined ${j.name}`),
     squadronRefused: (reason) => log.events.push(`squadron refused ${reason}`),
     squadronOrdered: (o) => log.events.push(`ordered by ${o.playerId}`),
+    pickupDropped: (p) => log.events.push(`pickup dropped ${p.id}`),
+    pickupTaken: (p) => log.events.push(`pickup taken ${p.id} by ${p.playerId}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -184,6 +186,8 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionGranted', value: { companion: 2 } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionRefused', value: { reason: 'your wing is full' } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionDismissed', value: { companion: 3 } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'pickupDropped', value: { id: 4 } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'pickupTaken', value: { id: 4, playerId: 'mo' } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -195,6 +199,8 @@ test('server messages reach their events', () => {
     'granted 2',
     'refused your wing is full',
     'dismissed 3',
+    'pickup dropped 4',
+    'pickup taken 4 by mo',
   ]);
   assert.equal(conn.connected, true);
 });
@@ -325,4 +331,16 @@ test('nothing about companions is sent before the welcome', () => {
   conn.sendSummon();
   conn.sendDismiss(1);
   assert.equal(sockets[0]?.messages().length, 1, 'only the hello');
+});
+
+test('a collect names its pickup, and only once welcomed', () => {
+  const early = setup();
+  early.conn.start();
+  early.conn.sendCollect(4);
+  assert.deepEqual(early.sockets[0]?.sent, []);
+
+  const { conn, socket } = welcomed();
+  conn.sendCollect(4);
+  const collects = socket.messages().flatMap((m) => (m.kind.case === 'collect' ? [m.kind.value.id] : []));
+  assert.deepEqual(collects, [4]);
 });

@@ -111,7 +111,7 @@ func NewShip(x, y float64, loadout Loadout) *Ship {
 
 	return &Ship{
 		X: x, Y: y, Angle: facingUp, Loadout: loadout,
-		Shield: ShieldStatsOf(loadout.Shield).Strength,
+		Shield: loadout.ShieldStats().Strength,
 	}
 }
 
@@ -122,7 +122,7 @@ func (s *Ship) Mover() Mover {
 
 // StepShip advances the ship's movement and aim by dt seconds.
 func StepShip(ship *Ship, cmd Command, dt float64) {
-	engine := EngineStatsOf(ship.Loadout.Engine)
+	engine := ship.Loadout.EngineStats()
 
 	ship.Thrusting = cmd.MoveX != 0 || cmd.MoveY != 0
 	ship.VX += cmd.MoveX * engine.Acceleration * dt
