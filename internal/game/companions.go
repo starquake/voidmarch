@@ -60,13 +60,15 @@ func (h *Hub) summon(owner string, m *member) {
 	}
 	h.nextGrant++
 	h.hangar--
+	// Picked before it joins the wing, whose loadouts it would otherwise count.
+	loadout := sim.CompanionLoadout(m.unlocks, h.squadronLoadouts(owner, m))
 	flight := m.wing.Add(
 		int(number),
 		float64(m.state.GetX()),
 		float64(m.state.GetY()),
 		h.squadronModeOrders(m),
 	)
-	flight.Fit(sim.CompanionLoadout(m.unlocks, h.squadronLoadouts(owner, m)))
+	flight.Fit(loadout)
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, flight: flight}
 	h.broadcastSquadrons()
 	h.send(owner, &pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
