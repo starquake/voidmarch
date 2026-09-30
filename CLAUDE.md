@@ -97,6 +97,11 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   never streamed: `EnemyFired` carries a seed, and `internal/sim/patterns.go`,
   run in the browser as WebAssembly, expands it identically on every client. Hub tests use `WithSeed` and step the
   hub by hand, so enemy behaviour is deterministic.
+- **Parts drop and unlock on the server** (`internal/game/pickups.go`, #77):
+  a kill rolls `sim.DropFor` and sends `PickupDropped`; a client reports
+  flying over it with `Collect`, and the hub grants the part to the
+  collector's squadron (`PickupTaken`) and saves the unlocks. The E2E server
+  sets `DROP_CHANCE=1` (development only) so every kill drops a part.
 - **Companion brains are Go sim code** (`internal/sim/brain.go`): `Think`
   turns a companion's view and orders into the same `Command` the keyboard
   makes, pure and seeded, and `sim.Wing` flies a player's companions.

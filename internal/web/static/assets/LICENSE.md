@@ -12,6 +12,9 @@ required; it is given here anyway.
 
 - `klaed/`: [Void - Fleet Pack 1 (Kla'ed)](https://foozlecc.itch.io/void-fleet-pack-1),
   distributed by Foozle.
+- `pickups/`: [Void - Pickups Pack](https://foozlecc.itch.io/void-pickups-pack),
+  commissioned from Baldur, distributed by Foozle. Named by slot and part
+  (`weapon-zapper.png`); the pack's "All around shield" is `shield-round.png`.
 
 Files are renamed to kebab-case and otherwise unchanged. Some also come in
 recoloured variants beside the original: palette swaps made with

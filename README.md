@@ -99,6 +99,17 @@ or after 3 s you respawn with **H** at home or **J** beside a squadmate.
 Enemies need the server, so
 offline the sandbox stays empty.
 
+## Parts
+
+Shot-down enemies drop parts: the Scout sometimes, the Fighter more often,
+more often still near a player who's behind their squadron. Fly over one to
+collect it for your whole squadron, wherever they are. A part you don't have
+is yours for good; one you have goes up a tier, Super, Mega, then Hyper,
+each about 15% stronger, shown in blue, violet and gold. A pickup glows in the
+tier it would give you, blinks after 20 s and is gone at 30 s. For now the
+**1/2/3** keys fit any part, at the tier you own it at; the loadout screen
+at the home planet is next.
+
 Add `?wire=json` to the address to see the game's messages as readable JSON in
 the browser's network panel.
 
