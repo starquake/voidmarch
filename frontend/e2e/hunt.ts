@@ -164,13 +164,25 @@ export async function collectAPart(page: Page, owned: number): Promise<void> {
   }
 }
 
-/** Flies home and eases off inside the safe zone, so the ship comes to rest there. */
+/**
+ * Flies home and eases off inside the safe zone, so the ship comes to rest
+ * there. Enemies can still shoot it down on the way: then it respawns, which
+ * is at home too.
+ */
 export async function flyHome(page: Page): Promise<void> {
   let last = { x: Number.NaN, y: Number.NaN };
   await expect
     .poll(
       async () => {
         const s = await state(page);
+        if (s.downed) {
+          await page.keyboard.up('w');
+          if (s.canRespawn) {
+            await page.keyboard.press('h');
+          }
+
+          return false;
+        }
         const far = Math.hypot(s.ship.x, s.ship.y) > HOME;
         await aimAt(page, s, 0, 0);
         await (far ? page.keyboard.down('w') : page.keyboard.up('w'));
