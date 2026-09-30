@@ -19,6 +19,8 @@ import (
 	// The pure Go SQLite driver keeps the build cgo-free (#6, decision 16).
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
+
+	queries "github.com/starquake/voidmarch/internal/db"
 )
 
 //go:embed migrations/*.sql
@@ -167,9 +169,8 @@ func step(ctx context.Context, db *sql.DB, files []string) (bool, error) {
 }
 
 // Hangar returns the saved hangar count, and false on a fresh database.
-func Hangar(ctx context.Context, db *sql.DB) (int, bool, error) {
-	var ships int
-	err := db.QueryRowContext(ctx, "SELECT ships FROM hangar WHERE id = 1").Scan(&ships)
+func Hangar(ctx context.Context, conn *sql.DB) (int, bool, error) {
+	ships, err := queries.New(conn).Hangar(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, false, nil
 	}
@@ -177,17 +178,12 @@ func Hangar(ctx context.Context, db *sql.DB) (int, bool, error) {
 		return 0, false, fmt.Errorf("error reading hangar: %w", err)
 	}
 
-	return ships, true, nil
+	return int(ships), true, nil
 }
 
 // SaveHangar saves the hangar count.
-func SaveHangar(ctx context.Context, db *sql.DB, ships int) error {
-	_, err := db.ExecContext(
-		ctx,
-		"INSERT INTO hangar (id, ships) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET ships = excluded.ships",
-		ships,
-	)
-	if err != nil {
+func SaveHangar(ctx context.Context, conn *sql.DB, ships int) error {
+	if err := queries.New(conn).SaveHangar(ctx, int64(ships)); err != nil {
 		return fmt.Errorf("error saving hangar: %w", err)
 	}
 

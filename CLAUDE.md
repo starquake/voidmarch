@@ -59,15 +59,17 @@ make js         # rebuild the committed bundle after any frontend/ change
 make wasm       # rebuild the committed WebAssembly sim and rules.gen.ts after any internal/sim change
 make test-tinygo # internal/sim's tests compiled by TinyGo, run under Node's WASI
 make proto      # regenerate Go and TypeScript after any proto/ change
+make sqlc       # regenerate internal/db after any internal/store/queries or migrations change
 make lint-fix   # golangci-lint --fix and eslint --fix
 make server     # the server with the embedded client on :8080
 make js-watch   # with make server-dev: edit, reload, no rebuild
 make docker     # the image as voidmarch:dev
 ```
 
-`golangci-lint` and `buf` are downloaded to `build/bin/` at the versions
-pinned in the Makefile (`GOLANGCI_VERSION`, `BUF_VERSION`); CI reads the same
-pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
+`golangci-lint`, `buf` and `sqlc` are downloaded to `build/bin/` at the
+versions pinned in the Makefile (`GOLANGCI_VERSION`, `BUF_VERSION`,
+`SQLC_VERSION`); CI reads the same pins, and `tools/go.mod` requires the same
+versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) unpack under
 `build/_toolchains/`, which `./...` skips, at `TINYGO_VERSION` and
 `BINARYEN_VERSION`; CI caches them. `protoc-gen-go` is built from the version `tools/go.mod` requires, and
 `protoc-gen-es` comes from npm. `frontend/go.mod` is a stub module so that
@@ -114,8 +116,10 @@ pins. TinyGo and Binaryen (its `wasm-opt`) unpack under
   `modernc.org/sqlite`, pure Go so the build stays cgo-free. Migrations are
   embedded `internal/store/migrations/NNN_*.sql`, applied in order and
   tracked by `PRAGMA user_version`; add a new file, never edit an applied
-  one. It keeps players (`players.Store`, tokens as SHA-256 hashes) and the
-  fleet. Tests open a real temporary database with `testutil.OpenDB`;
+  one. Queries are SQL in `internal/store/queries/*.sql`; sqlc generates the
+  typed Go in `internal/db` (committed, never edited; `make sqlc-check` fails
+  when it is stale). It keeps players (`players.Store`, tokens as SHA-256
+  hashes) and the fleet. Tests open a real temporary database with `testutil.OpenDB`;
   `startServer` and the E2E server each get their own file, and E2E sets
   `REGISTER_LIMIT=0`.
 - **Squadrons** (`internal/game/squadrons.go`): everyone picks one with

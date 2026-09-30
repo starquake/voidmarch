@@ -14,6 +14,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/starquake/voidmarch/internal/db"
 )
 
 const (
@@ -37,8 +39,8 @@ type Player struct {
 
 // Store holds the players in the database. It is safe for concurrent use.
 type Store struct {
-	db  *sql.DB
-	now func() time.Time
+	queries *db.Queries
+	now     func() time.Time
 }
 
 // Option configures a Store.
@@ -50,8 +52,8 @@ func WithClock(now func() time.Time) Option {
 }
 
 // NewStore returns a store on db, which store.Open has migrated.
-func NewStore(db *sql.DB, opts ...Option) *Store {
-	s := &Store{db: db, now: time.Now}
+func NewStore(conn *sql.DB, opts ...Option) *Store {
+	s := &Store{queries: db.New(conn), now: time.Now}
 	for _, opt := range opts {
 		opt(s)
 	}
@@ -69,10 +71,12 @@ func (s *Store) Register(ctx context.Context, name string) (Player, string, erro
 
 	player := Player{ID: randomHex(idBytes), Name: name}
 	token := randomHex(tokenBytes)
-	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO players (id, name, token_hash, created_at) VALUES (?, ?, ?, ?)",
-		player.ID, player.Name, hashToken(token), s.now().Unix(),
-	)
+	err := s.queries.CreatePlayer(ctx, db.CreatePlayerParams{
+		ID:        player.ID,
+		Name:      player.Name,
+		TokenHash: hashToken(token),
+		CreatedAt: s.now().Unix(),
+	})
 	if err != nil {
 		return Player{}, "", fmt.Errorf("error registering player: %w", err)
 	}
@@ -83,10 +87,7 @@ func (s *Store) Register(ctx context.Context, name string) (Player, string, erro
 // ByToken returns the player a token belongs to, and false for a token nobody
 // has.
 func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error) {
-	var player Player
-	err := s.db.QueryRowContext(ctx,
-		"SELECT id, name FROM players WHERE token_hash = ?", hashToken(token),
-	).Scan(&player.ID, &player.Name)
+	row, err := s.queries.PlayerByTokenHash(ctx, hashToken(token))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Player{}, false, nil
 	}
@@ -94,14 +95,15 @@ func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error)
 		return Player{}, false, fmt.Errorf("error finding player: %w", err)
 	}
 
-	return player, true, nil
+	return Player{ID: row.ID, Name: row.Name}, true, nil
 }
 
 // Touch records that the player connected now.
 func (s *Store) Touch(ctx context.Context, id string) error {
-	_, err := s.db.ExecContext(ctx,
-		"UPDATE players SET last_seen_at = ? WHERE id = ?", s.now().Unix(), id,
-	)
+	err := s.queries.TouchPlayer(ctx, db.TouchPlayerParams{
+		LastSeenAt: sql.NullInt64{Int64: s.now().Unix(), Valid: true},
+		ID:         id,
+	})
 	if err != nil {
 		return fmt.Errorf("error touching player %s: %w", id, err)
 	}
@@ -112,16 +114,9 @@ func (s *Store) Touch(ctx context.Context, id string) error {
 // Expire deletes the registrations that never connected within
 // UnusedLifetime, and returns how many went.
 func (s *Store) Expire(ctx context.Context) (int, error) {
-	res, err := s.db.ExecContext(ctx,
-		"DELETE FROM players WHERE last_seen_at IS NULL AND created_at <= ?",
-		s.now().Add(-UnusedLifetime).Unix(),
-	)
+	n, err := s.queries.DeleteUnusedPlayers(ctx, s.now().Add(-UnusedLifetime).Unix())
 	if err != nil {
 		return 0, fmt.Errorf("error expiring players: %w", err)
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("error counting expired players: %w", err)
 	}
 
 	return int(n), nil

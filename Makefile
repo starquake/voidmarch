@@ -12,6 +12,10 @@ GOLANGCI_VERSION := v2.14.0
 GOLANGCI_BIN := $(BIN_DIR)/golangci-lint
 BUF_VERSION := v1.73.0
 BUF_BIN := $(BIN_DIR)/buf
+# Generates internal/db from internal/store/queries (#77). Dependabot watches
+# tools/go.mod; mirror a bump there into this pin.
+SQLC_VERSION := v1.31.1
+SQLC_BIN := $(BIN_DIR)/sqlc
 # Compiles internal/sim to WebAssembly for the browser (#53). Toolchains
 # unpack under a _ directory, which ./... skips: TinyGo ships Go sources.
 TOOLCHAINS := $(BUILD_DIR)/_toolchains
@@ -28,6 +32,7 @@ UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 UNAME_M := $(shell uname -m)
 ARCH := $(if $(filter x86_64,$(UNAME_M)),amd64,$(if $(filter aarch64,$(UNAME_M)),arm64,$(UNAME_M)))
 BUF_ASSET := buf-$(shell uname -s)-$(UNAME_M)
+SQLC_TARBALL := sqlc_$(patsubst v%,%,$(SQLC_VERSION))_$(UNAME_S)_$(ARCH).tar.gz
 BINARYEN_ASSET := binaryen-$(BINARYEN_VERSION)-$(UNAME_M)-$(if $(filter darwin,$(UNAME_S)),macos,linux).tar.gz
 
 # A downloaded tool records its version beside the binary; a mismatch with the
@@ -35,21 +40,21 @@ BINARYEN_ASSET := binaryen-$(BINARYEN_VERSION)-$(UNAME_M)-$(if $(filter darwin,$
 # `make -n`.
 MAKE_DRY_RUN := $(if $(filter-out -%,$(firstword $(MAKEFLAGS))),$(findstring n,$(firstword $(MAKEFLAGS))))
 toolpin = $(if $(MAKE_DRY_RUN),,$(shell [ "$$(cat $(1).version 2>/dev/null)" = "$(2)" ] || rm -f $(1)))
-TOOLPIN_CHECKED := $(call toolpin,$(GOLANGCI_BIN),$(GOLANGCI_VERSION))$(call toolpin,$(BUF_BIN),$(BUF_VERSION))$(call toolpin,$(TINYGO_BIN),$(TINYGO_VERSION))$(call toolpin,$(WASM_OPT),$(BINARYEN_VERSION))
+TOOLPIN_CHECKED := $(call toolpin,$(GOLANGCI_BIN),$(GOLANGCI_VERSION))$(call toolpin,$(BUF_BIN),$(BUF_VERSION))$(call toolpin,$(SQLC_BIN),$(SQLC_VERSION))$(call toolpin,$(TINYGO_BIN),$(TINYGO_VERSION))$(call toolpin,$(WASM_OPT),$(BINARYEN_VERSION))
 
 VERSION_PKG := github.com/starquake/voidmarch/internal/version
 VERSION_LDFLAGS := -X $(VERSION_PKG).Version=$(shell cat VERSION 2>/dev/null) \
 	-X $(VERSION_PKG).Commit=$(shell git rev-parse HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo -dirty) \
 	-X $(VERSION_PKG).Date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/internal/testutil$$|/internal/gen/|/test/' | paste -sd "," -)
+COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/internal/testutil$$|/internal/gen/|/internal/db$$|/test/' | paste -sd "," -)
 
 .PHONY: help
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii proto-lint proto-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check sqlc-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -108,6 +113,26 @@ server: ## Run the server with the embedded client on :8080
 .PHONY: server-dev
 server-dev: ## Run the server serving the client from disk (pair with js-watch)
 	APP_ENV=development WEB_DIR=internal/web/static go run -ldflags "$(VERSION_LDFLAGS)" ./cmd/voidmarch
+
+# --- Database -----------------------------------------------------------------
+
+$(SQLC_BIN):
+	@mkdir -p $(BIN_DIR)
+	@tmp=$$(mktemp -d) && \
+		curl -sSfL --retry 5 --retry-delay 2 --retry-all-errors -o $$tmp/sqlc.tar.gz \
+			https://github.com/sqlc-dev/sqlc/releases/download/$(SQLC_VERSION)/$(SQLC_TARBALL) && \
+		tar -xzf $$tmp/sqlc.tar.gz -C $$tmp && mv $$tmp/sqlc $@ && rm -rf $$tmp
+	@chmod +x $@
+	@echo $(SQLC_VERSION) > $@.version
+
+.PHONY: sqlc
+sqlc: $(SQLC_BIN) ## Generate internal/db from internal/store/queries
+	$(SQLC_BIN) generate
+
+.PHONY: sqlc-check
+sqlc-check: $(SQLC_BIN) ## Vet the queries and fail when internal/db is stale
+	$(SQLC_BIN) vet
+	@$(SQLC_BIN) diff || { echo "internal/db is stale: run make sqlc"; exit 1; }
 
 # --- Protocol -----------------------------------------------------------------
 
