@@ -24,8 +24,9 @@ const PortDefault = "8080"
 const PoolStartDefault = 3
 
 // RegisterLimitDefault is how many names one address may register a minute
-// when REGISTER_LIMIT is unset (#19).
-const RegisterLimitDefault = 5
+// when REGISTER_LIMIT is unset (#19): more than a full server, since friends
+// on one network share an address (pinned by TestPlayers_AFullServerOnOneNetwork).
+const RegisterLimitDefault = 20
 
 // DBPathDefault is the database file when DB_PATH is unset: beside the
 // working directory, so a development server keeps its players too.

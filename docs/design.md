@@ -253,7 +253,7 @@ As built in milestone 2 (#3):
 
 Enemies roaming the world do not need to be persisted; respawn them on server start.
 
-As built (#76): a SQLite file (`DB_PATH`, `internal/store`, the pure Go `modernc.org/sqlite` driver) with embedded migrations. It holds players (id, name, a hash of the token, the loadout columns, created and last-seen times), their unlocks (part and tier, filled from #77) and the fleet, every companion ship, saved whenever it changes and started from `POOL_START` only on a fresh file. Registrations are limited to 5 a minute per address, and a name never used to play is deleted after a day (#19).
+As built (#76): a SQLite file (`DB_PATH`, `internal/store`, the pure Go `modernc.org/sqlite` driver) with embedded migrations. It holds players (id, name, a hash of the token, the loadout columns, created and last-seen times), their unlocks (part and tier, filled from #77) and the fleet, every companion ship, saved whenever it changes and started from `POOL_START` only on a fresh file. Registrations are limited to 20 a minute per address, more than a full server, since friends on one network share an address, and a name never used to play is deleted after a day (#19).
 
 ### Identity
 
