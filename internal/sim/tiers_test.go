@@ -2,6 +2,7 @@ package sim_test
 
 import (
 	"math"
+	"slices"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/sim"
@@ -243,5 +244,48 @@ func TestDropChance(t *testing.T) {
 	}
 	if got, want := DropChance(EnemyFighter), FighterDropChance; got != want {
 		t.Errorf("DropChance(fighter) = %v, want %v", got, want)
+	}
+}
+
+func TestCompanionLoadout_SpreadsTheWeapons(t *testing.T) {
+	t.Parallel()
+
+	owner := DefaultUnlocks()
+	owner.Grant(Part(WeaponRockets))
+	owner.Grant(Part(WeaponZapper))
+	owner.Grant(Part(WeaponZapper)) // Super
+	squadron := make([]Loadout, 0, 4)
+	squadron = append(squadron, DefaultLoadout())
+
+	weapons := make([]WeaponID, 0, 3)
+	for range 3 {
+		l := CompanionLoadout(owner, squadron)
+		weapons = append(weapons, l.Weapon)
+		squadron = append(squadron, l)
+	}
+	// Unused first, the higher tier first among them; with each used once,
+	// the higher tier again.
+	want := []WeaponID{WeaponZapper, WeaponRockets, WeaponZapper}
+	if !slices.Equal(weapons, want) {
+		t.Errorf("companions' weapons = %v, want %v", weapons, want)
+	}
+	lone := CompanionLoadout(owner, nil)
+	if lone.Weapon != WeaponZapper || lone.WeaponTier != TierSuper {
+		t.Errorf("a lone companion = %+v, want the Super Zapper, the owner's best", lone)
+	}
+}
+
+func TestCompanionLoadout_OnlyTheOwnersParts(t *testing.T) {
+	t.Parallel()
+
+	squadron := []Loadout{{Weapon: WeaponAutoCannon, Engine: EngineBase, Shield: ShieldFront}}
+	if got, want := CompanionLoadout(DefaultUnlocks(), squadron), DefaultLoadout(); got != want {
+		t.Errorf("with only the default parts = %+v, want %+v", got, want)
+	}
+	owner := DefaultUnlocks()
+	owner[Part(ShieldRound)] = TierHyper
+	got := CompanionLoadout(owner, squadron)
+	if got.Shield != ShieldRound || got.ShieldTier != TierHyper || got.Engine != EngineBase {
+		t.Errorf("CompanionLoadout() = %+v, want the Hyper round shield and the base engine", got)
 	}
 }

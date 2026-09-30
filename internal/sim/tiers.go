@@ -195,3 +195,52 @@ func partsWhere(players []Unlocks, ok func(Unlocks, Part) bool) []Part {
 
 	return out
 }
+
+// CompanionLoadout is what a new companion flies (#6, decision 13): in each
+// slot, the owner's unlocked part the squadron's ships use least, so the
+// weapons spread out; ties go to the higher tier, then to the first in Parts
+// order. Each part comes at the owner's tier.
+func CompanionLoadout(owner Unlocks, squadron []Loadout) Loadout {
+	pick := func(slot []Part, fitted func(Loadout) Part) (Part, Tier) {
+		best, bestTier, bestUses := Part(""), TierPlain, 0
+		for _, part := range slot {
+			tier, owned := owner[part]
+			if !owned {
+				continue
+			}
+			uses := 0
+			for _, l := range squadron {
+				if fitted(l) == part {
+					uses++
+				}
+			}
+			if best == "" || uses < bestUses || (uses == bestUses && tier > bestTier) {
+				best, bestTier, bestUses = part, tier, uses
+			}
+		}
+
+		return best, bestTier
+	}
+	l := DefaultLoadout()
+	if p, t := pick(partsOf(Weapons()), func(l Loadout) Part { return Part(l.Weapon) }); p != "" {
+		l.Weapon, l.WeaponTier = WeaponID(p), t
+	}
+	if p, t := pick(partsOf(Engines()), func(l Loadout) Part { return Part(l.Engine) }); p != "" {
+		l.Engine, l.EngineTier = EngineID(p), t
+	}
+	if p, t := pick(partsOf(Shields()), func(l Loadout) Part { return Part(l.Shield) }); p != "" {
+		l.Shield, l.ShieldTier = ShieldID(p), t
+	}
+
+	return l
+}
+
+// partsOf lists a slot's ids as parts.
+func partsOf[T ~string](ids []T) []Part {
+	parts := make([]Part, 0, len(ids))
+	for _, id := range ids {
+		parts = append(parts, Part(id))
+	}
+
+	return parts
+}
