@@ -80,7 +80,7 @@ As built (#77):
 - **Drops:** a Scout drops a part 10% of the time, a Fighter 30%, and a boss always (#7). The part is one a player behind their squadron can use, else one a nearby player lacks, else one a nearby player can raise; nobody within 800 px able to use anything means no drop. A player below their squadmates' average level (a point per part owned and per tier) doubles the chance while nearby: catch-up drops.
 - **Pickups** drift where the enemy fell, the Pickups Pack's icon glowing in the tier it would give you (plain parts don't glow, and one you have at Hyper is drawn faint). A pickup starts blinking after 20 s and is gone at 30 s.
 - **Collecting:** a client reports flying over a pickup (the trust model), and the hub grants the part to the collector's whole squadron, wherever they are: each unlocks it or raises its tier. A pickup nobody in the squadron can use stays for someone who can. The HUD says who collected what ("Sanne: Mega Zapper").
-- **Unlocks** are saved in the database (`unlocks`, #76) and sent in `Welcome`. Until the loadout screen (#78), the development keys 1/2/3 fit any part, at the tier the player owns it at.
+- **Unlocks** are saved in the database (`unlocks`, #76) and sent in `Welcome`. Parts are fitted on the loadout screen at the home planet (§8, #78).
 
 ### Shields and facing
 
@@ -205,6 +205,7 @@ As built in milestone 3 (#4), Kla'ed fodder only:
 
 - Large 2D map, camera follows the player, parallax backgrounds from the Environment pack.
 - **Home planet** at the center (Environment planet). Spawn point, loadout changes, safe zone.
+- **The loadout screen** (#78): **L** opens it inside the safe zone, and L or Esc closes it. It shows three columns, weapon, engine and shield. Each part has its pickup icon, its name in its tier's color and a line on what it's good at. Parts not found yet are dimmed. A click, or 1/2/3 for a slot and the arrow keys, fits an owned part at its tier. The hangar line has a Summon button, and G still works. While it's open the world runs on and the ship holds still. It closes if the ship leaves home or goes down. The server saves a loadout fitted at home from owned parts, and a player's next visit starts with it. On a development server, and offline, the 1/2/3 keys still cycle every part without the screen.
 - **Three rings** around it:
   1. Kla'ed space
   2. Nairan space
@@ -311,7 +312,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 - **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The server flies every companion (#51), so a companion keeps flying whoever is online, and on the wire they are players with an owner.
 - **Where from** (#49): one hangar pool for the whole server holds the companion ships waiting at home. G at the home planet draws one, first come, first served; a companion that goes home, or whose player drops, docks back into it. Players and companions come from different pools: a joiner who takes a companion's place (a takeover, or displacing one from a full world) holds that ship until they leave, so joining and leaving never add companions. The pool starts at `POOL_START` ships (3 until fights can be won and add ships, #52), lives in memory and resets on a restart until part unlocks bring a store (#6).
 - **How many:** up to 3 per player, and at most 4 ships per squadron, companions included (#42 replaced the earlier "wing within one screen" cap). Companions are full seats: they count toward the 16-player cap, and a human joining a full world takes one over or displaces one, so the group, and its difficulty, stays the same whoever flies each ship.
-- **Summoning** happens at the home planet, alongside the loadout change. **A companion picks its own loadout, balanced across the squadron** (#6, decision 13; @starquake: "some should have a zapper, some have missiles"; as built in #79). In each slot it takes the owner's unlocked part that the squadron's ships use least, ties going to the higher tier, at the owner's tier. So an owner with more parts has a more varied, stronger wing. Until the loadout screen exists (#78), G summons one inside the safe zone.
+- **Summoning** happens at the home planet, alongside the loadout change. **A companion picks its own loadout, balanced across the squadron** (#6, decision 13; @starquake: "some should have a zapper, some have missiles"; as built in #79). In each slot it takes the owner's unlocked part that the squadron's ships use least, ties going to the higher tier, at the owner's tier. So an owner with more parts has a more varied, stronger wing. G summons one inside the safe zone, and so does the loadout screen's Summon button (#78).
 - **Looks:** the Main Ship sprites, tinted per owner. Orders and names are HUD text; no new art.
 
 ### Joining and leaving

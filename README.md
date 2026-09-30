@@ -37,6 +37,7 @@ make server
 | Mouse | Aim |
 | Left button (hold) | Fire |
 | G | Draw a companion from the hangar (at the home planet) |
+| L | Loadout screen: fit your parts (at the home planet); Esc closes it |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
 | C | Switch to screen-relative movement (W is up the screen) and back |
@@ -46,9 +47,9 @@ make server
 The movement, sound and music choices are remembered in the browser. Sound
 starts after the first click or key press.
 
-The sandbox has debug keys until loadouts arrive: **1**, **2** and **3** cycle
-the weapon, engine and shield; **R** switches between free rotation and 16 directions; **F** turns effects on and
-off.
+On a development server and offline, debug keys **1**, **2** and **3** cycle
+the weapon, engine and shield, locked parts too; **R** switches between free
+rotation and 16 directions; **F** turns effects on and off.
 
 ## Playing together
 
@@ -106,9 +107,8 @@ more often still near a player who's behind their squadron. Fly over one to
 collect it for your whole squadron, wherever they are. A part you don't have
 is yours for good; one you have goes up a tier, Super, Mega, then Hyper,
 each about 15% stronger, shown in blue, violet and gold. A pickup glows in the
-tier it would give you, blinks after 20 s and is gone at 30 s. For now the
-**1/2/3** keys fit any part, at the tier you own it at; the loadout screen
-at the home planet is next.
+tier it would give you, blinks after 20 s and is gone at 30 s. Press **L** at
+the home planet to fit your parts; the server remembers what you fitted.
 
 Add `?wire=json` to the address to see the game's messages as readable JSON in
 the browser's network panel.
