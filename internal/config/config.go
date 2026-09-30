@@ -5,7 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
+
+	"github.com/starquake/voidmarch/internal/request"
 )
 
 // Application environments accepted in APP_ENV.
@@ -21,6 +25,15 @@ const PortDefault = "8080"
 // POOL_START is unset, until fights can be won (see #49).
 const PoolStartDefault = 3
 
+// RegisterLimitDefault is how many names one address may register a minute
+// when REGISTER_LIMIT is unset (#19): more than a full server, since friends
+// on one network share an address (pinned by TestPlayers_AFullServerOnOneNetwork).
+const RegisterLimitDefault = 20
+
+// DBPathDefault is the database file when DB_PATH is unset: beside the
+// working directory, so a development server keeps its players too.
+const DBPathDefault = "voidmarch.db"
+
 const maxPort = 65535
 
 // invalidValue wraps an Err sentinel with the value that failed.
@@ -35,6 +48,14 @@ var (
 	ErrInvalidWireLog = errors.New("invalid WIRE_LOG")
 	// ErrInvalidPoolStart is returned when POOL_START is not a non-negative number.
 	ErrInvalidPoolStart = errors.New("invalid POOL_START")
+	// ErrInvalidRegisterLimit is returned when REGISTER_LIMIT is not a
+	// non-negative number.
+	ErrInvalidRegisterLimit = errors.New("invalid REGISTER_LIMIT")
+	// ErrInvalidTrustedProxyIPs is returned when TRUSTED_PROXY_IPS is not a
+	// comma-separated CIDR list.
+	ErrInvalidTrustedProxyIPs = errors.New("invalid TRUSTED_PROXY_IPS")
+	// ErrInvalidDBPath is returned when DB_PATH is in a directory that doesn't exist.
+	ErrInvalidDBPath = errors.New("invalid DB_PATH")
 	// ErrWebDirNotAllowed is returned when WEB_DIR is set outside development.
 	ErrWebDirNotAllowed = errors.New("WEB_DIR is only allowed when APP_ENV=development")
 )
@@ -51,8 +72,17 @@ type Config struct {
 	WebDir string
 	// WireLog logs every WebSocket message, decoded. Noisy; for debugging.
 	WireLog bool
-	// PoolStart is how many companion ships the shared hangar holds at start.
+	// PoolStart is how many companion ships the shared hangar holds on a fresh
+	// database; after that the saved count wins.
 	PoolStart int
+	// DBPath is the SQLite file that keeps players and the hangar.
+	DBPath string
+	// RegisterLimit is how many names one address may register a minute; 0
+	// lifts the limit.
+	RegisterLimit int
+	// TrustedProxyCIDRs are the reverse proxies whose X-Forwarded-For names
+	// the client's address. Empty, the default, trusts nobody's.
+	TrustedProxyCIDRs []*net.IPNet
 }
 
 // Parse reads the configuration through getenv, applying defaults for unset
@@ -62,6 +92,7 @@ func Parse(getenv func(string) string) (*Config, error) {
 		AppEnvironment: AppEnvironmentProduction,
 		Port:           PortDefault,
 		PoolStart:      PoolStartDefault,
+		RegisterLimit:  RegisterLimitDefault,
 	}
 
 	if val := getenv("APP_ENV"); val != "" {
@@ -96,15 +127,53 @@ func Parse(getenv func(string) string) (*Config, error) {
 		c.WireLog = wireLog
 	}
 
-	if val := getenv("POOL_START"); val != "" {
-		n, err := strconv.Atoi(val)
-		if err != nil || n < 0 {
-			return nil, fmt.Errorf(invalidValue, ErrInvalidPoolStart, val)
-		}
-		c.PoolStart = n
+	err := parseCount(getenv("POOL_START"), ErrInvalidPoolStart, &c.PoolStart)
+	if err != nil {
+		return nil, err
+	}
+	err = parseCount(getenv("REGISTER_LIMIT"), ErrInvalidRegisterLimit, &c.RegisterLimit)
+	if err != nil {
+		return nil, err
 	}
 
+	c.TrustedProxyCIDRs, err = request.ParseTrustedProxyCIDRs(getenv("TRUSTED_PROXY_IPS"))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidTrustedProxyIPs, err)
+	}
+
+	dbPath, err := parseDBPath(getenv("DB_PATH"))
+	if err != nil {
+		return nil, err
+	}
+	c.DBPath = dbPath
+
 	return c, nil
+}
+
+// parseCount sets *n from val, a non-negative number, unless val is empty.
+func parseCount(val string, invalid error, n *int) error {
+	if val == "" {
+		return nil
+	}
+	parsed, err := strconv.Atoi(val)
+	if err != nil || parsed < 0 {
+		return fmt.Errorf(invalidValue, invalid, val)
+	}
+	*n = parsed
+
+	return nil
+}
+
+// parseDBPath is DB_PATH, or the default, in a directory that exists.
+func parseDBPath(val string) (string, error) {
+	if val == "" {
+		val = DBPathDefault
+	}
+	if info, err := os.Stat(filepath.Dir(val)); err != nil || !info.IsDir() {
+		return "", fmt.Errorf(invalidValue, ErrInvalidDBPath, val)
+	}
+
+	return val, nil
 }
 
 // IsProduction reports whether the server runs in production.

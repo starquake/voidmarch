@@ -18,6 +18,7 @@ import (
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/players"
+	"github.com/starquake/voidmarch/internal/testutil"
 	"github.com/starquake/voidmarch/internal/wire"
 )
 
@@ -53,7 +54,7 @@ func newWSServer(t *testing.T) *wsServer {
 	t.Helper()
 
 	hub, tick := testHub(t)
-	store := players.NewStore()
+	store := players.NewStore(testutil.OpenDB(t))
 	logs := &syncBuffer{}
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	srv := httptest.NewServer(HandleWS(logger, hub, store, true))
@@ -71,7 +72,7 @@ func newWSServer(t *testing.T) *wsServer {
 func (s *wsServer) register(t *testing.T, name string) string {
 	t.Helper()
 
-	_, token, err := s.store.Register(name)
+	_, token, err := s.store.Register(t.Context(), name)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -331,8 +332,8 @@ func TestHandleWS_HubStopped(t *testing.T) {
 	cancel()
 	<-done
 
-	store := players.NewStore()
-	_, token, err := store.Register("Mo")
+	store := players.NewStore(testutil.OpenDB(t))
+	_, token, err := store.Register(t.Context(), "Mo")
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -354,8 +355,8 @@ func TestHandleWS_HubStopClosesConnections(t *testing.T) {
 	hub := NewHub(slog.New(slog.DiscardHandler))
 	go hub.Run(ctx, nil)
 
-	store := players.NewStore()
-	_, token, err := store.Register("Mo")
+	store := players.NewStore(testutil.OpenDB(t))
+	_, token, err := store.Register(t.Context(), "Mo")
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -393,5 +394,43 @@ func TestHandleWS_BadFrameEndsConnection(t *testing.T) {
 			return
 		}
 		s.tick(1)
+	}
+}
+
+func TestHandleWS_JoiningKeepsTheRegistration(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	var mu sync.Mutex
+	clock := func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+
+		return now
+	}
+	store := players.NewStore(testutil.OpenDB(t), players.WithClock(clock))
+	_, token, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	srv := httptest.NewServer(HandleWS(slog.New(slog.DiscardHandler), hub, store, false))
+	t.Cleanup(srv.Close)
+
+	c := dialWS(t, "ws"+strings.TrimPrefix(srv.URL, "http"), wire.Binary)
+	c.send(hello(token))
+	if c.must().GetWelcome() == nil {
+		t.Fatal("no welcome")
+	}
+
+	// A day on, only registrations that never played expire.
+	mu.Lock()
+	now = now.Add(2 * players.UnusedLifetime)
+	mu.Unlock()
+	if _, err = store.Expire(t.Context()); err != nil {
+		t.Fatalf("Expire() error = %v", err)
+	}
+	if _, ok, err := store.ByToken(t.Context(), token); err != nil || !ok {
+		t.Errorf("ByToken() after Expire = _, %t, %v: a player who joined was expired", ok, err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,29 @@ import (
 
 func envFunc(env map[string]string) func(string) string {
 	return func(key string) string { return env[key] }
+}
+
+// tempDB is a database path of the test's own.
+func tempDB(t *testing.T) string {
+	t.Helper()
+
+	return filepath.Join(t.TempDir(), "voidmarch.db")
+}
+
+func TestRun_DatabaseError(t *testing.T) {
+	t.Parallel()
+
+	// A directory where the file should be can't be opened as a database.
+	err := Run(
+		t.Context(),
+		envFunc(map[string]string{"DB_PATH": t.TempDir()}),
+		testutil.NewTestWriter(t),
+		nil,
+	)
+
+	if got, want := err.Error(), "error opening database"; !strings.Contains(got, want) {
+		t.Errorf("err.Error() = %q, should contain %q", got, want)
+	}
 }
 
 func TestRun_InvalidConfig(t *testing.T) {
@@ -48,7 +72,7 @@ func TestRun_ListenError(t *testing.T) {
 
 	err = Run(
 		t.Context(),
-		envFunc(map[string]string{"HOST": "127.0.0.1", "PORT": port}),
+		envFunc(map[string]string{"HOST": "127.0.0.1", "PORT": port, "DB_PATH": tempDB(t)}),
 		testutil.NewTestWriter(t),
 		nil,
 	)
@@ -78,7 +102,7 @@ func TestRun_ShutsDownOnCancel(t *testing.T) {
 	}
 
 	errCh := make(chan error, 1)
-	go func() { errCh <- Run(ctx, envFunc(nil), stdout, ln) }()
+	go func() { errCh <- Run(ctx, envFunc(map[string]string{"DB_PATH": tempDB(t)}), stdout, ln) }()
 
 	healthz := "http://" + ln.Addr().String() + "/healthz"
 	if err := testutil.WaitForReady(ctx, t, 10*time.Second, healthz); err != nil {

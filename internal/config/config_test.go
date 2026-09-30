@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"errors"
+	"path/filepath"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/config"
@@ -34,18 +35,28 @@ func TestParse_Defaults(t *testing.T) {
 	if got, want := cfg.PoolStart, PoolStartDefault; got != want {
 		t.Errorf("cfg.PoolStart = %d, want %d", got, want)
 	}
+	if got, want := cfg.DBPath, DBPathDefault; got != want {
+		t.Errorf("cfg.DBPath = %q, want %q", got, want)
+	}
+	if got, want := cfg.RegisterLimit, RegisterLimitDefault; got != want {
+		t.Errorf("cfg.RegisterLimit = %d, want %d", got, want)
+	}
 }
 
 func TestParse_Values(t *testing.T) {
 	t.Parallel()
 
+	dbPath := filepath.Join(t.TempDir(), "players.db")
 	cfg, err := Parse(envFunc(map[string]string{
-		"APP_ENV":    "development",
-		"HOST":       "127.0.0.1",
-		"PORT":       "9000",
-		"WEB_DIR":    "internal/web/static",
-		"WIRE_LOG":   "true",
-		"POOL_START": "0",
+		"APP_ENV":           "development",
+		"HOST":              "127.0.0.1",
+		"PORT":              "9000",
+		"WEB_DIR":           "internal/web/static",
+		"WIRE_LOG":          "true",
+		"POOL_START":        "0",
+		"DB_PATH":           dbPath,
+		"REGISTER_LIMIT":    "0",
+		"TRUSTED_PROXY_IPS": "10.0.0.0/8, 127.0.0.1/32",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -65,6 +76,15 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := cfg.PoolStart, 0; got != want {
 		t.Errorf("cfg.PoolStart = %d, want %d", got, want)
+	}
+	if got, want := cfg.DBPath, dbPath; got != want {
+		t.Errorf("cfg.DBPath = %q, want %q", got, want)
+	}
+	if got, want := cfg.RegisterLimit, 0; got != want {
+		t.Errorf("cfg.RegisterLimit = %d, want %d", got, want)
+	}
+	if got, want := len(cfg.TrustedProxyCIDRs), 2; got != want {
+		t.Errorf("len(cfg.TrustedProxyCIDRs) = %d, want %d", got, want)
 	}
 }
 
@@ -103,6 +123,26 @@ func TestParse_Errors(t *testing.T) {
 			name: "pool start negative",
 			env:  map[string]string{"POOL_START": "-1"},
 			want: ErrInvalidPoolStart,
+		},
+		{
+			name: "register limit not a number",
+			env:  map[string]string{"REGISTER_LIMIT": "lots"},
+			want: ErrInvalidRegisterLimit,
+		},
+		{
+			name: "register limit negative",
+			env:  map[string]string{"REGISTER_LIMIT": "-1"},
+			want: ErrInvalidRegisterLimit,
+		},
+		{
+			name: "trusted proxy not a CIDR",
+			env:  map[string]string{"TRUSTED_PROXY_IPS": "10.0.0.1"},
+			want: ErrInvalidTrustedProxyIPs,
+		},
+		{
+			name: "db path in a missing directory",
+			env:  map[string]string{"DB_PATH": "/no/such/dir/voidmarch.db"},
+			want: ErrInvalidDBPath,
 		},
 	}
 

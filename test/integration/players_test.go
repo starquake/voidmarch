@@ -3,6 +3,7 @@ package integration_test
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -70,5 +71,15 @@ func TestPlayers_RegisterRejectsForms(t *testing.T) {
 
 	if got, want := resp.StatusCode, http.StatusUnsupportedMediaType; got != want {
 		t.Errorf("status = %d, want %d", got, want)
+	}
+}
+
+func TestPlayers_AFullServerOnOneNetwork(t *testing.T) {
+	t.Parallel()
+
+	// Sixteen friends on one Wi-Fi share an address; all of them get a name.
+	baseURL := startServer(t, nil)
+	for i := range 16 {
+		registerPlayer(t, baseURL, "Friend "+strconv.Itoa(i+1))
 	}
 }

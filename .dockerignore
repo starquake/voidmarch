@@ -9,3 +9,4 @@ frontend
 *.md
 Makefile
 .env
+voidmarch.db*

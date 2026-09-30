@@ -1,7 +1,12 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { defineConfig, devices } from '@playwright/test';
 
 const port = process.env.E2E_PORT ?? '8181';
 const ci = process.env.CI !== undefined;
+// A fresh database per run, so no hangar or player carries over between runs.
+const dbPath = join(tmpdir(), `voidmarch-e2e-${String(Date.now())}.db`);
 
 export default defineConfig({
   testDir: './e2e',
@@ -37,7 +42,15 @@ export default defineConfig({
     cwd: '..',
     url: `http://127.0.0.1:${port}/healthz`,
     // The specs share one hangar, so it holds a ship for every seat but one.
-    env: { APP_ENV: 'development', HOST: '127.0.0.1', PORT: port, POOL_START: '15' },
+    env: {
+      APP_ENV: 'development',
+      HOST: '127.0.0.1',
+      PORT: port,
+      POOL_START: '15',
+      DB_PATH: dbPath,
+      // Every spec registers its players from one address.
+      REGISTER_LIMIT: '0',
+    },
     reuseExistingServer: !ci,
     timeout: 120_000,
   },

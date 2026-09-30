@@ -8,6 +8,8 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,9 +18,19 @@ import (
 )
 
 // startServer boots the server on an ephemeral port, waits for /healthz and
-// returns its base URL. extraEnv is layered over the defaults. The server is
-// stopped on cleanup.
+// returns its base URL. extraEnv is layered over the defaults, which give
+// each server its own database. The server is stopped on cleanup.
 func startServer(t *testing.T, extraEnv map[string]string) string {
+	t.Helper()
+
+	baseURL, _ := runServer(t, extraEnv)
+
+	return baseURL
+}
+
+// runServer is startServer that also returns a function stopping the server
+// early, for a restart.
+func runServer(t *testing.T, extraEnv map[string]string) (string, func()) {
 	t.Helper()
 
 	if testing.Short() {
@@ -32,6 +44,7 @@ func startServer(t *testing.T, extraEnv map[string]string) string {
 		"APP_ENV": "development",
 		"HOST":    "127.0.0.1",
 		"PORT":    "0",
+		"DB_PATH": filepath.Join(t.TempDir(), "voidmarch.db"),
 	}
 	maps.Copy(env, extraEnv)
 	getenv := func(key string) string { return env[key] }
@@ -49,7 +62,7 @@ func startServer(t *testing.T, extraEnv map[string]string) string {
 		t.Fatalf("error waiting for server to be ready: %v", err)
 	}
 
-	t.Cleanup(func() {
+	shutdown := sync.OnceFunc(func() {
 		// An unused connection the transport dialed would hold up Shutdown.
 		http.DefaultClient.CloseIdleConnections()
 		stdout.Disable()
@@ -63,8 +76,9 @@ func startServer(t *testing.T, extraEnv map[string]string) string {
 			t.Error("server timed out during shutdown")
 		}
 	})
+	t.Cleanup(shutdown)
 
-	return baseURL
+	return baseURL, shutdown
 }
 
 // response is a fully read HTTP response.

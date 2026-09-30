@@ -145,6 +145,11 @@ type Hub struct {
 	squadrons map[string]*squadron
 	// hangar is how many companion ships wait to be drawn (docs/design.md, section 13).
 	hangar int
+	// saveFleet keeps the fleet across restarts, off the tick goroutine
+	// through fleetSaves; savedFleet is the last count queued, -1 for none.
+	saveFleet  func(ships int)
+	fleetSaves chan int
+	savedFleet int
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
 	// volleys are enemy volleys announced but not yet fired.
@@ -160,6 +165,7 @@ type hubOptions struct {
 	seed      uint64
 	seeded    bool
 	poolStart int
+	saveFleet func(ships int)
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -169,6 +175,15 @@ type hubOptions struct {
 func WithPoolStart(ships int) HubOption {
 	return func(o *hubOptions) {
 		o.poolStart = ships
+	}
+}
+
+// WithSaveFleet has the hub call save with the fleet, every companion ship
+// in the hangar or out, when it starts and whenever that count changes, so a
+// restart can start the hangar from it. save runs off the tick goroutine.
+func WithSaveFleet(save func(ships int)) HubOption {
+	return func(o *hubOptions) {
+		o.saveFleet = save
 	}
 }
 
@@ -200,6 +215,9 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		squadrons: make(map[string]*squadron),
 		hangar:    o.poolStart,
 		shots:     sim.NewPool(shotCapacity),
+
+		saveFleet:  o.saveFleet,
+		savedFleet: -1,
 	}
 	for _, setup := range o.setup {
 		setup(h)
@@ -239,12 +257,20 @@ func (h *Hub) Join(ctx context.Context, player players.Player) (*Session, *pb.We
 
 // Run steps the hub on every tick until ctx is done, then closes every session.
 func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
+	saverDone := h.startFleetSaver()
 	defer func() {
+		// Saved before the members go: removing them doesn't dock their ships.
+		h.queueFleetSave()
 		for id := range h.members {
 			h.remove(id)
 		}
+		if h.fleetSaves != nil {
+			close(h.fleetSaves)
+		}
+		<-saverDone
 		close(h.done)
 	}()
+	h.queueFleetSave()
 
 	for {
 		select {
@@ -260,8 +286,59 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 			h.handleMessage(in)
 		case <-ticks:
 			h.step()
+			h.queueFleetSave()
 		}
 	}
+}
+
+// startFleetSaver starts the goroutine that saves the fleet, if there's a
+// saver, and returns a channel closed once it has stopped.
+func (h *Hub) startFleetSaver() <-chan struct{} {
+	done := make(chan struct{})
+	if h.saveFleet == nil {
+		close(done)
+
+		return done
+	}
+	h.fleetSaves = make(chan int, 1)
+	go func() {
+		defer close(done)
+		for ships := range h.fleetSaves {
+			h.saveFleet(ships)
+		}
+	}()
+
+	return done
+}
+
+// queueFleetSave hands the fleet to the saver when it changed, replacing a
+// count still waiting: only the latest matters.
+func (h *Hub) queueFleetSave() {
+	ships := h.fleet()
+	if h.fleetSaves == nil || ships == h.savedFleet {
+		return
+	}
+	h.savedFleet = ships
+	select {
+	case h.fleetSaves <- ships:
+	default:
+		select {
+		case <-h.fleetSaves:
+		default:
+		}
+		h.fleetSaves <- ships
+	}
+}
+
+// fleet is every companion ship: docked in the hangar, out with a player, or
+// held for a joiner who took one's place.
+func (h *Hub) fleet() int {
+	ships := h.hangar
+	for _, m := range h.members {
+		ships += len(m.companions) + m.held
+	}
+
+	return ships
 }
 
 func (h *Hub) handleJoin(player players.Player) joinResult {
