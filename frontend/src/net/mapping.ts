@@ -8,12 +8,15 @@ import {
   Shield,
   ShipStateSchema,
   Weapon,
+  type Part,
   type ShipState,
+  type Unlock,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Mode } from '../ordermenu.ts';
 import type { OneShotOrder } from '../ordermenu.ts';
 import type { EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
+import type { PartId } from '../sim/parts.ts';
 import { MAX_TIER } from '../sim/rules.gen.ts';
 import type { Ship } from '../simwasm.ts';
 
@@ -53,6 +56,33 @@ export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => (kind === WireE
 
 /** The sim's weapon for a wire weapon; unknown values fall back to the default. */
 export const fromWeapon = (w: Weapon): WeaponId => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
+
+/** The sim's part for a wire part, or undefined for none or one it doesn't know (#77). */
+export function fromPart(part: Part | undefined): PartId | undefined {
+  switch (part?.kind.case) {
+    case 'weapon':
+      return WEAPON_IDS.get(part.kind.value);
+    case 'engine':
+      return ENGINE_IDS.get(part.kind.value);
+    case 'shield':
+      return SHIELD_IDS.get(part.kind.value);
+    default:
+      return undefined;
+  }
+}
+
+/** Wire unlocks as the sim's, dropping parts it doesn't know. */
+export function fromUnlocks(unlocks: readonly Unlock[]): Map<PartId, number> {
+  const out = new Map<PartId, number>();
+  for (const u of unlocks) {
+    const part = fromPart(u.part);
+    if (part !== undefined) {
+      out.set(part, tierOf(u.tier));
+    }
+  }
+
+  return out;
+}
 
 /** A remote ship as the scene draws it. */
 export interface RemoteShip {

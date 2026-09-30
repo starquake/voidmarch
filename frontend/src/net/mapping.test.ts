@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { create } from '@bufbuild/protobuf';
 
-import { CompanionMode, CompanionOneShot, EnemyKind, ShipStateSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
+import { CompanionMode, CompanionOneShot, EnemyKind, Engine, Shield, ShipStateSchema, UnlockSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
 import { MODES } from '../ordermenu.ts';
 import { ENGINES, SHIELDS, WEAPONS } from '../sim/loadout.ts';
 import { MAX_TIER } from '../sim/rules.gen.ts';
@@ -12,7 +12,9 @@ import {
   fromCompanionMode,
   fromCompanionOneShot,
   fromEnemyKind,
+  fromPart,
   fromShipState,
+  fromUnlocks,
   fromWeapon,
   tierOf,
   toCompanionMode,
@@ -87,4 +89,22 @@ test('a wire tier above Hyper is held to Hyper', () => {
   assert.equal(tierOf(undefined), 0);
   assert.equal(tierOf(2), 2);
   assert.equal(tierOf(9), MAX_TIER);
+});
+
+test('wire parts and unlocks map to the sim ids', () => {
+  const unlocks = fromUnlocks([
+    create(UnlockSchema, { part: { kind: { case: 'weapon', value: Weapon.ZAPPER } }, tier: 2 }),
+    create(UnlockSchema, { part: { kind: { case: 'engine', value: Engine.BURST } }, tier: 9 }),
+    create(UnlockSchema, { part: { kind: { case: 'shield', value: Shield.ROUND } }, tier: 0 }),
+    create(UnlockSchema, { tier: 1 }),
+  ]);
+  assert.deepEqual(
+    [...unlocks],
+    [
+      ['zapper', 2],
+      ['burst', MAX_TIER],
+      ['round', 0],
+    ],
+  );
+  assert.equal(fromPart(undefined), undefined);
 });

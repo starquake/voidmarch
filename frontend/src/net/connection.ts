@@ -9,6 +9,8 @@ import {
   type ShotEnded,
   type Snapshot,
   type SquadronJoined,
+  type PickupDropped,
+  type PickupTaken,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -66,6 +68,10 @@ export interface ConnectionEvents {
   squadronRefused(reason: string): void;
   /** A squadmate gave an order. */
   squadronOrdered(ordered: SquadronOrdered): void;
+  /** A kill dropped a part (#77). */
+  pickupDropped(dropped: PickupDropped): void;
+  /** A pickup was collected, and who gained what. */
+  pickupTaken(taken: PickupTaken): void;
 }
 
 export interface Timers {
@@ -197,6 +203,13 @@ export class Connection {
     }
   }
 
+  /** Says our ship flew over a pickup; the server decides who gets it. */
+  sendCollect(id: number): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'collect', value: { id } } }));
+    }
+  }
+
   private open(): void {
     const socket = this.makeSocket(this.options.url);
     socket.binaryType = 'arraybuffer';
@@ -265,6 +278,12 @@ export class Connection {
         break;
       case 'squadronOrdered':
         events.squadronOrdered(message.kind.value);
+        break;
+      case 'pickupDropped':
+        events.pickupDropped(message.kind.value);
+        break;
+      case 'pickupTaken':
+        events.pickupTaken(message.kind.value);
         break;
       default:
     }

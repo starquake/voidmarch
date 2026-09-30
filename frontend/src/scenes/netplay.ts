@@ -3,6 +3,8 @@ import type Phaser from 'phaser';
 import type {
   EnemyDestroyed,
   EnemyFired,
+  PickupDropped,
+  PickupTaken,
   Snapshot,
   SquadronInfo,
   SquadronJoined,
@@ -19,8 +21,11 @@ import {
   fromCompanionMode,
   fromCompanionOneShot,
   fromEnemyKind,
+  fromPart,
   fromShipState,
+  fromUnlocks,
   fromWeapon,
+  tierOf,
   toCompanionMode,
   toCompanionOneShot,
   type RemoteShip,
@@ -31,7 +36,9 @@ import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
-import type { WeaponId } from '../sim/loadout.ts';
+import { DEFAULT_LOADOUT, type WeaponId } from '../sim/loadout.ts';
+import { partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
+import { PICKUP_REACH } from '../sim/rules.gen.ts';
 import { isWeapon, type BumpBody, type FrameEvents, type Sandbox, type ShipTarget, type ShotSpawn, type Target } from '../simwasm.ts';
 import {
   ENEMY_SOUND_RANGE,
@@ -47,6 +54,7 @@ import {
 import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
+import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
 
 /** Where the game is with the server. */
@@ -91,6 +99,8 @@ export interface NetPlayOptions {
   onUnknownToken: () => void;
   /** Where the player picks a squadron when there's one to pick. */
   squadronScreen: SquadronScreen;
+  /** Where pickups are drawn (#77). */
+  pickups: PickupsView;
 }
 
 /** An enemy's pose and velocity, as bumping needs it. */
@@ -196,6 +206,12 @@ export class NetPlay {
   squadrons: Squadrons | undefined;
   squadron = '';
   private notice: { text: string; untilMs: number } | undefined;
+  /** The parts this player owns, at their tiers (#77); the server's word. */
+  unlocks: Map<PartId, number> = defaultUnlocks();
+  /** The player's name, for their own notices. */
+  private name = '';
+  /** Pickups this ship reported flying over, until it leaves them. */
+  private readonly collecting = new Set<number>();
   private clock = new ServerClock(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
   private spawned = false;
@@ -247,6 +263,8 @@ export class NetPlay {
             this.enemies.delete(id);
           }
           this.resetTimeline(this.tickRate);
+          options.pickups.clear();
+          this.collecting.clear();
           options.sim.projectiles.clear('remote');
           options.sim.projectiles.clear('enemy');
         },
@@ -283,6 +301,15 @@ export class NetPlay {
         },
         squadronOrdered: (ordered) => {
           this.squadronOrdered(ordered);
+        },
+        pickupDropped: (dropped) => {
+          const pickup = fromPickup(dropped);
+          if (pickup !== undefined) {
+            options.pickups.add(pickup, this.unlocks);
+          }
+        },
+        pickupTaken: (taken) => {
+          this.pickupTaken(taken);
         },
         companionDismissed: (number, takenBy) => {
           this.say(takenBy === '' ? `companion ${String(number)} went home` : `${takenBy} took over companion ${String(number)}`);
@@ -381,6 +408,8 @@ export class NetPlay {
       return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
+    this.options.pickups.update(serverTick, this.tickRate);
+    this.collect();
 
     for (const remote of this.remotes.values()) {
       const ship = remote.buffer.sample(renderTick);
@@ -393,6 +422,13 @@ export class NetPlay {
         remote.animator = new WeaponAnimator(weaponTiming(remote.weapon));
       }
       remote.view.setLoadout(ship.loadout);
+      if (remote.ownerId === '') {
+        remote.view.setLabelPart(
+          partLabel(ship.loadout.weapon, ship.loadout.weaponTier),
+          tierCss(ship.loadout.weaponTier),
+          this.options.labelResolution(),
+        );
+      }
       remote.view.setDamage(ship.damage);
       remote.view.setShield(ship.shield);
       remote.view.setDown(ship.damage >= MAX_DAMAGE, ship.revive, this.options.labelResolution());
@@ -738,6 +774,20 @@ export class NetPlay {
   private welcome(welcome: Welcome): void {
     this.status = 'online';
     this.playerId = welcome.playerId;
+    this.name = welcome.name;
+    this.unlocks = defaultUnlocks();
+    for (const [part, tier] of fromUnlocks(welcome.unlocks)) {
+      this.unlocks.set(part, tier);
+    }
+    this.refit();
+    this.options.pickups.clear();
+    this.collecting.clear();
+    for (const dropped of welcome.pickups) {
+      const pickup = fromPickup(dropped);
+      if (pickup !== undefined) {
+        this.options.pickups.add(pickup, this.unlocks);
+      }
+    }
     this.companionLimit = welcome.companionLimit;
     this.squadrons = welcome.squadrons;
     this.squadron = welcome.squadron;
@@ -752,6 +802,53 @@ export class NetPlay {
     if (!this.spawned) {
       this.spawned = true;
       this.options.sim.placeShip(welcome.spawnX, welcome.spawnY);
+    }
+  }
+
+  /** Reports each pickup the ship flies over once, until it leaves it (#77). */
+  private collect(): void {
+    const ship = this.options.sim.ship;
+    const near = ship.damage >= MAX_DAMAGE ? [] : this.options.pickups.near(ship.x, ship.y, PICKUP_REACH);
+    const ids = new Set(near.map((p) => p.id));
+    for (const id of this.collecting) {
+      if (!ids.has(id)) {
+        this.collecting.delete(id);
+      }
+    }
+    for (const id of ids) {
+      if (!this.collecting.has(id)) {
+        this.collecting.add(id);
+        this.connection.sendCollect(id);
+      }
+    }
+  }
+
+  /** A pickup is gone; the parts this player gained are theirs now. */
+  private pickupTaken(taken: PickupTaken): void {
+    this.options.pickups.remove(taken.id);
+    this.collecting.delete(taken.id);
+    const collector =
+      taken.playerId === this.playerId ? this.name : (this.remotes.get(taken.playerId)?.name ?? 'a squadmate');
+    for (const gain of taken.gains) {
+      const part = fromPart(gain.unlock?.part);
+      if (gain.playerId !== this.playerId || part === undefined) {
+        continue;
+      }
+      const tier = tierOf(gain.unlock?.tier);
+      this.unlocks.set(part, tier);
+      this.say(`${collector}: ${partLabel(part, tier)}`);
+    }
+    this.options.pickups.regrade(this.unlocks);
+    this.refit();
+  }
+
+  /** Fits the ship's parts at the tiers this player owns them at. */
+  private refit(): void {
+    const sim = this.options.sim;
+    const loadout = withTiers(sim.ship.loadout, this.unlocks);
+    const l = sim.ship.loadout;
+    if (loadout.weaponTier !== l.weaponTier || loadout.engineTier !== l.engineTier || loadout.shieldTier !== l.shieldTier) {
+      sim.setLoadout(loadout);
     }
   }
 
@@ -834,4 +931,21 @@ export class NetPlay {
     this.remotes.get(id)?.view.destroy();
     this.remotes.delete(id);
   }
+}
+
+/** The default parts, plain: what every player owns from the start. */
+const defaultUnlocks = (): Map<PartId, number> =>
+  new Map<PartId, number>([
+    [DEFAULT_LOADOUT.weapon, 0],
+    [DEFAULT_LOADOUT.engine, 0],
+    [DEFAULT_LOADOUT.shield, 0],
+  ]);
+
+/** A dropped pickup as drawn, or undefined for a part this client doesn't know. */
+function fromPickup(dropped: PickupDropped): Pickup | undefined {
+  const part = fromPart(dropped.part);
+
+  return part === undefined
+    ? undefined
+    : { id: dropped.id, part, x: dropped.x, y: dropped.y, tick: dropped.tick, goneTick: dropped.goneTick };
 }

@@ -29,6 +29,9 @@ export interface DebugState {
   ownShards: number;
   /** Camera shakes so far, one per own big space gun burst (#72). */
   shakes: number;
+  /** The parts this player owns, at their tiers, and the pickups on the ground (#77). */
+  unlocks: Record<string, number>;
+  pickups: { id: number; part: string; x: number; y: number }[];
   shotsFired: number;
   zoom: number;
   fps: number;
