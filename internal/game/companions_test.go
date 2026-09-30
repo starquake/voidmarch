@@ -3,6 +3,7 @@ package game_test
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"math"
 	"slices"
 	"sync"
@@ -846,5 +847,63 @@ func TestHangar_SavesTheFleetOnce(t *testing.T) {
 
 	if got, want := saves.all(), []int{3}; !slices.Equal(got, want) {
 		t.Errorf("saved fleets = %v, want %v", got, want)
+	}
+}
+
+func TestCompanions_PickBalancedLoadoutsFromTheOwnersUnlocks(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	unlocks := sim.DefaultUnlocks()
+	for _, w := range []sim.WeaponID{sim.WeaponRockets, sim.WeaponBigSpaceGun, sim.WeaponZapper} {
+		unlocks.Grant(sim.Part(w))
+	}
+	unlocks[sim.Part(sim.WeaponZapper)] = sim.TierMega
+	a, _ := joinWith(t, hub, "a", unlocks)
+	chooseAndWait(t, a, "")
+	a.Send(state(0, 180))
+	for range 3 {
+		grant(t, a)
+	}
+
+	seen := snapshotPlayers(t, a, tick)
+	weapons := map[pb.Weapon]uint32{}
+	for _, id := range []string{"a/1", "a/2", "a/3"} {
+		l := seen[id].GetState().GetLoadout()
+		weapons[l.GetWeapon()] = l.GetWeaponTier()
+	}
+	// a flies the auto cannon, so its three companions take the other three.
+	want := map[pb.Weapon]uint32{
+		pb.Weapon_WEAPON_ROCKETS:       0,
+		pb.Weapon_WEAPON_BIG_SPACE_GUN: 0,
+		pb.Weapon_WEAPON_ZAPPER:        uint32(sim.TierMega),
+	}
+	if !maps.Equal(weapons, want) {
+		t.Errorf("companions' weapons and tiers = %v, want %v", weapons, want)
+	}
+}
+
+func TestCompanions_TheNewCompanionDoesNotCountItself(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	unlocks := sim.DefaultUnlocks()
+	unlocks.Grant(sim.Part(sim.WeaponRockets))
+	a, _ := joinWith(t, hub, "a", unlocks)
+	chooseAndWait(t, a, "")
+	a.Send(state(0, 180))
+	grant(t, a)
+	grant(t, a)
+
+	// a's auto cannon and a/1's rockets are one each, so a/2 takes the
+	// auto cannon, first in order: not rockets again.
+	seen := snapshotPlayers(t, a, tick)
+	got := []pb.Weapon{
+		seen["a/1"].GetState().GetLoadout().GetWeapon(),
+		seen["a/2"].GetState().GetLoadout().GetWeapon(),
+	}
+	want := []pb.Weapon{pb.Weapon_WEAPON_ROCKETS, pb.Weapon_WEAPON_AUTO_CANNON}
+	if !slices.Equal(got, want) {
+		t.Errorf("companions' weapons = %v, want %v", got, want)
 	}
 }

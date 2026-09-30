@@ -454,3 +454,33 @@ func pbShield(id sim.ShieldID) pb.Shield {
 		return pb.Shield_SHIELD_FRONT
 	}
 }
+
+// simLoadout is a wire loadout as the sim's; unknown parts are the defaults.
+func simLoadout(l *pb.Loadout) sim.Loadout {
+	out := sim.DefaultLoadout()
+	for _, w := range sim.Weapons() {
+		if pbWeapon(w) == l.GetWeapon() {
+			out.Weapon = w
+		}
+	}
+	for _, e := range sim.Engines() {
+		if pbEngine(e) == l.GetEngine() {
+			out.Engine = e
+		}
+	}
+	for _, s := range sim.Shields() {
+		if pbShield(s) == l.GetShield() {
+			out.Shield = s
+		}
+	}
+	out.WeaponTier = simTier(l.GetWeaponTier())
+	out.EngineTier = simTier(l.GetEngineTier())
+	out.ShieldTier = simTier(l.GetShieldTier())
+
+	return out
+}
+
+// simTier is a wire tier held to plain through Hyper.
+func simTier(t uint32) sim.Tier {
+	return sim.Tier(min(t, uint32(sim.TierHyper)))
+}

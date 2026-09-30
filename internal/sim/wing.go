@@ -50,7 +50,7 @@ func ownerTrailTicks() int {
 }
 
 // Add puts companion number in the wing at (x, y) under orders, with the
-// default parts until unlocks exist.
+// default parts; [Companion.Fit] gives it others.
 func (w *Wing) Add(number int, x, y float64, orders Orders) *Companion {
 	w.Remove(number)
 	seed := uint32(companionSeed + number) //nolint:gosec // companion numbers are small.
@@ -67,6 +67,12 @@ func (w *Wing) Add(number int, x, y float64, orders Orders) *Companion {
 	w.Companions = append(w.Companions, c)
 
 	return c
+}
+
+// Fit gives the companion a loadout, its shield charged for it.
+func (c *Companion) Fit(l Loadout) {
+	c.Ship.Loadout = l
+	c.Ship.Shield = l.ShieldStats().Strength
 }
 
 // Remove takes companion number out of the wing, and reports whether it was
