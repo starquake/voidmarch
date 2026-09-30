@@ -525,13 +525,15 @@ func (h *Hub) drop(id, reason string) {
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
 	h.hangar += m.held
 	m.held = 0
-	h.broadcast(left(id), id)
 	h.leaveSquadron(id, m)
+	// Gone before anyone is told: telling a slow player drops them too,
+	// and they tell this one (pinned by TestHub_TwoSlowPlayersAreBothDropped).
 	if len(m.companions) == 0 {
 		h.remove(id)
 	} else {
 		h.sendHome(m)
 	}
+	h.broadcast(left(id), id)
 	h.broadcastSquadrons()
 }
 
