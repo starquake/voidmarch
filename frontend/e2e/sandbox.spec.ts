@@ -28,33 +28,36 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
 });
 
-test('ship-relative is the default: W flies toward the mouse', async ({ page }) => {
-  const { x, y } = await center(page);
-  await page.mouse.move(x + 150, y);
-  await expect.poll(async () => Math.abs((await state(page)).ship.angle)).toBeLessThan(0.2);
+test.describe('with the game\'s own default controls', () => {
+  test.use({ controls: 'game' });
 
-  const before = await state(page);
-  expect(before.controlMode).toBe('ship');
-  await page.keyboard.down('w');
-  await expect.poll(async () => (await state(page)).ship.thrusting).toBe(true);
-  await expect.poll(async () => (await state(page)).ship.x).toBeGreaterThan(before.ship.x + 20);
-  await page.keyboard.up('w');
-});
+  test('screen-relative is the default: W flies up the screen, wherever the mouse is', async ({ page }) => {
+    const { x, y } = await center(page);
+    await page.mouse.move(x + 150, y);
+    const before = await state(page);
+    expect(before.controlMode).toBe('screen');
+    await page.keyboard.down('w');
+    await expect.poll(async () => (await state(page)).ship.thrusting).toBe(true);
+    await expect.poll(async () => (await state(page)).ship.y).toBeLessThan(before.ship.y - 20);
+    await page.keyboard.up('w');
+  });
 
-test('C switches to screen-relative, and the choice survives a reload', async ({ page }) => {
-  await page.keyboard.press('c');
-  await expect.poll(async () => (await state(page)).controlMode).toBe('screen');
+  test('C switches to ship-relative, and the choice survives a reload', async ({ page }) => {
+    await page.keyboard.press('c');
+    await expect.poll(async () => (await state(page)).controlMode).toBe('ship');
 
-  const { x, y } = await center(page);
-  await page.mouse.move(x + 150, y);
-  const before = await state(page);
-  await page.keyboard.down('w');
-  await expect.poll(async () => (await state(page)).ship.y).toBeLessThan(before.ship.y - 20);
-  await page.keyboard.up('w');
+    const { x, y } = await center(page);
+    await page.mouse.move(x + 150, y);
+    await expect.poll(async () => Math.abs((await state(page)).ship.angle)).toBeLessThan(0.2);
+    const before = await state(page);
+    await page.keyboard.down('w');
+    await expect.poll(async () => (await state(page)).ship.x).toBeGreaterThan(before.ship.x + 20);
+    await page.keyboard.up('w');
 
-  await page.reload();
-  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
-  expect((await state(page)).controlMode).toBe('screen');
+    await page.reload();
+    await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+    expect((await state(page)).controlMode).toBe('ship');
+  });
 });
 
 test('the ship turns to face the mouse', async ({ page }) => {

@@ -897,9 +897,9 @@ function browserStorage() {
 function loadControlMode(store = browserStorage()) {
   try {
     const saved = store?.getItem(CONTROL_MODE_KEY);
-    return CONTROL_MODES.find((mode) => mode === saved) ?? "ship";
+    return CONTROL_MODES.find((mode) => mode === saved) ?? "screen";
   } catch {
-    return "ship";
+    return "screen";
   }
 }
 function saveControlMode(mode, store = browserStorage()) {

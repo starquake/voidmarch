@@ -39,28 +39,28 @@ const brokenStore: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = {
   },
 };
 
-test('the control mode defaults to ship-relative', () => {
-  assert.equal(loadControlMode(memoryStore()), 'ship');
-  assert.equal(loadControlMode(undefined), 'ship');
+test('the control mode defaults to screen-relative', () => {
+  assert.equal(loadControlMode(memoryStore()), 'screen');
+  assert.equal(loadControlMode(undefined), 'screen');
 });
 
 test('a saved control mode is loaded back', () => {
   const store = memoryStore();
-  saveControlMode('screen', store);
-  assert.equal(loadControlMode(store), 'screen');
+  saveControlMode('ship', store);
+  assert.equal(loadControlMode(store), 'ship');
 });
 
-test('an unknown saved value falls back to ship-relative', () => {
+test('an unknown saved value falls back to screen-relative', () => {
   const store = memoryStore();
   store.setItem('voidmarch.controlMode', 'joystick');
-  assert.equal(loadControlMode(store), 'ship');
+  assert.equal(loadControlMode(store), 'screen');
 });
 
 test('denied storage neither throws nor remembers', () => {
   assert.doesNotThrow(() => {
-    saveControlMode('screen', brokenStore);
+    saveControlMode('ship', brokenStore);
   });
-  assert.equal(loadControlMode(brokenStore), 'ship');
+  assert.equal(loadControlMode(brokenStore), 'screen');
 });
 
 test('sound and music are on by default', () => {
