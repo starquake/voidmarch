@@ -40,6 +40,9 @@ type CompanionShot struct {
 type Wing struct {
 	// Companions are in formation-slot order.
 	Companions []*Companion
+	// Derelicts are the derelict ships its companions may rescue, set before
+	// each Step (#52).
+	Derelicts  []Vec
 	ownerTrail []Mover
 }
 
@@ -153,11 +156,12 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 		} else {
 			step = Think(
 				BrainView{
-					Self:    c.Ship,
-					Owner:   seen,
-					Slot:    slot,
-					Enemies: enemies,
-					Friends: friends,
+					Self:      c.Ship,
+					Owner:     seen,
+					Slot:      slot,
+					Enemies:   enemies,
+					Friends:   friends,
+					Derelicts: w.Derelicts,
 				},
 				c.Orders,
 				c.Random,

@@ -44,6 +44,14 @@ const (
 	EnemyMuzzle = 14
 )
 
+// Derelicts and the fleet (#52).
+const (
+	// DerelictLifetime is the seconds a derelict waits to be rescued.
+	DerelictLifetime = 120
+	// MaxFleet caps the companion ships, docked or out: the server's seats.
+	MaxFleet = 16
+)
+
 // The Frigate, an encounter boss (#89).
 const (
 	// FrigateBaseHP and FrigateHPPerPlayer make its health: the base plus a

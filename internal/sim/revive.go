@@ -45,6 +45,19 @@ func ReviveStep(s *Ship, dt, friendDistance, squadmateDistance float64) bool {
 	return true
 }
 
+// RescueStep is a derelict's rescue progress after dt (#52): it fills over
+// ReviveSeconds while a helper is within ReviveRadius and drains otherwise,
+// like a revive. It reports whether the rescue is done.
+func RescueStep(progress, dt, helperDistance float64) (float64, bool) {
+	if helperDistance <= ReviveRadius {
+		progress += dt / ReviveSeconds
+	} else {
+		progress = math.Max(0, progress-dt/ReviveSeconds)
+	}
+
+	return math.Min(progress, 1), progress >= 1
+}
+
 // Helpers is how far from (x, y) the nearest friend that is up is, and the
 // nearest such squadmate; NoSquadmate when there's none.
 func Helpers(x, y float64, friends []Friend) (friend, squadmate float64) {

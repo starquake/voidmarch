@@ -106,6 +106,8 @@ type BrainView struct {
 	// Friends are the other friendly ships it keeps BrainSpacing from: its
 	// wingmates and other players' ships.
 	Friends []Friend
+	// Derelicts are the derelict ships waiting to be rescued (#52).
+	Derelicts []Vec
 }
 
 // Friend is another friendly ship as a companion sees it.
@@ -361,6 +363,9 @@ func chooseGoal(view *BrainView, orders *Orders, target *BrainEnemy) goal {
 	if downed, ok := downedSquadmate(view, orders); ok {
 		return goal{point: reviveSpot(view.Self, downed)}
 	}
+	if derelict, ok := nearestDerelict(view, orders); ok {
+		return goal{point: reviveSpot(view.Self, derelict)}
+	}
 	fallingBack := view.Self.Damage >= BrainBadlyDamaged &&
 		(orders.Stance == StanceDefensive || orders.Resources == ResourcesConserve)
 	if fallingBack {
@@ -380,7 +385,7 @@ func chooseGoal(view *BrainView, orders *Orders, target *BrainEnemy) goal {
 // its owner included, for a companion that isn't holding a point or staying
 // out of sight.
 func downedSquadmate(view *BrainView, orders *Orders) (Vec, bool) {
-	if mode := ModeOf(*orders); mode == ModeHold || mode == ModeStealth {
+	if !helps(orders) {
 		return Vec{}, false
 	}
 	self := view.Self
@@ -401,6 +406,32 @@ func downedSquadmate(view *BrainView, orders *Orders) (Vec, bool) {
 	}
 
 	return nearest, best <= BrainReviveRange
+}
+
+// nearestDerelict is the nearest derelict within BrainReviveRange, for a
+// companion that would revive a squadmate: it rescues one the same way.
+func nearestDerelict(view *BrainView, orders *Orders) (Vec, bool) {
+	if !helps(orders) {
+		return Vec{}, false
+	}
+	self := view.Self
+	var nearest Vec
+	best := math.Inf(1)
+	for _, d := range view.Derelicts {
+		if dist := distance(self.X, self.Y, d.X, d.Y); dist <= BrainReviveRange && dist < best {
+			nearest, best = d, dist
+		}
+	}
+
+	return nearest, best <= BrainReviveRange
+}
+
+// helps reports whether a companion leaves its post to revive or rescue: not
+// while holding a point or staying out of sight.
+func helps(orders *Orders) bool {
+	mode := ModeOf(*orders)
+
+	return mode != ModeHold && mode != ModeStealth
 }
 
 // reviveSpot is where a companion hovers to revive a downed ship: on its

@@ -274,3 +274,80 @@ func TestWing_ADownedCompanionDriftsUntilRevived(t *testing.T) {
 		)
 	}
 }
+
+func TestRescueStep(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		progress float64
+		dt       float64
+		helper   float64
+		want     float64
+		done     bool
+	}{
+		{"a helper in reach fills it", 0, 1, ReviveRadius, 1 / ReviveSeconds, false},
+		{"nobody near drains it", 0.5, 1, ReviveRadius + 1, 0.5 - 1/ReviveSeconds, false},
+		{"it never drains below empty", 0.1, 1, NoSquadmate, 0, false},
+		{"a full bar is a rescue", 0.9, 1, 10, 1, true},
+	}
+	for _, tc := range tests {
+		got, done := RescueStep(tc.progress, tc.dt, tc.helper)
+		if !closeTo(got, tc.want) || done != tc.done {
+			t.Errorf("%s: RescueStep() = %v, %t; want %v, %t", tc.name, got, done, tc.want, tc.done)
+		}
+	}
+}
+
+func TestWing_CompanionsRescueADerelict(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		mode Mode
+		want bool
+	}{
+		{mode: ModeEscort, want: true},
+		{mode: ModeHold, want: false},
+		{mode: ModeStealth, want: false},
+	} {
+		t.Run(string(tc.mode), func(t *testing.T) {
+			t.Parallel()
+
+			var w Wing
+			c := w.Add(1, 0, 60, ModeOrders(tc.mode, DefaultOrders(), 0, 60))
+			derelict := Vec{X: 250, Y: 60}
+			w.Derelicts = []Vec{derelict}
+			owner := Mover{Angle: -math.Pi / 2}
+			for range 4 * TickRate {
+				w.Observe(owner)
+				w.Step(nil, nil)
+			}
+			d := dist(c.Ship.X, c.Ship.Y, derelict.X, derelict.Y)
+			if came := d <= ReviveRadius; came != tc.want {
+				t.Errorf(
+					"%s: %v from the derelict; in rescue reach %v, want %v",
+					tc.mode,
+					d,
+					came,
+					tc.want,
+				)
+			}
+		})
+	}
+}
+
+func TestWing_ADownedSquadmateComesBeforeADerelict(t *testing.T) {
+	t.Parallel()
+
+	var w Wing
+	c := w.Add(1, 0, 60, DefaultOrders())
+	w.Derelicts = []Vec{{X: -250, Y: 60}}
+	owner := Mover{Angle: -math.Pi / 2, Downed: true}
+	for range 4 * TickRate {
+		w.Observe(owner)
+		w.Step(nil, nil)
+	}
+	if d := dist(c.Ship.X, c.Ship.Y, 0, 0); d > BrainSpacing+5 {
+		t.Errorf("%v from its downed owner, want beside them, not at the derelict", d)
+	}
+}
