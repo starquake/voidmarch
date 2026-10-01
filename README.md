@@ -100,6 +100,13 @@ or after 3 s you respawn with **H** at home or **J** beside a squadmate.
 Enemies need the server, so
 offline the sandbox stays empty.
 
+Far to the north waits a Kla'ed Frigate with three Fighters. It fires slow
+rings of big bullets behind a shield bubble that recharges when left alone,
+and it's tougher for every player who comes near, a companion counting half.
+Its health bar shows at the top while you're close. If everyone near it goes
+down it heals, and once destroyed it always drops a part and is back five
+minutes later.
+
 ## Parts
 
 Shot-down enemies drop parts: the Scout sometimes, the Fighter more often,
@@ -125,6 +132,7 @@ the browser's network panel.
 | `DB_PATH` | `voidmarch.db` (`/data/voidmarch.db` in the image) | The SQLite file that keeps players and the hangar. Its directory must exist. |
 | `POOL_START` | `3`       | Companion ships in the hangar on a fresh database; after that the saved count is used. |
 | `REGISTER_LIMIT` | `20`  | New names one address may register a minute, enough for a full server of friends on one network; `0` lifts the limit. A name never used to play is deleted after a day. |
+| `MAP` | `frontier` | The game map: where the bosses sit. `e2e` puts the Frigate near home for the browser tests. |
 | `TRUSTED_PROXY_IPS` | (none) | Comma-separated CIDRs of reverse proxies in front of the server, such as `10.0.0.0/8`. The limit then counts the address in their `X-Forwarded-For`, not the proxy's. |
 
 ## Development
