@@ -72,6 +72,8 @@ export interface DebugState {
   /** The derelicts waiting to be rescued, and how many this player rescued (#52). */
   derelicts: DerelictDebug[];
   rescues: number;
+  /** The player's squadron's mission (#101). */
+  mission: string | undefined;
   /** The HUD's sector line: "Sector B3 · hostile" (#99). */
   sector: string;
   /** The boss health bar at the top, while it's shown (#89). */

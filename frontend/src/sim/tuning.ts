@@ -64,3 +64,8 @@ export const PICKUP_USELESS_ALPHA = 0.45;
 /** The sector edges (#99): faint lines in the HUD's light blue. */
 export const SECTOR_LINE_COLOR = 0xd8f8ff;
 export const SECTOR_LINE_ALPHA = 0.25;
+/** The mission arrow at the screen's edge (#101): the mockups' gold, its size and inset in CSS pixels. */
+export const MISSION_COLOR = 0xffd27a;
+export const MISSION_CSS = '#ffd27a';
+export const MISSION_ARROW_SIZE_PX = 12;
+export const MISSION_ARROW_MARGIN_PX = 28;

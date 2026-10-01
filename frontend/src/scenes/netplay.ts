@@ -6,6 +6,7 @@ import type {
   EnemyFired,
   PickupDropped,
   PickupTaken,
+  SectorCleared,
   Snapshot,
   SquadronInfo,
   SquadronJoined,
@@ -334,8 +335,7 @@ export class NetPlay {
           }
         },
         sectorCleared: (cleared) => {
-          this.clearedSectors.add(cleared.sector);
-          this.say(`Sector ${cleared.sector} cleared`);
+          this.sectorCleared(cleared);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
@@ -392,6 +392,13 @@ export class NetPlay {
   /** The player's squadron as the server last listed it. */
   get squadronInfo(): SquadronInfo | undefined {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+
+  /** The player's squadron's mission (#101), undefined without one. */
+  get mission(): string | undefined {
+    const mission = this.squadronInfo?.mission;
+
+    return mission === undefined || mission === '' ? undefined : mission;
   }
 
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
@@ -908,6 +915,24 @@ export class NetPlay {
         this.connection.sendCollect(id);
       }
     }
+  }
+
+  /** A sector is cleared; the part it gave this player is theirs now (#101). */
+  private sectorCleared(cleared: SectorCleared): void {
+    this.clearedSectors.add(cleared.sector);
+    let gained = '';
+    for (const gain of cleared.gains) {
+      const part = fromPart(gain.unlock?.part);
+      if (gain.playerId !== this.playerId || part === undefined) {
+        continue;
+      }
+      const tier = tierOf(gain.unlock?.tier);
+      this.unlocks.set(part, tier);
+      gained = ` · ${partLabel(part, tier)}`;
+    }
+    this.say(`Sector ${cleared.sector} cleared${gained}`);
+    this.options.pickups.regrade(this.unlocks);
+    this.refit();
   }
 
   /** A pickup is gone; the parts this player gained are theirs now. */

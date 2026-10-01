@@ -315,6 +315,10 @@ var PICKUP_GLOW_DISTANCE = 6;
 var PICKUP_USELESS_ALPHA = 0.45;
 var SECTOR_LINE_COLOR = 14219519;
 var SECTOR_LINE_ALPHA = 0.25;
+var MISSION_COLOR = 16765562;
+var MISSION_CSS = "#ffd27a";
+var MISSION_ARROW_SIZE_PX = 12;
+var MISSION_ARROW_MARGIN_PX = 28;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -1599,6 +1603,25 @@ function sectorLine(x, y, cleared) {
 }
 function sectorEdges() {
   return Array.from({ length: GRID_SIZE + 1 }, (_, i) => i * SECTOR_SIZE - WORLD_HALF_SIZE);
+}
+function sectorCenter(name) {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || col >= GRID_SIZE || !Number.isInteger(row) || row < 0 || row >= GRID_SIZE) {
+    return void 0;
+  }
+  return { x: (col + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE, y: (row + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE };
+}
+function missionArrow(ship, target, width, height, margin) {
+  const center = sectorCenter(target);
+  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
+    return void 0;
+  }
+  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
+  const halfW = width / 2 - margin;
+  const halfH = height / 2 - margin;
+  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
+  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
 
 // src/sim/world.ts
@@ -2889,8 +2912,7 @@ var NetPlay = class {
           }
         },
         sectorCleared: (cleared) => {
-          this.clearedSectors.add(cleared.sector);
-          this.say(`Sector ${cleared.sector} cleared`);
+          this.sectorCleared(cleared);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : this.remotes.get(rescued.playerId)?.name ?? "a squadmate";
@@ -2940,6 +2962,11 @@ var NetPlay = class {
   /** The player's squadron as the server last listed it. */
   get squadronInfo() {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+  /** The player's squadron's mission (#101), undefined without one. */
+  get mission() {
+    const mission = this.squadronInfo?.mission;
+    return mission === void 0 || mission === "" ? void 0 : mission;
   }
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
   orderSquadron(item, context) {
@@ -3405,6 +3432,23 @@ var NetPlay = class {
       }
     }
   }
+  /** A sector is cleared; the part it gave this player is theirs now (#101). */
+  sectorCleared(cleared) {
+    this.clearedSectors.add(cleared.sector);
+    let gained = "";
+    for (const gain of cleared.gains) {
+      const part = fromPart(gain.unlock?.part);
+      if (gain.playerId !== this.playerId || part === void 0) {
+        continue;
+      }
+      const tier = tierOf(gain.unlock?.tier);
+      this.unlocks.set(part, tier);
+      gained = ` \xB7 ${partLabel(part, tier)}`;
+    }
+    this.say(`Sector ${cleared.sector} cleared${gained}`);
+    this.options.pickups.regrade(this.unlocks);
+    this.refit();
+  }
   /** A pickup is gone; the parts this player gained are theirs now. */
   pickupTaken(taken) {
     this.options.pickups.remove(taken.id);
@@ -3650,6 +3694,8 @@ var SandboxScene = class extends Phaser8.Scene {
   hudCamera;
   hud;
   bossBar;
+  missionArrow;
+  missionLabel;
   downPanel;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   wasDown = false;
@@ -3735,6 +3781,7 @@ var SandboxScene = class extends Phaser8.Scene {
       loadoutScreen: false,
       boss: void 0,
       sector: "",
+      mission: void 0,
       derelicts: [],
       rescues: 0,
       hangar: void 0,
@@ -3762,11 +3809,31 @@ var SandboxScene = class extends Phaser8.Scene {
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    this.drawMissionArrow();
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
     this.publish();
+  }
+  /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
+  drawMissionArrow() {
+    const g = this.missionArrow.clear();
+    const mission = this.net?.mission;
+    const { width, height } = this.scale;
+    const dpr = this.dpr();
+    const at2 = mission === void 0 ? void 0 : missionArrow(this.sim.ship, mission, width, height, MISSION_ARROW_MARGIN_PX * dpr);
+    this.missionLabel.setVisible(at2 !== void 0);
+    if (at2 === void 0 || mission === void 0) {
+      return;
+    }
+    const size = MISSION_ARROW_SIZE_PX * dpr;
+    const tip = { x: at2.x + Math.cos(at2.angle) * size, y: at2.y + Math.sin(at2.angle) * size };
+    const side = (turn) => ({ x: at2.x + Math.cos(at2.angle + turn) * size * 0.6, y: at2.y + Math.sin(at2.angle + turn) * size * 0.6 });
+    const left = side(Math.PI / 2);
+    const right = side(-Math.PI / 2);
+    g.fillStyle(MISSION_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+    this.missionLabel.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * 1.6, at2.y - Math.sin(at2.angle) * size * 1.6);
   }
   createBackgrounds() {
     this.backgrounds = keys.background.map((key, i) => {
@@ -3902,6 +3969,9 @@ var SandboxScene = class extends Phaser8.Scene {
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
     main.ignore(this.downPanel);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
+    this.missionArrow = this.add.graphics();
+    this.missionLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+    main.ignore([this.missionArrow, this.missionLabel]);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -4428,6 +4498,7 @@ ${modeName(info)}`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0),
+      this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -4553,6 +4624,7 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.mission = this.net?.mission;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
