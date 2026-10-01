@@ -65,7 +65,7 @@ export async function flyOut(page: Page): Promise<void> {
  * hunt that goes round again finds them fitted already, and one more press
  * would step past them (#96).
  */
-async function fitRockets(page: Page): Promise<void> {
+export async function fitRockets(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
