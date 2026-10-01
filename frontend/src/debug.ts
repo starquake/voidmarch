@@ -1,3 +1,4 @@
+import type { BossBar } from './net/boss.ts';
 import type { EnemyDebug, NetStatus, RemoteDebug } from './scenes/netplay.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
@@ -68,6 +69,8 @@ export interface DebugState {
   squadronScreen: boolean;
   /** Whether the loadout screen is open (#78). */
   loadoutScreen: boolean;
+  /** The boss health bar at the top, while it's shown (#89). */
+  boss: BossBar | undefined;
   /** Companion ships waiting in the shared hangar, once the server has listed them. */
   hangar: number | undefined;
   /** The squadron's mode as the ring labels it ("Attack"), once in a squadron. */

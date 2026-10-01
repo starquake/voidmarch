@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser7 from "./vendor/phaser.js";
+import Phaser8 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -213,6 +213,8 @@ var ENEMY_RADIUS = {
   fighter: 12,
   frigate: 19
 };
+var FRIGATE_REACH = 800;
+var FRIGATE_SHIELD = 20;
 var LAYOUT = {
   ticks: 0,
   alpha: 1,
@@ -556,7 +558,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser6 from "./vendor/phaser.js";
+import Phaser7 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -1782,6 +1784,32 @@ var WeaponAnimator = class {
   }
 };
 
+// src/net/boss.ts
+var BOSS_NAMES = { frigate: "KLA'ED FRIGATE" };
+function bossBar(bosses, x, y) {
+  let nearest;
+  let distance = FRIGATE_REACH;
+  for (const boss of bosses) {
+    const d = Math.hypot(boss.x - x, boss.y - y);
+    if (d <= distance && BOSS_NAMES[boss.kind] !== void 0) {
+      nearest = boss;
+      distance = d;
+    }
+  }
+  if (nearest === void 0 || nearest.maxHp <= 0) {
+    return void 0;
+  }
+  const hp = Math.max(0, Math.ceil(nearest.hp));
+  const max = Math.round(nearest.maxHp);
+  const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} nearby` : "";
+  return {
+    name: BOSS_NAMES[nearest.kind] ?? "",
+    health: Math.min(hp / max, 1),
+    shield: Math.min(Math.max(nearest.shield / FRIGATE_SHIELD, 0), 1),
+    text: `${String(hp)} / ${String(max)}${scaled}`
+  };
+}
+
 // src/scenes/audio.ts
 import Phaser2 from "./vendor/phaser.js";
 
@@ -1953,6 +1981,79 @@ var ShipAudio = class {
       this.playMusic();
     });
     this.music.play();
+  }
+};
+
+// src/scenes/bossbar.ts
+import "./vendor/phaser.js";
+var NAME_COLOR = "#ff9a8a";
+var TEXT_COLOR = "#d8f8ff";
+var HEALTH_FILL = 16734794;
+var SHIELD_FILL = 9427199;
+var TRACK = 328458;
+var TRACK_ALPHA = 0.8;
+var WIDTH_SHARE = 0.3;
+var TOP_PX = 8;
+var FONT_PX = 12;
+var HEALTH_PX = 10;
+var SHIELD_PX = 3;
+var GAP_PX = 2;
+var BossBarView = class {
+  name;
+  text;
+  bars;
+  shown;
+  width = 0;
+  scale = 1;
+  constructor(scene, hide) {
+    const style = { fontFamily: "monospace", fontSize: `${String(FONT_PX)}px` };
+    this.name = scene.add.text(0, 0, "", { ...style, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    this.text = scene.add.text(0, 0, "", { ...style, color: TEXT_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    this.bars = scene.add.graphics();
+    for (const object of [this.name, this.text, this.bars]) {
+      hide(object);
+    }
+    this.show(void 0);
+  }
+  /** The bar as shown, for the E2E tests. */
+  get current() {
+    return this.shown;
+  }
+  /** Lays the bar out for a screen width in device pixels at dpr. */
+  resize(width, dpr) {
+    this.width = Math.round(width * WIDTH_SHARE);
+    this.scale = dpr;
+    const x = width / 2;
+    this.name.setFontSize(FONT_PX * dpr).setPosition(x, TOP_PX * dpr);
+    this.bars.setPosition(Math.round(x - this.width / 2), this.name.y + this.name.height + GAP_PX * dpr);
+    this.text.setFontSize(FONT_PX * dpr).setPosition(x, this.bars.y + (HEALTH_PX + SHIELD_PX + 2 * GAP_PX) * dpr);
+    this.draw();
+  }
+  /** Shows bar, or hides it when undefined. */
+  show(bar) {
+    const same = bar?.name === this.shown?.name && bar?.health === this.shown?.health && bar?.shield === this.shown?.shield && bar?.text === this.shown?.text;
+    this.shown = bar;
+    for (const object of [this.name, this.text, this.bars]) {
+      object.setVisible(bar !== void 0);
+    }
+    if (bar === void 0 || same) {
+      return;
+    }
+    this.name.setText(bar.name);
+    this.text.setText(bar.text);
+    this.draw();
+  }
+  draw() {
+    const bar = this.shown;
+    this.bars.clear();
+    if (bar === void 0) {
+      return;
+    }
+    const s = this.scale;
+    const health = HEALTH_PX * s;
+    const shieldY = health + GAP_PX * s;
+    const shield = SHIELD_PX * s;
+    this.bars.fillStyle(TRACK, TRACK_ALPHA).fillRect(0, 0, this.width, health).fillRect(0, shieldY, this.width, shield).fillStyle(HEALTH_FILL, 1).fillRect(0, 0, Math.round(this.width * bar.health), health).fillStyle(SHIELD_FILL, 1).fillRect(0, shieldY, Math.round(this.width * bar.shield), shield);
   }
 };
 
@@ -2264,10 +2365,10 @@ var TimedQueue = class {
 };
 
 // src/scenes/enemyview.ts
-import Phaser4 from "./vendor/phaser.js";
+import Phaser5 from "./vendor/phaser.js";
 
 // src/scenes/shipview.ts
-import Phaser3 from "./vendor/phaser.js";
+import Phaser4 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
 var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
@@ -2347,7 +2448,7 @@ var ShipView = class {
   setTint(color) {
     this.tint = color;
     for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
-      part.setTint(color).setTintMode(Phaser3.TintModes.MULTIPLY);
+      part.setTint(color).setTintMode(Phaser4.TintModes.MULTIPLY);
     }
   }
   /** Fits the parts; unchanged parts keep their animation running. */
@@ -2370,7 +2471,7 @@ var ShipView = class {
   }
   /** A part's own tint: the owner's color for a companion, else its tier's (#77, decision 12). */
   restoreTint(part) {
-    part.setTintMode(Phaser3.TintModes.MULTIPLY);
+    part.setTintMode(Phaser4.TintModes.MULTIPLY);
     const l = this.loadout;
     const tier = l === void 0 ? 0 : part === this.weapon ? l.weaponTier : part === this.engine ? l.engineTier : part === this.shield ? l.shieldTier : 0;
     const color = this.tint ?? tierColor(tier);
@@ -2465,7 +2566,7 @@ var ShipView = class {
   }
   /** A short white flash of a part; the shield then shows only while charged. */
   flash(part) {
-    part.setVisible(true).setTint(16777215).setTintMode(Phaser3.TintModes.FILL);
+    part.setVisible(true).setTint(16777215).setTintMode(Phaser4.TintModes.FILL);
     this.scene.time.delayedCall(HIT_FLASH_MS, () => {
       this.restoreTint(part);
       if (part === this.shield) {
@@ -2489,6 +2590,8 @@ var EnemyView = class {
   root;
   base;
   weapon;
+  /** The shield bubble, for the kinds that have one (#89). */
+  shield;
   scene;
   constructor(scene, parent, kind) {
     this.scene = scene;
@@ -2496,10 +2599,15 @@ var EnemyView = class {
     const engine = scene.add.sprite(0, 0, keys.enemyEngine(kind)).play(keys.enemyEngine(kind));
     this.base = scene.add.image(0, 0, keys.enemyBase(kind));
     this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(kind), 0);
-    this.weapon.on(Phaser4.Animations.Events.ANIMATION_COMPLETE, () => {
+    this.weapon.on(Phaser5.Animations.Events.ANIMATION_COMPLETE, () => {
       this.weapon.setFrame(0);
     });
-    this.root = scene.add.container(0, 0, [engine, this.base, this.weapon]);
+    const parts = [engine, this.base, this.weapon];
+    if (scene.textures.exists(keys.enemyShield(kind))) {
+      this.shield = scene.add.sprite(0, 0, keys.enemyShield(kind)).play(keys.enemyShield(kind)).setVisible(false);
+      parts.push(this.shield);
+    }
+    this.root = scene.add.container(0, 0, parts);
     parent.add(this.root);
   }
   get x() {
@@ -2511,15 +2619,23 @@ var EnemyView = class {
   place(x, y, angle) {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
   }
+  /** Shows the shield bubble while the shield holds a charge. */
+  setShield(up) {
+    this.shield?.setVisible(up);
+  }
+  /** Whether the shield bubble shows, for the E2E tests. */
+  get shieldShown() {
+    return this.shield?.visible ?? false;
+  }
   /** Plays the weapon animation: the telegraph before a volley leaves. */
   warn() {
     this.weapon.play(keys.enemyWeapons(this.kind));
   }
   /** A short white flash where a shot landed. */
   flash() {
-    this.base.setTint(16777215).setTintMode(Phaser4.TintModes.FILL);
+    this.base.setTint(16777215).setTintMode(Phaser5.TintModes.FILL);
     this.scene.time.delayedCall(FLASH_MS, () => {
-      this.base.clearTint().setTintMode(Phaser4.TintModes.MULTIPLY);
+      this.base.clearTint().setTintMode(Phaser5.TintModes.MULTIPLY);
     });
   }
   /** Plays the pack's destruction animation in place of the ship, then goes. */
@@ -2531,7 +2647,7 @@ var EnemyView = class {
     const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.kind)).setRotation(this.root.rotation);
     this.root.parentContainer.add(boom);
     this.root.destroy();
-    boom.once(Phaser4.Animations.Events.ANIMATION_COMPLETE, () => {
+    boom.once(Phaser5.Animations.Events.ANIMATION_COMPLETE, () => {
       boom.destroy();
     });
     boom.play(keys.enemyDestruction(this.kind));
@@ -2741,6 +2857,12 @@ var NetPlay = class {
     }
   }
   /** Enemies as drawn, for the E2E tests. */
+  /** The bosses as drawn, with their health (#89). */
+  get bosses() {
+    return [...this.enemies.values()].flatMap(
+      (e) => e.health === void 0 ? [] : [{ kind: e.view.kind, x: e.view.x, y: e.view.y, ...e.health }]
+    );
+  }
   get enemyList() {
     return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
   }
@@ -3199,11 +3321,16 @@ var NetPlay = class {
           buffer: new StateBuffer(),
           drawn: void 0,
           lastSeen: snapshot.tick,
-          destroyedAt: void 0
+          destroyedAt: void 0,
+          health: void 0
         };
         this.enemies.set(state.enemyId, enemy);
       }
       enemy.lastSeen = snapshot.tick;
+      if (state.maxHp > 0) {
+        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor };
+        enemy.view.setShield(state.shield > 0);
+      }
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle, vx: state.vx, vy: state.vy });
     }
   }
@@ -3350,7 +3477,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser6.Scene {
+var SandboxScene = class extends Phaser7.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -3375,6 +3502,7 @@ var SandboxScene = class extends Phaser6.Scene {
   vignette;
   hudCamera;
   hud;
+  bossBar;
   downPanel;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   wasDown = false;
@@ -3412,7 +3540,7 @@ var SandboxScene = class extends Phaser6.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser6.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser7.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -3458,6 +3586,7 @@ var SandboxScene = class extends Phaser6.Scene {
       squadron: "",
       squadronScreen: false,
       loadoutScreen: false,
+      boss: void 0,
       hangar: void 0,
       squadronMode: void 0
     };
@@ -3482,6 +3611,7 @@ var SandboxScene = class extends Phaser6.Scene {
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
+    this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
@@ -3525,7 +3655,7 @@ var SandboxScene = class extends Phaser6.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser6.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser7.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -3535,7 +3665,7 @@ var SandboxScene = class extends Phaser6.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser6.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser7.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -3578,7 +3708,7 @@ var SandboxScene = class extends Phaser6.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser6.BlendModes.ADD,
+      blendMode: Phaser7.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -3587,7 +3717,7 @@ var SandboxScene = class extends Phaser6.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser6.BlendModes.ADD,
+      blendMode: Phaser7.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -3597,11 +3727,11 @@ var SandboxScene = class extends Phaser6.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser6.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    const bloom = Phaser7.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
     this.bloom = bloom?.parallelFilters;
     this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
-    this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
+    this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
     this.partsLine = Array.from({ length: 4 }, () => {
       const text = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
@@ -3616,6 +3746,7 @@ var SandboxScene = class extends Phaser6.Scene {
       backgroundColor: "#05030acc"
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
     main.ignore(this.downPanel);
+    this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -3624,7 +3755,7 @@ var SandboxScene = class extends Phaser6.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser6.Input.Keyboard.KeyCodes;
+    const codes = Phaser7.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -3657,7 +3788,7 @@ var SandboxScene = class extends Phaser6.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser6.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser7.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -3868,11 +3999,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser6.Math.Vector2(cx, cy)];
+    const points = [new Phaser7.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser6.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser7.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -3963,7 +4094,9 @@ ${modeName(info)}`,
     }
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
-    this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
+    this.hud.setFontSize(HUD_FONT_PX * dpr);
+    this.layoutHud();
+    this.bossBar.resize(width, dpr);
     this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
@@ -4137,14 +4270,22 @@ ${modeName(info)}`,
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home \xB7 hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
+      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
+      "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       this.netStatus(),
       this.squadronStatus()
     ]);
-    this.updatePartsLine();
+    this.layoutHud();
   }
-  /** The fitted parts under the HUD, each named in its tier's color (#77, decision 12). */
-  updatePartsLine() {
+  /**
+   * The HUD at the bottom left (#89): its lines, then the fitted parts under
+   * them, each named in its tier's color (#77, decision 12).
+   */
+  layoutHud() {
+    const dpr = this.dpr();
+    const lineHeight = this.hud.height / Math.max(1, this.hud.text.split("\n").length);
+    const y = this.scale.height - HUD_MARGIN_PX * dpr - lineHeight;
+    this.hud.setPosition(HUD_MARGIN_PX * dpr, y);
     const l = this.sim.ship.loadout;
     const words = [
       ["parts", tierCss(0)],
@@ -4153,7 +4294,6 @@ ${modeName(info)}`,
       [partLabel(l.shield, l.shieldTier), tierCss(l.shieldTier)]
     ];
     let x = this.hud.x;
-    const y = this.hud.y + this.hud.height;
     const gap = Number.parseFloat(String(this.hud.style.fontSize));
     this.partsLine.forEach((text, i) => {
       const [word, color] = words[i] ?? ["", tierCss(0)];
@@ -4256,6 +4396,7 @@ ${modeName(info)}`,
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
+    this.debug.boss = this.bossBar.current;
     publishDebugState(this.debug);
   }
 };
@@ -4272,8 +4413,8 @@ async function start() {
   }
   await loadSim("/static/wasm/sim.wasm");
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser7.Game({
-    type: Phaser7.AUTO,
+  const game = new Phaser8.Game({
+    type: Phaser8.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -4282,7 +4423,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser7.Scale.NONE,
+      mode: Phaser8.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

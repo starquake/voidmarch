@@ -55,6 +55,7 @@ import {
 import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
+import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
 
@@ -119,6 +120,8 @@ interface Enemy {
   lastSeen: number;
   /** The tick it was shot down at, once the server said so. */
   destroyedAt: number | undefined;
+  /** A boss's health from the latest snapshot (#89). */
+  health: BossHealth | undefined;
 }
 
 /** Another player's shot that hit an enemy, waiting for the delayed timeline. */
@@ -389,6 +392,13 @@ export class NetPlay {
   }
 
   /** Enemies as drawn, for the E2E tests. */
+  /** The bosses as drawn, with their health (#89). */
+  get bosses(): DrawnBoss[] {
+    return [...this.enemies.values()].flatMap((e) =>
+      e.health === undefined ? [] : [{ kind: e.view.kind, x: e.view.x, y: e.view.y, ...e.health }],
+    );
+  }
+
   get enemyList(): EnemyDebug[] {
     return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
   }
@@ -901,10 +911,15 @@ export class NetPlay {
           drawn: undefined,
           lastSeen: snapshot.tick,
           destroyedAt: undefined,
+          health: undefined,
         };
         this.enemies.set(state.enemyId, enemy);
       }
       enemy.lastSeen = snapshot.tick;
+      if (state.maxHp > 0) {
+        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor };
+        enemy.view.setShield(state.shield > 0);
+      }
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle, vx: state.vx, vy: state.vy });
     }
   }
