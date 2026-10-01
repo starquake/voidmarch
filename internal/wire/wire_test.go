@@ -87,6 +87,9 @@ func messages() []proto.Message {
 			Kind: &pb.ServerMessage_ShotEnded{ShotEnded: &pb.ShotEnded{PlayerId: "p1", ShotId: 9}},
 		},
 		&pb.ClientMessage{Kind: &pb.ClientMessage_Summon{Summon: &pb.Summon{}}},
+		&pb.ClientMessage{
+			Kind: &pb.ClientMessage_PickMission{PickMission: &pb.PickMission{Sector: "E3"}},
+		},
 		//nolint:staticcheck // old clients may still send it, so it still decodes.
 		&pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
 			Companion: 2, State: &pb.ShipState{X: 1, Y: 2},
@@ -112,7 +115,11 @@ func messages() []proto.Message {
 			},
 		}}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_SectorCleared{
-			SectorCleared: &pb.SectorCleared{Sector: "C3", Tick: 11},
+			SectorCleared: &pb.SectorCleared{
+				Sector: "C3",
+				Tick:   11,
+				Gains:  []*pb.PickupGain{{PlayerId: "p1"}},
+			},
 		}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
 			DerelictRescued: &pb.DerelictRescued{
