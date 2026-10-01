@@ -1,8 +1,13 @@
 {
   "name": "e2e",
   "bosses": [
-    { "kind": "frigate", "x": 0, "y": -1100 }
+    { "kind": "frigate", "sector": "D3" }
   ],
+  "garrisons": {
+    "D5": 500,
+    "E4": 2,
+    "C4": 2
+  },
   "derelicts": [
     { "x": -420, "y": -120 }
   ]

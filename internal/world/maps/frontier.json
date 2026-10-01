@@ -1,6 +1,9 @@
 {
   "name": "frontier",
   "bosses": [
-    { "kind": "frigate", "x": 0, "y": -1600 }
+    { "kind": "frigate", "sector": "C3" },
+    { "kind": "frigate", "sector": "E3" },
+    { "kind": "frigate", "sector": "C5" },
+    { "kind": "frigate", "sector": "E5" }
   ]
 }
