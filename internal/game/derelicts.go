@@ -26,9 +26,9 @@ type derelict struct {
 
 // releaseDerelict puts a derelict at (x, y), unless the fleet, counting the
 // derelicts already waiting, is full: none is released that couldn't dock.
-func (h *Hub) releaseDerelict(x, y float64, spot int) {
+func (h *Hub) releaseDerelict(x, y float64, spot int) (uint32, bool) {
 	if h.fleet()+len(h.derelicts) >= sim.MaxFleet {
-		return
+		return 0, false
 	}
 	h.nextDerelict++
 	h.derelicts[h.nextDerelict] = &derelict{
@@ -38,6 +38,8 @@ func (h *Hub) releaseDerelict(x, y float64, spot int) {
 		goneTick: h.tick + derelictTicks,
 		spot:     spot,
 	}
+
+	return h.nextDerelict, true
 }
 
 // fillDerelictSpots puts a derelict at every map spot without one.
@@ -48,7 +50,7 @@ func (h *Hub) fillDerelictSpots() {
 	}
 	for i, p := range h.derelictSpots {
 		if !waiting[i+1] {
-			h.releaseDerelict(p.x, p.y, i+1)
+			_, _ = h.releaseDerelict(p.x, p.y, i+1)
 		}
 	}
 }
@@ -78,6 +80,7 @@ func (h *Hub) stepDerelicts() {
 		d := h.derelicts[id]
 		if h.tick >= d.goneTick {
 			delete(h.derelicts, id)
+			h.derelictDriftedOff(id)
 
 			continue
 		}
@@ -86,6 +89,7 @@ func (h *Hub) stepDerelicts() {
 		d.rescue, done = sim.RescueStep(d.rescue, tickDuration, distance)
 		if done {
 			h.dockDerelict(id, helper)
+			h.derelictRescued(id, point{d.x, d.y})
 		}
 	}
 }

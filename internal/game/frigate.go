@@ -29,6 +29,9 @@ type frigateSpot struct {
 	sector    sim.Sector
 	enemyID   uint32
 	respawnAt uint32
+	// once marks an attack's Frigate (#102): it comes even to a cleared
+	// sector, and never comes back.
+	once bool
 }
 
 // frigateFight is a Frigate's state beyond an enemy's: its health grows by a
@@ -77,7 +80,7 @@ func frigateSpots(m *world.Map) []frigateSpot {
 func (h *Hub) spawnFrigates() {
 	for i := range h.frigates {
 		spot := &h.frigates[i]
-		if spot.enemyID != 0 || h.tick < spot.respawnAt || h.cleared[spot.sector] {
+		if spot.enemyID != 0 || h.tick < spot.respawnAt || (h.cleared[spot.sector] && !spot.once) {
 			continue
 		}
 		h.nextEnemy++
@@ -175,7 +178,10 @@ func (h *Hub) frigateDestroyed(e *enemy) {
 	spot := &h.frigates[e.frigate.spot]
 	spot.enemyID = 0
 	spot.respawnAt = h.tick + frigateRespawnTicks
-	h.releaseDerelict(e.x, e.y, 0)
+	if spot.once {
+		spot.respawnAt = math.MaxUint32
+	}
+	_, _ = h.releaseDerelict(e.x, e.y, 0)
 	h.clearIfDone(spot.sector)
 }
 

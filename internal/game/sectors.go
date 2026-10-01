@@ -321,3 +321,13 @@ func garrisonField(m *world.Map) int {
 
 	return min(m.Field, garrisonActive)
 }
+
+// newGarrison is a fresh garrison for s, sized by the map or by its ring.
+func (h *Hub) newGarrison(s sim.Sector) *garrison {
+	base := sim.GarrisonSize(s.Ring())
+	if h.worldMap != nil {
+		base = h.worldMap.GarrisonSize(s)
+	}
+
+	return &garrison{sector: s, base: base, counted: map[string]bool{}}
+}

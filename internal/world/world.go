@@ -38,6 +38,9 @@ type Map struct {
 	Garrisons map[string]int `json:"garrisons,omitempty"`
 	// Field caps how many of a garrison fight at once; 0 leaves the hub's.
 	Field int `json:"field,omitempty"`
+	// NoEvents keeps world events away (#102), for a map whose tests share
+	// one server.
+	NoEvents bool `json:"noEvents,omitempty"`
 	// Derelicts are where a derelict ship always waits to be rescued: a new
 	// one comes as soon as the last is rescued or gone (#52).
 	Derelicts []Spot `json:"derelicts,omitempty"`
