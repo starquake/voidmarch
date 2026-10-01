@@ -37,3 +37,12 @@ const SendQueue = sendQueue
 
 // SimEnemyKind exposes simEnemyKind for tests.
 var SimEnemyKind = simEnemyKind
+
+// Frigate timings and sizes, exposed for tests.
+const (
+	FrigateEscorts      = frigateEscorts
+	FrigateRingEvery    = frigateRingEvery
+	FrigateShieldTicks  = frigateShieldTicks
+	FrigateRespawnTicks = frigateRespawnTicks
+	DespawnAfter        = despawnAfter
+)

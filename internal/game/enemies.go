@@ -114,6 +114,11 @@ type enemy struct {
 	strafe float64
 	// wanderX and wanderY offset the Scout's goal around its target.
 	wanderX, wanderY float64
+	// frigate is a Frigate's fight; nil for the rest.
+	frigate *frigateFight
+	// escortOf is the Frigate a Fighter guards, which keeps it from
+	// despawning while that Frigate is there.
+	escortOf uint32
 }
 
 type point struct{ x, y float64 }
@@ -124,11 +129,21 @@ func (h *Hub) stepEnemies() {
 	if h.tick%spawnEvery == 0 {
 		h.spawnEnemies(players)
 	}
+	h.spawnFrigates()
+	ships := h.upShips()
 	// In id order: steering draws from h.rng, so map order would make a
 	// seeded hub differ between runs.
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
+		if e.frigate != nil {
+			h.stepFrigate(e, ships)
+
+			continue
+		}
 		h.steer(e, players)
+		if _, guarding := h.enemies[e.escortOf]; guarding {
+			e.lastNear = h.tick
+		}
 		if h.tick-e.lastNear > despawnAfter {
 			delete(h.enemies, id)
 			h.forgetEnemy(id)
@@ -185,13 +200,18 @@ func (h *Hub) addEnemy(x, y float64) {
 	if h.rng.Float64() < fighterShare {
 		kind = pb.EnemyKind_ENEMY_KIND_FIGHTER
 	}
+	h.addEnemyOf(kind, x, y)
+}
+
+// addEnemyOf adds an enemy of kind at (x, y).
+func (h *Hub) addEnemyOf(kind pb.EnemyKind, x, y float64) *enemy {
 	stats := statsFor(kind)
 	h.nextEnemy++
 	strafe := strafeRight
 	if h.rng.Uint32()&1 == 0 {
 		strafe = -strafeRight
 	}
-	h.enemies[h.nextEnemy] = &enemy{
+	e := &enemy{
 		id:       h.nextEnemy,
 		kind:     kind,
 		x:        x,
@@ -201,6 +221,9 @@ func (h *Hub) addEnemy(x, y float64) {
 		lastNear: h.tick,
 		strafe:   strafe,
 	}
+	h.enemies[e.id] = e
+
+	return e
 }
 
 // shipsNear counts the ships within nearRadius of p, p's own included.
@@ -373,9 +396,16 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		}}}, except)
 	}
 
-	e.hp = damaged(e.hp, damage)
+	if e.frigate != nil {
+		e.hp -= e.frigate.takeHit(int(min(damage, maxHitDamage)), h.tick)
+	} else {
+		e.hp = damaged(e.hp, damage)
+	}
 	if e.hp > 0 {
 		return
+	}
+	if e.frigate != nil {
+		h.frigateDestroyed(e)
 	}
 	delete(h.enemies, e.id)
 	h.forgetEnemy(e.id)
@@ -409,7 +439,7 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 	out := make([]*pb.EnemyState, 0, len(h.enemies))
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
-		out = append(out, &pb.EnemyState{
+		state := &pb.EnemyState{
 			EnemyId: e.id,
 			Kind:    e.kind,
 			X:       float32(e.x),
@@ -417,7 +447,14 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 			Angle:   float32(e.angle),
 			Vx:      float32(e.vx),
 			Vy:      float32(e.vy),
-		})
+		}
+		if f := e.frigate; f != nil {
+			state.Hp = float32(e.hp)
+			state.MaxHp = float32(f.maxHP)
+			state.Shield = float32(f.shield)
+			state.ScaledFor = float32(f.weight)
+		}
+		out = append(out, state)
 	}
 
 	return out
