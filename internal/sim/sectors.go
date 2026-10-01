@@ -101,3 +101,24 @@ func abs(n int) int {
 
 	return n
 }
+
+// MissionFor is the default mission (#101): of the uncleared sectors in the
+// ring nearest home, the one nearest near, so ring 1 comes first. It reports
+// false when every sector is cleared.
+func MissionFor(cleared map[Sector]bool, near Vec) (Sector, bool) {
+	var best Sector
+	found := false
+	bestRing, bestDistance := 0, math.Inf(1)
+	for _, s := range Sectors() {
+		if s == HomeSector() || cleared[s] {
+			continue
+		}
+		c := s.Center()
+		d := math.Hypot(c.X-near.X, c.Y-near.Y)
+		if !found || s.Ring() < bestRing || (s.Ring() == bestRing && d < bestDistance) {
+			best, bestRing, bestDistance, found = s, s.Ring(), d, true
+		}
+	}
+
+	return best, found
+}

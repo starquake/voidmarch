@@ -187,7 +187,13 @@ message ClientMessage {
     ChooseSquadron choose_squadron = 8;
     SquadronOrder squadron_order = 9;
     Collect collect = 10;
+    PickMission pick_mission = 11;
   }
+}
+
+// PickMission sends the player's squadron to another uncleared sector (#101).
+message PickMission {
+  string sector = 1;
 }
 
 // Collect says this client's ship flew over a pickup; the server decides who
@@ -257,6 +263,9 @@ message SquadronInfo {
   // In the order they joined.
   repeated SquadronMember members = 2;
   CompanionMode mode = 3;
+  // The sector the squadron is sent to ("D5"); empty once every sector is
+  // cleared (#101). Everyone sees every squadron's.
+  string mission = 4;
 }
 
 // Squadrons is every squadron, and the name a new one would get. The server
@@ -454,6 +463,8 @@ message PickupTaken {
 message SectorCleared {
   string sector = 1;
   uint32 tick = 2;
+  // The parts it gave every player online (#101).
+  repeated PickupGain gains = 3;
 }
 
 // DerelictRescued is a derelict docked in the hangar (#52).

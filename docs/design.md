@@ -225,7 +225,12 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **A sector is cleared** once its garrison is destroyed, and its Frigate too in a boss sector.
   - Everyone is told ("Sector C3 cleared"), and the server keeps it in its database (`cleared_sectors`) across restarts.
   - A cleared boss sector's Frigate doesn't come back.
-  - Retaking cleared sectors comes with #102, missions and the maps with #100 and #101.
+  - **Every clear rewards the whole server** (#101): one ship to the shared hangar, within the 16-ship cap, and a part for every player online, named in the notice ("Sector E4 cleared · Mega Zapper").
+  - Retaking cleared sectors comes with #102, and the maps with #100.
+- **Missions** (#101): each squadron has one, shown to everyone.
+  - **The default:** the uncleared sector in the ring nearest home, nearest the squadron, so ring 1 comes first.
+  - **Picking another:** a squadmate can send the squadron to another uncleared sector (the full map's job, #100). When the sector clears, the squadron gets its next default.
+  - **On screen:** the HUD says "Mission: D5", and a gold arrow at the screen's edge points to it while you're elsewhere.
 - Camera follows the player, parallax backgrounds from the Environment pack.
 - **Home planet** at the center of D4 (Environment planet). Spawn point, loadout changes, safe zone.
 - **The loadout screen** (#78): **L** opens it inside the safe zone, and L or Esc closes it. It shows three columns, weapon, engine and shield. Each part has its pickup icon, its name in its tier's color and a line on what it's good at. Parts not found yet are dimmed. A click, or 1/2/3 for a slot and the arrow keys, fits an owned part at its tier. The hangar line has a Summon button, and G still works. While it's open the world runs on and the ship holds still. It closes if the ship leaves home or goes down. The server saves a loadout fitted at home from owned parts, and a player's next visit starts with it. On a development server, and offline, the 1/2/3 keys still cycle every part without the screen.

@@ -94,7 +94,10 @@ names the sector you're in. Every other sector is held by a Kla'ed
 garrison: 8 ships next to home, more farther out, and more again for every
 ship that comes in. It comes for anyone in its sector, and destroying all
 of it clears the sector for good. Its losses stay, so you can wear it down
-over several visits. Scouts, fast and erratic, go down in two hits;
+over several visits. Every cleared sector adds a ship to the hangar and gives
+everyone online a part. Your squadron has a mission, the nearest uncleared
+sector: the HUD names it, and a gold arrow at the screen's edge points the
+way. Scouts, fast and erratic, go down in two hits;
 Fighters strafe around you and take six. Their weapons animate just before they fire at anyone within range, and
 they leave once nobody is near. Your shield takes hits from the side it
 covers while it has charges, and recharges after a few seconds without one,

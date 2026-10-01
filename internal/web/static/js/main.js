@@ -315,6 +315,14 @@ var PICKUP_GLOW_DISTANCE = 6;
 var PICKUP_USELESS_ALPHA = 0.45;
 var SECTOR_LINE_COLOR = 14219519;
 var SECTOR_LINE_ALPHA = 0.25;
+var MISSION_COLOR = 16765562;
+var MISSION_CSS = "#ffd27a";
+var MISSION_ARROW_SIZE_PX = 24;
+var MISSION_ARROW_MARGIN_PX = 44;
+var MISSION_BANNER_MS = 6e3;
+var MISSION_BANNER_Y = 0.22;
+var MISSION_BANNER_ALPHA = 0.6;
+var MISSION_BANNER_BORDER_PX = 1;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -650,10 +658,10 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSLVAwoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAQgYKBGtpbmQiFQoHQ29sbGVjdBIKCgJpZBgBIAEoDSKpAwoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCRIlCgd1bmxvY2tzGA0gAygLMhQudm9pZG1hcmNoLnYxLlVubG9jaxIsCgdwaWNrdXBzGA4gAygLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWQSJgoHbG9hZG91dBgPIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0EhMKC2RldmVsb3BtZW50GBAgASgIEhcKD2NsZWFyZWRfc2VjdG9ycxgRIAMoCUoECAgQCVIPc3VtbW9uX2FueXdoZXJlIowBCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVjb2xvchgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkSEAoIc3F1YWRyb24YBiABKAkiRQoOU3F1YWRyb25NZW1iZXISEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKY29tcGFuaW9ucxgDIAEoDSJ2CgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZSJdCglTcXVhZHJvbnMSLQoJc3F1YWRyb25zGAEgAygLMhoudm9pZG1hcmNoLnYxLlNxdWFkcm9uSW5mbxIRCgluZXh0X25hbWUYAiABKAkSDgoGaGFuZ2FyGAMgASgNInIKDlNxdWFkcm9uSm9pbmVkEgwKBG5hbWUYASABKAkSKQoEbW9kZRgCIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEhEKCXRvb2tfb3ZlchgDIAEoCBIJCgF4GAQgASgCEgkKAXkYBSABKAIiIQoPU3F1YWRyb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSJeCg9TcXVhZHJvbk9yZGVyZWQSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSKgoFb3JkZXIYAyABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlciLCAQoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAISCgoCdngYBiABKAISCgoCdnkYByABKAISCgoCaHAYCCABKAISDgoGbWF4X2hwGAkgASgCEg4KBnNoaWVsZBgKIAEoAhISCgpzY2FsZWRfZm9yGAsgASgCIqIBCghTbmFwc2hvdBIMCgR0aWNrGAEgASgNEi0KB3BsYXllcnMYAiADKAsyHC52b2lkbWFyY2gudjEuUGxheWVyU25hcHNob3QSKQoHZW5lbWllcxgDIAMoCzIYLnZvaWRtYXJjaC52MS5FbmVteVN0YXRlEi4KCWRlcmVsaWN0cxgEIAMoCzIbLnZvaWRtYXJjaC52MS5EZXJlbGljdFN0YXRlImwKDURlcmVsaWN0U3RhdGUSEwoLZGVyZWxpY3RfaWQYASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCEg0KBWFuZ2xlGAQgASgCEg4KBnJlc2N1ZRgFIAEoAhIRCglnb25lX3RpY2sYBiABKA0imgEKCkVuZW15RmlyZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSDAoEdGljaxgDIAEoDRIMCgRzZWVkGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAhINCgVhbmdsZRgHIAEoAhISCgp3YXJuX3RpY2tzGAggASgNIoMBCg5FbmVteURlc3Ryb3llZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIUCgxieV9wbGF5ZXJfaWQYAyABKAkSDAoEdGljaxgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAIiTAoJU2hvdEVuZGVkEhEKCXBsYXllcl9pZBgBIAEoCRIPCgdzaG90X2lkGAIgASgNEgwKBHRpY2sYAyABKA0SDQoFc2hhcmQYBCABKA0iVAoKUmVtb3RlU2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEdGljaxgCIAEoDRIlCgRzaG90GAMgASgLMhcudm9pZG1hcmNoLnYxLlNob3RGaXJlZCIfCgpQbGF5ZXJMZWZ0EhEKCXBsYXllcl9pZBgBIAEoCSI7ChBDb21wYW5pb25HcmFudGVkEhEKCWNvbXBhbmlvbhgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAIiIgoQQ29tcGFuaW9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiOQoSQ29tcGFuaW9uRGlzbWlzc2VkEhEKCWNvbXBhbmlvbhgBIAEoDRIQCgh0YWtlbl9ieRgCIAEoCSIGCgRGdWxsIvIHCg1TZXJ2ZXJNZXNzYWdlEigKB3dlbGNvbWUYASABKAsyFS52b2lkbWFyY2gudjEuV2VsY29tZUgAEioKCHNuYXBzaG90GAIgASgLMhYudm9pZG1hcmNoLnYxLlNuYXBzaG90SAASKAoEc2hvdBgDIAEoCzIYLnZvaWRtYXJjaC52MS5SZW1vdGVTaG90SAASKAoEbGVmdBgEIAEoCzIYLnZvaWRtYXJjaC52MS5QbGF5ZXJMZWZ0SAASIgoEZnVsbBgFIAEoCzISLnZvaWRtYXJjaC52MS5GdWxsSAASLwoLZW5lbXlfZmlyZWQYBiABKAsyGC52b2lkbWFyY2gudjEuRW5lbXlGaXJlZEgAEjcKD2VuZW15X2Rlc3Ryb3llZBgHIAEoCzIcLnZvaWRtYXJjaC52MS5FbmVteURlc3Ryb3llZEgAEi0KCnNob3RfZW5kZWQYCCABKAsyFy52b2lkbWFyY2gudjEuU2hvdEVuZGVkSAASOwoRY29tcGFuaW9uX2dyYW50ZWQYCSABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uR3JhbnRlZEgAEjsKEWNvbXBhbmlvbl9yZWZ1c2VkGAogASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvblJlZnVzZWRIABI/ChNjb21wYW5pb25fZGlzbWlzc2VkGAsgASgLMiAudm9pZG1hcmNoLnYxLkNvbXBhbmlvbkRpc21pc3NlZEgAEiwKCXNxdWFkcm9ucxgMIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnNIABI3Cg9zcXVhZHJvbl9qb2luZWQYDSABKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25Kb2luZWRIABI5ChBzcXVhZHJvbl9yZWZ1c2VkGA4gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uUmVmdXNlZEgAEjkKEHNxdWFkcm9uX29yZGVyZWQYDyABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlcmVkSAASNQoOcGlja3VwX2Ryb3BwZWQYECABKAsyGy52b2lkbWFyY2gudjEuUGlja3VwRHJvcHBlZEgAEjEKDHBpY2t1cF90YWtlbhgRIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrdXBUYWtlbkgAEjkKEGRlcmVsaWN0X3Jlc2N1ZWQYEiABKAsyHS52b2lkbWFyY2gudjEuRGVyZWxpY3RSZXNjdWVkSAASNQoOc2VjdG9yX2NsZWFyZWQYEyABKAsyGy52b2lkbWFyY2gudjEuU2VjdG9yQ2xlYXJlZEgAQgYKBGtpbmQidAoNUGlja3VwRHJvcHBlZBIKCgJpZBgBIAEoDRIgCgRwYXJ0GAIgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJZ29uZV90aWNrGAYgASgNIlUKC1BpY2t1cFRha2VuEgoKAmlkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluIi0KDVNlY3RvckNsZWFyZWQSDgoGc2VjdG9yGAEgASgJEgwKBHRpY2sYAiABKA0iVwoPRGVyZWxpY3RSZXNjdWVkEhMKC2RlcmVsaWN0X2lkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRIMCgR0aWNrGAMgASgNEg4KBmhhbmdhchgEIAEoDSJFCgpQaWNrdXBHYWluEhEKCXBsYXllcl9pZBgBIAEoCRIkCgZ1bmxvY2sYAiABKAsyFC52b2lkbWFyY2gudjEuVW5sb2NrKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqbQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAISFgoSRU5FTVlfS0lORF9GUklHQVRFEAMqtAEKDUNvbXBhbmlvbk1vZGUSHgoaQ09NUEFOSU9OX01PREVfVU5TUEVDSUZJRUQQABIZChVDT01QQU5JT05fTU9ERV9FU0NPUlQQARIZChVDT01QQU5JT05fTU9ERV9BVFRBQ0sQAhIYChRDT01QQU5JT05fTU9ERV9HVUFSRBADEhcKE0NPTVBBTklPTl9NT0RFX0hPTEQQBBIaChZDT01QQU5JT05fTU9ERV9TVEVBTFRIEAUqlAEKEENvbXBhbmlvbk9uZVNob3QSIgoeQ09NUEFOSU9OX09ORV9TSE9UX1VOU1BFQ0lGSUVEEAASHAoYQ09NUEFOSU9OX09ORV9TSE9UX0ZPQ1VTEAESHgoaQ09NUEFOSU9OX09ORV9TSE9UX1JFR1JPVVAQAhIeChpDT01QQU5JT05fT05FX1NIT1RfR09fSE9NRRADQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSKIBAoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAQgYKBGtpbmQiHQoLUGlja01pc3Npb24SDgoGc2VjdG9yGAEgASgJIhUKB0NvbGxlY3QSCgoCaWQYASABKA0iqQMKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg0KBWNvbG9yGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDRIXCg9jb21wYW5pb25fbGltaXQYByABKA0SDAoEbmFtZRgJIAEoCRISCgpjb21wYW5pb25zGAogAygNEioKCXNxdWFkcm9ucxgLIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnMSEAoIc3F1YWRyb24YDCABKAkSJQoHdW5sb2NrcxgNIAMoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sSLAoHcGlja3VwcxgOIAMoCzIbLnZvaWRtYXJjaC52MS5QaWNrdXBEcm9wcGVkEiYKB2xvYWRvdXQYDyABKAsyFS52b2lkbWFyY2gudjEuTG9hZG91dBITCgtkZXZlbG9wbWVudBgQIAEoCBIXCg9jbGVhcmVkX3NlY3RvcnMYESADKAlKBAgIEAlSD3N1bW1vbl9hbnl3aGVyZSKMAQoOUGxheWVyU25hcHNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSDQoFY29sb3IYAyABKA0SJgoFc3RhdGUYBCABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlEhAKCG93bmVyX2lkGAUgASgJEhAKCHNxdWFkcm9uGAYgASgJIkUKDlNxdWFkcm9uTWVtYmVyEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCmNvbXBhbmlvbnMYAyABKA0ihwEKDFNxdWFkcm9uSW5mbxIMCgRuYW1lGAEgASgJEi0KB21lbWJlcnMYAiADKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25NZW1iZXISKQoEbW9kZRgDIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEg8KB21pc3Npb24YBCABKAkiXQoJU3F1YWRyb25zEi0KCXNxdWFkcm9ucxgBIAMoCzIaLnZvaWRtYXJjaC52MS5TcXVhZHJvbkluZm8SEQoJbmV4dF9uYW1lGAIgASgJEg4KBmhhbmdhchgDIAEoDSJyCg5TcXVhZHJvbkpvaW5lZBIMCgRuYW1lGAEgASgJEikKBG1vZGUYAiABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIRCgl0b29rX292ZXIYAyABKAgSCQoBeBgEIAEoAhIJCgF5GAUgASgCIiEKD1NxdWFkcm9uUmVmdXNlZBIOCgZyZWFzb24YASABKAkiXgoPU3F1YWRyb25PcmRlcmVkEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEioKBW9yZGVyGAMgASgLMhsudm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXIiwgEKCkVuZW15U3RhdGUSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEg0KBWFuZ2xlGAUgASgCEgoKAnZ4GAYgASgCEgoKAnZ5GAcgASgCEgoKAmhwGAggASgCEg4KBm1heF9ocBgJIAEoAhIOCgZzaGllbGQYCiABKAISEgoKc2NhbGVkX2ZvchgLIAEoAiKiAQoIU25hcHNob3QSDAoEdGljaxgBIAEoDRItCgdwbGF5ZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlBsYXllclNuYXBzaG90EikKB2VuZW1pZXMYAyADKAsyGC52b2lkbWFyY2gudjEuRW5lbXlTdGF0ZRIuCglkZXJlbGljdHMYBCADKAsyGy52b2lkbWFyY2gudjEuRGVyZWxpY3RTdGF0ZSJsCg1EZXJlbGljdFN0YXRlEhMKC2RlcmVsaWN0X2lkGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAhINCgVhbmdsZRgEIAEoAhIOCgZyZXNjdWUYBSABKAISEQoJZ29uZV90aWNrGAYgASgNIpoBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDSKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCLyBwoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI5ChBzcXVhZHJvbl9vcmRlcmVkGA8gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJlZEgAEjUKDnBpY2t1cF9kcm9wcGVkGBAgASgLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWRIABIxCgxwaWNrdXBfdGFrZW4YESABKAsyGS52b2lkbWFyY2gudjEuUGlja3VwVGFrZW5IABI5ChBkZXJlbGljdF9yZXNjdWVkGBIgASgLMh0udm9pZG1hcmNoLnYxLkRlcmVsaWN0UmVzY3VlZEgAEjUKDnNlY3Rvcl9jbGVhcmVkGBMgASgLMhsudm9pZG1hcmNoLnYxLlNlY3RvckNsZWFyZWRIAEIGCgRraW5kInQKDVBpY2t1cERyb3BwZWQSCgoCaWQYASABKA0SIAoEcGFydBgCIAEoCzISLnZvaWRtYXJjaC52MS5QYXJ0EgkKAXgYAyABKAISCQoBeRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCWdvbmVfdGljaxgGIAEoDSJVCgtQaWNrdXBUYWtlbhIKCgJpZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbiJWCg1TZWN0b3JDbGVhcmVkEg4KBnNlY3RvchgBIAEoCRIMCgR0aWNrGAIgASgNEicKBWdhaW5zGAMgAygLMhgudm9pZG1hcmNoLnYxLlBpY2t1cEdhaW4iVwoPRGVyZWxpY3RSZXNjdWVkEhMKC2RlcmVsaWN0X2lkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRIMCgR0aWNrGAMgASgNEg4KBmhhbmdhchgEIAEoDSJFCgpQaWNrdXBHYWluEhEKCXBsYXllcl9pZBgBIAEoCRIkCgZ1bmxvY2sYAiABKAsyFC52b2lkbWFyY2gudjEuVW5sb2NrKnkKBldlYXBvbhIWChJXRUFQT05fVU5TUEVDSUZJRUQQABIWChJXRUFQT05fQVVUT19DQU5OT04QARISCg5XRUFQT05fUk9DS0VUUxACEhgKFFdFQVBPTl9CSUdfU1BBQ0VfR1VOEAMSEQoNV0VBUE9OX1pBUFBFUhAEKnIKBkVuZ2luZRIWChJFTkdJTkVfVU5TUEVDSUZJRUQQABIPCgtFTkdJTkVfQkFTRRABEhQKEEVOR0lORV9CSUdfUFVMU0UQAhIQCgxFTkdJTkVfQlVSU1QQAxIXChNFTkdJTkVfU1VQRVJDSEFSR0VEEAQqeQoGU2hpZWxkEhYKElNISUVMRF9VTlNQRUNJRklFRBAAEhAKDFNISUVMRF9GUk9OVBABEhkKFVNISUVMRF9GUk9OVF9BTkRfU0lERRACEhAKDFNISUVMRF9ST1VORBADEhgKFFNISUVMRF9JTlZJTkNJQklMSVRZEAQqbQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAISFgoSRU5FTVlfS0lORF9GUklHQVRFEAMqtAEKDUNvbXBhbmlvbk1vZGUSHgoaQ09NUEFOSU9OX01PREVfVU5TUEVDSUZJRUQQABIZChVDT01QQU5JT05fTU9ERV9FU0NPUlQQARIZChVDT01QQU5JT05fTU9ERV9BVFRBQ0sQAhIYChRDT01QQU5JT05fTU9ERV9HVUFSRBADEhcKE0NPTVBBTklPTl9NT0RFX0hPTEQQBBIaChZDT01QQU5JT05fTU9ERV9TVEVBTFRIEAUqlAEKEENvbXBhbmlvbk9uZVNob3QSIgoeQ09NUEFOSU9OX09ORV9TSE9UX1VOU1BFQ0lGSUVEEAASHAoYQ09NUEFOSU9OX09ORV9TSE9UX0ZPQ1VTEAESHgoaQ09NUEFOSU9OX09ORV9TSE9UX1JFR1JPVVAQAhIeChpDT01QQU5JT05fT05FX1NIT1RfR09fSE9NRRADQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 3);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 12);
-var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 34);
+var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 35);
 var WeaponSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 0);
 var Weapon = /* @__PURE__ */ tsEnum(WeaponSchema);
 var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
@@ -1599,6 +1607,39 @@ function sectorLine(x, y, cleared) {
 }
 function sectorEdges() {
   return Array.from({ length: GRID_SIZE + 1 }, (_, i) => i * SECTOR_SIZE - WORLD_HALF_SIZE);
+}
+function sectorCenter(name) {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || col >= GRID_SIZE || !Number.isInteger(row) || row < 0 || row >= GRID_SIZE) {
+    return void 0;
+  }
+  return { x: (col + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE, y: (row + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE };
+}
+function missionArrow(ship, target, width, height, margin) {
+  const center = sectorCenter(target);
+  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
+    return void 0;
+  }
+  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
+  const halfW = width / 2 - margin;
+  const halfH = height / 2 - margin;
+  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
+  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
+}
+function missionBanner(sector) {
+  return [
+    `New mission: sector ${sector}`,
+    `Destroy every Kla'ed ship in ${sector} to clear it.`,
+    "Follow the gold arrow at the edge of the screen."
+  ];
+}
+function missionCompleteBanner(sector, part) {
+  const lines = [`Mission complete: sector ${sector} cleared`];
+  if (part !== void 0) {
+    lines.push(`Your reward: ${part}`);
+  }
+  return lines;
 }
 
 // src/sim/world.ts
@@ -2761,6 +2802,8 @@ var NetPlay = class {
   derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** Announcements waiting for the middle of the screen, oldest first (#101). */
+  banners = [];
   /** The cleared sectors, by name (#99). */
   clearedSectors = /* @__PURE__ */ new Set();
   enemyVolleys = new TimedQueue(20);
@@ -2889,8 +2932,7 @@ var NetPlay = class {
           }
         },
         sectorCleared: (cleared) => {
-          this.clearedSectors.add(cleared.sector);
-          this.say(`Sector ${cleared.sector} cleared`);
+          this.sectorCleared(cleared);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : this.remotes.get(rescued.playerId)?.name ?? "a squadmate";
@@ -2940,6 +2982,11 @@ var NetPlay = class {
   /** The player's squadron as the server last listed it. */
   get squadronInfo() {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+  /** The player's squadron's mission (#101), undefined without one. */
+  get mission() {
+    const mission = this.squadronInfo?.mission;
+    return mission === void 0 || mission === "" ? void 0 : mission;
   }
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
   orderSquadron(item, context) {
@@ -3405,6 +3452,29 @@ var NetPlay = class {
       }
     }
   }
+  /** A sector is cleared; the part it gave this player is theirs now (#101). */
+  sectorCleared(cleared) {
+    this.clearedSectors.add(cleared.sector);
+    const ours = cleared.sector === this.mission;
+    let reward;
+    let gained = "";
+    for (const gain of cleared.gains) {
+      const part = fromPart(gain.unlock?.part);
+      if (gain.playerId !== this.playerId || part === void 0) {
+        continue;
+      }
+      const tier = tierOf(gain.unlock?.tier);
+      this.unlocks.set(part, tier);
+      reward = partLabel(part, tier);
+      gained = ` \xB7 ${reward}`;
+    }
+    this.say(`Sector ${cleared.sector} cleared${gained}`);
+    if (ours) {
+      this.banners.push(missionCompleteBanner(cleared.sector, reward));
+    }
+    this.options.pickups.regrade(this.unlocks);
+    this.refit();
+  }
   /** A pickup is gone; the parts this player gained are theirs now. */
   pickupTaken(taken) {
     this.options.pickups.remove(taken.id);
@@ -3650,6 +3720,12 @@ var SandboxScene = class extends Phaser8.Scene {
   hudCamera;
   hud;
   bossBar;
+  missionArrow;
+  missionLabel;
+  missionBanner;
+  missionFrame;
+  announcedMission;
+  missionBannerUntil = 0;
   downPanel;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   wasDown = false;
@@ -3735,6 +3811,8 @@ var SandboxScene = class extends Phaser8.Scene {
       loadoutScreen: false,
       boss: void 0,
       sector: "",
+      mission: void 0,
+      missionBanner: void 0,
       derelicts: [],
       rescues: 0,
       hangar: void 0,
@@ -3762,11 +3840,64 @@ var SandboxScene = class extends Phaser8.Scene {
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    this.drawMissionArrow();
+    this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
     this.publish();
+  }
+  /**
+   * Announces in the middle of the screen, one after another: a finished
+   * mission, then the squadron's new one whenever it starts or changes (#101).
+   */
+  announceMission(time) {
+    const net = this.net;
+    if (net === void 0) {
+      return;
+    }
+    const mission = net.mission;
+    if (mission !== void 0 && mission !== this.announcedMission) {
+      net.banners.push(missionBanner(mission));
+    }
+    this.announcedMission = mission;
+    if (this.missionBanner.visible && time <= this.missionBannerUntil) {
+      return;
+    }
+    const next = net.banners.shift();
+    this.missionBanner.setVisible(next !== void 0);
+    this.missionFrame.setVisible(next !== void 0);
+    if (next !== void 0) {
+      this.missionBanner.setText(next);
+      this.drawMissionFrame();
+      this.missionBannerUntil = time + MISSION_BANNER_MS;
+    }
+  }
+  /** The banner's black, see-through box with a thin gold border, fitted around its text. */
+  drawMissionFrame() {
+    const b = this.missionBanner.getBounds();
+    const line = MISSION_BANNER_BORDER_PX * this.dpr();
+    this.missionFrame.clear().fillStyle(0, MISSION_BANNER_ALPHA).fillRect(b.x, b.y, b.width, b.height).lineStyle(line, MISSION_COLOR, 1).strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
+  }
+  /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
+  drawMissionArrow() {
+    const g = this.missionArrow.clear();
+    const mission = this.net?.mission;
+    const { width, height } = this.scale;
+    const dpr = this.dpr();
+    const at2 = mission === void 0 ? void 0 : missionArrow(this.sim.ship, mission, width, height, MISSION_ARROW_MARGIN_PX * dpr);
+    this.missionLabel.setVisible(at2 !== void 0);
+    if (at2 === void 0 || mission === void 0) {
+      return;
+    }
+    const size = MISSION_ARROW_SIZE_PX * dpr;
+    const tip = { x: at2.x + Math.cos(at2.angle) * size, y: at2.y + Math.sin(at2.angle) * size };
+    const side = (turn) => ({ x: at2.x + Math.cos(at2.angle + turn) * size * 0.7, y: at2.y + Math.sin(at2.angle + turn) * size * 0.7 });
+    const left = side(Math.PI / 2);
+    const right = side(-Math.PI / 2);
+    g.fillStyle(MISSION_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+    this.missionLabel.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * 1.4, at2.y - Math.sin(at2.angle) * size * 1.4);
   }
   createBackgrounds() {
     this.backgrounds = keys.background.map((key, i) => {
@@ -3901,7 +4032,18 @@ var SandboxScene = class extends Phaser8.Scene {
       backgroundColor: "#05030acc"
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
     main.ignore(this.downPanel);
+    this.missionFrame = this.add.graphics().setVisible(false);
+    this.missionBanner = this.add.text(0, 0, "", {
+      fontFamily: "monospace",
+      fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
+      color: MISSION_CSS,
+      align: "center"
+    }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
+    main.ignore([this.missionFrame, this.missionBanner]);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
+    this.missionArrow = this.add.graphics();
+    this.missionLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+    main.ignore([this.missionArrow, this.missionLabel]);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -4253,6 +4395,8 @@ ${modeName(info)}`,
     this.layoutHud();
     this.bossBar.resize(width, dpr);
     this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
+    this.missionBanner.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * MISSION_BANNER_Y);
+    this.drawMissionFrame();
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -4428,6 +4572,7 @@ ${modeName(info)}`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0),
+      this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -4553,6 +4698,8 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.mission = this.net?.mission;
+    this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;

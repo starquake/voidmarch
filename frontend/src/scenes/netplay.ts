@@ -6,6 +6,7 @@ import type {
   EnemyFired,
   PickupDropped,
   PickupTaken,
+  SectorCleared,
   Snapshot,
   SquadronInfo,
   SquadronJoined,
@@ -58,6 +59,7 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
+import { missionCompleteBanner } from '../sim/sectors.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
@@ -203,6 +205,8 @@ export class NetPlay {
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** Announcements waiting for the middle of the screen, oldest first (#101). */
+  readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
   readonly clearedSectors = new Set<string>();
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
@@ -334,8 +338,7 @@ export class NetPlay {
           }
         },
         sectorCleared: (cleared) => {
-          this.clearedSectors.add(cleared.sector);
-          this.say(`Sector ${cleared.sector} cleared`);
+          this.sectorCleared(cleared);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
@@ -392,6 +395,13 @@ export class NetPlay {
   /** The player's squadron as the server last listed it. */
   get squadronInfo(): SquadronInfo | undefined {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+
+  /** The player's squadron's mission (#101), undefined without one. */
+  get mission(): string | undefined {
+    const mission = this.squadronInfo?.mission;
+
+    return mission === undefined || mission === '' ? undefined : mission;
   }
 
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
@@ -908,6 +918,30 @@ export class NetPlay {
         this.connection.sendCollect(id);
       }
     }
+  }
+
+  /** A sector is cleared; the part it gave this player is theirs now (#101). */
+  private sectorCleared(cleared: SectorCleared): void {
+    this.clearedSectors.add(cleared.sector);
+    const ours = cleared.sector === this.mission;
+    let reward: string | undefined;
+    let gained = '';
+    for (const gain of cleared.gains) {
+      const part = fromPart(gain.unlock?.part);
+      if (gain.playerId !== this.playerId || part === undefined) {
+        continue;
+      }
+      const tier = tierOf(gain.unlock?.tier);
+      this.unlocks.set(part, tier);
+      reward = partLabel(part, tier);
+      gained = ` · ${reward}`;
+    }
+    this.say(`Sector ${cleared.sector} cleared${gained}`);
+    if (ours) {
+      this.banners.push(missionCompleteBanner(cleared.sector, reward));
+    }
+    this.options.pickups.regrade(this.unlocks);
+    this.refit();
   }
 
   /** A pickup is gone; the parts this player gained are theirs now. */

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { HOME_SECTOR, sectorEdges, sectorLine, sectorName, sectorState } from './sectors.ts';
+import { HOME_SECTOR, missionArrow, missionBanner, missionCompleteBanner, sectorCenter, sectorEdges, sectorLine, sectorName, sectorState } from './sectors.ts';
 import { WORLD_HALF_SIZE } from './rules.gen.ts';
 
 test('sectors are named like the Go sim names them', () => {
@@ -30,4 +30,40 @@ test('the edges run every sector across the world', () => {
   assert.equal(edges[0], -WORLD_HALF_SIZE);
   assert.equal(edges.at(-1), WORLD_HALF_SIZE);
   assert.ok(edges.includes(800) && edges.includes(-800));
+});
+
+test('sector centers come from their names', () => {
+  assert.deepEqual(sectorCenter('D4'), { x: 0, y: 0 });
+  assert.deepEqual(sectorCenter('C3'), { x: -1600, y: -1600 });
+  assert.equal(sectorCenter('H1'), undefined);
+  assert.equal(sectorCenter('A0'), undefined);
+  assert.equal(sectorCenter(''), undefined);
+});
+
+test('the mission arrow points from the screen edge toward the mission', () => {
+  const right = missionArrow({ x: 0, y: 0 }, 'E4', 1000, 600, 20);
+  assert.ok(right !== undefined);
+  assert.equal(Math.round(right.x), 980);
+  assert.equal(Math.round(right.y), 300);
+  assert.equal(right.angle, 0);
+  const up = missionArrow({ x: 0, y: 0 }, 'D3', 1000, 600, 20);
+  assert.ok(up !== undefined);
+  assert.equal(Math.round(up.x), 500);
+  assert.equal(Math.round(up.y), 20);
+  const corner = missionArrow({ x: 0, y: 0 }, 'E5', 1000, 600, 20);
+  assert.ok(corner !== undefined && Math.round(corner.y) === 580 && corner.x > 500);
+  assert.equal(missionArrow({ x: 1600, y: 10 }, 'E4', 1000, 600, 20), undefined);
+  assert.equal(missionArrow({ x: 0, y: 0 }, 'Z9', 1000, 600, 20), undefined);
+});
+
+test('a new mission is announced with what to do and how to find it', () => {
+  const lines = missionBanner('D3');
+  assert.equal(lines[0], 'New mission: sector D3');
+  assert.match(lines[1] ?? '', /D3 to clear it/);
+  assert.match(lines[2] ?? '', /gold arrow/);
+});
+
+test('a finished mission is announced with the part it gave', () => {
+  assert.deepEqual(missionCompleteBanner('D3', 'Mega Zapper'), ['Mission complete: sector D3 cleared', 'Your reward: Mega Zapper']);
+  assert.deepEqual(missionCompleteBanner('D3', undefined), ['Mission complete: sector D3 cleared']);
 });

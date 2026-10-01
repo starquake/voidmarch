@@ -501,6 +501,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: Collect;
     case: "collect";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.PickMission pick_mission = 11;
+     */
+    value: PickMission;
+    case: "pickMission";
   } | { case: undefined; value?: undefined };
 };
 
@@ -509,6 +515,24 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export declare const ClientMessageSchema: GenMessage<ClientMessage>;
+
+/**
+ * PickMission sends the player's squadron to another uncleared sector (#101).
+ *
+ * @generated from message voidmarch.v1.PickMission
+ */
+export declare type PickMission = Message<"voidmarch.v1.PickMission"> & {
+  /**
+   * @generated from field: string sector = 1;
+   */
+  sector: string;
+};
+
+/**
+ * Describes the message voidmarch.v1.PickMission.
+ * Use `create(PickMissionSchema)` to create a new message.
+ */
+export declare const PickMissionSchema: GenMessage<PickMission>;
 
 /**
  * Collect says this client's ship flew over a pickup; the server decides who
@@ -743,6 +767,14 @@ export declare type SquadronInfo = Message<"voidmarch.v1.SquadronInfo"> & {
    * @generated from field: voidmarch.v1.CompanionMode mode = 3;
    */
   mode: CompanionMode;
+
+  /**
+   * The sector the squadron is sent to ("D5"); empty once every sector is
+   * cleared (#101). Everyone sees every squadron's.
+   *
+   * @generated from field: string mission = 4;
+   */
+  mission: string;
 };
 
 /**
@@ -1520,6 +1552,13 @@ export declare type SectorCleared = Message<"voidmarch.v1.SectorCleared"> & {
    * @generated from field: uint32 tick = 2;
    */
   tick: number;
+
+  /**
+   * The parts it gave every player online (#101).
+   *
+   * @generated from field: repeated voidmarch.v1.PickupGain gains = 3;
+   */
+  gains: PickupGain[];
 };
 
 /**

@@ -37,6 +37,14 @@ import {
   RESPAWN_DELAY,
   ROTATION_SNAP_STEPS,
   SAFE_ZONE_RADIUS,
+  MISSION_ARROW_MARGIN_PX,
+  MISSION_ARROW_SIZE_PX,
+  MISSION_BANNER_ALPHA,
+  MISSION_BANNER_BORDER_PX,
+  MISSION_BANNER_MS,
+  MISSION_BANNER_Y,
+  MISSION_COLOR,
+  MISSION_CSS,
   SECTOR_LINE_ALPHA,
   SECTOR_LINE_COLOR,
   VIEW_HEIGHT,
@@ -44,7 +52,7 @@ import {
   WEAPON_STATS,
   WORLD_HALF_SIZE,
 } from '../sim/tuning.ts';
-import { sectorEdges, sectorLine } from '../sim/sectors.ts';
+import { missionArrow, missionBanner, sectorEdges, sectorLine } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
@@ -168,6 +176,12 @@ export class SandboxScene extends Phaser.Scene {
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
   private bossBar!: BossBarView;
+  private missionArrow!: Phaser.GameObjects.Graphics;
+  private missionLabel!: Phaser.GameObjects.Text;
+  private missionBanner!: Phaser.GameObjects.Text;
+  private missionFrame!: Phaser.GameObjects.Graphics;
+  private announcedMission: string | undefined;
+  private missionBannerUntil = 0;
   private downPanel!: Phaser.GameObjects.Text;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   private wasDown = false;
@@ -256,6 +270,8 @@ export class SandboxScene extends Phaser.Scene {
       loadoutScreen: false,
       boss: undefined,
       sector: '',
+      mission: undefined,
+      missionBanner: undefined,
       derelicts: [],
       rescues: 0,
       hangar: undefined,
@@ -284,11 +300,75 @@ export class SandboxScene extends Phaser.Scene {
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    this.drawMissionArrow();
+    this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
     this.publish();
+  }
+
+  /**
+   * Announces in the middle of the screen, one after another: a finished
+   * mission, then the squadron's new one whenever it starts or changes (#101).
+   */
+  private announceMission(time: number): void {
+    const net = this.net;
+    if (net === undefined) {
+      return;
+    }
+    const mission = net.mission;
+    if (mission !== undefined && mission !== this.announcedMission) {
+      net.banners.push(missionBanner(mission));
+    }
+    this.announcedMission = mission;
+    if (this.missionBanner.visible && time <= this.missionBannerUntil) {
+      return;
+    }
+    const next = net.banners.shift();
+    this.missionBanner.setVisible(next !== undefined);
+    this.missionFrame.setVisible(next !== undefined);
+    if (next !== undefined) {
+      this.missionBanner.setText(next);
+      this.drawMissionFrame();
+      this.missionBannerUntil = time + MISSION_BANNER_MS;
+    }
+  }
+
+  /** The banner's black, see-through box with a thin gold border, fitted around its text. */
+  private drawMissionFrame(): void {
+    const b = this.missionBanner.getBounds();
+    const line = MISSION_BANNER_BORDER_PX * this.dpr();
+    this.missionFrame
+      .clear()
+      .fillStyle(0x000000, MISSION_BANNER_ALPHA)
+      .fillRect(b.x, b.y, b.width, b.height)
+      .lineStyle(line, MISSION_COLOR, 1)
+      .strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
+  }
+
+  /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
+  private drawMissionArrow(): void {
+    const g = this.missionArrow.clear();
+    const mission = this.net?.mission;
+    const { width, height } = this.scale;
+    const dpr = this.dpr();
+    const at = mission === undefined ? undefined : missionArrow(this.sim.ship, mission, width, height, MISSION_ARROW_MARGIN_PX * dpr);
+    this.missionLabel.setVisible(at !== undefined);
+    if (at === undefined || mission === undefined) {
+      return;
+    }
+    const size = MISSION_ARROW_SIZE_PX * dpr;
+    const tip = { x: at.x + Math.cos(at.angle) * size, y: at.y + Math.sin(at.angle) * size };
+    const side = (turn: number) => ({ x: at.x + Math.cos(at.angle + turn) * size * 0.7, y: at.y + Math.sin(at.angle + turn) * size * 0.7 });
+    const left = side(Math.PI / 2);
+    const right = side(-Math.PI / 2);
+    g.fillStyle(MISSION_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+    this.missionLabel
+      .setText(mission)
+      .setFontSize(HUD_FONT_PX * dpr)
+      .setPosition(at.x - Math.cos(at.angle) * size * 1.4, at.y - Math.sin(at.angle) * size * 1.4);
   }
 
   private createBackgrounds(): void {
@@ -444,7 +524,25 @@ export class SandboxScene extends Phaser.Scene {
       .setShadow(1, 1, '#000000', 0)
       .setVisible(false);
     main.ignore(this.downPanel);
+    this.missionFrame = this.add.graphics().setVisible(false);
+    this.missionBanner = this.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
+        color: MISSION_CSS,
+        align: 'center',
+      })
+      .setOrigin(0.5, 0)
+      .setShadow(1, 1, '#000000', 0)
+      .setVisible(false);
+    main.ignore([this.missionFrame, this.missionBanner]);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
+    this.missionArrow = this.add.graphics();
+    this.missionLabel = this.add
+      .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: MISSION_CSS })
+      .setOrigin(0.5)
+      .setShadow(1, 1, '#000000', 0);
+    main.ignore([this.missionArrow, this.missionLabel]);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -840,6 +938,11 @@ export class SandboxScene extends Phaser.Scene {
       .setFontSize(DOWN_PANEL_FONT_PX * dpr)
       .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
       .setPosition(width / 2, height * DOWN_PANEL_Y);
+    this.missionBanner
+      .setFontSize(DOWN_PANEL_FONT_PX * dpr)
+      .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
+      .setPosition(width / 2, height * MISSION_BANNER_Y);
+    this.drawMissionFrame();
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -1037,6 +1140,7 @@ export class SandboxScene extends Phaser.Scene {
       'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
       'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined),
+      this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
       this.netStatus(),
       this.squadronStatus(),
     ]);
@@ -1170,6 +1274,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.mission = this.net?.mission;
+    this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
