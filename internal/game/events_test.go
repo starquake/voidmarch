@@ -1,13 +1,13 @@
 package game_test
 
 import (
-	"math"
 	"slices"
 	"testing"
 	"time"
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
 	"github.com/starquake/voidmarch/internal/world"
 )
 
@@ -123,7 +123,7 @@ func TestEvents_AnAttackNobodyStopsTakesTheSector(t *testing.T) {
 	if _, w := join(t, hub, "b"); slices.Contains(w.GetClearedSectors(), "E4") {
 		t.Errorf("cleared sectors = %v, want E4 gone", w.GetClearedSectors())
 	}
-	if snap, _ := latest(t, a, tick, 1, 1000, 0); inE4(snap) == 0 {
+	if snap, _ := latest(t, a, tick, 1, enterX, enterY); inE4(snap) == 0 {
 		t.Error("no garrison took the field in E4 after it fell")
 	}
 }
@@ -165,7 +165,7 @@ func TestEvents_ADistressCallIsWonByTheRescue(t *testing.T) {
 		t.Fatalf("%d derelicts, want the distress call's", len(snap.GetDerelicts()))
 	}
 	d := snap.GetDerelicts()[0]
-	if math.Abs(float64(d.GetX())) > 1600 || math.Abs(float64(d.GetY())) > 1600 {
+	if s, ok := sim.SectorAt(float64(d.GetX()), float64(d.GetY())); !ok || s.Ring() != 1 {
 		t.Errorf("derelict at (%v, %v), want it in a sector next to home", d.GetX(), d.GetY())
 	}
 

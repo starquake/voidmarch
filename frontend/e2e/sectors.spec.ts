@@ -3,18 +3,18 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.ts';
 import { TRIES, aimAt, fitRockets, nearest, state } from './hunt.ts';
 
-/** Flies sideways from home into the sector beside it, east or west, past its edge at 800. */
+/** Flies from wherever the ship is to the middle of a sector beside home's, E4 or C4, where its garrison is. */
 async function flyInto(page: Page, east: boolean): Promise<void> {
-  const side = east ? 1 : -1;
+  const target = { x: (east ? 1 : -1) * 1485, y: 857 };
   await page.keyboard.down('w');
   await expect
     .poll(async () => {
       const s = await state(page);
-      await aimAt(page, s, s.ship.x + side * 150, s.ship.y);
+      await aimAt(page, s, target.x, target.y);
 
-      return side * s.ship.x;
+      return Math.hypot(target.x - s.ship.x, target.y - s.ship.y);
     })
-    .toBeGreaterThan(900);
+    .toBeLessThan(500);
   await page.keyboard.up('w');
 }
 

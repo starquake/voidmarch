@@ -19,9 +19,9 @@ export const TRIES = 5;
 
 /**
  * Inside D5, the sector south of home, where the e2e map keeps a garrison
- * that never runs out (#99): home's sector ends at y 800.
+ * that never runs out (#99): home's sector ends at y 857.
  */
-export const IN_D5 = 900;
+export const IN_D5 = 950;
 
 /**
  * Points the mouse at a world position, from the ship at the screen center,

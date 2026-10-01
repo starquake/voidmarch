@@ -29,7 +29,10 @@ func TestSimEnemyKind(t *testing.T) {
 	}
 }
 
-// frigateMap puts one Frigate in D3, at (0, -1600).
+// d3Y is D3's center, straight up from home's.
+var d3Y = float32(-2 * sim.SectorApothem)
+
+// frigateMap puts one Frigate in D3, at (0, d3Y).
 var frigateMap = &world.Map{Name: "test", Bosses: []world.Boss{{Kind: "frigate", Sector: "D3"}}}
 
 // frigateIn is the snapshot's Frigate, or nil.
@@ -61,8 +64,8 @@ func TestFrigate_WaitsAtItsSpotWithEscorts(t *testing.T) {
 	if f == nil {
 		t.Fatal("no Frigate in the snapshot")
 	}
-	if f.GetX() != 0 || f.GetY() != -1600 {
-		t.Errorf("Frigate at (%v, %v), want (0, -1600)", f.GetX(), f.GetY())
+	if f.GetX() != 0 || f.GetY() != d3Y {
+		t.Errorf("Frigate at (%v, %v), want (0, %v)", f.GetX(), f.GetY(), d3Y)
 	}
 	if f.GetHp() != sim.FrigateBaseHP || f.GetMaxHp() != sim.FrigateBaseHP ||
 		f.GetShield() != sim.FrigateShield || f.GetScaledFor() != 0 {
@@ -71,7 +74,7 @@ func TestFrigate_WaitsAtItsSpotWithEscorts(t *testing.T) {
 	escorts := 0
 	for _, e := range snap.GetEnemies() {
 		if e.GetKind() == pb.EnemyKind_ENEMY_KIND_FIGHTER &&
-			math.Hypot(float64(e.GetX()), float64(e.GetY())+1600) < 200 {
+			math.Hypot(float64(e.GetX()), float64(e.GetY()-d3Y)) < 200 {
 			escorts++
 		}
 	}
@@ -214,7 +217,7 @@ func TestFrigate_FiresRingsAtShipsInRange(t *testing.T) {
 	hub, tick := testHub(t, WithMap(frigateMap))
 	a, _ := join(t, hub, "a")
 	for range 2 * FrigateRingEvery {
-		_, others := latest(t, a, tick, 1, 0, -1300)
+		_, others := latest(t, a, tick, 1, 0, d3Y+300)
 		for _, msg := range others {
 			if f := msg.GetEnemyFired(); f != nil &&
 				f.GetKind() == pb.EnemyKind_ENEMY_KIND_FRIGATE {

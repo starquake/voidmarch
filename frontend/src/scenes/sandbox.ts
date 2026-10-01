@@ -52,9 +52,8 @@ import {
   VIEW_HEIGHT,
   VIEW_WIDTH,
   WEAPON_STATS,
-  WORLD_HALF_SIZE,
 } from '../sim/tuning.ts';
-import { missionArrow, missionBanner, sectorEdges, sectorLine } from '../sim/sectors.ts';
+import { missionArrow, missionBanner, SECTOR_NAMES, sectorCorners, sectorLine } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
@@ -395,8 +394,15 @@ export class SandboxScene extends Phaser.Scene {
 
   private createScenery(): void {
     const lines = this.add.graphics().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
-    for (const at of sectorEdges()) {
-      lines.lineBetween(at, -WORLD_HALF_SIZE, at, WORLD_HALF_SIZE).lineBetween(-WORLD_HALF_SIZE, at, WORLD_HALF_SIZE, at);
+    for (const name of SECTOR_NAMES) {
+      const [first, ...rest] = sectorCorners(name);
+      if (first !== undefined) {
+        lines.beginPath().moveTo(first.x, first.y);
+        for (const corner of rest) {
+          lines.lineTo(corner.x, corner.y);
+        }
+        lines.closePath().strokePath();
+      }
     }
     this.world.add(lines);
     for (const rock of asteroidField()) {

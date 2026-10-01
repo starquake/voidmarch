@@ -13,12 +13,16 @@ const (
 	MaxTicksPerFrame = 5
 )
 
-// The world is a square centered on the home planet at (0, 0): a GridSize
-// by GridSize grid of sectors, home in the middle one (#90, #99).
+// The world is a hexagon of hexagonal sectors centered on the home planet at
+// (0, 0): home and GridRings rings of sectors around it (#117).
 const (
-	SectorSize    = 1600
-	GridSize      = 7
-	WorldHalfSize = SectorSize * GridSize / 2
+	// SectorRadius is a sector's center-to-corner distance: a flat-top
+	// hexagon with about the area of the 1,600 px squares before it.
+	SectorRadius = 990
+	GridRings    = 3
+	// WorldApothem is the world edge's center-to-side distance: a pointy-top
+	// hexagon through the outer sectors' far corners.
+	WorldApothem = SectorRadius * (threeHalves*GridRings + 1)
 	// WorldEdgeBand is the band along the edge where a ship is pushed back.
 	WorldEdgeBand = 200
 	// WorldEdgePush is the push-back acceleration at the very edge, in px/s^2.
