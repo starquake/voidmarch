@@ -143,6 +143,13 @@ export class Connection {
   }
 
   /** Sends the ship's state at most at the server's tick rate; the hub flies the companions. */
+  /** Sends the ship's state past the throttle, for a change the server must not miss, such as a fitted part (#110). */
+  sendStateNow(ship: Ship): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'state', value: toShipState(ship) } }));
+    }
+  }
+
   sendState(ship: Ship, nowMs: number): void {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;

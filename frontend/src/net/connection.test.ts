@@ -230,6 +230,23 @@ test('state is sent at most at the tick rate, and only once welcomed', () => {
   assert.equal(states[0]?.kind.case === 'state' ? states[0].kind.value.x : 0, 5);
 });
 
+test('a state sent now skips the throttle, once welcomed', () => {
+  const { conn, sockets } = setup();
+  conn.start();
+  const socket = sockets[0];
+  assert.ok(socket !== undefined);
+  socket.open();
+  const ship = createShip(5, 6);
+  conn.sendStateNow(ship);
+  assert.equal(socket.messages().length, 1, 'only the hello before the welcome');
+
+  socket.deliver(welcome(20));
+  conn.sendState(ship, 1000);
+  conn.sendStateNow(ship);
+  conn.sendStateNow(ship);
+  assert.equal(socket.messages().filter((m) => m.kind.case === 'state').length, 3);
+});
+
 test('shots carry their pool ids and the wire weapon', () => {
   const { conn, socket } = welcomed();
   conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });

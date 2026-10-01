@@ -904,6 +904,7 @@ export class SandboxScene extends Phaser.Scene {
   /** Fits a loadout, each part at the tier this player owns it at. */
   private fit(loadout: Loadout): void {
     this.sim.setLoadout(withTiers(loadout, this.net?.unlocks ?? new Map()));
+    this.net?.sendStateNow();
   }
 
   private applyLoadout(): void {
