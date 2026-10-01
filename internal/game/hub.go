@@ -167,6 +167,8 @@ type Hub struct {
 	cleared       map[sim.Sector]bool
 	garrisons     map[sim.Sector]*garrison
 	lastStraggler map[sim.Sector]uint32
+	// departed keeps what left players last had, for their rejoin.
+	departed      map[string]kept
 	garrisonField int
 	saveSector    func(name string)
 	dropChance    float64
@@ -270,6 +272,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	}
 	h.garrisons = newGarrisons(o.worldMap, h.cleared)
 	h.lastStraggler = make(map[sim.Sector]uint32)
+	h.departed = make(map[string]kept)
 	h.garrisonField = garrisonField(o.worldMap)
 	for _, setup := range o.setup {
 		setup(h)
@@ -407,9 +410,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	attackers := make(map[uint32]bool)
 	var squadron string
 	var held int
-	unlocks := sim.DefaultUnlocks()
-	maps.Copy(unlocks, player.Unlocks)
-	loadout := player.Loadout
+	unlocks, loadout := h.newestKept(player)
 	if old, ok := h.members[player.ID]; ok {
 		// The hub's copies are the newest: saving them may still be under way.
 		unlocks, loadout = old.unlocks, old.loadout
@@ -651,10 +652,33 @@ func (h *Hub) dockHomingCompanions() {
 }
 
 func (h *Hub) remove(id string) {
-	if m := h.members[id]; !m.gone {
+	m := h.members[id]
+	if !m.gone {
 		close(m.session.queue)
 	}
+	h.departed[id] = kept{unlocks: m.unlocks, loadout: m.loadout}
 	delete(h.members, id)
+}
+
+// newestKept is a joining player's unlocks and loadout: what the hub kept
+// when they left, if it did, else their stored record.
+func (h *Hub) newestKept(player players.Player) (sim.Unlocks, sim.Loadout) {
+	if k, ok := h.departed[player.ID]; ok {
+		delete(h.departed, player.ID)
+
+		return k.unlocks, k.loadout
+	}
+	unlocks := sim.DefaultUnlocks()
+	maps.Copy(unlocks, player.Unlocks)
+
+	return unlocks, player.Loadout
+}
+
+// kept is what the hub last had for a player who left: newer than the
+// stored record while its saves are still under way (#93).
+type kept struct {
+	unlocks sim.Unlocks
+	loadout sim.Loadout
 }
 
 // freeColor returns the first palette color nobody is using.

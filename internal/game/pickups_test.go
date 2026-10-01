@@ -332,3 +332,37 @@ func TestWelcome_SaysWhetherTheServerIsForDevelopment(t *testing.T) {
 		t.Error("a production server's welcome says it's for development")
 	}
 }
+
+func TestLoadouts_AQuickRejoinGetsTheHubsNewestCopy(t *testing.T) {
+	t.Parallel()
+
+	saved := make(chan sim.Loadout, 1)
+	hub, _ := testHub(t, WithSaveLoadout(func(_ string, l sim.Loadout) { saved <- l }))
+	unlocks := sim.DefaultUnlocks()
+	unlocks[sim.Part(sim.WeaponZapper)] = sim.TierMega
+	a, _ := joinWith(t, hub, "a", unlocks)
+	a.Send(stateWith(180, &pb.Loadout{
+		Weapon: pb.Weapon_WEAPON_ZAPPER,
+		Engine: pb.Engine_ENGINE_BASE,
+		Shield: pb.Shield_SHIELD_FRONT,
+	}))
+	<-saved
+	a.Leave()
+	if !closed(a) {
+		t.Fatal("the leaving session is still open")
+	}
+
+	// The record read at connect predates the save: no zapper, no loadout (#93).
+	_, w := joinWith(t, hub, "a", sim.DefaultUnlocks())
+	if got := w.GetLoadout(); got.GetWeapon() != pb.Weapon_WEAPON_ZAPPER {
+		t.Errorf("welcome loadout = %v, want the zapper fitted before leaving", got)
+	}
+	zapper := false
+	for _, u := range w.GetUnlocks() {
+		zapper = zapper ||
+			(u.GetPart().GetWeapon() == pb.Weapon_WEAPON_ZAPPER && u.GetTier() == uint32(sim.TierMega))
+	}
+	if !zapper {
+		t.Errorf("welcome unlocks = %v, want the Mega zapper owned before leaving", w.GetUnlocks())
+	}
+}
