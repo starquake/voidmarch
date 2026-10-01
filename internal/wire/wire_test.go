@@ -90,6 +90,11 @@ func messages() []proto.Message {
 		&pb.ClientMessage{
 			Kind: &pb.ClientMessage_PickMission{PickMission: &pb.PickMission{Sector: "E3"}},
 		},
+		&pb.ClientMessage{
+			Kind: &pb.ClientMessage_DevStartAttack{
+				DevStartAttack: &pb.DevStartAttack{Sector: "E4"},
+			},
+		},
 		//nolint:staticcheck // old clients may still send it, so it still decodes.
 		&pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
 			Companion: 2, State: &pb.ShipState{X: 1, Y: 2},
@@ -121,6 +126,20 @@ func messages() []proto.Message {
 				Gains:  []*pb.PickupGain{{PlayerId: "p1"}},
 			},
 		}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EventStarted{EventStarted: &pb.EventStarted{
+			Event: &pb.WorldEvent{
+				Kind:     pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK,
+				Sector:   "D3",
+				EndsTick: 12000,
+			},
+		}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EventEnded{EventEnded: &pb.EventEnded{
+			Event: &pb.WorldEvent{
+				Kind:   pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS,
+				Sector: "C4",
+			},
+			Won: true,
+		}}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
 			DerelictRescued: &pb.DerelictRescued{
 				DerelictId: 1,

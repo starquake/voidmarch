@@ -172,7 +172,7 @@ func TestGarrison_ABossSectorNeedsItsFrigateDown(t *testing.T) {
 		Bosses:    []world.Boss{{Kind: "frigate", Sector: "D3"}},
 		Garrisons: map[string]int{"D3": 1},
 	}
-	hub, tick := testHub(t, WithMap(m))
+	hub, tick := testHub(t, WithMap(m), NoEvents)
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, 0, -1000)
 	frigate := frigateIn(snap)

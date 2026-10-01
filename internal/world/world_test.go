@@ -29,6 +29,16 @@ func TestLoad_TheEmbeddedMaps(t *testing.T) {
 	}
 }
 
+func TestLoad_OnlyTheTestMapKeepsEventsAway(t *testing.T) {
+	t.Parallel()
+
+	for name, want := range map[string]bool{"e2e": true, "frontier": false} {
+		if m, err := Load(name); err != nil || m.NoEvents != want {
+			t.Errorf("Load(%q).NoEvents = %t, %v; want %t", name, m.NoEvents, err, want)
+		}
+	}
+}
+
 func TestLoad_OnlyTheTestMapHasADerelict(t *testing.T) {
 	t.Parallel()
 

@@ -37,6 +37,8 @@ import {
   RESPAWN_DELAY,
   ROTATION_SNAP_STEPS,
   SAFE_ZONE_RADIUS,
+  EVENT_COLOR,
+  EVENT_CSS,
   MISSION_ARROW_MARGIN_PX,
   MISSION_ARROW_SIZE_PX,
   MISSION_BANNER_ALPHA,
@@ -178,6 +180,7 @@ export class SandboxScene extends Phaser.Scene {
   private bossBar!: BossBarView;
   private missionArrow!: Phaser.GameObjects.Graphics;
   private missionLabel!: Phaser.GameObjects.Text;
+  private eventLabel!: Phaser.GameObjects.Text;
   private missionBanner!: Phaser.GameObjects.Text;
   private missionFrame!: Phaser.GameObjects.Graphics;
   private announcedMission: string | undefined;
@@ -271,6 +274,8 @@ export class SandboxScene extends Phaser.Scene {
       boss: undefined,
       sector: '',
       mission: undefined,
+      worldEvent: undefined,
+      lastClear: undefined,
       missionBanner: undefined,
       derelicts: [],
       rescues: 0,
@@ -348,14 +353,22 @@ export class SandboxScene extends Phaser.Scene {
       .strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
   }
 
-  /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
+  /**
+   * The arrows at the screen's edge: gold toward the squadron's mission (#101),
+   * red toward a world event (#102), each while the ship is elsewhere.
+   */
   private drawMissionArrow(): void {
     const g = this.missionArrow.clear();
-    const mission = this.net?.mission;
+    this.drawArrow(g, this.missionLabel, this.net?.mission, MISSION_COLOR);
+    this.drawArrow(g, this.eventLabel, this.net?.worldEvent?.sector, EVENT_COLOR);
+  }
+
+  private drawArrow(g: Phaser.GameObjects.Graphics, label: Phaser.GameObjects.Text, sector: string | undefined, color: number): void {
+    const mission = sector;
     const { width, height } = this.scale;
     const dpr = this.dpr();
     const at = mission === undefined ? undefined : missionArrow(this.sim.ship, mission, width, height, MISSION_ARROW_MARGIN_PX * dpr);
-    this.missionLabel.setVisible(at !== undefined);
+    label.setVisible(at !== undefined);
     if (at === undefined || mission === undefined) {
       return;
     }
@@ -364,8 +377,8 @@ export class SandboxScene extends Phaser.Scene {
     const side = (turn: number) => ({ x: at.x + Math.cos(at.angle + turn) * size * 0.7, y: at.y + Math.sin(at.angle + turn) * size * 0.7 });
     const left = side(Math.PI / 2);
     const right = side(-Math.PI / 2);
-    g.fillStyle(MISSION_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
-    this.missionLabel
+    g.fillStyle(color, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+    label
       .setText(mission)
       .setFontSize(HUD_FONT_PX * dpr)
       .setPosition(at.x - Math.cos(at.angle) * size * 1.4, at.y - Math.sin(at.angle) * size * 1.4);
@@ -542,7 +555,11 @@ export class SandboxScene extends Phaser.Scene {
       .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: MISSION_CSS })
       .setOrigin(0.5)
       .setShadow(1, 1, '#000000', 0);
-    main.ignore([this.missionArrow, this.missionLabel]);
+    this.eventLabel = this.add
+      .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: EVENT_CSS })
+      .setOrigin(0.5)
+      .setShadow(1, 1, '#000000', 0);
+    main.ignore([this.missionArrow, this.missionLabel, this.eventLabel]);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -659,6 +676,9 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     switch (code) {
+      case 'KeyK':
+        this.net?.devStartAttack();
+        break;
       case 'Digit1':
         this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
         this.applyLoadout();
@@ -1142,6 +1162,7 @@ export class SandboxScene extends Phaser.Scene {
       'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined),
       this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
+      this.net?.eventLine(performance.now()) ?? '',
       this.netStatus(),
       this.squadronStatus(),
     ]);
@@ -1276,6 +1297,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
+    this.debug.lastClear = this.net?.lastClear;
+    this.debug.worldEvent = this.net?.worldEvent === undefined ? undefined : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined);
     this.debug.derelicts = this.net?.derelictList ?? [];

@@ -75,3 +75,21 @@ func (h *Hub) addEnemy(x, y float64) {
 	}
 	h.addEnemyOf(kind, x, y)
 }
+
+// WithEventTimes sets the world events' timings in hub ticks (#102).
+func WithEventTimes(every, attack, offlineAttack, offlineEvery uint32) HubOption {
+	return func(o *hubOptions) {
+		o.eventTimes = &eventTimes{
+			every:         every,
+			attack:        attack,
+			offlineAttack: offlineAttack,
+			offlineEvery:  offlineEvery,
+		}
+	}
+}
+
+// NoEvents puts the world events off past any test.
+var NoEvents = WithEventTimes(1<<30, 1<<30, 1<<30, 1<<30)
+
+// EventEvery exposes eventEvery for tests.
+const EventEvery = eventEvery

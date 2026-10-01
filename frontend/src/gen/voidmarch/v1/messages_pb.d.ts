@@ -507,6 +507,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: PickMission;
     case: "pickMission";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.DevStartAttack dev_start_attack = 12;
+     */
+    value: DevStartAttack;
+    case: "devStartAttack";
   } | { case: undefined; value?: undefined };
 };
 
@@ -515,6 +521,25 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export declare const ClientMessageSchema: GenMessage<ClientMessage>;
+
+/**
+ * DevStartAttack starts an attack on a cleared sector at once, on a
+ * development server only, for trying events and for E2E (#102).
+ *
+ * @generated from message voidmarch.v1.DevStartAttack
+ */
+export declare type DevStartAttack = Message<"voidmarch.v1.DevStartAttack"> & {
+  /**
+   * @generated from field: string sector = 1;
+   */
+  sector: string;
+};
+
+/**
+ * Describes the message voidmarch.v1.DevStartAttack.
+ * Use `create(DevStartAttackSchema)` to create a new message.
+ */
+export declare const DevStartAttackSchema: GenMessage<DevStartAttack>;
 
 /**
  * PickMission sends the player's squadron to another uncleared sector (#101).
@@ -661,6 +686,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: repeated string cleared_sectors = 17;
    */
   clearedSectors: string[];
+
+  /**
+   * The world event running, if any (#102).
+   *
+   * @generated from field: voidmarch.v1.WorldEvent world_event = 18;
+   */
+  worldEvent?: WorldEvent | undefined;
 };
 
 /**
@@ -1450,6 +1482,18 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: SectorCleared;
     case: "sectorCleared";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.EventStarted event_started = 20;
+     */
+    value: EventStarted;
+    case: "eventStarted";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.EventEnded event_ended = 21;
+     */
+    value: EventEnded;
+    case: "eventEnded";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1537,6 +1581,75 @@ export declare type PickupTaken = Message<"voidmarch.v1.PickupTaken"> & {
 export declare const PickupTakenSchema: GenMessage<PickupTaken>;
 
 /**
+ * WorldEvent is a short shared goal somewhere on the map (#102).
+ *
+ * @generated from message voidmarch.v1.WorldEvent
+ */
+export declare type WorldEvent = Message<"voidmarch.v1.WorldEvent"> & {
+  /**
+   * @generated from field: voidmarch.v1.WorldEventKind kind = 1;
+   */
+  kind: WorldEventKind;
+
+  /**
+   * @generated from field: string sector = 2;
+   */
+  sector: string;
+
+  /**
+   * @generated from field: uint32 ends_tick = 3;
+   */
+  endsTick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.WorldEvent.
+ * Use `create(WorldEventSchema)` to create a new message.
+ */
+export declare const WorldEventSchema: GenMessage<WorldEvent>;
+
+/**
+ * EventStarted is a world event beginning; everyone is told.
+ *
+ * @generated from message voidmarch.v1.EventStarted
+ */
+export declare type EventStarted = Message<"voidmarch.v1.EventStarted"> & {
+  /**
+   * @generated from field: voidmarch.v1.WorldEvent event = 1;
+   */
+  event?: WorldEvent | undefined;
+};
+
+/**
+ * Describes the message voidmarch.v1.EventStarted.
+ * Use `create(EventStartedSchema)` to create a new message.
+ */
+export declare const EventStartedSchema: GenMessage<EventStarted>;
+
+/**
+ * EventEnded is a world event over, won or lost.
+ *
+ * @generated from message voidmarch.v1.EventEnded
+ */
+export declare type EventEnded = Message<"voidmarch.v1.EventEnded"> & {
+  /**
+   * @generated from field: voidmarch.v1.WorldEvent event = 1;
+   */
+  event?: WorldEvent | undefined;
+
+  /**
+   * @generated from field: bool won = 2;
+   */
+  won: boolean;
+};
+
+/**
+ * Describes the message voidmarch.v1.EventEnded.
+ * Use `create(EventEndedSchema)` to create a new message.
+ */
+export declare const EventEndedSchema: GenMessage<EventEnded>;
+
+/**
  * SectorCleared is a sector whose garrison is destroyed, and its boss if it
  * has one (#99).
  *
@@ -1596,6 +1709,14 @@ export declare type DerelictRescued = Message<"voidmarch.v1.DerelictRescued"> & 
    * @generated from field: uint32 hangar = 4;
    */
   hangar: number;
+
+  /**
+   * Whether it joined the hangar: not with the fleet full, though the rescue
+   * still counts (@starquake, 2026-10-01).
+   *
+   * @generated from field: bool docked = 5;
+   */
+  docked: boolean;
 };
 
 /**
@@ -1843,4 +1964,35 @@ export enum CompanionOneShot {
  * Describes the enum voidmarch.v1.CompanionOneShot.
  */
 export declare const CompanionOneShotSchema: GenEnum<CompanionOneShot>;
+
+/**
+ * WorldEventKind is what a world event is (#102).
+ *
+ * @generated from enum voidmarch.v1.WorldEventKind
+ */
+export enum WorldEventKind {
+  /**
+   * @generated from enum value: WORLD_EVENT_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * An attack on a cleared sector: beat it before ends_tick or lose the sector.
+   *
+   * @generated from enum value: WORLD_EVENT_KIND_ATTACK = 1;
+   */
+  ATTACK = 1,
+
+  /**
+   * A derelict's distress call: rescue it before ends_tick.
+   *
+   * @generated from enum value: WORLD_EVENT_KIND_DISTRESS = 2;
+   */
+  DISTRESS = 2,
+}
+
+/**
+ * Describes the enum voidmarch.v1.WorldEventKind.
+ */
+export declare const WorldEventKindSchema: GenEnum<WorldEventKind>;
 

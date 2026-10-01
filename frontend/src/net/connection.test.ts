@@ -127,6 +127,8 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     pickupTaken: (p) => log.events.push(`pickup taken ${p.id} by ${p.playerId}`),
     derelictRescued: (r) => log.events.push(`derelict ${r.derelictId} rescued by ${r.playerId}`),
     sectorCleared: (c) => log.events.push(`sector ${c.sector} cleared`),
+    eventStarted: (e) => log.events.push(`event in ${e.event?.sector ?? ''}`),
+    eventEnded: (e) => log.events.push(`event ${e.won ? 'won' : 'lost'}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -192,6 +194,8 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'pickupTaken', value: { id: 4, playerId: 'mo' } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'derelictRescued', value: { derelictId: 5, playerId: 'mo' } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'sectorCleared', value: { sector: 'C3' } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'eventStarted', value: { event: { sector: 'D3' } } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'eventEnded', value: { won: true } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -207,6 +211,8 @@ test('server messages reach their events', () => {
     'pickup taken 4 by mo',
     'derelict 5 rescued by mo',
     'sector C3 cleared',
+    'event in D3',
+    'event won',
   ]);
   assert.equal(conn.connected, true);
 });
@@ -245,6 +251,13 @@ test('a state sent now skips the throttle, once welcomed', () => {
   conn.sendStateNow(ship);
   conn.sendStateNow(ship);
   assert.equal(socket.messages().filter((m) => m.kind.case === 'state').length, 3);
+});
+
+test('a development attack names its sector', () => {
+  const { conn, socket } = welcomed();
+  conn.sendDevStartAttack('E4');
+  const sent = socket.messages().at(-1);
+  assert.equal(sent?.kind.case === 'devStartAttack' ? sent.kind.value.sector : '', 'E4');
 });
 
 test('shots carry their pool ids and the wire weapon', () => {

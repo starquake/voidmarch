@@ -188,7 +188,14 @@ message ClientMessage {
     SquadronOrder squadron_order = 9;
     Collect collect = 10;
     PickMission pick_mission = 11;
+    DevStartAttack dev_start_attack = 12;
   }
+}
+
+// DevStartAttack starts an attack on a cleared sector at once, on a
+// development server only, for trying events and for E2E (#102).
+message DevStartAttack {
+  string sector = 1;
 }
 
 // PickMission sends the player's squadron to another uncleared sector (#101).
@@ -235,6 +242,8 @@ message Welcome {
   bool development = 16;
   // The cleared sectors, by name ("C3") (#99).
   repeated string cleared_sectors = 17;
+  // The world event running, if any (#102).
+  WorldEvent world_event = 18;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -434,6 +443,8 @@ message ServerMessage {
     PickupTaken pickup_taken = 17;
     DerelictRescued derelict_rescued = 18;
     SectorCleared sector_cleared = 19;
+    EventStarted event_started = 20;
+    EventEnded event_ended = 21;
   }
 }
 
@@ -458,6 +469,33 @@ message PickupTaken {
   repeated PickupGain gains = 3;
 }
 
+// WorldEventKind is what a world event is (#102).
+enum WorldEventKind {
+  WORLD_EVENT_KIND_UNSPECIFIED = 0;
+  // An attack on a cleared sector: beat it before ends_tick or lose the sector.
+  WORLD_EVENT_KIND_ATTACK = 1;
+  // A derelict's distress call: rescue it before ends_tick.
+  WORLD_EVENT_KIND_DISTRESS = 2;
+}
+
+// WorldEvent is a short shared goal somewhere on the map (#102).
+message WorldEvent {
+  WorldEventKind kind = 1;
+  string sector = 2;
+  uint32 ends_tick = 3;
+}
+
+// EventStarted is a world event beginning; everyone is told.
+message EventStarted {
+  WorldEvent event = 1;
+}
+
+// EventEnded is a world event over, won or lost.
+message EventEnded {
+  WorldEvent event = 1;
+  bool won = 2;
+}
+
 // SectorCleared is a sector whose garrison is destroyed, and its boss if it
 // has one (#99).
 message SectorCleared {
@@ -475,6 +513,9 @@ message DerelictRescued {
   uint32 tick = 3;
   // The hangar's ships after it docked.
   uint32 hangar = 4;
+  // Whether it joined the hangar: not with the fleet full, though the rescue
+  // still counts (@starquake, 2026-10-01).
+  bool docked = 5;
 }
 
 // PickupGain is one player's new tier of a part (0 when newly unlocked).

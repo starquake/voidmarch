@@ -210,3 +210,13 @@ func ClearSector(ctx context.Context, conn *sql.DB, name string, at time.Time) e
 
 	return nil
 }
+
+// UnclearSector forgets a sector was cleared, after the enemy took it back
+// (#102).
+func UnclearSector(ctx context.Context, conn *sql.DB, name string) error {
+	if err := queries.New(conn).UnclearSector(ctx, name); err != nil {
+		return fmt.Errorf("error unclearing sector %s: %w", name, err)
+	}
+
+	return nil
+}

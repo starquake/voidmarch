@@ -68,7 +68,7 @@ into it. A new server starts with `POOL_START` ships in it (3 unless set), and
 keeps the count across restarts. A destroyed Frigate leaves a derelict ship
 behind: hover beside it for 5 s, or let a companion do it, to rescue it into
 the hangar before it drifts off after 2 minutes. The fleet tops out at 16
-ships. Hold **Q**
+ships; past that a rescue still counts, but no ship joins. Hold **Q**
 for a ring of orders, point at one and let go; tap Q to repeat the last. Every
 order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
 Hold here and Stealth, and three one-shots that return to the mode when done:
@@ -97,7 +97,10 @@ of it clears the sector for good. Its losses stay, so you can wear it down
 over several visits. Every cleared sector adds a ship to the hangar and gives
 everyone online a part. Your squadron has a mission, the nearest uncleared
 sector: the HUD names it, and a gold arrow at the screen's edge points the
-way. Scouts, fast and erratic, go down in two hits;
+way. Every few minutes a world event calls everyone somewhere. It might be an
+attack on a cleared sector, to beat within 10 minutes or lose the sector, or a
+derelict's distress call. A red arrow points to it. While nobody is online,
+the enemy takes a sector back every 4 hours. Scouts, fast and erratic, go down in two hits;
 Fighters strafe around you and take six. Their weapons animate just before they fire at anyone within range, and
 they leave once nobody is near. Your shield takes hits from the side it
 covers while it has charges, and recharges after a few seconds without one,

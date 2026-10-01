@@ -4,6 +4,7 @@
     { "kind": "frigate", "sector": "D3" }
   ],
   "field": 3,
+  "noEvents": true,
   "garrisons": {
     "D5": 500,
     "E4": 2,

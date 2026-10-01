@@ -168,7 +168,16 @@ type Hub struct {
 	garrisons     map[sim.Sector]*garrison
 	lastStraggler map[sim.Sector]uint32
 	// departed keeps what left players last had, for their rejoin.
-	departed      map[string]kept
+	departed map[string]kept
+	// event is the world event running, nil for none (#102), and the
+	// schedule of the next.
+	event         *worldEvent
+	eventTimes    eventTimes
+	nextEvent     uint32
+	nextOffline   uint32
+	lastOnline    uint32
+	forgetSector  func(name string)
+	worldMap      *world.Map
 	garrisonField int
 	saveSector    func(name string)
 	dropChance    float64
@@ -205,6 +214,8 @@ type hubOptions struct {
 	worldMap      *world.Map
 	cleared       []string
 	saveSector    func(name string)
+	forgetSector  func(name string)
+	eventTimes    *eventTimes
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -273,6 +284,17 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	h.garrisons = newGarrisons(o.worldMap, h.cleared)
 	h.lastStraggler = make(map[sim.Sector]uint32)
 	h.departed = make(map[string]kept)
+	h.worldMap = o.worldMap
+	h.forgetSector = o.forgetSector
+	h.eventTimes = defaultEventTimes()
+	if o.worldMap != nil && o.worldMap.NoEvents {
+		h.eventTimes.every, h.eventTimes.offlineEvery = math.MaxUint32, math.MaxUint32
+	}
+	if o.eventTimes != nil {
+		h.eventTimes = *o.eventTimes
+	}
+	h.nextEvent = h.eventTimes.every
+	h.nextOffline = h.eventTimes.offlineEvery
 	h.garrisonField = garrisonField(o.worldMap)
 	for _, setup := range o.setup {
 		setup(h)
@@ -473,6 +495,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Loadout:        savedLoadout(loadout, unlocks),
 		Development:    h.development,
 		ClearedSectors: h.clearedNames(),
+		WorldEvent:     eventMessage(h.event),
 	}
 
 	return joinResult{session: s, welcome: welcome}
@@ -512,6 +535,8 @@ func (h *Hub) handleMessage(in inbound) {
 		h.collect(in.session.Player.ID, m, kind.Collect.GetId())
 	case *pb.ClientMessage_PickMission:
 		h.pickMission(m, kind.PickMission.GetSector())
+	case *pb.ClientMessage_DevStartAttack:
+		h.devStartAttack(kind.DevStartAttack.GetSector())
 	case *pb.ClientMessage_Shot:
 		if kind.Shot.GetCompanion() != 0 {
 			return
@@ -544,6 +569,7 @@ func (h *Hub) step() {
 	h.dockHomingCompanions()
 	h.bumpShips()
 	h.stepDerelicts()
+	h.stepEvents()
 	enemies := h.enemySnapshot()
 	derelicts := h.derelictSnapshot()
 	companions := h.companionSnapshots()

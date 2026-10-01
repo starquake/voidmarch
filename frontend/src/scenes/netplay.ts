@@ -8,13 +8,14 @@ import type {
   PickupTaken,
   SectorCleared,
   Snapshot,
+  WorldEvent,
   SquadronInfo,
   SquadronJoined,
   SquadronOrdered,
   Squadrons,
   Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
-import { CompanionMode, CompanionOneShot } from '../gen/voidmarch/v1/messages_pb.js';
+import { CompanionMode, CompanionOneShot, WorldEventKind } from '../gen/voidmarch/v1/messages_pb.js';
 import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
@@ -59,7 +60,8 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
-import { missionCompleteBanner } from '../sim/sectors.ts';
+import { missionCompleteBanner, sectorName } from '../sim/sectors.ts';
+import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
@@ -205,6 +207,10 @@ export class NetPlay {
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** The world event running, as the server last said (#102). */
+  worldEvent: WorldEvent | undefined;
+  /** The last sector cleared and the part it gave this player, for the E2E tests (#101). */
+  lastClear: { sector: string; reward: string | undefined } | undefined;
   /** Announcements waiting for the middle of the screen, oldest first (#101). */
   readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
@@ -340,9 +346,26 @@ export class NetPlay {
         sectorCleared: (cleared) => {
           this.sectorCleared(cleared);
         },
+        eventStarted: (started) => {
+          this.worldEvent = started.event;
+          if (started.event !== undefined) {
+            this.banners.push(eventStartBanner(started.event));
+          }
+        },
+        eventEnded: (ended) => {
+          this.worldEvent = undefined;
+          const event = ended.event;
+          if (event === undefined) {
+            return;
+          }
+          if (event.kind === WorldEventKind.ATTACK && !ended.won) {
+            this.clearedSectors.delete(event.sector);
+          }
+          this.banners.push(eventEndBanner(event, ended.won));
+        },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
-          this.say(rescueNotice(name, rescued.hangar));
+          this.say(rescueNotice(name, rescued.hangar, rescued.docked));
           if (rescued.playerId === this.playerId) {
             this.rescues++;
           }
@@ -397,11 +420,27 @@ export class NetPlay {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
   }
 
+  /** The HUD's line for the world event running, counting down (#102). */
+  eventLine(nowMs: number): string {
+    const tick = this.clock.tickAt(nowMs);
+
+    return tick === undefined ? '' : eventLine(this.worldEvent, tick, this.tickRate);
+  }
+
   /** The player's squadron's mission (#101), undefined without one. */
   get mission(): string | undefined {
     const mission = this.squadronInfo?.mission;
 
     return mission === undefined || mission === '' ? undefined : mission;
+  }
+
+  /** On a development server, starts an attack on the sector the ship is in, if it's cleared (#102). */
+  devStartAttack(): void {
+    const { x, y } = this.options.sim.ship;
+    const sector = sectorName(x, y);
+    if (this.development && sector !== undefined) {
+      this.connection.sendDevStartAttack(sector);
+    }
   }
 
   /** Sends the ship's state now, so the server has a just-fitted loadout (#110). */
@@ -867,6 +906,7 @@ export class NetPlay {
     this.status = 'online';
     this.playerId = welcome.playerId;
     this.name = welcome.name;
+    this.worldEvent = welcome.worldEvent;
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);
@@ -941,6 +981,7 @@ export class NetPlay {
       gained = ` · ${reward}`;
     }
     this.say(`Sector ${cleared.sector} cleared${gained}`);
+    this.lastClear = { sector: cleared.sector, reward };
     if (ours) {
       this.banners.push(missionCompleteBanner(cleared.sector, reward));
     }

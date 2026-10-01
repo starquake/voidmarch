@@ -132,6 +132,7 @@ func newHub(
 		game.WithSaveLoadout(loadoutSaver(ctx, logger, playerStore)),
 		game.WithClearedSectors(cleared),
 		game.WithSaveSector(sectorSaver(ctx, logger, db)),
+		game.WithForgetSector(sectorForgetter(ctx, logger, db)),
 	}
 	if !cfg.IsProduction() {
 		hubOptions = append(hubOptions, game.WithDevelopment())
@@ -229,6 +230,19 @@ func sectorSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(stri
 		defer cancel()
 		if err := store.ClearSector(saveCtx, db, name, time.Now()); err != nil {
 			logger.ErrorContext(saveCtx, "error saving cleared sector", slog.Any("err", err))
+		}
+	}
+}
+
+// sectorForgetter saves a sector the enemy took back, like sectorSaver.
+func sectorForgetter(ctx context.Context, logger *slog.Logger, db *sql.DB) func(string) {
+	ctx = context.WithoutCancel(ctx)
+
+	return func(name string) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := store.UnclearSector(saveCtx, db, name); err != nil {
+			logger.ErrorContext(saveCtx, "error forgetting cleared sector", slog.Any("err", err))
 		}
 	}
 }

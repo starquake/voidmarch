@@ -13,6 +13,8 @@ import {
   type PickupTaken,
   type DerelictRescued,
   type SectorCleared,
+  type EventStarted,
+  type EventEnded,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -78,6 +80,9 @@ export interface ConnectionEvents {
   derelictRescued(rescued: DerelictRescued): void;
   /** A sector's garrison is destroyed (#99). */
   sectorCleared(cleared: SectorCleared): void;
+  /** A world event began, or ended won or lost (#102). */
+  eventStarted(started: EventStarted): void;
+  eventEnded(ended: EventEnded): void;
 }
 
 export interface Timers {
@@ -217,6 +222,13 @@ export class Connection {
   }
 
   /** Says our ship flew over a pickup; the server decides who gets it. */
+  /** Starts an attack on a cleared sector at once; a development server only (#102). */
+  sendDevStartAttack(sector: string): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'devStartAttack', value: { sector } } }));
+    }
+  }
+
   sendCollect(id: number): void {
     if (this.welcomed) {
       this.send(create(ClientMessageSchema, { kind: { case: 'collect', value: { id } } }));
@@ -303,6 +315,12 @@ export class Connection {
         break;
       case 'sectorCleared':
         events.sectorCleared(message.kind.value);
+        break;
+      case 'eventStarted':
+        events.eventStarted(message.kind.value);
+        break;
+      case 'eventEnded':
+        events.eventEnded(message.kind.value);
         break;
       default:
     }

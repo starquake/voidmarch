@@ -162,4 +162,11 @@ func TestClearedSectors(t *testing.T) {
 	if err != nil || !slices.Equal(names, []string{"C3", "E3"}) {
 		t.Errorf("ClearedSectors() = %v, %v, want [C3 E3]", names, err)
 	}
+	if err = UnclearSector(t.Context(), db, "C3"); err != nil {
+		t.Fatalf("UnclearSector(C3) error = %v", err)
+	}
+	names, err = ClearedSectors(t.Context(), db)
+	if err != nil || !slices.Equal(names, []string{"E3"}) {
+		t.Errorf("ClearedSectors() after unclearing C3 = %v, %v, want [E3]", names, err)
+	}
 }

@@ -24,12 +24,9 @@ type derelict struct {
 	spot int
 }
 
-// releaseDerelict puts a derelict at (x, y), unless the fleet, counting the
-// derelicts already waiting, is full: none is released that couldn't dock.
-func (h *Hub) releaseDerelict(x, y float64, spot int) {
-	if h.fleet()+len(h.derelicts) >= sim.MaxFleet {
-		return
-	}
+// releaseDerelict puts a derelict at (x, y) and returns its id. It comes
+// even with the fleet full: rescuing it then counts, but docks nothing.
+func (h *Hub) releaseDerelict(x, y float64, spot int) uint32 {
 	h.nextDerelict++
 	h.derelicts[h.nextDerelict] = &derelict{
 		x:        x,
@@ -38,6 +35,8 @@ func (h *Hub) releaseDerelict(x, y float64, spot int) {
 		goneTick: h.tick + derelictTicks,
 		spot:     spot,
 	}
+
+	return h.nextDerelict
 }
 
 // fillDerelictSpots puts a derelict at every map spot without one.
@@ -78,6 +77,7 @@ func (h *Hub) stepDerelicts() {
 		d := h.derelicts[id]
 		if h.tick >= d.goneTick {
 			delete(h.derelicts, id)
+			h.derelictDriftedOff(id)
 
 			continue
 		}
@@ -86,15 +86,20 @@ func (h *Hub) stepDerelicts() {
 		d.rescue, done = sim.RescueStep(d.rescue, tickDuration, distance)
 		if done {
 			h.dockDerelict(id, helper)
+			h.derelictRescued(id, point{d.x, d.y})
 		}
 	}
 }
 
-// dockDerelict docks a rescued derelict in the hangar and tells everyone
-// who rescued it: a player, or the owner of the companion that did.
+// dockDerelict docks a rescued derelict in the hangar, if the fleet has
+// room, and tells everyone who rescued it: a player, or the owner of the
+// companion that did.
 func (h *Hub) dockDerelict(id uint32, helper string) {
 	delete(h.derelicts, id)
-	h.hangar++
+	docked := h.fleet() < sim.MaxFleet
+	if docked {
+		h.hangar++
+	}
 	player, _, _ := strings.Cut(helper, "/")
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
 		DerelictRescued: &pb.DerelictRescued{
@@ -102,6 +107,7 @@ func (h *Hub) dockDerelict(id uint32, helper string) {
 			PlayerId:   player,
 			Tick:       h.tick,
 			Hangar:     uint32(max(h.hangar, 0)), //nolint:gosec // the hangar is small.
+			Docked:     docked,
 		},
 	}}, "")
 	h.broadcastSquadrons()
