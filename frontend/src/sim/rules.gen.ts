@@ -110,7 +110,6 @@ export const ENEMY_RADIUS = {
 
 export const FRIGATE_REACH = 800;
 export const FRIGATE_SHIELD = 20;
-export const FRIGATE_SHIELD_RADIUS = 25;
 /** Where the WebAssembly sim's state sits in its float64 array (internal/simbridge). */
 export const LAYOUT = {
   ticks: 0,

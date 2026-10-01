@@ -65,9 +65,6 @@ const (
 	// FrigateShieldDelay is the seconds without a hit before the shield
 	// recharges, all at once.
 	FrigateShieldDelay = 8
-	// FrigateShieldRadius is where the shield bubble is drawn, from the
-	// sprite's opaque extent.
-	FrigateShieldRadius = 25
 	// FrigateRespawn is the seconds after it's destroyed before it's back.
 	FrigateRespawn = 300
 )

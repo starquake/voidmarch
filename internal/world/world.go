@@ -44,6 +44,7 @@ type Boss struct {
 
 // Names lists the embedded maps, sorted.
 func Names() []string {
+	// The pattern is a constant, so Glob's one error, ErrBadPattern, can't happen.
 	files, _ := fs.Glob(maps, "maps/*.json")
 	names := make([]string, 0, len(files))
 	for _, f := range files {
