@@ -104,17 +104,20 @@ jobs:
       - run: npm ci
         working-directory: frontend
       # Headless Firefox needs an audio device before Web Audio starts; a null
-      # sink is enough, and the image has no sound server.
+      # sink is enough, and the image has no sound server. As root, PulseAudio
+      # only runs in system mode, so it listens on a socket anyone may use.
       - name: Virtual sound card
         if: matrix.browser == 'firefox'
         run: |
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends pulseaudio
-          pulseaudio -D --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=silent
-          pactl set-default-sink silent
+          pulseaudio --system --daemonize --exit-idle-time=-1 -n \
+            --load="module-native-protocol-unix socket=/tmp/pulse.sock auth-anonymous=1" \
+            --load="module-null-sink sink_name=silent"
+          for _ in $(seq 1 20); do [ -S /tmp/pulse.sock ] && break; sleep 0.5; done
+          PULSE_SERVER=unix:/tmp/pulse.sock pactl info
       # Firefox refuses to run as root under another user's HOME.
-      - run: ${{ matrix.browser == 'firefox' && 'HOME=/root ' || '' }}npx playwright test --project=${{ matrix.browser }}
+      - run: ${{ matrix.browser == 'firefox' && 'HOME=/root PULSE_SERVER=unix:/tmp/pulse.sock ' || '' }}npx playwright test --project=${{ matrix.browser }}
         working-directory: frontend
         # Firefox's own output in the job log, so a crash can be diagnosed (#18).
         env:
