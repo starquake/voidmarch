@@ -37,10 +37,14 @@ import {
   RESPAWN_DELAY,
   ROTATION_SNAP_STEPS,
   SAFE_ZONE_RADIUS,
+  SECTOR_LINE_ALPHA,
+  SECTOR_LINE_COLOR,
   VIEW_HEIGHT,
   VIEW_WIDTH,
   WEAPON_STATS,
+  WORLD_HALF_SIZE,
 } from '../sim/tuning.ts';
+import { sectorEdges, sectorLine } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
@@ -251,6 +255,7 @@ export class SandboxScene extends Phaser.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       boss: undefined,
+      sector: '',
       derelicts: [],
       rescues: 0,
       hangar: undefined,
@@ -296,6 +301,11 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private createScenery(): void {
+    const lines = this.add.graphics().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
+    for (const at of sectorEdges()) {
+      lines.lineBetween(at, -WORLD_HALF_SIZE, at, WORLD_HALF_SIZE).lineBetween(-WORLD_HALF_SIZE, at, WORLD_HALF_SIZE, at);
+    }
+    this.world.add(lines);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -1026,6 +1036,7 @@ export class SandboxScene extends Phaser.Scene {
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
       'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
       'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
+      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined),
       this.netStatus(),
       this.squadronStatus(),
     ]);
@@ -1159,6 +1170,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);

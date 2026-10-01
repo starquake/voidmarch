@@ -335,6 +335,7 @@ export class NetPlay {
         },
         sectorCleared: (cleared) => {
           this.clearedSectors.add(cleared.sector);
+          this.say(`Sector ${cleared.sector} cleared`);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');

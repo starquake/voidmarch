@@ -142,6 +142,8 @@ var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", w
 var TICK_RATE = 60;
 var TICK_SECONDS = 1 / TICK_RATE;
 var WORLD_HALF_SIZE = 5600;
+var SECTOR_SIZE = 1600;
+var GRID_SIZE = 7;
 var WORLD_EDGE_BAND = 200;
 var SAFE_ZONE_RADIUS = 300;
 var SHIP_RADIUS = 12;
@@ -311,6 +313,8 @@ var PICKUP_GLOW_STRENGTH = 6;
 var PICKUP_GLOW_QUALITY = 12;
 var PICKUP_GLOW_DISTANCE = 6;
 var PICKUP_USELESS_ALPHA = 0.45;
+var SECTOR_LINE_COLOR = 14219519;
+var SECTOR_LINE_ALPHA = 0.25;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -1563,6 +1567,38 @@ function sandbox() {
     throw new Error("the sim is not loaded yet");
   }
   return loaded;
+}
+
+// src/sim/sectors.ts
+var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function sectorName(x, y) {
+  const col = Math.floor((x + WORLD_HALF_SIZE) / SECTOR_SIZE);
+  const row = Math.floor((y + WORLD_HALF_SIZE) / SECTOR_SIZE);
+  if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) {
+    return void 0;
+  }
+  return `${LETTERS.charAt(col)}${String(row + 1)}`;
+}
+var HOME_SECTOR = sectorName(0, 0) ?? "";
+function sectorState(name, cleared) {
+  if (name === HOME_SECTOR) {
+    return "home";
+  }
+  if (cleared === void 0) {
+    return "unknown";
+  }
+  return cleared.has(name) ? "cleared" : "hostile";
+}
+function sectorLine(x, y, cleared) {
+  const name = sectorName(x, y);
+  if (name === void 0) {
+    return "";
+  }
+  const state = sectorState(name, cleared);
+  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
+}
+function sectorEdges() {
+  return Array.from({ length: GRID_SIZE + 1 }, (_, i) => i * SECTOR_SIZE - WORLD_HALF_SIZE);
 }
 
 // src/sim/world.ts
@@ -2854,6 +2890,7 @@ var NetPlay = class {
         },
         sectorCleared: (cleared) => {
           this.clearedSectors.add(cleared.sector);
+          this.say(`Sector ${cleared.sector} cleared`);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : this.remotes.get(rescued.playerId)?.name ?? "a squadmate";
@@ -3697,6 +3734,7 @@ var SandboxScene = class extends Phaser8.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       boss: void 0,
+      sector: "",
       derelicts: [],
       rescues: 0,
       hangar: void 0,
@@ -3738,6 +3776,11 @@ var SandboxScene = class extends Phaser8.Scene {
     });
   }
   createScenery() {
+    const lines = this.add.graphics().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
+    for (const at2 of sectorEdges()) {
+      lines.lineBetween(at2, -WORLD_HALF_SIZE, at2, WORLD_HALF_SIZE).lineBetween(-WORLD_HALF_SIZE, at2, WORLD_HALF_SIZE, at2);
+    }
+    this.world.add(lines);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -4384,6 +4427,7 @@ ${modeName(info)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
+      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0),
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -4509,6 +4553,7 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);
