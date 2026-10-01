@@ -2234,10 +2234,12 @@ func (x *EnemyState) GetScaledFor() float32 {
 
 // Snapshot is every other player, and every enemy, at a server tick.
 type Snapshot struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tick          uint32                 `protobuf:"varint,1,opt,name=tick,proto3" json:"tick,omitempty"`
-	Players       []*PlayerSnapshot      `protobuf:"bytes,2,rep,name=players,proto3" json:"players,omitempty"`
-	Enemies       []*EnemyState          `protobuf:"bytes,3,rep,name=enemies,proto3" json:"enemies,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Tick    uint32                 `protobuf:"varint,1,opt,name=tick,proto3" json:"tick,omitempty"`
+	Players []*PlayerSnapshot      `protobuf:"bytes,2,rep,name=players,proto3" json:"players,omitempty"`
+	Enemies []*EnemyState          `protobuf:"bytes,3,rep,name=enemies,proto3" json:"enemies,omitempty"`
+	// Derelict ships waiting to be rescued (#52).
+	Derelicts     []*DerelictState `protobuf:"bytes,4,rep,name=derelicts,proto3" json:"derelicts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2293,6 +2295,100 @@ func (x *Snapshot) GetEnemies() []*EnemyState {
 	return nil
 }
 
+func (x *Snapshot) GetDerelicts() []*DerelictState {
+	if x != nil {
+		return x.Derelicts
+	}
+	return nil
+}
+
+// DerelictState is a derelict ship drifting where it was released, until it
+// is rescued or gone_tick passes.
+type DerelictState struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	DerelictId uint32                 `protobuf:"varint,1,opt,name=derelict_id,json=derelictId,proto3" json:"derelict_id,omitempty"`
+	X          float32                `protobuf:"fixed32,2,opt,name=x,proto3" json:"x,omitempty"`
+	Y          float32                `protobuf:"fixed32,3,opt,name=y,proto3" json:"y,omitempty"`
+	Angle      float32                `protobuf:"fixed32,4,opt,name=angle,proto3" json:"angle,omitempty"`
+	// The rescue's progress, from 0 to 1.
+	Rescue        float32 `protobuf:"fixed32,5,opt,name=rescue,proto3" json:"rescue,omitempty"`
+	GoneTick      uint32  `protobuf:"varint,6,opt,name=gone_tick,json=goneTick,proto3" json:"gone_tick,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DerelictState) Reset() {
+	*x = DerelictState{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DerelictState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DerelictState) ProtoMessage() {}
+
+func (x *DerelictState) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DerelictState.ProtoReflect.Descriptor instead.
+func (*DerelictState) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *DerelictState) GetDerelictId() uint32 {
+	if x != nil {
+		return x.DerelictId
+	}
+	return 0
+}
+
+func (x *DerelictState) GetX() float32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *DerelictState) GetY() float32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *DerelictState) GetAngle() float32 {
+	if x != nil {
+		return x.Angle
+	}
+	return 0
+}
+
+func (x *DerelictState) GetRescue() float32 {
+	if x != nil {
+		return x.Rescue
+	}
+	return 0
+}
+
+func (x *DerelictState) GetGoneTick() uint32 {
+	if x != nil {
+		return x.GoneTick
+	}
+	return 0
+}
+
 // EnemyFired is an enemy firing its pattern; every client expands the pattern
 // from the seed, so bullets are never streamed. It is announced ahead: the
 // weapon animates from tick - warn_ticks, and the bullets leave at tick from
@@ -2313,7 +2409,7 @@ type EnemyFired struct {
 
 func (x *EnemyFired) Reset() {
 	*x = EnemyFired{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[24]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2325,7 +2421,7 @@ func (x *EnemyFired) String() string {
 func (*EnemyFired) ProtoMessage() {}
 
 func (x *EnemyFired) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[24]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2338,7 +2434,7 @@ func (x *EnemyFired) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnemyFired.ProtoReflect.Descriptor instead.
 func (*EnemyFired) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{24}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *EnemyFired) GetEnemyId() uint32 {
@@ -2412,7 +2508,7 @@ type EnemyDestroyed struct {
 
 func (x *EnemyDestroyed) Reset() {
 	*x = EnemyDestroyed{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[25]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2424,7 +2520,7 @@ func (x *EnemyDestroyed) String() string {
 func (*EnemyDestroyed) ProtoMessage() {}
 
 func (x *EnemyDestroyed) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[25]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2437,7 +2533,7 @@ func (x *EnemyDestroyed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnemyDestroyed.ProtoReflect.Descriptor instead.
 func (*EnemyDestroyed) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{25}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *EnemyDestroyed) GetEnemyId() uint32 {
@@ -2498,7 +2594,7 @@ type ShotEnded struct {
 
 func (x *ShotEnded) Reset() {
 	*x = ShotEnded{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[26]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2510,7 +2606,7 @@ func (x *ShotEnded) String() string {
 func (*ShotEnded) ProtoMessage() {}
 
 func (x *ShotEnded) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[26]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2523,7 +2619,7 @@ func (x *ShotEnded) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShotEnded.ProtoReflect.Descriptor instead.
 func (*ShotEnded) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{26}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ShotEnded) GetPlayerId() string {
@@ -2566,7 +2662,7 @@ type RemoteShot struct {
 
 func (x *RemoteShot) Reset() {
 	*x = RemoteShot{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[27]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2578,7 +2674,7 @@ func (x *RemoteShot) String() string {
 func (*RemoteShot) ProtoMessage() {}
 
 func (x *RemoteShot) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[27]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2591,7 +2687,7 @@ func (x *RemoteShot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoteShot.ProtoReflect.Descriptor instead.
 func (*RemoteShot) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{27}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RemoteShot) GetPlayerId() string {
@@ -2625,7 +2721,7 @@ type PlayerLeft struct {
 
 func (x *PlayerLeft) Reset() {
 	*x = PlayerLeft{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[28]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2637,7 +2733,7 @@ func (x *PlayerLeft) String() string {
 func (*PlayerLeft) ProtoMessage() {}
 
 func (x *PlayerLeft) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[28]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2650,7 +2746,7 @@ func (x *PlayerLeft) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerLeft.ProtoReflect.Descriptor instead.
 func (*PlayerLeft) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{28}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *PlayerLeft) GetPlayerId() string {
@@ -2672,7 +2768,7 @@ type CompanionGranted struct {
 
 func (x *CompanionGranted) Reset() {
 	*x = CompanionGranted{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[29]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2684,7 +2780,7 @@ func (x *CompanionGranted) String() string {
 func (*CompanionGranted) ProtoMessage() {}
 
 func (x *CompanionGranted) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[29]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2697,7 +2793,7 @@ func (x *CompanionGranted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompanionGranted.ProtoReflect.Descriptor instead.
 func (*CompanionGranted) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{29}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *CompanionGranted) GetCompanion() uint32 {
@@ -2731,7 +2827,7 @@ type CompanionRefused struct {
 
 func (x *CompanionRefused) Reset() {
 	*x = CompanionRefused{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[30]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2743,7 +2839,7 @@ func (x *CompanionRefused) String() string {
 func (*CompanionRefused) ProtoMessage() {}
 
 func (x *CompanionRefused) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[30]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2756,7 +2852,7 @@ func (x *CompanionRefused) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompanionRefused.ProtoReflect.Descriptor instead.
 func (*CompanionRefused) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{30}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *CompanionRefused) GetReason() string {
@@ -2779,7 +2875,7 @@ type CompanionDismissed struct {
 
 func (x *CompanionDismissed) Reset() {
 	*x = CompanionDismissed{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[31]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2791,7 +2887,7 @@ func (x *CompanionDismissed) String() string {
 func (*CompanionDismissed) ProtoMessage() {}
 
 func (x *CompanionDismissed) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[31]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2804,7 +2900,7 @@ func (x *CompanionDismissed) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompanionDismissed.ProtoReflect.Descriptor instead.
 func (*CompanionDismissed) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{31}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CompanionDismissed) GetCompanion() uint32 {
@@ -2830,7 +2926,7 @@ type Full struct {
 
 func (x *Full) Reset() {
 	*x = Full{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[32]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2842,7 +2938,7 @@ func (x *Full) String() string {
 func (*Full) ProtoMessage() {}
 
 func (x *Full) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[32]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2855,7 +2951,7 @@ func (x *Full) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Full.ProtoReflect.Descriptor instead.
 func (*Full) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{32}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{33}
 }
 
 // ServerMessage is everything the server sends.
@@ -2880,6 +2976,7 @@ type ServerMessage struct {
 	//	*ServerMessage_SquadronOrdered
 	//	*ServerMessage_PickupDropped
 	//	*ServerMessage_PickupTaken
+	//	*ServerMessage_DerelictRescued
 	Kind          isServerMessage_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2887,7 +2984,7 @@ type ServerMessage struct {
 
 func (x *ServerMessage) Reset() {
 	*x = ServerMessage{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[33]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2899,7 +2996,7 @@ func (x *ServerMessage) String() string {
 func (*ServerMessage) ProtoMessage() {}
 
 func (x *ServerMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[33]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2912,7 +3009,7 @@ func (x *ServerMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServerMessage.ProtoReflect.Descriptor instead.
 func (*ServerMessage) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{33}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ServerMessage) GetKind() isServerMessage_Kind {
@@ -3075,6 +3172,15 @@ func (x *ServerMessage) GetPickupTaken() *PickupTaken {
 	return nil
 }
 
+func (x *ServerMessage) GetDerelictRescued() *DerelictRescued {
+	if x != nil {
+		if x, ok := x.Kind.(*ServerMessage_DerelictRescued); ok {
+			return x.DerelictRescued
+		}
+	}
+	return nil
+}
+
 type isServerMessage_Kind interface {
 	isServerMessage_Kind()
 }
@@ -3147,6 +3253,10 @@ type ServerMessage_PickupTaken struct {
 	PickupTaken *PickupTaken `protobuf:"bytes,17,opt,name=pickup_taken,json=pickupTaken,proto3,oneof"`
 }
 
+type ServerMessage_DerelictRescued struct {
+	DerelictRescued *DerelictRescued `protobuf:"bytes,18,opt,name=derelict_rescued,json=derelictRescued,proto3,oneof"`
+}
+
 func (*ServerMessage_Welcome) isServerMessage_Kind() {}
 
 func (*ServerMessage_Snapshot) isServerMessage_Kind() {}
@@ -3181,6 +3291,8 @@ func (*ServerMessage_PickupDropped) isServerMessage_Kind() {}
 
 func (*ServerMessage_PickupTaken) isServerMessage_Kind() {}
 
+func (*ServerMessage_DerelictRescued) isServerMessage_Kind() {}
+
 // PickupDropped is a part a kill left behind, collectable until gone_tick
 // (#77).
 type PickupDropped struct {
@@ -3198,7 +3310,7 @@ type PickupDropped struct {
 
 func (x *PickupDropped) Reset() {
 	*x = PickupDropped{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[34]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3210,7 +3322,7 @@ func (x *PickupDropped) String() string {
 func (*PickupDropped) ProtoMessage() {}
 
 func (x *PickupDropped) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[34]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3223,7 +3335,7 @@ func (x *PickupDropped) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickupDropped.ProtoReflect.Descriptor instead.
 func (*PickupDropped) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{34}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *PickupDropped) GetId() uint32 {
@@ -3282,7 +3394,7 @@ type PickupTaken struct {
 
 func (x *PickupTaken) Reset() {
 	*x = PickupTaken{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[35]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3294,7 +3406,7 @@ func (x *PickupTaken) String() string {
 func (*PickupTaken) ProtoMessage() {}
 
 func (x *PickupTaken) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[35]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3307,7 +3419,7 @@ func (x *PickupTaken) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickupTaken.ProtoReflect.Descriptor instead.
 func (*PickupTaken) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{35}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *PickupTaken) GetId() uint32 {
@@ -3331,6 +3443,77 @@ func (x *PickupTaken) GetGains() []*PickupGain {
 	return nil
 }
 
+// DerelictRescued is a derelict docked in the hangar (#52).
+type DerelictRescued struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	DerelictId uint32                 `protobuf:"varint,1,opt,name=derelict_id,json=derelictId,proto3" json:"derelict_id,omitempty"`
+	// The player who finished the rescue, or whose companion did.
+	PlayerId string `protobuf:"bytes,2,opt,name=player_id,json=playerId,proto3" json:"player_id,omitempty"`
+	Tick     uint32 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	// The hangar's ships after it docked.
+	Hangar        uint32 `protobuf:"varint,4,opt,name=hangar,proto3" json:"hangar,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DerelictRescued) Reset() {
+	*x = DerelictRescued{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DerelictRescued) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DerelictRescued) ProtoMessage() {}
+
+func (x *DerelictRescued) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DerelictRescued.ProtoReflect.Descriptor instead.
+func (*DerelictRescued) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *DerelictRescued) GetDerelictId() uint32 {
+	if x != nil {
+		return x.DerelictId
+	}
+	return 0
+}
+
+func (x *DerelictRescued) GetPlayerId() string {
+	if x != nil {
+		return x.PlayerId
+	}
+	return ""
+}
+
+func (x *DerelictRescued) GetTick() uint32 {
+	if x != nil {
+		return x.Tick
+	}
+	return 0
+}
+
+func (x *DerelictRescued) GetHangar() uint32 {
+	if x != nil {
+		return x.Hangar
+	}
+	return 0
+}
+
 // PickupGain is one player's new tier of a part (0 when newly unlocked).
 type PickupGain struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -3342,7 +3525,7 @@ type PickupGain struct {
 
 func (x *PickupGain) Reset() {
 	*x = PickupGain{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[36]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3354,7 +3537,7 @@ func (x *PickupGain) String() string {
 func (*PickupGain) ProtoMessage() {}
 
 func (x *PickupGain) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[36]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3367,7 +3550,7 @@ func (x *PickupGain) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickupGain.ProtoReflect.Descriptor instead.
 func (*PickupGain) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{36}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *PickupGain) GetPlayerId() string {
@@ -3531,11 +3714,20 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x06shield\x18\n" +
 	" \x01(\x02R\x06shield\x12\x1d\n" +
 	"\n" +
-	"scaled_for\x18\v \x01(\x02R\tscaledFor\"\x8a\x01\n" +
+	"scaled_for\x18\v \x01(\x02R\tscaledFor\"\xc5\x01\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
-	"\aenemies\x18\x03 \x03(\v2\x18.voidmarch.v1.EnemyStateR\aenemies\"\xcd\x01\n" +
+	"\aenemies\x18\x03 \x03(\v2\x18.voidmarch.v1.EnemyStateR\aenemies\x129\n" +
+	"\tderelicts\x18\x04 \x03(\v2\x1b.voidmarch.v1.DerelictStateR\tderelicts\"\x97\x01\n" +
+	"\rDerelictState\x12\x1f\n" +
+	"\vderelict_id\x18\x01 \x01(\rR\n" +
+	"derelictId\x12\f\n" +
+	"\x01x\x18\x02 \x01(\x02R\x01x\x12\f\n" +
+	"\x01y\x18\x03 \x01(\x02R\x01y\x12\x14\n" +
+	"\x05angle\x18\x04 \x01(\x02R\x05angle\x12\x16\n" +
+	"\x06rescue\x18\x05 \x01(\x02R\x06rescue\x12\x1b\n" +
+	"\tgone_tick\x18\x06 \x01(\rR\bgoneTick\"\xcd\x01\n" +
 	"\n" +
 	"EnemyFired\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -3577,7 +3769,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x12CompanionDismissed\x12\x1c\n" +
 	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12\x19\n" +
 	"\btaken_by\x18\x02 \x01(\tR\atakenBy\"\x06\n" +
-	"\x04Full\"\xdd\b\n" +
+	"\x04Full\"\xa9\t\n" +
 	"\rServerMessage\x121\n" +
 	"\awelcome\x18\x01 \x01(\v2\x15.voidmarch.v1.WelcomeH\x00R\awelcome\x124\n" +
 	"\bsnapshot\x18\x02 \x01(\v2\x16.voidmarch.v1.SnapshotH\x00R\bsnapshot\x12.\n" +
@@ -3598,7 +3790,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x10squadron_refused\x18\x0e \x01(\v2\x1d.voidmarch.v1.SquadronRefusedH\x00R\x0fsquadronRefused\x12J\n" +
 	"\x10squadron_ordered\x18\x0f \x01(\v2\x1d.voidmarch.v1.SquadronOrderedH\x00R\x0fsquadronOrdered\x12D\n" +
 	"\x0epickup_dropped\x18\x10 \x01(\v2\x1b.voidmarch.v1.PickupDroppedH\x00R\rpickupDropped\x12>\n" +
-	"\fpickup_taken\x18\x11 \x01(\v2\x19.voidmarch.v1.PickupTakenH\x00R\vpickupTakenB\x06\n" +
+	"\fpickup_taken\x18\x11 \x01(\v2\x19.voidmarch.v1.PickupTakenH\x00R\vpickupTaken\x12J\n" +
+	"\x10derelict_rescued\x18\x12 \x01(\v2\x1d.voidmarch.v1.DerelictRescuedH\x00R\x0fderelictRescuedB\x06\n" +
 	"\x04kind\"\x94\x01\n" +
 	"\rPickupDropped\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12&\n" +
@@ -3610,7 +3803,13 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\vPickupTaken\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x1b\n" +
 	"\tplayer_id\x18\x02 \x01(\tR\bplayerId\x12.\n" +
-	"\x05gains\x18\x03 \x03(\v2\x18.voidmarch.v1.PickupGainR\x05gains\"W\n" +
+	"\x05gains\x18\x03 \x03(\v2\x18.voidmarch.v1.PickupGainR\x05gains\"{\n" +
+	"\x0fDerelictRescued\x12\x1f\n" +
+	"\vderelict_id\x18\x01 \x01(\rR\n" +
+	"derelictId\x12\x1b\n" +
+	"\tplayer_id\x18\x02 \x01(\tR\bplayerId\x12\x12\n" +
+	"\x04tick\x18\x03 \x01(\rR\x04tick\x12\x16\n" +
+	"\x06hangar\x18\x04 \x01(\rR\x06hangar\"W\n" +
 	"\n" +
 	"PickupGain\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12,\n" +
@@ -3664,7 +3863,7 @@ func file_voidmarch_v1_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_voidmarch_v1_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_voidmarch_v1_messages_proto_goTypes = []any{
 	(Weapon)(0),                // 0: voidmarch.v1.Weapon
 	(Engine)(0),                // 1: voidmarch.v1.Engine
@@ -3696,19 +3895,21 @@ var file_voidmarch_v1_messages_proto_goTypes = []any{
 	(*SquadronOrdered)(nil),    // 27: voidmarch.v1.SquadronOrdered
 	(*EnemyState)(nil),         // 28: voidmarch.v1.EnemyState
 	(*Snapshot)(nil),           // 29: voidmarch.v1.Snapshot
-	(*EnemyFired)(nil),         // 30: voidmarch.v1.EnemyFired
-	(*EnemyDestroyed)(nil),     // 31: voidmarch.v1.EnemyDestroyed
-	(*ShotEnded)(nil),          // 32: voidmarch.v1.ShotEnded
-	(*RemoteShot)(nil),         // 33: voidmarch.v1.RemoteShot
-	(*PlayerLeft)(nil),         // 34: voidmarch.v1.PlayerLeft
-	(*CompanionGranted)(nil),   // 35: voidmarch.v1.CompanionGranted
-	(*CompanionRefused)(nil),   // 36: voidmarch.v1.CompanionRefused
-	(*CompanionDismissed)(nil), // 37: voidmarch.v1.CompanionDismissed
-	(*Full)(nil),               // 38: voidmarch.v1.Full
-	(*ServerMessage)(nil),      // 39: voidmarch.v1.ServerMessage
-	(*PickupDropped)(nil),      // 40: voidmarch.v1.PickupDropped
-	(*PickupTaken)(nil),        // 41: voidmarch.v1.PickupTaken
-	(*PickupGain)(nil),         // 42: voidmarch.v1.PickupGain
+	(*DerelictState)(nil),      // 30: voidmarch.v1.DerelictState
+	(*EnemyFired)(nil),         // 31: voidmarch.v1.EnemyFired
+	(*EnemyDestroyed)(nil),     // 32: voidmarch.v1.EnemyDestroyed
+	(*ShotEnded)(nil),          // 33: voidmarch.v1.ShotEnded
+	(*RemoteShot)(nil),         // 34: voidmarch.v1.RemoteShot
+	(*PlayerLeft)(nil),         // 35: voidmarch.v1.PlayerLeft
+	(*CompanionGranted)(nil),   // 36: voidmarch.v1.CompanionGranted
+	(*CompanionRefused)(nil),   // 37: voidmarch.v1.CompanionRefused
+	(*CompanionDismissed)(nil), // 38: voidmarch.v1.CompanionDismissed
+	(*Full)(nil),               // 39: voidmarch.v1.Full
+	(*ServerMessage)(nil),      // 40: voidmarch.v1.ServerMessage
+	(*PickupDropped)(nil),      // 41: voidmarch.v1.PickupDropped
+	(*PickupTaken)(nil),        // 42: voidmarch.v1.PickupTaken
+	(*DerelictRescued)(nil),    // 43: voidmarch.v1.DerelictRescued
+	(*PickupGain)(nil),         // 44: voidmarch.v1.PickupGain
 }
 var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	0,  // 0: voidmarch.v1.Loadout.weapon:type_name -> voidmarch.v1.Weapon
@@ -3735,7 +3936,7 @@ var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	19, // 21: voidmarch.v1.ClientMessage.collect:type_name -> voidmarch.v1.Collect
 	24, // 22: voidmarch.v1.Welcome.squadrons:type_name -> voidmarch.v1.Squadrons
 	8,  // 23: voidmarch.v1.Welcome.unlocks:type_name -> voidmarch.v1.Unlock
-	40, // 24: voidmarch.v1.Welcome.pickups:type_name -> voidmarch.v1.PickupDropped
+	41, // 24: voidmarch.v1.Welcome.pickups:type_name -> voidmarch.v1.PickupDropped
 	6,  // 25: voidmarch.v1.Welcome.loadout:type_name -> voidmarch.v1.Loadout
 	9,  // 26: voidmarch.v1.PlayerSnapshot.state:type_name -> voidmarch.v1.ShipState
 	22, // 27: voidmarch.v1.SquadronInfo.members:type_name -> voidmarch.v1.SquadronMember
@@ -3746,34 +3947,36 @@ var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	3,  // 32: voidmarch.v1.EnemyState.kind:type_name -> voidmarch.v1.EnemyKind
 	21, // 33: voidmarch.v1.Snapshot.players:type_name -> voidmarch.v1.PlayerSnapshot
 	28, // 34: voidmarch.v1.Snapshot.enemies:type_name -> voidmarch.v1.EnemyState
-	3,  // 35: voidmarch.v1.EnemyFired.kind:type_name -> voidmarch.v1.EnemyKind
-	3,  // 36: voidmarch.v1.EnemyDestroyed.kind:type_name -> voidmarch.v1.EnemyKind
-	11, // 37: voidmarch.v1.RemoteShot.shot:type_name -> voidmarch.v1.ShotFired
-	20, // 38: voidmarch.v1.ServerMessage.welcome:type_name -> voidmarch.v1.Welcome
-	29, // 39: voidmarch.v1.ServerMessage.snapshot:type_name -> voidmarch.v1.Snapshot
-	33, // 40: voidmarch.v1.ServerMessage.shot:type_name -> voidmarch.v1.RemoteShot
-	34, // 41: voidmarch.v1.ServerMessage.left:type_name -> voidmarch.v1.PlayerLeft
-	38, // 42: voidmarch.v1.ServerMessage.full:type_name -> voidmarch.v1.Full
-	30, // 43: voidmarch.v1.ServerMessage.enemy_fired:type_name -> voidmarch.v1.EnemyFired
-	31, // 44: voidmarch.v1.ServerMessage.enemy_destroyed:type_name -> voidmarch.v1.EnemyDestroyed
-	32, // 45: voidmarch.v1.ServerMessage.shot_ended:type_name -> voidmarch.v1.ShotEnded
-	35, // 46: voidmarch.v1.ServerMessage.companion_granted:type_name -> voidmarch.v1.CompanionGranted
-	36, // 47: voidmarch.v1.ServerMessage.companion_refused:type_name -> voidmarch.v1.CompanionRefused
-	37, // 48: voidmarch.v1.ServerMessage.companion_dismissed:type_name -> voidmarch.v1.CompanionDismissed
-	24, // 49: voidmarch.v1.ServerMessage.squadrons:type_name -> voidmarch.v1.Squadrons
-	25, // 50: voidmarch.v1.ServerMessage.squadron_joined:type_name -> voidmarch.v1.SquadronJoined
-	26, // 51: voidmarch.v1.ServerMessage.squadron_refused:type_name -> voidmarch.v1.SquadronRefused
-	27, // 52: voidmarch.v1.ServerMessage.squadron_ordered:type_name -> voidmarch.v1.SquadronOrdered
-	40, // 53: voidmarch.v1.ServerMessage.pickup_dropped:type_name -> voidmarch.v1.PickupDropped
-	41, // 54: voidmarch.v1.ServerMessage.pickup_taken:type_name -> voidmarch.v1.PickupTaken
-	7,  // 55: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
-	42, // 56: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
-	8,  // 57: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
-	58, // [58:58] is the sub-list for method output_type
-	58, // [58:58] is the sub-list for method input_type
-	58, // [58:58] is the sub-list for extension type_name
-	58, // [58:58] is the sub-list for extension extendee
-	0,  // [0:58] is the sub-list for field type_name
+	30, // 35: voidmarch.v1.Snapshot.derelicts:type_name -> voidmarch.v1.DerelictState
+	3,  // 36: voidmarch.v1.EnemyFired.kind:type_name -> voidmarch.v1.EnemyKind
+	3,  // 37: voidmarch.v1.EnemyDestroyed.kind:type_name -> voidmarch.v1.EnemyKind
+	11, // 38: voidmarch.v1.RemoteShot.shot:type_name -> voidmarch.v1.ShotFired
+	20, // 39: voidmarch.v1.ServerMessage.welcome:type_name -> voidmarch.v1.Welcome
+	29, // 40: voidmarch.v1.ServerMessage.snapshot:type_name -> voidmarch.v1.Snapshot
+	34, // 41: voidmarch.v1.ServerMessage.shot:type_name -> voidmarch.v1.RemoteShot
+	35, // 42: voidmarch.v1.ServerMessage.left:type_name -> voidmarch.v1.PlayerLeft
+	39, // 43: voidmarch.v1.ServerMessage.full:type_name -> voidmarch.v1.Full
+	31, // 44: voidmarch.v1.ServerMessage.enemy_fired:type_name -> voidmarch.v1.EnemyFired
+	32, // 45: voidmarch.v1.ServerMessage.enemy_destroyed:type_name -> voidmarch.v1.EnemyDestroyed
+	33, // 46: voidmarch.v1.ServerMessage.shot_ended:type_name -> voidmarch.v1.ShotEnded
+	36, // 47: voidmarch.v1.ServerMessage.companion_granted:type_name -> voidmarch.v1.CompanionGranted
+	37, // 48: voidmarch.v1.ServerMessage.companion_refused:type_name -> voidmarch.v1.CompanionRefused
+	38, // 49: voidmarch.v1.ServerMessage.companion_dismissed:type_name -> voidmarch.v1.CompanionDismissed
+	24, // 50: voidmarch.v1.ServerMessage.squadrons:type_name -> voidmarch.v1.Squadrons
+	25, // 51: voidmarch.v1.ServerMessage.squadron_joined:type_name -> voidmarch.v1.SquadronJoined
+	26, // 52: voidmarch.v1.ServerMessage.squadron_refused:type_name -> voidmarch.v1.SquadronRefused
+	27, // 53: voidmarch.v1.ServerMessage.squadron_ordered:type_name -> voidmarch.v1.SquadronOrdered
+	41, // 54: voidmarch.v1.ServerMessage.pickup_dropped:type_name -> voidmarch.v1.PickupDropped
+	42, // 55: voidmarch.v1.ServerMessage.pickup_taken:type_name -> voidmarch.v1.PickupTaken
+	43, // 56: voidmarch.v1.ServerMessage.derelict_rescued:type_name -> voidmarch.v1.DerelictRescued
+	7,  // 57: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
+	44, // 58: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
+	8,  // 59: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
+	60, // [60:60] is the sub-list for method output_type
+	60, // [60:60] is the sub-list for method input_type
+	60, // [60:60] is the sub-list for extension type_name
+	60, // [60:60] is the sub-list for extension extendee
+	0,  // [0:60] is the sub-list for field type_name
 }
 
 func init() { file_voidmarch_v1_messages_proto_init() }
@@ -3798,7 +4001,7 @@ func file_voidmarch_v1_messages_proto_init() {
 		(*ClientMessage_SquadronOrder)(nil),
 		(*ClientMessage_Collect)(nil),
 	}
-	file_voidmarch_v1_messages_proto_msgTypes[33].OneofWrappers = []any{
+	file_voidmarch_v1_messages_proto_msgTypes[34].OneofWrappers = []any{
 		(*ServerMessage_Welcome)(nil),
 		(*ServerMessage_Snapshot)(nil),
 		(*ServerMessage_Shot)(nil),
@@ -3816,6 +4019,7 @@ func file_voidmarch_v1_messages_proto_init() {
 		(*ServerMessage_SquadronOrdered)(nil),
 		(*ServerMessage_PickupDropped)(nil),
 		(*ServerMessage_PickupTaken)(nil),
+		(*ServerMessage_DerelictRescued)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3823,7 +4027,7 @@ func file_voidmarch_v1_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_voidmarch_v1_messages_proto_rawDesc), len(file_voidmarch_v1_messages_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   37,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -314,6 +314,20 @@ message Snapshot {
   uint32 tick = 1;
   repeated PlayerSnapshot players = 2;
   repeated EnemyState enemies = 3;
+  // Derelict ships waiting to be rescued (#52).
+  repeated DerelictState derelicts = 4;
+}
+
+// DerelictState is a derelict ship drifting where it was released, until it
+// is rescued or gone_tick passes.
+message DerelictState {
+  uint32 derelict_id = 1;
+  float x = 2;
+  float y = 3;
+  float angle = 4;
+  // The rescue's progress, from 0 to 1.
+  float rescue = 5;
+  uint32 gone_tick = 6;
 }
 
 // EnemyFired is an enemy firing its pattern; every client expands the pattern
@@ -407,6 +421,7 @@ message ServerMessage {
     SquadronOrdered squadron_ordered = 15;
     PickupDropped pickup_dropped = 16;
     PickupTaken pickup_taken = 17;
+    DerelictRescued derelict_rescued = 18;
   }
 }
 
@@ -429,6 +444,16 @@ message PickupTaken {
   // Who flew over it.
   string player_id = 2;
   repeated PickupGain gains = 3;
+}
+
+// DerelictRescued is a derelict docked in the hangar (#52).
+message DerelictRescued {
+  uint32 derelict_id = 1;
+  // The player who finished the rescue, or whose companion did.
+  string player_id = 2;
+  uint32 tick = 3;
+  // The hangar's ships after it docked.
+  uint32 hangar = 4;
 }
 
 // PickupGain is one player's new tier of a part (0 when newly unlocked).
