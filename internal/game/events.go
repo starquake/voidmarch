@@ -63,7 +63,7 @@ func (h *Hub) stepEvents() {
 	)
 	if online {
 		h.lastOnline = h.tick
-		h.nextOffline = h.tick + h.eventTimes.offlineEvery
+		h.nextOffline = later(h.tick, h.eventTimes.offlineEvery)
 	}
 	if e := h.event; e != nil && e.kind == pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK {
 		if e.force.done() && h.frigates[e.frigate].enemyID == 0 {
@@ -77,12 +77,12 @@ func (h *Hub) stepEvents() {
 		return
 	}
 	if online && h.tick >= h.nextEvent {
-		h.nextEvent = h.tick + h.eventTimes.every
+		h.nextEvent = later(h.tick, h.eventTimes.every)
 		if !h.startAttack(h.eventTimes.attack) {
 			h.startDistress()
 		}
 	} else if !online && h.tick >= h.nextOffline {
-		h.nextOffline = h.tick + h.eventTimes.offlineEvery
+		h.nextOffline = later(h.tick, h.eventTimes.offlineEvery)
 		h.startAttack(h.eventTimes.offlineAttack)
 	}
 }
@@ -99,7 +99,23 @@ func (h *Hub) startAttack(ticks uint32) bool {
 	if len(targets) == 0 {
 		return false
 	}
-	s := targets[h.rng.IntN(len(targets))]
+	h.attack(targets[h.rng.IntN(len(targets))], ticks)
+
+	return true
+}
+
+// devStartAttack starts an attack on the named cleared sector at once, on a
+// development server with no event running.
+func (h *Hub) devStartAttack(name string) {
+	s, ok := sim.ParseSector(name)
+	if !h.development || h.event != nil || !ok || !h.cleared[s] {
+		return
+	}
+	h.attack(s, h.eventTimes.attack)
+}
+
+// attack sends a Frigate and a garrison at s, to last ticks.
+func (h *Hub) attack(s sim.Sector, ticks uint32) {
 	force := &garrison{sector: s, base: sim.GarrisonSize(s.Ring()), counted: map[string]bool{}}
 	h.garrisons[s] = force
 	c := s.Center()
@@ -112,8 +128,6 @@ func (h *Hub) startAttack(ticks uint32) bool {
 	}
 	h.spawnFrigates()
 	h.broadcastEvent()
-
-	return true
 }
 
 // attackSpot puts an attack's Frigate spot in the list, in a finished
@@ -132,7 +146,7 @@ func (h *Hub) attackSpot(spot frigateSpot) int {
 }
 
 // startDistress puts a derelict with a small guard in a sector next to
-// cleared ground or home; none when the fleet has no room for it.
+// cleared ground or home.
 func (h *Hub) startDistress() {
 	var spots []sim.Sector
 	for _, s := range sim.Sectors() {
@@ -145,10 +159,7 @@ func (h *Hub) startDistress() {
 	}
 	s := spots[h.rng.IntN(len(spots))]
 	c := s.Center()
-	id, ok := h.releaseDerelict(c.X, c.Y, 0)
-	if !ok {
-		return
-	}
+	id := h.releaseDerelict(c.X, c.Y, 0)
 	for n := range distressGuards {
 		angle := fullTurnFloat * float64(n) / distressGuards
 		h.addEnemyOf(
@@ -222,7 +233,7 @@ func (h *Hub) endEvent(won bool) {
 		if h.garrisons[e.sector] == e.force {
 			delete(h.garrisons, e.sector)
 		}
-		if won && h.fleet()+len(h.derelicts) < sim.MaxFleet {
+		if won && h.fleet() < sim.MaxFleet {
 			h.hangar++
 		}
 	}
@@ -240,6 +251,16 @@ func (h *Hub) broadcastEvent() {
 		}}},
 		"",
 	)
+}
+
+// later is d ticks after tick, held at the last tick rather than wrapping
+// around: an event put off "forever" stays put off.
+func later(tick, d uint32) uint32 {
+	if d > math.MaxUint32-tick {
+		return math.MaxUint32
+	}
+
+	return tick + d
 }
 
 // eventMessage is e for the wire; nil for none.

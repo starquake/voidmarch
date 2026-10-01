@@ -52,7 +52,7 @@ const (
 // WithDerelictAt starts the hub with a derelict at (x, y).
 func WithDerelictAt(x, y float64) HubOption {
 	return func(o *hubOptions) {
-		o.setup = append(o.setup, func(h *Hub) { _, _ = h.releaseDerelict(x, y, 0) })
+		o.setup = append(o.setup, func(h *Hub) { h.releaseDerelict(x, y, 0) })
 	}
 }
 

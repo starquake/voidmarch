@@ -198,3 +198,23 @@ func TestEvents_AMapCanKeepThemAway(t *testing.T) {
 	}
 	drain(a)
 }
+
+func TestEvents_ADevelopmentServerStartsAnAttackOnRequest(t *testing.T) {
+	t.Parallel()
+
+	start := &pb.ClientMessage{
+		Kind: &pb.ClientMessage_DevStartAttack{DevStartAttack: &pb.DevStartAttack{Sector: "E4"}},
+	}
+	for _, dev := range []bool{true, false} {
+		opts := []HubOption{WithClearedSectors([]string{"E4"}), NoEvents}
+		if dev {
+			opts = append(opts, WithDevelopment())
+		}
+		hub, tick := testHub(t, opts...)
+		a, _ := join(t, hub, "a")
+		a.Send(start)
+		if started, _, _ := eventMessages(t, a, tick, 1, 0, 0); (len(started) == 1) != dev {
+			t.Errorf("development %t: %d attacks started on request", dev, len(started))
+		}
+	}
+}

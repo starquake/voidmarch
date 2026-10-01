@@ -90,6 +90,11 @@ func messages() []proto.Message {
 		&pb.ClientMessage{
 			Kind: &pb.ClientMessage_PickMission{PickMission: &pb.PickMission{Sector: "E3"}},
 		},
+		&pb.ClientMessage{
+			Kind: &pb.ClientMessage_DevStartAttack{
+				DevStartAttack: &pb.DevStartAttack{Sector: "E4"},
+			},
+		},
 		//nolint:staticcheck // old clients may still send it, so it still decodes.
 		&pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
 			Companion: 2, State: &pb.ShipState{X: 1, Y: 2},

@@ -232,6 +232,7 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
   - **Offline attacks:** with nobody online, an attack comes every 4 hours and runs an hour, so given long enough away everything but home goes back.
   - **A distress call:** when nothing can be attacked, a derelict (#52) waits with a guard of 3 in a sector next to cleared ground or home. Rescuing it wins the call, and the derelict itself is the reward, with a part for whoever is near.
   - A map can keep events away (`noEvents`); the E2E map does, since its specs share one server.
+  - **On a development server**, **E** starts an attack at once on the cleared sector you're in, for trying events and for E2E.
 - **Missions** (#101): each squadron has one, shown to everyone.
   - **The default:** the uncleared sector in the ring nearest home, nearest the squadron, so ring 1 comes first.
   - **Picking another:** a squadmate can send the squadron to another uncleared sector (the full map's job, #100). When the sector clears, the squadron gets its next default.
@@ -347,7 +348,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 - **Rescues grow it** (#52, as built). A destroyed Frigate releases a derelict where it went down: the Main Ship's "very damaged" hull, grayed, labeled "DERELICT" with the time left.
   - A player or companion hovering within 100 px for 5 s rescues it into the hangar, the way a revive works. Companions go to one within 400 px, except in Hold and Stealth. A bar under the label shows the progress, which drains when nobody is near.
   - An unrescued derelict drifts off after 2 minutes.
-  - The fleet (hangar plus companions out) is capped at 16, the server's seats. While it's full, a Frigate releases none.
+  - The fleet (hangar plus companions out) is capped at 16, the server's seats. Derelicts still come while it's full: a rescue then counts (for the stats to come) but adds no ship, and says the hangar is full (@starquake, 2026-10-01).
   - A map can also mark derelict spots that always have one waiting; only the E2E map uses them today.
   - A won fight, a cleared sector or a finished world event, adds ships with #90.
 - **How many:** up to 3 per player, and at most 4 ships per squadron, companions included (#42 replaced the earlier "wing within one screen" cap). Companions are full seats: they count toward the 16-player cap, and a human joining a full world takes one over or displaces one, so the group, and its difficulty, stays the same whoever flies each ship.

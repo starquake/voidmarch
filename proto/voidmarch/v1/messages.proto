@@ -188,7 +188,14 @@ message ClientMessage {
     SquadronOrder squadron_order = 9;
     Collect collect = 10;
     PickMission pick_mission = 11;
+    DevStartAttack dev_start_attack = 12;
   }
+}
+
+// DevStartAttack starts an attack on a cleared sector at once, on a
+// development server only, for trying events and for E2E (#102).
+message DevStartAttack {
+  string sector = 1;
 }
 
 // PickMission sends the player's squadron to another uncleared sector (#101).
@@ -506,6 +513,9 @@ message DerelictRescued {
   uint32 tick = 3;
   // The hangar's ships after it docked.
   uint32 hangar = 4;
+  // Whether it joined the hangar: not with the fleet full, though the rescue
+  // still counts (@starquake, 2026-10-01).
+  bool docked = 5;
 }
 
 // PickupGain is one player's new tier of a part (0 when newly unlocked).

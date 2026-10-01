@@ -253,6 +253,13 @@ test('a state sent now skips the throttle, once welcomed', () => {
   assert.equal(socket.messages().filter((m) => m.kind.case === 'state').length, 3);
 });
 
+test('a development attack names its sector', () => {
+  const { conn, socket } = welcomed();
+  conn.sendDevStartAttack('E4');
+  const sent = socket.messages().at(-1);
+  assert.equal(sent?.kind.case === 'devStartAttack' ? sent.kind.value.sector : '', 'E4');
+});
+
 test('shots carry their pool ids and the wire weapon', () => {
   const { conn, socket } = welcomed();
   conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });

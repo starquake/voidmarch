@@ -69,7 +69,7 @@ func TestDerelicts_APlayerHoveringBesideRescuesIt(t *testing.T) {
 			break
 		}
 	}
-	if rescued.GetPlayerId() != "a" || rescued.GetHangar() != 4 {
+	if rescued.GetPlayerId() != "a" || rescued.GetHangar() != 4 || !rescued.GetDocked() {
 		t.Errorf("rescued %+v, want by a, with 4 ships in the hangar", rescued)
 	}
 	if got := hangar.GetHangar(); got != 4 {
@@ -129,14 +129,27 @@ func TestDerelicts_GoneWhenTheirTimeIsUp(t *testing.T) {
 	}
 }
 
-func TestDerelicts_NoneWhileTheFleetIsFull(t *testing.T) {
+func TestDerelicts_AFullFleetStillGetsThemButDocksNone(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t, WithDerelictAt(0, -600), WithPoolStart(sim.MaxFleet))
 	a, _ := join(t, hub, "a")
-	if snap, _ := latest(t, a, tick, 1, 0, 0); len(snap.GetDerelicts()) != 0 {
-		t.Errorf("%d derelicts with a full fleet, want 0", len(snap.GetDerelicts()))
+	if snap, _ := latest(t, a, tick, 1, 0, 0); len(snap.GetDerelicts()) != 1 {
+		t.Fatalf("%d derelicts with a full fleet, want the one released", len(snap.GetDerelicts()))
 	}
+	for range rescueTicks + 1 {
+		_, others := latest(t, a, tick, 1, 60, -600)
+		for _, msg := range others {
+			if r := msg.GetDerelictRescued(); r != nil {
+				if r.GetDocked() || r.GetHangar() != sim.MaxFleet {
+					t.Errorf("rescued %+v with a full fleet, want it counted but not docked", r)
+				}
+
+				return
+			}
+		}
+	}
+	t.Error("the derelict was never rescued")
 }
 
 func TestDerelicts_AMapSpotAlwaysHasOneWaiting(t *testing.T) {

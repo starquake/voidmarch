@@ -222,6 +222,13 @@ export class Connection {
   }
 
   /** Says our ship flew over a pickup; the server decides who gets it. */
+  /** Starts an attack on a cleared sector at once; a development server only (#102). */
+  sendDevStartAttack(sector: string): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'devStartAttack', value: { sector } } }));
+    }
+  }
+
   sendCollect(id: number): void {
     if (this.welcomed) {
       this.send(create(ClientMessageSchema, { kind: { case: 'collect', value: { id } } }));

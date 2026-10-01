@@ -507,6 +507,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: PickMission;
     case: "pickMission";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.DevStartAttack dev_start_attack = 12;
+     */
+    value: DevStartAttack;
+    case: "devStartAttack";
   } | { case: undefined; value?: undefined };
 };
 
@@ -515,6 +521,25 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export declare const ClientMessageSchema: GenMessage<ClientMessage>;
+
+/**
+ * DevStartAttack starts an attack on a cleared sector at once, on a
+ * development server only, for trying events and for E2E (#102).
+ *
+ * @generated from message voidmarch.v1.DevStartAttack
+ */
+export declare type DevStartAttack = Message<"voidmarch.v1.DevStartAttack"> & {
+  /**
+   * @generated from field: string sector = 1;
+   */
+  sector: string;
+};
+
+/**
+ * Describes the message voidmarch.v1.DevStartAttack.
+ * Use `create(DevStartAttackSchema)` to create a new message.
+ */
+export declare const DevStartAttackSchema: GenMessage<DevStartAttack>;
 
 /**
  * PickMission sends the player's squadron to another uncleared sector (#101).
@@ -1684,6 +1709,14 @@ export declare type DerelictRescued = Message<"voidmarch.v1.DerelictRescued"> & 
    * @generated from field: uint32 hangar = 4;
    */
   hangar: number;
+
+  /**
+   * Whether it joined the hangar: not with the fleet full, though the rescue
+   * still counts (@starquake, 2026-10-01).
+   *
+   * @generated from field: bool docked = 5;
+   */
+  docked: boolean;
 };
 
 /**

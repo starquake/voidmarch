@@ -181,7 +181,7 @@ func (h *Hub) frigateDestroyed(e *enemy) {
 	if spot.once {
 		spot.respawnAt = math.MaxUint32
 	}
-	_, _ = h.releaseDerelict(e.x, e.y, 0)
+	h.releaseDerelict(e.x, e.y, 0)
 	h.clearIfDone(spot.sector)
 }
 

@@ -675,6 +675,9 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     switch (code) {
+      case 'KeyE':
+        this.net?.devStartAttack();
+        break;
       case 'Digit1':
         this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
         this.applyLoadout();

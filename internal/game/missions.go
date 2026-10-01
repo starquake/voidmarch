@@ -49,7 +49,7 @@ func (h *Hub) moveMissionsOn(s sim.Sector) {
 // every player online a part they can use (#101, decisions 5 and 7). It
 // returns what each gained.
 func (h *Hub) rewardClear() []*pb.PickupGain {
-	if h.fleet()+len(h.derelicts) < sim.MaxFleet {
+	if h.fleet() < sim.MaxFleet {
 		h.hangar++
 	}
 	var gains []*pb.PickupGain

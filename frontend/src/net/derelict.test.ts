@@ -11,5 +11,6 @@ test('a derelict counts down the time it has left', () => {
 });
 
 test('a rescue names who did it and the hangar now', () => {
-  assert.equal(rescueNotice('Sanne', 4), 'Sanne rescued a ship · hangar 4');
+  assert.equal(rescueNotice('Sanne', 4, true), 'Sanne rescued a ship · hangar 4');
+  assert.equal(rescueNotice('Sanne', 16, false), 'Sanne rescued a ship · the hangar is full');
 });

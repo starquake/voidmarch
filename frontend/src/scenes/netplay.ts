@@ -60,7 +60,7 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
-import { missionCompleteBanner } from '../sim/sectors.ts';
+import { missionCompleteBanner, sectorName } from '../sim/sectors.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
@@ -363,7 +363,7 @@ export class NetPlay {
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
-          this.say(rescueNotice(name, rescued.hangar));
+          this.say(rescueNotice(name, rescued.hangar, rescued.docked));
           if (rescued.playerId === this.playerId) {
             this.rescues++;
           }
@@ -430,6 +430,15 @@ export class NetPlay {
     const mission = this.squadronInfo?.mission;
 
     return mission === undefined || mission === '' ? undefined : mission;
+  }
+
+  /** On a development server, starts an attack on the sector the ship is in, if it's cleared (#102). */
+  devStartAttack(): void {
+    const { x, y } = this.options.sim.ship;
+    const sector = sectorName(x, y);
+    if (this.development && sector !== undefined) {
+      this.connection.sendDevStartAttack(sector);
+    }
   }
 
   /** Sends the ship's state now, so the server has a just-fitted loadout (#110). */
