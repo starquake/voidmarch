@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
-import { TRIES, aimAt, fitRockets, hunt, state } from './hunt.ts';
+import { TRIES, aimAt, fitRockets, nearest, state } from './hunt.ts';
 
 /** Flies sideways from home into the sector beside it, east or west, past its edge at 800. */
 async function flyInto(page: Page, east: boolean): Promise<void> {
@@ -16,6 +16,32 @@ async function flyInto(page: Page, east: boolean): Promise<void> {
     })
     .toBeGreaterThan(900);
   await page.keyboard.up('w');
+}
+
+/**
+ * Fires at the nearest enemy until the sector reads cleared, or the ship
+ * goes down. Counting kills would wait forever when the last one lands just
+ * before it starts.
+ */
+async function clear(page: Page, cleared: string): Promise<'cleared' | 'down'> {
+  await page.mouse.down();
+  await expect
+    .poll(
+      async () => {
+        const s = await state(page);
+        const target = nearest(s);
+        if (target !== undefined) {
+          await aimAt(page, s, target.x, target.y);
+        }
+
+        return s.sector === cleared || s.downed;
+      },
+      { message: 'the sector is cleared, or the ship went down', timeout: 60_000, intervals: [100] },
+    )
+    .toBe(true);
+  await page.mouse.up();
+
+  return (await state(page)).downed ? 'down' : 'cleared';
 }
 
 // The e2e map gives E4 and C4 a garrison of 2, one sector per browser: a
@@ -37,7 +63,7 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
 
   const cleared = `Sector ${sector} · cleared`;
   for (let tries = 1; (await state(page)).sector !== cleared; tries++) {
-    if ((await hunt(page)) === 'down') {
+    if ((await clear(page, cleared)) === 'down') {
       expect(tries, 'went down five times before clearing the sector').toBeLessThan(TRIES);
       await expect.poll(async () => (await state(page)).canRespawn, { timeout: 10_000 }).toBe(true);
       await page.keyboard.press('h');

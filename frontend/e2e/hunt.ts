@@ -37,7 +37,7 @@ export async function aimAt(page: Page, s: DebugState, x: number, y: number): Pr
 }
 
 /** The enemy nearest the ship, if any. */
-const nearest = (s: DebugState): DebugState['enemies'][number] | undefined =>
+export const nearest = (s: DebugState): DebugState['enemies'][number] | undefined =>
   s.enemies.reduce<DebugState['enemies'][number] | undefined>(
     (best, e) =>
       best === undefined || Math.hypot(e.x - s.ship.x, e.y - s.ship.y) < Math.hypot(best.x - s.ship.x, best.y - s.ship.y)
