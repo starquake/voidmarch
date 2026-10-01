@@ -22,7 +22,6 @@ const (
 	// safeRadius keeps enemies away from the home planet (docs/design.md,
 	// section 8); they don't fire at players inside it either.
 	safeRadius = 300
-	worldHalf  = sim.WorldHalfSize
 
 	// maxHitDamage caps a reported hit at the strongest weapon's damage.
 	maxHitDamage = 12
@@ -222,8 +221,7 @@ func (h *Hub) steer(e *enemy, players []point) {
 	e.x += e.vx * tickDuration
 	e.y += e.vy * tickDuration
 	keepOutOfSafeZone(e)
-	e.x = math.Max(-worldHalf, math.Min(worldHalf, e.x))
-	e.y = math.Max(-worldHalf, math.Min(worldHalf, e.y))
+	e.x, e.y = sim.ClampToWorld(e.x, e.y, 0)
 	if e.garrison != nil {
 		keepInSector(e, e.garrison.sector)
 	}

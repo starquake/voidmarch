@@ -11,6 +11,14 @@ const Tau = 2 * math.Pi
 
 const half = 0.5
 
+// Hexagon geometry.
+const (
+	sqrt3       = 1.7320508075688772
+	three       = 3
+	threeHalves = 1.5
+	twoThirds   = 2.0 / 3
+)
+
 // mulberry32's constants, as the client's seededRandom has them.
 const (
 	mulberryIncrement uint32  = 0x6d2b79f5

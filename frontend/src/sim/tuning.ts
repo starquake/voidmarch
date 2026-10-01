@@ -17,8 +17,8 @@ export {
   TICK_RATE,
   TICK_SECONDS,
   WEAPON_STATS,
+  WORLD_APOTHEM,
   WORLD_EDGE_BAND,
-  WORLD_HALF_SIZE,
 } from './rules.gen.ts';
 
 /** The view is at least this many art pixels; the zoom is the largest whole number that fits. */

@@ -141,9 +141,9 @@ var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", weaponTier: 0, engineTier: 0, shieldTier: 0 };
 var TICK_RATE = 60;
 var TICK_SECONDS = 1 / TICK_RATE;
-var WORLD_HALF_SIZE = 5600;
-var SECTOR_SIZE = 1600;
-var GRID_SIZE = 7;
+var SECTOR_RADIUS = 990;
+var GRID_RINGS = 3;
+var WORLD_APOTHEM = 5445;
 var WORLD_EDGE_BAND = 200;
 var SAFE_ZONE_RADIUS = 300;
 var SHIP_RADIUS = 12;
@@ -1583,14 +1583,56 @@ function sandbox() {
 
 // src/sim/sectors.ts
 var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-function sectorName(x, y) {
-  const col = Math.floor((x + WORLD_HALF_SIZE) / SECTOR_SIZE);
-  const row = Math.floor((y + WORLD_HALF_SIZE) / SECTOR_SIZE);
-  if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) {
+var SQRT3 = Math.sqrt(3);
+function ring({ q, r }) {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+function hexName({ q, r }) {
+  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
+  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
+}
+function parseHex(name) {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
     return void 0;
   }
-  return `${LETTERS.charAt(col)}${String(row + 1)}`;
+  const q = col - GRID_RINGS;
+  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
+  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
 }
+function hexCenter({ q, r }) {
+  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
+}
+function sectorName(x, y) {
+  const q = 2 / 3 * x / SECTOR_RADIUS;
+  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
+  const s = -q - r;
+  let rq = Math.round(q);
+  let rr = Math.round(r);
+  const rs = Math.round(s);
+  const dq = Math.abs(rq - q);
+  const dr = Math.abs(rr - r);
+  const ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) {
+    rq = -rr - rs;
+  } else if (dr > ds) {
+    rr = -rq - rs;
+  }
+  const hex2 = { q: rq + 0, r: rr + 0 };
+  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
+}
+var SECTOR_NAMES = (() => {
+  const names = [];
+  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
+    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
+      if (ring({ q, r }) <= GRID_RINGS) {
+        names.push(hexName({ q, r }));
+      }
+    }
+  }
+  return names;
+})();
 var HOME_SECTOR = sectorName(0, 0) ?? "";
 function sectorState(name, cleared) {
   if (name === HOME_SECTOR) {
@@ -1609,16 +1651,20 @@ function sectorLine(x, y, cleared) {
   const state = sectorState(name, cleared);
   return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
 }
-function sectorEdges() {
-  return Array.from({ length: GRID_SIZE + 1 }, (_, i) => i * SECTOR_SIZE - WORLD_HALF_SIZE);
+function sectorCorners(name) {
+  const hex2 = parseHex(name);
+  if (hex2 === void 0) {
+    return [];
+  }
+  const center = hexCenter(hex2);
+  return Array.from({ length: 6 }, (_, i) => ({
+    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
+    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
+  }));
 }
 function sectorCenter(name) {
-  const col = LETTERS.indexOf(name.charAt(0));
-  const row = Number(name.slice(1)) - 1;
-  if (col < 0 || col >= GRID_SIZE || !Number.isInteger(row) || row < 0 || row >= GRID_SIZE) {
-    return void 0;
-  }
-  return { x: (col + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE, y: (row + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE };
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : hexCenter(hex2);
 }
 function missionArrow(ship, target, width, height, margin) {
   const center = sectorCenter(target);
@@ -1650,17 +1696,21 @@ function missionCompleteBanner(sector, part) {
 function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
   const random = seededRandom(seed);
   const field = [];
-  const span = WORLD_HALF_SIZE - WORLD_EDGE_BAND;
+  const span = WORLD_APOTHEM - WORLD_EDGE_BAND;
   while (field.length < count) {
     const x = (random() * 2 - 1) * span;
-    const y = (random() * 2 - 1) * span;
+    const y = (random() * 2 - 1) * span * 2 / Math.sqrt(3);
     const rotation = Math.floor(random() * 4) * (Math.PI / 2);
     const flip = random() < 0.5;
-    if (Math.hypot(x, y) >= ASTEROID_CLEAR_RADIUS) {
+    if (Math.hypot(x, y) >= ASTEROID_CLEAR_RADIUS && worldReach(x, y) <= span) {
       field.push({ x, y, rotation, flip });
     }
   }
   return field;
+}
+function worldReach(x, y) {
+  const slant = y * Math.sqrt(3) / 2;
+  return Math.max(Math.abs(x), Math.abs(x / 2 + slant), Math.abs(-x / 2 + slant));
 }
 
 // src/sim/zoom.ts
@@ -4009,8 +4059,15 @@ var SandboxScene = class extends Phaser8.Scene {
   }
   createScenery() {
     const lines = this.add.graphics().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
-    for (const at2 of sectorEdges()) {
-      lines.lineBetween(at2, -WORLD_HALF_SIZE, at2, WORLD_HALF_SIZE).lineBetween(-WORLD_HALF_SIZE, at2, WORLD_HALF_SIZE, at2);
+    for (const name of SECTOR_NAMES) {
+      const [first, ...rest] = sectorCorners(name);
+      if (first !== void 0) {
+        lines.beginPath().moveTo(first.x, first.y);
+        for (const corner of rest) {
+          lines.lineTo(corner.x, corner.y);
+        }
+        lines.closePath().strokePath();
+      }
     }
     this.world.add(lines);
     for (const rock of asteroidField()) {

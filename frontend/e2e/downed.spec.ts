@@ -14,7 +14,7 @@ const state = (page: Page): Promise<DebugState> =>
   });
 
 /** Inside D5, south of home, where the e2e map keeps a garrison (#99). */
-const IN_D5 = 900;
+const IN_D5 = 950;
 
 /**
  * Takes the round shield, one charge all around, flies into D5 and parks

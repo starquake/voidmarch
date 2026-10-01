@@ -300,19 +300,28 @@ func TestGolden_Hits(t *testing.T) {
 func TestGolden_WorldEdge(t *testing.T) {
 	t.Parallel()
 
-	// The cases were recorded in a world 2,000 px from center to edge; the
-	// push depends only on the distance to the edge, so each position moves
-	// out by the difference.
+	// The cases were recorded in a square world 2,000 px from center to edge.
+	// Its left and right sides are the hexagon's too, and the push depends
+	// only on the distance to a side, so the cases the top and bottom left
+	// alone move out by the difference.
 	const recordedHalf = 2000
 	out := func(v float64) float64 {
-		return v + math.Copysign(WorldHalfSize-recordedHalf, v)
+		return v + math.Copysign(WorldApothem-recordedHalf, v)
 	}
+	checked := 0
 	for _, c := range loadGolden(t).WorldEdge {
-		ship := NewShip(out(c.Before[0]), out(c.Before[1]), DefaultLoadout())
+		if c.After[1] != c.Before[1] || c.After[3] != c.Before[3] {
+			continue
+		}
+		ship := NewShip(out(c.Before[0]), c.Before[1], DefaultLoadout())
 		ship.VX, ship.VY = c.Before[2], c.Before[3]
 		ApplyWorldEdge(ship, TickSeconds)
-		want := []float64{out(c.After[0]), out(c.After[1]), c.After[2], c.After[3]}
+		want := []float64{out(c.After[0]), c.After[1], c.After[2], c.After[3]}
 		checkNear(t, "ApplyWorldEdge", []float64{ship.X, ship.Y, ship.VX, ship.VY}, want)
+		checked++
+	}
+	if checked == 0 {
+		t.Error("no world edge case was checked")
 	}
 }
 

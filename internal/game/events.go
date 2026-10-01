@@ -288,16 +288,7 @@ func (h *Hub) bordersReached(s sim.Sector) bool {
 	)
 }
 
-// anyNeighbor reports whether any of the up to 8 sectors around s matches.
+// anyNeighbor reports whether any of the up to 6 sectors around s matches.
 func anyNeighbor(s sim.Sector, match func(sim.Sector) bool) bool {
-	for dc := -1; dc <= 1; dc++ {
-		for dr := -1; dr <= 1; dr++ {
-			n := sim.Sector{Col: s.Col + dc, Row: s.Row + dr}
-			if (dc != 0 || dr != 0) && n.Valid() && match(n) {
-				return true
-			}
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(s.Neighbors(), match)
 }

@@ -32,8 +32,8 @@ func TestMissions_ANewSquadronGetsTheNearestRing1Sector(t *testing.T) {
 	hub, _ := testHub(t)
 	a, _ := join(t, hub, "a")
 	j := chooseAndWait(t, a, "")
-	if got := missionOf(nextSquadrons(t, a), j.GetName()); got != "D3" {
-		t.Errorf("mission = %q, want D3: ring 1, the first of those nearest home", got)
+	if got := missionOf(nextSquadrons(t, a), j.GetName()); got != "C3" {
+		t.Errorf("mission = %q, want C3: ring 1, the first by name of those nearest home", got)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestMissions_AClearedSectorRewardsEveryoneAndMovesTheMissionOn(t *testing.T
 	nextSquadrons(t, a)
 	b.Send(state(0, 0))
 
-	snap, _ := latest(t, a, tick, 1, 1000, 0)
+	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 	killAll(a, snap)
 	var cleared *pb.SectorCleared
 	var list *pb.Squadrons
@@ -101,7 +101,7 @@ func TestMissions_AFullFleetGetsNoShip(t *testing.T) {
 	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}}
 	hub, tick := testHub(t, WithMap(m), WithPoolStart(sim.MaxFleet))
 	a, _ := join(t, hub, "a")
-	snap, _ := latest(t, a, tick, 1, 1000, 0)
+	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 	killAll(a, snap)
 	for {
 		if l := next(t, a).GetSquadrons(); l != nil {

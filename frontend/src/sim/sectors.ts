@@ -1,17 +1,74 @@
-import { GRID_SIZE, SECTOR_SIZE, WORLD_HALF_SIZE } from './rules.gen.ts';
+import { GRID_RINGS, SECTOR_RADIUS } from './rules.gen.ts';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const SQRT3 = Math.sqrt(3);
 
-/** The name of the sector (x, y) is in ("D4"), as the Go sim names it (#99); undefined outside the world. */
-export function sectorName(x: number, y: number): string | undefined {
-  const col = Math.floor((x + WORLD_HALF_SIZE) / SECTOR_SIZE);
-  const row = Math.floor((y + WORLD_HALF_SIZE) / SECTOR_SIZE);
-  if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) {
+/** A sector in axial coordinates, as the Go sim keeps it (#117): home is (0, 0). */
+interface Hex {
+  q: number;
+  r: number;
+}
+
+function ring({ q, r }: Hex): number {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+
+function hexName({ q, r }: Hex): string {
+  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
+
+  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
+}
+
+function parseHex(name: string): Hex | undefined {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
     return undefined;
   }
+  const q = col - GRID_RINGS;
+  const hex = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
 
-  return `${LETTERS.charAt(col)}${String(row + 1)}`;
+  return ring(hex) <= GRID_RINGS ? hex : undefined;
 }
+
+function hexCenter({ q, r }: Hex): { x: number; y: number } {
+  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
+}
+
+/** The name of the sector (x, y) is in ("D4"), as the Go sim names it; undefined outside the grid. */
+export function sectorName(x: number, y: number): string | undefined {
+  const q = ((2 / 3) * x) / SECTOR_RADIUS;
+  const r = (-x / 3 + (SQRT3 * y) / 3) / SECTOR_RADIUS;
+  const s = -q - r;
+  let rq = Math.round(q);
+  let rr = Math.round(r);
+  const rs = Math.round(s);
+  const dq = Math.abs(rq - q);
+  const dr = Math.abs(rr - r);
+  const ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) {
+    rq = -rr - rs;
+  } else if (dr > ds) {
+    rr = -rq - rs;
+  }
+  const hex = { q: rq + 0, r: rr + 0 };
+
+  return ring(hex) <= GRID_RINGS ? hexName(hex) : undefined;
+}
+
+/** Every sector's name, home and the rings around it. */
+export const SECTOR_NAMES: readonly string[] = (() => {
+  const names: string[] = [];
+  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
+    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
+      if (ring({ q, r }) <= GRID_RINGS) {
+        names.push(hexName({ q, r }));
+      }
+    }
+  }
+
+  return names;
+})();
 
 /** The home planet's sector, the middle one. */
 export const HOME_SECTOR = sectorName(0, 0) ?? '';
@@ -41,20 +98,25 @@ export function sectorLine(x: number, y: number, cleared: ReadonlySet<string> | 
   return state === 'unknown' ? `Sector ${name}` : `Sector ${name} · ${state}`;
 }
 
-/** Where the sector edges run, the same on both axes: every SECTOR_SIZE across the world. */
-export function sectorEdges(): number[] {
-  return Array.from({ length: GRID_SIZE + 1 }, (_, i) => i * SECTOR_SIZE - WORLD_HALF_SIZE);
+/** A sector's six corners, clockwise from its right one, in world pixels. */
+export function sectorCorners(name: string): { x: number; y: number }[] {
+  const hex = parseHex(name);
+  if (hex === undefined) {
+    return [];
+  }
+  const center = hexCenter(hex);
+
+  return Array.from({ length: 6 }, (_, i) => ({
+    x: center.x + SECTOR_RADIUS * Math.cos((i * Math.PI) / 3),
+    y: center.y + SECTOR_RADIUS * Math.sin((i * Math.PI) / 3),
+  }));
 }
 
 /** Where a sector's middle is, in world pixels. */
 export function sectorCenter(name: string): { x: number; y: number } | undefined {
-  const col = LETTERS.indexOf(name.charAt(0));
-  const row = Number(name.slice(1)) - 1;
-  if (col < 0 || col >= GRID_SIZE || !Number.isInteger(row) || row < 0 || row >= GRID_SIZE) {
-    return undefined;
-  }
+  const hex = parseHex(name);
 
-  return { x: (col + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE, y: (row + 0.5) * SECTOR_SIZE - WORLD_HALF_SIZE };
+  return hex === undefined ? undefined : hexCenter(hex);
 }
 
 /**

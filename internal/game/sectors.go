@@ -270,7 +270,7 @@ func (h *Hub) spawnNear(p point, kind pb.EnemyKind) {
 		distance := spawnMinDistance + h.rng.Float64()*(spawnMaxDistance-spawnMinDistance)
 		x := p.x + distance*math.Cos(angle)
 		y := p.y + distance*math.Sin(angle)
-		if math.Hypot(x, y) > safeRadius && math.Abs(x) < worldHalf && math.Abs(y) < worldHalf {
+		if math.Hypot(x, y) > safeRadius && sim.WorldReach(x, y) < sim.WorldApothem {
 			h.addEnemyOf(kind, x, y)
 
 			return
@@ -292,24 +292,14 @@ func inSector(points []point, s sim.Sector) []point {
 
 // keepInSector holds an enemy inside s, stopping it at the edge.
 func keepInSector(e *enemy, s sim.Sector) {
-	c := s.Center()
-	const half = sim.SectorSize/2 - 1
-	if x := math.Max(c.X-half, math.Min(c.X+half, e.x)); x != e.x {
-		e.x, e.vx = x, 0
-	}
-	if y := math.Max(c.Y-half, math.Min(c.Y+half, e.y)); y != e.y {
-		e.y, e.vy = y, 0
+	if x, y := s.Clamp(e.x, e.y, 1); x != e.x || y != e.y {
+		e.x, e.y, e.vx, e.vy = x, y, 0, 0
 	}
 }
 
 // distanceToSector is how far p is from s's edge; 0 inside it.
 func distanceToSector(p point, s sim.Sector) float64 {
-	c := s.Center()
-	const half = sim.SectorSize / 2
-	dx := math.Max(0, math.Abs(p.x-c.X)-half)
-	dy := math.Max(0, math.Abs(p.y-c.Y)-half)
-
-	return math.Hypot(dx, dy)
+	return s.Beyond(p.x, p.y)
 }
 
 // garrisonField is how many of a garrison fight at once: the map's cap, or
