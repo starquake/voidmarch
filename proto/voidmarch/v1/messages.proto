@@ -227,6 +227,8 @@ message Welcome {
   Loadout loadout = 15;
   // Whether this is a development server, where the 1/2/3 keys fit any part.
   bool development = 16;
+  // The cleared sectors, by name ("C3") (#99).
+  repeated string cleared_sectors = 17;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -422,6 +424,7 @@ message ServerMessage {
     PickupDropped pickup_dropped = 16;
     PickupTaken pickup_taken = 17;
     DerelictRescued derelict_rescued = 18;
+    SectorCleared sector_cleared = 19;
   }
 }
 
@@ -444,6 +447,13 @@ message PickupTaken {
   // Who flew over it.
   string player_id = 2;
   repeated PickupGain gains = 3;
+}
+
+// SectorCleared is a sector whose garrison is destroyed, and its boss if it
+// has one (#99).
+message SectorCleared {
+  string sector = 1;
+  uint32 tick = 2;
 }
 
 // DerelictRescued is a derelict docked in the hangar (#52).

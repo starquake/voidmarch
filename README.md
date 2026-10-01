@@ -90,9 +90,13 @@ squadmates see "you: Attack", and every companion in the squadron follows.
 
 ## Enemies
 
-The home planet is safe. Fly away from it and the Kla'ed come for you: Scouts,
-fast and erratic, go down in two hits; Fighters strafe around you and take
-six. Their weapons animate just before they fire at anyone within range, and
+The world is a 7 × 7 grid of sectors, A1 to G7, with home in D4. The HUD
+names the sector you're in. Every other sector is held by a Kla'ed
+garrison: 8 ships next to home, more farther out, and more again for every
+ship that comes in. It comes for anyone in its sector, and destroying all
+of it clears the sector for good. Its losses stay, so you can wear it down
+over several visits. Scouts, fast and erratic, go down in two hits;
+Fighters strafe around you and take six. Their weapons animate just before they fire at anyone within range, and
 they leave once nobody is near. Your shield takes hits from the side it
 covers while it has charges, and recharges after a few seconds without one,
 faster with a squadmate close by. Other hits cost the hull a step, which
@@ -103,12 +107,13 @@ or after 3 s you respawn with **H** at home or **J** beside a squadmate.
 Enemies need the server, so
 offline the sandbox stays empty.
 
-Far to the north waits a Kla'ed Frigate with three Fighters. It fires slow
+A Kla'ed Frigate with three Fighters waits in each corner of the ring around
+home, and a boss sector is cleared only once its Frigate is down too. It fires slow
 rings of big bullets behind a shield bubble that recharges when left alone,
 and it's tougher for every player who comes near, a companion counting half.
 Its health bar shows at the top while you're close. If everyone near it goes
-down it heals, and once destroyed it always drops a part and is back five
-minutes later.
+down it heals, and once destroyed it always drops a part. It's back five
+minutes later, unless its sector has been cleared.
 
 ## Parts
 

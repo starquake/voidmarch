@@ -26,6 +26,7 @@ const (
 // the tick the next one arrives.
 type frigateSpot struct {
 	at        point
+	sector    sim.Sector
 	enemyID   uint32
 	respawnAt uint32
 }
@@ -63,8 +64,9 @@ func frigateSpots(m *world.Map) []frigateSpot {
 		return nil
 	}
 	var out []frigateSpot
-	for _, s := range m.Spots("frigate") {
-		out = append(out, frigateSpot{at: point{x: s[0], y: s[1]}})
+	for _, s := range m.BossSectors("frigate") {
+		c := s.Center()
+		out = append(out, frigateSpot{at: point{x: c.X, y: c.Y}, sector: s})
 	}
 
 	return out
@@ -75,7 +77,7 @@ func frigateSpots(m *world.Map) []frigateSpot {
 func (h *Hub) spawnFrigates() {
 	for i := range h.frigates {
 		spot := &h.frigates[i]
-		if spot.enemyID != 0 || h.tick < spot.respawnAt {
+		if spot.enemyID != 0 || h.tick < spot.respawnAt || h.cleared[spot.sector] {
 			continue
 		}
 		h.nextEnemy++
@@ -174,6 +176,7 @@ func (h *Hub) frigateDestroyed(e *enemy) {
 	spot.enemyID = 0
 	spot.respawnAt = h.tick + frigateRespawnTicks
 	h.releaseDerelict(e.x, e.y, 0)
+	h.clearIfDone(spot.sector)
 }
 
 // upShips are the ships that are up, players and companions alike, with the

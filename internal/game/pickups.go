@@ -44,7 +44,7 @@ func WithSaveUnlock(save func(player string, part sim.Part, tier sim.Tier)) HubO
 // stopped.
 func (h *Hub) startSaver() <-chan struct{} {
 	done := make(chan struct{})
-	if h.saveUnlock == nil && h.saveLoadout == nil {
+	if h.saveUnlock == nil && h.saveLoadout == nil && h.saveSector == nil {
 		close(done)
 
 		return done

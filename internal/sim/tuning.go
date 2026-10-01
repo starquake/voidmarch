@@ -13,9 +13,12 @@ const (
 	MaxTicksPerFrame = 5
 )
 
-// The world is a square centered on the home planet at (0, 0).
+// The world is a square centered on the home planet at (0, 0): a GridSize
+// by GridSize grid of sectors, home in the middle one (#90, #99).
 const (
-	WorldHalfSize = 2000
+	SectorSize    = 1600
+	GridSize      = 7
+	WorldHalfSize = SectorSize * GridSize / 2
 	// WorldEdgeBand is the band along the edge where a ship is pushed back.
 	WorldEdgeBand = 200
 	// WorldEdgePush is the push-back acceleration at the very edge, in px/s^2.
@@ -43,6 +46,35 @@ const (
 	// EnemyMuzzle is how far ahead of an enemy's center its bullets leave.
 	EnemyMuzzle = 14
 )
+
+// Garrisons (#99): the Kla'ed holding each sector until it's cleared.
+const (
+	// GarrisonPlayerShare and GarrisonCompanionShare are how much of a
+	// garrison's base size each ship that enters adds, counted once.
+	GarrisonPlayerShare    = 0.5
+	GarrisonCompanionShare = 0.25
+	// StragglerSeconds is the least time between stragglers in a cleared
+	// sector with someone in it.
+	StragglerSeconds = 60
+)
+
+// GarrisonSize is a garrison's base size, for one player, by ring: heavier
+// away from home. Home (ring 0) holds none.
+func GarrisonSize(ring int) int {
+	const ring1, perRing = 8, 4
+	if ring <= 0 {
+		return 0
+	}
+
+	return ring1 + perRing*(ring-1)
+}
+
+// GarrisonFighterShare is the share of a garrison that are Fighters, by ring.
+func GarrisonFighterShare(ring int) float64 {
+	const ring1, perRing, most = 0.375, 0.125, 0.75
+
+	return math.Min(most, ring1+perRing*float64(max(ring-1, 0)))
+}
 
 // Derelicts and the fleet (#52).
 const (

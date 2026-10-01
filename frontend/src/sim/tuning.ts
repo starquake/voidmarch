@@ -61,3 +61,6 @@ export const PICKUP_GLOW_QUALITY = 12;
 export const PICKUP_GLOW_DISTANCE = 6;
 /** A pickup the viewer has no use for (every tier already), drawn faint. */
 export const PICKUP_USELESS_ALPHA = 0.45;
+/** The sector edges (#99): faint lines in the HUD's light blue. */
+export const SECTOR_LINE_COLOR = 0xd8f8ff;
+export const SECTOR_LINE_ALPHA = 0.25;

@@ -22,11 +22,11 @@ func TestDerelicts_AFrigateReleasesOneWhereItWentDown(t *testing.T) {
 
 	hub, tick := testHub(t, WithMap(frigateMap), WithPoolStart(3))
 	a, _ := join(t, hub, "a")
-	f := frigateIn(must(latest(t, a, tick, 1, 0, -400)))
+	f := frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
 	for shot := range uint32(10) {
 		hitFrigate(a, f.GetEnemyId(), shot+1)
 	}
-	snap, _ := latest(t, a, tick, 1, 0, -400)
+	snap, _ := latest(t, a, tick, 1, 0, -1000)
 
 	derelicts := snap.GetDerelicts()
 	if len(derelicts) != 1 {

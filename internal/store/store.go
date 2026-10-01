@@ -189,3 +189,24 @@ func SaveHangar(ctx context.Context, conn *sql.DB, ships int) error {
 
 	return nil
 }
+
+// ClearedSectors returns the names of the cleared sectors (#99).
+func ClearedSectors(ctx context.Context, conn *sql.DB) ([]string, error) {
+	names, err := queries.New(conn).ClearedSectors(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error reading cleared sectors: %w", err)
+	}
+
+	return names, nil
+}
+
+// ClearSector saves a sector as cleared at the time given; clearing one
+// already cleared keeps its first time.
+func ClearSector(ctx context.Context, conn *sql.DB, name string, at time.Time) error {
+	params := queries.ClearSectorParams{Name: name, ClearedAt: at.Unix()}
+	if err := queries.New(conn).ClearSector(ctx, params); err != nil {
+		return fmt.Errorf("error clearing sector %s: %w", name, err)
+	}
+
+	return nil
+}

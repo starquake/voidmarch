@@ -1,6 +1,7 @@
 import type { Browser, Page } from '@playwright/test';
 
 import { expect, registerPlayer, test } from './fixtures.ts';
+import { flyOut } from './hunt.ts';
 
 import type { DebugState } from '../src/debug.ts';
 import { ORDER_ITEMS, itemPosition } from '../src/ordermenu.ts';
@@ -88,17 +89,8 @@ test('the Attack mode reaches the squadron, and its companions shoot down an ene
   // The hub flies the companions under the squadron's mode.
   await expect.poll(async () => (await state(page)).squadronMode).toBe('Attack');
 
-  // Fly out of the safe zone; the companions come along and hunt.
-  await page.mouse.move(view.width / 2, view.height - 10);
-  await page.keyboard.down('w');
-  await expect
-    .poll(async () => {
-      const s = await state(page);
-
-      return Math.hypot(s.ship.x, s.ship.y);
-    })
-    .toBeGreaterThan(340);
-  await page.keyboard.up('w');
+  // Fly into D5 and its garrison; the companions come along and hunt.
+  await flyOut(page);
   await expect
     .poll(async () => (await state(page)).companionKills, { message: 'a companion shot down an enemy', timeout: 45_000 })
     .toBeGreaterThan(0);

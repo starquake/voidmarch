@@ -163,6 +163,12 @@ type Hub struct {
 	derelicts     map[uint32]*derelict
 	nextDerelict  uint32
 	derelictSpots []point
+	// cleared are the sectors whose garrison is gone (#99).
+	cleared       map[sim.Sector]bool
+	garrisons     map[sim.Sector]*garrison
+	lastStraggler map[sim.Sector]uint32
+	garrisonField int
+	saveSector    func(name string)
 	dropChance    float64
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
@@ -195,6 +201,8 @@ type hubOptions struct {
 	saveLoadout   func(player string, l sim.Loadout)
 	development   bool
 	worldMap      *world.Map
+	cleared       []string
+	saveSector    func(name string)
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -251,6 +259,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		pickups:       make(map[uint32]*pickup),
 		derelicts:     make(map[uint32]*derelict),
 		derelictSpots: derelictSpots(o.worldMap),
+		cleared:       clearedSet(o.cleared),
+		saveSector:    o.saveSector,
 		dropChance:    o.dropChance,
 		dropChanceSet: o.dropChanceSet,
 		saveUnlock:    o.saveUnlock,
@@ -258,6 +268,9 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		development:   o.development,
 		frigates:      frigateSpots(o.worldMap),
 	}
+	h.garrisons = newGarrisons(o.worldMap, h.cleared)
+	h.lastStraggler = make(map[sim.Sector]uint32)
+	h.garrisonField = garrisonField(o.worldMap)
 	for _, setup := range o.setup {
 		setup(h)
 	}
@@ -458,6 +471,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Pickups:        h.pickupMessages(),
 		Loadout:        savedLoadout(loadout, unlocks),
 		Development:    h.development,
+		ClearedSectors: h.clearedNames(),
 	}
 
 	return joinResult{session: s, welcome: welcome}

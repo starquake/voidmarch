@@ -17,8 +17,11 @@ export const state = (page: Page): Promise<DebugState> =>
 /** Goes down and respawns this many times at most before the hunt fails. */
 export const TRIES = 5;
 
-/** Past the server's safe zone around the home planet (300). */
-export const OUT_OF_SAFE_ZONE = 340;
+/**
+ * Inside D5, the sector south of home, where the e2e map keeps a garrison
+ * that never runs out (#99): home's sector ends at y 800.
+ */
+export const IN_D5 = 900;
 
 /**
  * Points the mouse at a world position, from the ship at the screen center,
@@ -43,18 +46,17 @@ const nearest = (s: DebugState): DebugState['enemies'][number] | undefined =>
     undefined,
   );
 
-/** Flies from wherever the ship is, down and away from the home planet, out of the safe zone. */
+/** Flies from wherever the ship is, down from the home planet, into D5 and its garrison. */
 export async function flyOut(page: Page): Promise<void> {
-  const start = await state(page);
-  await aimAt(page, start, start.ship.x, start.ship.y + 150);
   await page.keyboard.down('w');
   await expect
     .poll(async () => {
       const s = await state(page);
+      await aimAt(page, s, s.ship.x, s.ship.y + 150);
 
-      return Math.hypot(s.ship.x, s.ship.y);
+      return s.ship.y;
     })
-    .toBeGreaterThan(OUT_OF_SAFE_ZONE);
+    .toBeGreaterThan(IN_D5);
   await page.keyboard.up('w');
 }
 
@@ -63,7 +65,7 @@ export async function flyOut(page: Page): Promise<void> {
  * hunt that goes round again finds them fitted already, and one more press
  * would step past them (#96).
  */
-async function fitRockets(page: Page): Promise<void> {
+export async function fitRockets(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {

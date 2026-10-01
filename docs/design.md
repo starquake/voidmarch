@@ -6,10 +6,12 @@
 
 ## 1. Vision
 
+**The main idea: conquering sectors together, over a weekend of drop-in play** (#90). The server runs all weekend on the side. Friends drop in, clear sectors of the frontier together, leave, and come back to win back what the enemy retook while they were away. Every evening shows on the map: ground gained, and sometimes ground lost. Later, more ways to conquer a sector join clearing its garrison (#90, "Later").
+
 - **Web only, no install.** Open a URL, pick a name, play.
 - **Drop in / drop out.** The world is persistent and keeps existing when nobody is online. Some evenings 1 player is on, sometimes 3, on a busy evening 16.
 - **Nobody feels behind.** Progress is mostly *shared* (the frontier). Personal progress is mostly *horizontal* (more options), with a modest, capped step up through part tiers (§4).
-- **Shared goal:** push the frontier outward by defeating each alien faction's Dreadnought. Defeat all three and the season ends.
+- **Shared goal:** clear the frontier sector by sector, ring by ring, defeating each faction's Dreadnought to open the next ring. Defeat all three and the season ends.
 - **Personal goals:** collect all 12 ship parts and experiment with loadouts.
 - **Players are friends.** Griefing and cheating are not design concerns. This lets us trust the client (see §9).
 
@@ -176,12 +178,17 @@ Each faction uses its 8 ship classes in these roles:
 - Enemies use their pack's destruction animation when killed.
 - Killed enemies may drop part pickups (drop rate tunable; favor parts the nearby players don't own yet).
 
-As built in milestone 3 (#4), Kla'ed fodder only:
+As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 
-- **Spawning**: the server keeps enemies around each player outside the safe zone (300 px around the home planet): 2 for every ship within 500 px, never fewer than 3, so a solo player meets 3, a pair 4 and a wing of 4 about 8 (#25). Companions will count as ships. It spawns one a second just out of view (380–460 px away); 40% are Fighters. An enemy with no player outside the safe zone within 800 px for 30 s leaves. Enemies are pushed out of the safe zone.
+- **Garrisons** (#99) replace the old spawning around players. Each sector but home holds one.
+  - **Size:** 8 Kla'ed in ring 1, 12 in ring 2 and 16 in ring 3, with more Fighters outward (3, 6 and 10). That's for one player: each other player who enters adds half again, and each companion a quarter, counted once. Joiners add, and leavers take nothing away.
+  - **Taking the field:** a garrison waits as a count until a ship comes within 400 px of its sector. Then it takes the field around the sector's center, up to 24 at once (a map can cap it lower), with reinforcements only at posts out of every ship's sight.
+  - **Holding the sector:** it engages anyone inside, chases only within the sector, and drifts back to its posts when they leave. After 30 s with nobody near it goes back to a count.
+  - **Losses stay** until the sector is cleared, held in memory.
+  - **A cleared sector** gets the odd straggler: at most one Scout a minute while someone is in it. The home sector is quiet.
 - **Scout**: 2 HP, fast (150 px/s), wanders erratically and closes to about 90 px; fires one small bullet.
 - **Fighter**: 6 HP, slower (95 px/s), strafes around its target at about 170 px; fires one big bullet.
-- **Firing**: enemies come for the nearest player within 500 px, the whole spawn ring, and fire once within 340 px, where their bullets still reach, every so many ticks with jitter; every volley is telegraphed by the weapon animating for 300 ms before the bullets leave; bullets are slow enough to dodge (110–130 px/s), aimed with a small seeded spread. Enemy shots have their own soft laser (Kenney `laserSmall_004`).
+- **Firing**: a garrison comes for the nearest player inside its sector, and stragglers for anyone within 500 px. They fire once within 340 px, where their bullets still reach, every so many ticks with jitter; every volley is telegraphed by the weapon animating for 300 ms before the bullets leave; bullets are slow enough to dodge (110–130 px/s), aimed with a small seeded spread. Enemy shots have their own soft laser (Kenney `laserSmall_004`).
 - **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they fly on a layer with one blue glow. Players' shots stay orange. The glow follows the F effects toggle.
 - **Death**: the pack's destruction animation, and an explosion sound when it happens in view. No drops yet (pickups are milestone 5).
 
@@ -211,13 +218,21 @@ As built in milestone 3 (#4), Kla'ed fodder only:
 
 ## 8. World structure: the frontier
 
-- Large 2D map, camera follows the player, parallax backgrounds from the Environment pack.
-- **Home planet** at the center (Environment planet). Spawn point, loadout changes, safe zone.
+- **A 7 × 7 grid of 1,600 px sectors**, A1 to G7, an 11,200 px world (#90 decision 5, built in #99).
+  - The HUD names the sector you're in, with its state ("Sector B3 · hostile", "cleared" or "home"), and faint lines mark the sector edges.
+  - The grid's geometry is a sim rule (`internal/sim/sectors.go`), shared by the server, the client and the WebAssembly sim.
+  - The game map (`internal/world`, `MAP`) holds what's in each sector: boss sectors (the `frontier` map puts a Frigate in each corner of ring 1: C3, E3, C5 and E5), garrison overrides and derelict spots.
+- **A sector is cleared** once its garrison is destroyed, and its Frigate too in a boss sector.
+  - Everyone is told ("Sector C3 cleared"), and the server keeps it in its database (`cleared_sectors`) across restarts.
+  - A cleared boss sector's Frigate doesn't come back.
+  - Retaking cleared sectors comes with #102, missions and the maps with #100 and #101.
+- Camera follows the player, parallax backgrounds from the Environment pack.
+- **Home planet** at the center of D4 (Environment planet). Spawn point, loadout changes, safe zone.
 - **The loadout screen** (#78): **L** opens it inside the safe zone, and L or Esc closes it. It shows three columns, weapon, engine and shield. Each part has its pickup icon, its name in its tier's color and a line on what it's good at. Parts not found yet are dimmed. A click, or 1/2/3 for a slot and the arrow keys, fits an owned part at its tier. The hangar line has a Summon button, and G still works. While it's open the world runs on and the ship holds still. It closes if the ship leaves home or goes down. The server saves a loadout fitted at home from owned parts, and a player's next visit starts with it. On a development server, and offline, the 1/2/3 keys still cycle every part without the screen.
-- **Three rings** around it:
-  1. Kla'ed space
-  2. Nairan space
-  3. Nautolan space
+- **Three rings** around it, bands of sectors by distance from home:
+  1. Kla'ed space: the 8 sectors around home
+  2. Nairan space: the next 16
+  3. Nautolan space (the third pack): the outer 24
 - Each ring gets its own **tinted background** so it feels distinct (recoloring allowed).
 - Ring N+1 is inaccessible until ring N's Dreadnought is destroyed (barrier/boundary; no special art needed — e.g. a hard edge or tinted zone).
 - Asteroids (Environment pack) as obstacles/cover.

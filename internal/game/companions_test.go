@@ -445,7 +445,7 @@ func TestCompanions_HumansDisplaceTheNewest(t *testing.T) {
 	}
 }
 
-// outThere sends a's ship out of the safe zone, where enemies come, and steps
+// outThere sends a's ship into D5, where its garrison comes, and steps
 // the hub until done, given each tick's snapshot and a's other messages, says
 // so, or 30 s pass.
 func outThere(
@@ -457,7 +457,7 @@ func outThere(
 	t.Helper()
 
 	for range 30 * TickRate {
-		if done(latest(t, a, tick, 1, 0, 700)) {
+		if done(latest(t, a, tick, 1, 0, 1000)) {
 			return
 		}
 	}

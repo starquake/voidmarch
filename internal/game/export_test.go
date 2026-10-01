@@ -1,5 +1,7 @@
 package game
 
+import pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+
 // Damaged exposes damaged for tests.
 var Damaged = damaged
 
@@ -56,3 +58,20 @@ func WithDerelictAt(x, y float64) HubOption {
 
 // DerelictTicks exposes derelictTicks for tests.
 const DerelictTicks = derelictTicks
+
+// Garrison distances and timings, exposed for tests.
+const (
+	GarrisonPosts  = garrisonPosts
+	GarrisonIdle   = garrisonIdle
+	StragglerTicks = stragglerTicks
+)
+
+// addEnemy adds a Scout or a Fighter at (x, y), as the hub once spawned them.
+func (h *Hub) addEnemy(x, y float64) {
+	const fighterShare = 0.4
+	kind := pb.EnemyKind_ENEMY_KIND_SCOUT
+	if h.rng.Float64() < fighterShare {
+		kind = pb.EnemyKind_ENEMY_KIND_FIGHTER
+	}
+	h.addEnemyOf(kind, x, y)
+}
