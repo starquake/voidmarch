@@ -1,6 +1,6 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
 import { PARTS, type PartId } from './sim/parts.ts';
-import type { EnemyBulletId, EnemyKind } from './sim/enemies.ts';
+import { ENEMY_KINDS, type EnemyBulletId, type EnemyKind } from './sim/enemies.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
 
@@ -29,9 +29,10 @@ const still = (key: string, url: string, size: number): Sheet => ({
 });
 
 
-const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruction: number }> = {
+const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruction: number; shield?: number }> = {
   scout: { engine: 10, weapons: 6, destruction: 10 },
   fighter: { engine: 10, weapons: 6, destruction: 9 },
+  frigate: { engine: 12, weapons: 6, destruction: 9, shield: 40 },
 };
 
 /** Enemy bullet strips: frames are narrower than they are tall. */
@@ -145,6 +146,7 @@ export const keys = {
   enemyEngine: (kind: EnemyKind): string => `klaed-${kind}-engine`,
   enemyWeapons: (kind: EnemyKind): string => `klaed-${kind}-weapons`,
   enemyDestruction: (kind: EnemyKind): string => `klaed-${kind}-destruction`,
+  enemyShield: (kind: EnemyKind): string => `klaed-${kind}-shield`,
   enemyBullet: (id: EnemyBulletId): string => (id === 'klaedBullet' ? 'klaed-bullet' : 'klaed-big-bullet'),
   pickup: (part: PartId): string => `pickup-${part}`,
 };
@@ -195,7 +197,7 @@ export function sheets(): Sheet[] {
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
-    ...(['scout', 'fighter'] as const).flatMap((kind) => {
+    ...ENEMY_KINDS.flatMap((kind) => {
       const f = KLAED_FILES[kind];
 
       return [
@@ -203,6 +205,7 @@ export function sheets(): Sheet[] {
         strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, 64, f.engine, 12),
         strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, 64, f.weapons, 18, false),
         strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false),
+        ...(f.shield === undefined ? [] : [strip(keys.enemyShield(kind), `${klaed}/${kind}-shield.png`, 64, f.shield, 20)]),
       ];
     }),
     ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({

@@ -13,6 +13,8 @@ export class EnemyView {
   private readonly root: Phaser.GameObjects.Container;
   private readonly base: Phaser.GameObjects.Image;
   private readonly weapon: Phaser.GameObjects.Sprite;
+  /** The shield bubble, for the kinds that have one (#89). */
+  private readonly shield: Phaser.GameObjects.Sprite | undefined;
   private readonly scene: Phaser.Scene;
 
   constructor(scene: Phaser.Scene, parent: ShipParent, kind: EnemyKind) {
@@ -24,7 +26,12 @@ export class EnemyView {
     this.weapon.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       this.weapon.setFrame(0);
     });
-    this.root = scene.add.container(0, 0, [engine, this.base, this.weapon]);
+    const parts: Phaser.GameObjects.GameObject[] = [engine, this.base, this.weapon];
+    if (scene.textures.exists(keys.enemyShield(kind))) {
+      this.shield = scene.add.sprite(0, 0, keys.enemyShield(kind)).play(keys.enemyShield(kind)).setVisible(false);
+      parts.push(this.shield);
+    }
+    this.root = scene.add.container(0, 0, parts);
     parent.add(this.root);
   }
 
@@ -38,6 +45,16 @@ export class EnemyView {
 
   place(x: number, y: number, angle: number): void {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
+  }
+
+  /** Shows the shield bubble while the shield holds a charge. */
+  setShield(up: boolean): void {
+    this.shield?.setVisible(up);
+  }
+
+  /** Whether the shield bubble shows, for the E2E tests. */
+  get shieldShown(): boolean {
+    return this.shield?.visible ?? false;
   }
 
   /** Plays the weapon animation: the telegraph before a volley leaves. */

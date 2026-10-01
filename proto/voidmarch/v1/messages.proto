@@ -39,6 +39,7 @@ enum EnemyKind {
   ENEMY_KIND_UNSPECIFIED = 0;
   ENEMY_KIND_SCOUT = 1;
   ENEMY_KIND_FIGHTER = 2;
+  ENEMY_KIND_FRIGATE = 3;
 }
 
 // Loadout is the part fitted in each slot, each at its tier: 0 plain, then
@@ -299,6 +300,13 @@ message EnemyState {
   // Velocity in px/s, for the closing speed of a ram (#48).
   float vx = 6;
   float vy = 7;
+  // A boss's health bar (#89); left at zero for the rest.
+  float hp = 8;
+  float max_hp = 9;
+  // The shield's charge left, as damage it can still take.
+  float shield = 10;
+  // The players its health was scaled for, a companion counting half.
+  float scaled_for = 11;
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.

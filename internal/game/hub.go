@@ -17,6 +17,7 @@ import (
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/sim"
+	"github.com/starquake/voidmarch/internal/world"
 )
 
 const (
@@ -164,6 +165,9 @@ type Hub struct {
 	saveLoadout   func(player string, l sim.Loadout)
 	saves         chan func()
 	development   bool
+	// frigates are the map's Frigate spots and the tick each may next have a
+	// Frigate again (#89).
+	frigates []frigateSpot
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
 	// volleys are enemy volleys announced but not yet fired.
@@ -186,6 +190,7 @@ type hubOptions struct {
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
 	saveLoadout   func(player string, l sim.Loadout)
 	development   bool
+	worldMap      *world.Map
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -245,6 +250,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		saveUnlock:    o.saveUnlock,
 		saveLoadout:   o.saveLoadout,
 		development:   o.development,
+		frigates:      frigateSpots(o.worldMap),
 	}
 	for _, setup := range o.setup {
 		setup(h)

@@ -102,6 +102,10 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   flying over it with `Collect`, and the hub grants the part to the
   collector's squadron (`PickupTaken`) and saves the unlocks. The E2E server
   sets `DROP_CHANCE=1` (development only) so every kill drops a part.
+- **Bosses sit where the game map puts them** (`internal/world`, embedded JSON
+  chosen with `MAP`; `e2e.json` for E2E, with the Frigate near home). The
+  Frigate is an enemy with a fight of its own (`internal/game/frigate.go`):
+  its health, shield and scaling go out in `EnemyState`.
 - **Companion brains are Go sim code** (`internal/sim/brain.go`): `Think`
   turns a companion's view and orders into the same `Command` the keyboard
   makes, pure and seeded, and `sim.Wing` flies a player's companions.

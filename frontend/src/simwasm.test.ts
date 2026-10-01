@@ -278,3 +278,10 @@ test('an enemy volley is the same for the same seed, and leaves in front of the 
   assert.equal(bullet.kind, 'klaedBigBullet');
   assert.ok(bullet.x > 100);
 });
+
+test('a Frigate fires a whole ring of big bullets', async () => {
+  const s = await sim();
+  const ring = s.enemyPattern('frigate', 0, 0, 0, 7);
+  assert.equal(ring.length, 12);
+  assert.ok(ring.every((b) => b.kind === 'klaedBigBullet'));
+});

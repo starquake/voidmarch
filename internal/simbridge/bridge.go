@@ -97,7 +97,7 @@ const (
 	patternY     = 2
 	patternAngle = 3
 	patternSize  = 4
-	maxPatterns  = 8
+	maxPatterns  = sim.FrigateRingBullets
 	// TargetSize is the numbers per HitScan target: x, y, radius and its id,
 	// so a piercing shot hits each enemy once (#72).
 	TargetSize = 4

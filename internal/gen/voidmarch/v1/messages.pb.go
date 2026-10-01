@@ -200,6 +200,7 @@ const (
 	EnemyKind_ENEMY_KIND_UNSPECIFIED EnemyKind = 0
 	EnemyKind_ENEMY_KIND_SCOUT       EnemyKind = 1
 	EnemyKind_ENEMY_KIND_FIGHTER     EnemyKind = 2
+	EnemyKind_ENEMY_KIND_FRIGATE     EnemyKind = 3
 )
 
 // Enum value maps for EnemyKind.
@@ -208,11 +209,13 @@ var (
 		0: "ENEMY_KIND_UNSPECIFIED",
 		1: "ENEMY_KIND_SCOUT",
 		2: "ENEMY_KIND_FIGHTER",
+		3: "ENEMY_KIND_FRIGATE",
 	}
 	EnemyKind_value = map[string]int32{
 		"ENEMY_KIND_UNSPECIFIED": 0,
 		"ENEMY_KIND_SCOUT":       1,
 		"ENEMY_KIND_FIGHTER":     2,
+		"ENEMY_KIND_FRIGATE":     3,
 	}
 )
 
@@ -2109,8 +2112,15 @@ type EnemyState struct {
 	// Facing in radians; 0 is +x and y grows downward.
 	Angle float32 `protobuf:"fixed32,5,opt,name=angle,proto3" json:"angle,omitempty"`
 	// Velocity in px/s, for the closing speed of a ram (#48).
-	Vx            float32 `protobuf:"fixed32,6,opt,name=vx,proto3" json:"vx,omitempty"`
-	Vy            float32 `protobuf:"fixed32,7,opt,name=vy,proto3" json:"vy,omitempty"`
+	Vx float32 `protobuf:"fixed32,6,opt,name=vx,proto3" json:"vx,omitempty"`
+	Vy float32 `protobuf:"fixed32,7,opt,name=vy,proto3" json:"vy,omitempty"`
+	// A boss's health bar (#89); left at zero for the rest.
+	Hp    float32 `protobuf:"fixed32,8,opt,name=hp,proto3" json:"hp,omitempty"`
+	MaxHp float32 `protobuf:"fixed32,9,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
+	// The shield's charge left, as damage it can still take.
+	Shield float32 `protobuf:"fixed32,10,opt,name=shield,proto3" json:"shield,omitempty"`
+	// The players its health was scaled for, a companion counting half.
+	ScaledFor     float32 `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2190,6 +2200,34 @@ func (x *EnemyState) GetVx() float32 {
 func (x *EnemyState) GetVy() float32 {
 	if x != nil {
 		return x.Vy
+	}
+	return 0
+}
+
+func (x *EnemyState) GetHp() float32 {
+	if x != nil {
+		return x.Hp
+	}
+	return 0
+}
+
+func (x *EnemyState) GetMaxHp() float32 {
+	if x != nil {
+		return x.MaxHp
+	}
+	return 0
+}
+
+func (x *EnemyState) GetShield() float32 {
+	if x != nil {
+		return x.Shield
+	}
+	return 0
+}
+
+func (x *EnemyState) GetScaledFor() float32 {
+	if x != nil {
+		return x.ScaledFor
 	}
 	return 0
 }
@@ -3478,7 +3516,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x0fSquadronOrdered\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xa6\x01\n" +
+	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\x84\x02\n" +
 	"\n" +
 	"EnemyState\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -3487,7 +3525,13 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01y\x18\x04 \x01(\x02R\x01y\x12\x14\n" +
 	"\x05angle\x18\x05 \x01(\x02R\x05angle\x12\x0e\n" +
 	"\x02vx\x18\x06 \x01(\x02R\x02vx\x12\x0e\n" +
-	"\x02vy\x18\a \x01(\x02R\x02vy\"\x8a\x01\n" +
+	"\x02vy\x18\a \x01(\x02R\x02vy\x12\x0e\n" +
+	"\x02hp\x18\b \x01(\x02R\x02hp\x12\x15\n" +
+	"\x06max_hp\x18\t \x01(\x02R\x05maxHp\x12\x16\n" +
+	"\x06shield\x18\n" +
+	" \x01(\x02R\x06shield\x12\x1d\n" +
+	"\n" +
+	"scaled_for\x18\v \x01(\x02R\tscaledFor\"\x8a\x01\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
@@ -3588,11 +3632,12 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\fSHIELD_FRONT\x10\x01\x12\x19\n" +
 	"\x15SHIELD_FRONT_AND_SIDE\x10\x02\x12\x10\n" +
 	"\fSHIELD_ROUND\x10\x03\x12\x18\n" +
-	"\x14SHIELD_INVINCIBILITY\x10\x04*U\n" +
+	"\x14SHIELD_INVINCIBILITY\x10\x04*m\n" +
 	"\tEnemyKind\x12\x1a\n" +
 	"\x16ENEMY_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10ENEMY_KIND_SCOUT\x10\x01\x12\x16\n" +
-	"\x12ENEMY_KIND_FIGHTER\x10\x02*\xb4\x01\n" +
+	"\x12ENEMY_KIND_FIGHTER\x10\x02\x12\x16\n" +
+	"\x12ENEMY_KIND_FRIGATE\x10\x03*\xb4\x01\n" +
 	"\rCompanionMode\x12\x1e\n" +
 	"\x1aCOMPANION_MODE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15COMPANION_MODE_ESCORT\x10\x01\x12\x19\n" +

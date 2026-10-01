@@ -7,9 +7,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 
 	"github.com/starquake/voidmarch/internal/request"
+	"github.com/starquake/voidmarch/internal/world"
 )
 
 // Application environments accepted in APP_ENV.
@@ -59,6 +61,8 @@ var (
 	ErrInvalidTrustedProxyIPs = errors.New("invalid TRUSTED_PROXY_IPS")
 	// ErrInvalidDBPath is returned when DB_PATH is in a directory that doesn't exist.
 	ErrInvalidDBPath = errors.New("invalid DB_PATH")
+	// ErrUnknownMap is returned when MAP names no embedded map.
+	ErrUnknownMap = errors.New("unknown MAP")
 	// ErrInvalidDropChance is returned when DROP_CHANCE is not a number from 0 to 1.
 	ErrInvalidDropChance = errors.New("invalid DROP_CHANCE")
 	// ErrDropChanceNotAllowed is returned when DROP_CHANCE is set outside development.
@@ -87,6 +91,8 @@ type Config struct {
 	// RegisterLimit is how many names one address may register a minute; 0
 	// lifts the limit.
 	RegisterLimit int
+	// Map names the game map the world is laid out from (#89).
+	Map string
 	// DropChance, when set, is every kill's chance to drop a part instead of
 	// its kind's. Development only, for E2E.
 	DropChance *float64
@@ -146,6 +152,10 @@ func Parse(getenv func(string) string) (*Config, error) {
 		return nil, err
 	}
 
+	if c.Map, err = parseMap(getenv("MAP")); err != nil {
+		return nil, err
+	}
+
 	if c.DropChance, err = parseDropChance(getenv("DROP_CHANCE"), c.AppEnvironment); err != nil {
 		return nil, err
 	}
@@ -176,6 +186,18 @@ func parseCount(val string, invalid error, n *int) error {
 	*n = parsed
 
 	return nil
+}
+
+// parseMap is MAP, an embedded map's name, or the default map.
+func parseMap(val string) (string, error) {
+	if val == "" {
+		return world.Default, nil
+	}
+	if !slices.Contains(world.Names(), val) {
+		return "", fmt.Errorf("%w: %q, have %v", ErrUnknownMap, val, world.Names())
+	}
+
+	return val, nil
 }
 
 // parseDropChance is DROP_CHANCE, nil when unset.

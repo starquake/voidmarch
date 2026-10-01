@@ -245,6 +245,9 @@ func TestDropChance(t *testing.T) {
 	if got, want := DropChance(EnemyFighter), FighterDropChance; got != want {
 		t.Errorf("DropChance(fighter) = %v, want %v", got, want)
 	}
+	if got, want := DropChance(EnemyFrigate), 1.0; got != want {
+		t.Errorf("DropChance(frigate) = %v, want %v", got, want)
+	}
 }
 
 func TestCompanionLoadout_SpreadsTheWeapons(t *testing.T) {

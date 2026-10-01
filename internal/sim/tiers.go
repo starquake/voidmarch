@@ -155,6 +155,8 @@ func DropChance(kind EnemyKind) float64 {
 	switch kind {
 	case EnemyFighter:
 		return FighterDropChance
+	case EnemyFrigate:
+		return FrigateDropChance
 	case EnemyScout:
 		fallthrough
 	default:

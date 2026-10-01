@@ -52,6 +52,8 @@ export default defineConfig({
       REGISTER_LIMIT: '0',
       // Every kill drops a part, so the pickup spec needn't wait for luck.
       DROP_CHANCE: '1',
+      // The test map, with the Frigate near home (#89).
+      MAP: 'e2e',
     },
     reuseExistingServer: !ci,
     timeout: 120_000,

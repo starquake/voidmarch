@@ -193,6 +193,14 @@ As built in milestone 3 (#4), Kla'ed fodder only:
 - **Health scales with the number of players nearby** when the fight starts (and optionally as players join).
 - Reset if everyone leaves or goes down.
 
+**The Frigate, as built (#89).** One sits at each Frigate spot of the game map (`internal/world`, chosen with `MAP`), with three Fighters that stay while it does. It never moves; it turns to the nearest ship and fires a ring of 12 big bullets every 3 s at anyone within 380 px.
+
+- **Health**: 40, plus 30 for every player who comes within 800 px, a companion counting half. Each ship counts once, joiners add their share, and leavers take nothing away.
+- **Shield**: a bubble that takes 20 damage before the hull, and recharges all at once after 8 s without a hit.
+- **Reset**: once nobody within 800 px is up, it heals fully, for nobody, and its shield comes back.
+- **Destroyed**: it always drops a part for the players near it, and is back at its spot 5 minutes later.
+- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, its shield as a thin blue line, and the players its health was scaled for. The HUD's text lines sit at the bottom left.
+
 ### Siege bosses (Dreadnought)
 
 - One per faction, guarding the path to the next ring.

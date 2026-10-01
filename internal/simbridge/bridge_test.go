@@ -191,6 +191,10 @@ func TestEnemyPattern(t *testing.T) {
 	if b.EnemyPattern(9, 0, 0, 0, 1) != 0 {
 		t.Error("an unknown enemy kind fired")
 	}
+	frigate := slices.Index(sim.EnemyKinds(), sim.EnemyFrigate)
+	if got, want := b.EnemyPattern(frigate, 0, 0, 0, 1), sim.FrigateRingBullets; got != want {
+		t.Errorf("EnemyPattern(frigate) = %d bullets, want the whole ring of %d", got, want)
+	}
 }
 
 func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {

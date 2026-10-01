@@ -45,7 +45,9 @@ import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
+import { bossBar } from '../net/boss.ts';
 import { ShipAudio } from './audio.ts';
+import { BossBarView } from './bossbar.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
 import { PickupsView } from './pickups.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
@@ -161,6 +163,7 @@ export class SandboxScene extends Phaser.Scene {
   private vignette: Phaser.Filters.Vignette | undefined;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
+  private bossBar!: BossBarView;
   private downPanel!: Phaser.GameObjects.Text;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   private wasDown = false;
@@ -247,6 +250,7 @@ export class SandboxScene extends Phaser.Scene {
       squadron: '',
       squadronScreen: false,
       loadoutScreen: false,
+      boss: undefined,
       hangar: undefined,
       squadronMode: undefined,
     };
@@ -272,6 +276,7 @@ export class SandboxScene extends Phaser.Scene {
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time);
+    this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
@@ -405,6 +410,7 @@ export class SandboxScene extends Phaser.Scene {
 
     this.hud = this.add
       .text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' })
+      .setOrigin(0, 1)
       .setShadow(1, 1, '#000000', 0);
     main.ignore(this.hud);
     // The parts line (#77): "parts", then each fitted part in its tier's color.
@@ -426,6 +432,7 @@ export class SandboxScene extends Phaser.Scene {
       .setShadow(1, 1, '#000000', 0)
       .setVisible(false);
     main.ignore(this.downPanel);
+    this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -814,7 +821,9 @@ export class SandboxScene extends Phaser.Scene {
     }
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
-    this.hud.setFontSize(HUD_FONT_PX * dpr).setPosition(HUD_MARGIN_PX * dpr, HUD_MARGIN_PX * dpr);
+    this.hud.setFontSize(HUD_FONT_PX * dpr);
+    this.layoutHud();
+    this.bossBar.resize(width, dpr);
     this.downPanel
       .setFontSize(DOWN_PANEL_FONT_PX * dpr)
       .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
@@ -1013,15 +1022,23 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
-      'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home · hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
+      'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
+      'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       this.netStatus(),
       this.squadronStatus(),
     ]);
-    this.updatePartsLine();
+    this.layoutHud();
   }
 
-  /** The fitted parts under the HUD, each named in its tier's color (#77, decision 12). */
-  private updatePartsLine(): void {
+  /**
+   * The HUD at the bottom left (#89): its lines, then the fitted parts under
+   * them, each named in its tier's color (#77, decision 12).
+   */
+  private layoutHud(): void {
+    const dpr = this.dpr();
+    const lineHeight = this.hud.height / Math.max(1, this.hud.text.split('\n').length);
+    const y = this.scale.height - HUD_MARGIN_PX * dpr - lineHeight;
+    this.hud.setPosition(HUD_MARGIN_PX * dpr, y);
     const l = this.sim.ship.loadout;
     const words: [string, string][] = [
       ['parts', tierCss(0)],
@@ -1030,7 +1047,6 @@ export class SandboxScene extends Phaser.Scene {
       [partLabel(l.shield, l.shieldTier), tierCss(l.shieldTier)],
     ];
     let x = this.hud.x;
-    const y = this.hud.y + this.hud.height;
     const gap = Number.parseFloat(String(this.hud.style.fontSize));
     this.partsLine.forEach((text, i) => {
       const [word, color] = words[i] ?? ['', tierCss(0)];
@@ -1140,6 +1156,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
+    this.debug.boss = this.bossBar.current;
     publishDebugState(this.debug);
   }
 }

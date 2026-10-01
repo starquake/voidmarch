@@ -7,6 +7,7 @@ type EnemyKind string
 const (
 	EnemyScout   EnemyKind = "scout"
 	EnemyFighter EnemyKind = "fighter"
+	EnemyFrigate EnemyKind = "frigate"
 )
 
 // EnemyBulletID names an enemy bullet from the Kla'ed projectiles.
@@ -20,13 +21,13 @@ const (
 
 // EnemyKinds lists every enemy class.
 func EnemyKinds() []EnemyKind {
-	return []EnemyKind{EnemyScout, EnemyFighter}
+	return []EnemyKind{EnemyScout, EnemyFighter, EnemyFrigate}
 }
 
-// EnemyBullet is each enemy's bullet: the Scout's small one, the Fighter's
-// big one.
+// EnemyBullet is each enemy's bullet: the Scout's small one, the big one
+// for the rest.
 func EnemyBullet(kind EnemyKind) EnemyBulletID {
-	if kind == EnemyFighter {
+	if kind != EnemyScout {
 		return KlaedBigBullet
 	}
 
@@ -36,23 +37,39 @@ func EnemyBullet(kind EnemyKind) EnemyBulletID {
 // EnemyRadius is an enemy's hit circle in art pixels, from the sprite's
 // opaque extent.
 func EnemyRadius(kind EnemyKind) float64 {
-	const scout, fighter = 11, 12
-	if kind == EnemyFighter {
+	const scout, fighter, frigate = 11, 12, 19
+	switch kind {
+	case EnemyFighter:
 		return fighter
+	case EnemyFrigate:
+		return frigate
+	case EnemyScout:
+		fallthrough
+	default:
+		return scout
 	}
-
-	return scout
 }
 
 // EnemyHP is an enemy's hit points, as the server has them, for picking the
-// weakest target.
+// weakest target; a Frigate's is its least, for one player.
 func EnemyHP(kind EnemyKind) float64 {
 	const scout, fighter = 2, 6
-	if kind == EnemyFighter {
+	switch kind {
+	case EnemyFighter:
 		return fighter
+	case EnemyFrigate:
+		return FrigateHP(1)
+	case EnemyScout:
+		fallthrough
+	default:
+		return scout
 	}
+}
 
-	return scout
+// FrigateHP is a Frigate's hit points for the weight of the players near it
+// when the fight starts: each player weighs 1, each companion FrigateCompanionWeight.
+func FrigateHP(weight float64) float64 {
+	return FrigateBaseHP + FrigateHPPerPlayer*weight
 }
 
 // IsSupport reports whether an enemy is a Support Ship, which companions can
