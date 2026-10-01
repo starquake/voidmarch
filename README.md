@@ -66,7 +66,10 @@ three: AI wingmates that fly in formation with you, in your colour. The hangar
 is shared by everyone on the server; the HUD shows its ships while you're at
 the home planet. A companion sent home, or one whose player leaves, docks back
 into it. A new server starts with `POOL_START` ships in it (3 unless set), and
-keeps the count across restarts. Hold **Q**
+keeps the count across restarts. A destroyed Frigate leaves a derelict ship
+behind: hover beside it for 5 s, or let a companion do it, to rescue it into
+the hangar before it drifts off after 2 minutes. The fleet tops out at 16
+ships. Hold **Q**
 for a ring of orders, point at one and let go; tap Q to repeat the last. Every
 order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
 Hold here and Stealth, and three one-shots that return to the mode when done:
