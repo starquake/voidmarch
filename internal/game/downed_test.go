@@ -8,7 +8,7 @@ import (
 	"github.com/starquake/voidmarch/internal/sim"
 )
 
-// companionDown flies a's stealthy companion out with a, parked at (0, 700),
+// companionDown flies a's stealthy companion out with a, parked at (0, 1000) in D5,
 // until enemy fire takes it down, and returns its state then.
 func companionDown(t *testing.T, a *Session, tick func(int)) *pb.ShipState {
 	t.Helper()
@@ -18,7 +18,7 @@ func companionDown(t *testing.T, a *Session, tick func(int)) *pb.ShipState {
 	}}})
 	var down *pb.ShipState
 	for range 120 * TickRate {
-		snap, _ := latest(t, a, tick, 1, 0, 700)
+		snap, _ := latest(t, a, tick, 1, 0, 1000)
 		for _, p := range snap.GetPlayers() {
 			if p.GetPlayerId() == "a/1" && p.GetState().GetDamage() >= sim.MaxDamage {
 				down = p.GetState()

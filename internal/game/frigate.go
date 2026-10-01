@@ -77,7 +77,7 @@ func frigateSpots(m *world.Map) []frigateSpot {
 func (h *Hub) spawnFrigates() {
 	for i := range h.frigates {
 		spot := &h.frigates[i]
-		if spot.enemyID != 0 || h.tick < spot.respawnAt {
+		if spot.enemyID != 0 || h.tick < spot.respawnAt || h.cleared[spot.sector] {
 			continue
 		}
 		h.nextEnemy++
@@ -176,6 +176,7 @@ func (h *Hub) frigateDestroyed(e *enemy) {
 	spot.enemyID = 0
 	spot.respawnAt = h.tick + frigateRespawnTicks
 	h.releaseDerelict(e.x, e.y, 0)
+	h.clearIfDone(spot.sector)
 }
 
 // upShips are the ships that are up, players and companions alike, with the

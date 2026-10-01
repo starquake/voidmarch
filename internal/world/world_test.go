@@ -76,6 +76,7 @@ func TestParse(t *testing.T) {
 		`{"name":"t","bosses":[{"kind":"frigate","sector":"Z9"}]}`,
 		`{"name":"t","garrisons":{"Q1":2}}`,
 		`{"name":"t","garrisons":{"C3":-1}}`,
+		`{"name":"t","field":-1}`,
 	} {
 		if _, err = Parse([]byte(bad)); !errors.Is(err, ErrInvalidMap) {
 			t.Errorf("Parse(%s) error = %v, want %v", bad, err, ErrInvalidMap)

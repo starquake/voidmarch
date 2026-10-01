@@ -51,85 +51,6 @@ func TestEnemies_NoneWithoutPlayers(t *testing.T) {
 	}
 }
 
-func TestEnemies_SpawnAroundPlayersJustOutOfView(t *testing.T) {
-	t.Parallel()
-
-	hub, tick := testHub(t)
-	s, _ := join(t, hub, "a")
-	var snap *pb.Snapshot
-	seen := map[uint32]bool{}
-	for range 5 * TickRate {
-		snap, _ = latest(t, s, tick, 1, 1000, 0)
-		for _, e := range snap.GetEnemies() {
-			if seen[e.GetEnemyId()] {
-				continue
-			}
-			seen[e.GetEnemyId()] = true
-			// Just outside the 640x360 view, allowing for the first tick's move.
-			d := math.Hypot(float64(e.GetX())-1000, float64(e.GetY()))
-			if d < 370 || d > 470 {
-				t.Errorf(
-					"enemy %d appeared %.0f px from the player, want 380 to 460",
-					e.GetEnemyId(),
-					d,
-				)
-			}
-		}
-	}
-
-	enemies := snap.GetEnemies()
-	if got := len(enemies); got == 0 || got > 3 {
-		t.Fatalf("enemies = %d, want 1 to 3", got)
-	}
-	for _, e := range enemies {
-		if e.GetKind() == pb.EnemyKind_ENEMY_KIND_UNSPECIFIED {
-			t.Errorf("enemy %d has no kind", e.GetEnemyId())
-		}
-	}
-}
-
-func TestEnemies_WingsMeetMoreEnemies(t *testing.T) {
-	t.Parallel()
-
-	near := func(snap *pb.Snapshot) int {
-		n := 0
-		for _, e := range snap.GetEnemies() {
-			if math.Hypot(float64(e.GetX())-1015, float64(e.GetY())-15) < 500 {
-				n++
-			}
-		}
-
-		return n
-	}
-
-	hub, tick := testHub(t)
-	ids := []string{"a", "b", "c", "d"}
-	wing := make([]*Session, 0, len(ids))
-	for _, id := range ids {
-		s, _ := join(t, hub, id)
-		wing = append(wing, s)
-	}
-	a := wing[0]
-	spots := [][2]float32{{1000, 0}, {1030, 0}, {1000, 30}, {1030, 30}}
-	var snap *pb.Snapshot
-	for range 15 * TickRate {
-		for i, s := range wing[1:] {
-			s.Send(state(spots[i+1][0], spots[i+1][1]))
-		}
-		snap, _ = latest(t, a, tick, 1, spots[0][0], spots[0][1])
-		for _, s := range wing[1:] {
-			drain(s)
-		}
-	}
-
-	if got := near(snap); got <= 3 || got > 8 {
-		t.Errorf(
-			"a wing of 4 has %d enemies near, want more than a solo player's 3 and at most 8",
-			got,
-		)
-	}
-}
-
 func TestEnemies_NoSpawnsInTheSafeZone(t *testing.T) {
 	t.Parallel()
 
@@ -139,21 +60,6 @@ func TestEnemies_NoSpawnsInTheSafeZone(t *testing.T) {
 
 	if got := len(snap.GetEnemies()); got != 0 {
 		t.Errorf("enemies = %d around a player at home, want 0", got)
-	}
-}
-
-func TestEnemies_StayOutOfTheSafeZone(t *testing.T) {
-	t.Parallel()
-
-	hub, tick := testHub(t)
-	s, _ := join(t, hub, "a")
-	for range 20 {
-		snap, _ := latest(t, s, tick, TickRate, 320, 0)
-		for _, e := range snap.GetEnemies() {
-			if d := math.Hypot(float64(e.GetX()), float64(e.GetY())); d < 299.9 {
-				t.Fatalf("enemy %d at distance %.1f from the planet", e.GetEnemyId(), d)
-			}
-		}
 	}
 }
 
@@ -309,25 +215,6 @@ func TestEnemies_HitOnUnknownEnemyIsIgnored(t *testing.T) {
 		}
 		if msg.GetSnapshot() != nil {
 			return
-		}
-	}
-}
-
-func TestEnemies_DespawnWhenNobodyIsNear(t *testing.T) {
-	t.Parallel()
-
-	hub, tick := testHub(t)
-	s, _ := join(t, hub, "a")
-	snap, _ := latest(t, s, tick, 2*TickRate, 1500, 1500)
-	if len(snap.GetEnemies()) == 0 {
-		t.Fatal("no enemies spawned")
-	}
-	first := snap.GetEnemies()[0].GetEnemyId()
-
-	snap, _ = latest(t, s, tick, 32*TickRate, -1500, -1500)
-	for _, e := range snap.GetEnemies() {
-		if e.GetEnemyId() == first {
-			t.Errorf("enemy %d still around after 32 s alone", first)
 		}
 	}
 }

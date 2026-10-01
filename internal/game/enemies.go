@@ -9,15 +9,9 @@ import (
 	"github.com/starquake/voidmarch/internal/sim"
 )
 
-// Spawning, in world pixels and ticks. The view is 640x360 art pixels, so
-// its half-diagonal is about 367: enemies appear just outside it.
+// Stragglers, in world pixels and ticks. The view is 640x360 art pixels, so
+// its half-diagonal is about 367: a straggler appears just outside it.
 const (
-	// Around each player the hub keeps enemiesPerShip for every ship nearby,
-	// never fewer than enemiesMinimum, so a wing meets more than one ship alone.
-	enemiesMinimum   = 3
-	enemiesPerShip   = 2
-	maxEnemies       = MaxPlayers * enemiesMinimum
-	spawnEvery       = TickRate
 	spawnMinDistance = 380
 	spawnMaxDistance = 460
 	spawnAttempts    = 5
@@ -117,6 +111,10 @@ type enemy struct {
 	wanderX, wanderY float64
 	// frigate is a Frigate's fight; nil for the rest.
 	frigate *frigateFight
+	// garrison is the garrison it belongs to, which keeps it in its sector,
+	// and post where it waits there; nil for stragglers and escorts (#99).
+	garrison *garrison
+	post     point
 	// escortOf is the Frigate a Fighter guards, which keeps it from
 	// despawning while that Frigate is there.
 	escortOf uint32
@@ -127,11 +125,10 @@ type point struct{ x, y float64 }
 // stepEnemies runs one tick of the enemies: spawn, steer, fire, despawn.
 func (h *Hub) stepEnemies() {
 	players := h.playersOutsideSafeZone()
-	if h.tick%spawnEvery == 0 {
-		h.spawnEnemies(players)
-	}
-	h.spawnFrigates()
 	ships := h.upShips()
+	h.stepGarrisons(ships)
+	h.spawnStragglers(players)
+	h.spawnFrigates()
 	// In id order: steering draws from h.rng, so map order would make a
 	// seeded hub differ between runs.
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
@@ -142,7 +139,7 @@ func (h *Hub) stepEnemies() {
 			continue
 		}
 		h.steer(e, players)
-		if _, guarding := h.enemies[e.escortOf]; guarding {
+		if _, guarding := h.enemies[e.escortOf]; guarding || e.garrison != nil {
 			e.lastNear = h.tick
 		}
 		if h.tick-e.lastNear > despawnAfter {
@@ -176,26 +173,6 @@ func (h *Hub) playersOutsideSafeZone() []point {
 	return out
 }
 
-func (h *Hub) spawnEnemies(players []point) {
-	for _, p := range players {
-		want := max(enemiesMinimum, enemiesPerShip*shipsNear(p, players))
-		if len(h.enemies) >= maxEnemies || h.enemiesNear(p, nearRadius) >= want {
-			continue
-		}
-		for range spawnAttempts {
-			angle := h.rng.Float64() * fullTurnFloat
-			distance := spawnMinDistance + h.rng.Float64()*(spawnMaxDistance-spawnMinDistance)
-			x := p.x + distance*math.Cos(angle)
-			y := p.y + distance*math.Sin(angle)
-			if math.Hypot(x, y) > safeRadius && math.Abs(x) < worldHalf && math.Abs(y) < worldHalf {
-				h.addEnemy(x, y)
-
-				break
-			}
-		}
-	}
-}
-
 func (h *Hub) addEnemy(x, y float64) {
 	kind := pb.EnemyKind_ENEMY_KIND_SCOUT
 	if h.rng.Float64() < fighterShare {
@@ -227,42 +204,26 @@ func (h *Hub) addEnemyOf(kind pb.EnemyKind, x, y float64) *enemy {
 	return e
 }
 
-// shipsNear counts the ships within nearRadius of p, p's own included.
-func shipsNear(p point, ships []point) int {
-	n := 0
-	for _, s := range ships {
-		if math.Hypot(s.x-p.x, s.y-p.y) < nearRadius {
-			n++
-		}
-	}
-
-	return n
-}
-
-func (h *Hub) enemiesNear(p point, radius float64) int {
-	n := 0
-	for _, e := range h.enemies {
-		if math.Hypot(e.x-p.x, e.y-p.y) < radius {
-			n++
-		}
-	}
-
-	return n
-}
-
 // steer moves one enemy toward its role's goal around the nearest player,
 // and fires when its cooldown and range allow.
 func (h *Hub) steer(e *enemy, players []point) {
 	stats := statsFor(e.kind)
+	if e.garrison != nil {
+		players = inSector(players, e.garrison.sector)
+	}
 	target, distance, found := nearest(e, players)
 	if distance < despawnRadius {
 		e.lastNear = h.tick
 	}
 
-	engaged := found && distance < stats.aggroRange
-	if engaged {
+	// A garrison engages anyone in its sector, and waits at its post otherwise.
+	engaged := found && (distance < stats.aggroRange || e.garrison != nil)
+	switch {
+	case engaged:
 		accelerate(e, h.goal(e, target, stats), stats)
-	} else {
+	case e.garrison != nil && math.Hypot(e.post.x-e.x, e.post.y-e.y) > postReach:
+		accelerate(e, e.post, stats)
+	default:
 		e.vx *= idleDamping
 		e.vy *= idleDamping
 	}
@@ -272,6 +233,9 @@ func (h *Hub) steer(e *enemy, players []point) {
 	keepOutOfSafeZone(e)
 	e.x = math.Max(-worldHalf, math.Min(worldHalf, e.x))
 	e.y = math.Max(-worldHalf, math.Min(worldHalf, e.y))
+	if e.garrison != nil {
+		keepInSector(e, e.garrison.sector)
+	}
 
 	if !engaged {
 		return
@@ -409,6 +373,9 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		h.frigateDestroyed(e)
 	}
 	delete(h.enemies, e.id)
+	if e.garrison != nil {
+		h.garrisonLost(e)
+	}
 	h.forgetEnemy(e.id)
 	h.broadcast(
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{

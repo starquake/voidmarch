@@ -165,6 +165,9 @@ type Hub struct {
 	derelictSpots []point
 	// cleared are the sectors whose garrison is gone (#99).
 	cleared       map[sim.Sector]bool
+	garrisons     map[sim.Sector]*garrison
+	lastStraggler map[sim.Sector]uint32
+	garrisonField int
 	saveSector    func(name string)
 	dropChance    float64
 	dropChanceSet bool
@@ -265,6 +268,9 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		development:   o.development,
 		frigates:      frigateSpots(o.worldMap),
 	}
+	h.garrisons = newGarrisons(o.worldMap, h.cleared)
+	h.lastStraggler = make(map[sim.Sector]uint32)
+	h.garrisonField = garrisonField(o.worldMap)
 	for _, setup := range o.setup {
 		setup(h)
 	}

@@ -36,6 +36,8 @@ type Map struct {
 	Bosses []Boss `json:"bosses"`
 	// Garrisons override the size of a sector's garrison, by sector name.
 	Garrisons map[string]int `json:"garrisons,omitempty"`
+	// Field caps how many of a garrison fight at once; 0 leaves the hub's.
+	Field int `json:"field,omitempty"`
 	// Derelicts are where a derelict ship always waits to be rescued: a new
 	// one comes as soon as the last is rescued or gone (#52).
 	Derelicts []Spot `json:"derelicts,omitempty"`
@@ -96,6 +98,9 @@ func Parse(data []byte) (*Map, error) {
 		if _, ok := sim.ParseSector(b.Sector); !ok {
 			return nil, fmt.Errorf("%w: boss %d is in sector %q", ErrInvalidMap, i, b.Sector)
 		}
+	}
+	if m.Field < 0 {
+		return nil, fmt.Errorf("%w: a field of %d", ErrInvalidMap, m.Field)
 	}
 	for name, size := range m.Garrisons {
 		if _, ok := sim.ParseSector(name); !ok || size < 0 {

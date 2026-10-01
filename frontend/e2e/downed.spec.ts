@@ -13,12 +13,12 @@ const state = (page: Page): Promise<DebugState> =>
     return structuredClone(window.voidmarch);
   });
 
-/** Past the server's safe zone around the home planet (300). */
-const OUT_OF_SAFE_ZONE = 340;
+/** Inside D5, south of home, where the e2e map keeps a garrison (#99). */
+const IN_D5 = 900;
 
 /**
- * Takes the round shield, one charge all around, flies out of the safe zone
- * and parks until enemy fire takes the ship down.
+ * Takes the round shield, one charge all around, flies into D5 and parks
+ * until enemy fire takes the ship down.
  */
 async function goDown(page: Page): Promise<void> {
   await page.keyboard.press('3');
@@ -31,9 +31,9 @@ async function goDown(page: Page): Promise<void> {
     .poll(async () => {
       const s = await state(page);
 
-      return Math.hypot(s.ship.x, s.ship.y);
+      return s.ship.y;
     })
-    .toBeGreaterThan(OUT_OF_SAFE_ZONE);
+    .toBeGreaterThan(IN_D5);
   await page.keyboard.up('w');
   await expect
     .poll(async () => (await state(page)).downed, { message: 'enemy fire takes the ship down', timeout: 150_000 })

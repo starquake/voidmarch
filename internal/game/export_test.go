@@ -56,3 +56,10 @@ func WithDerelictAt(x, y float64) HubOption {
 
 // DerelictTicks exposes derelictTicks for tests.
 const DerelictTicks = derelictTicks
+
+// Garrison distances and timings, exposed for tests.
+const (
+	GarrisonPosts  = garrisonPosts
+	GarrisonIdle   = garrisonIdle
+	StragglerTicks = stragglerTicks
+)
