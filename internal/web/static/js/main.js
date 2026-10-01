@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser8 from "./vendor/phaser.js";
+import Phaser9 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -558,7 +558,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser7 from "./vendor/phaser.js";
+import Phaser8 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -2261,6 +2261,9 @@ var Connection = class {
       case "pickupTaken":
         events.pickupTaken(message.kind.value);
         break;
+      case "derelictRescued":
+        events.derelictRescued(message.kind.value);
+        break;
       default:
     }
   }
@@ -2547,10 +2550,9 @@ var ShipView = class {
   }
   drawReviveBar() {
     const bar = this.reviveBar?.clear();
-    if (bar === void 0 || this.revive <= 0) {
-      return;
+    if (bar !== void 0 && this.revive > 0) {
+      drawReviveBar(bar, this.revive);
     }
-    bar.fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA).fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2).fillStyle(REVIVE_FILL, 1).fillRect(0, 0, REVIVE_BAR_WIDTH * this.revive, REVIVE_BAR_HEIGHT);
   }
   /** Whether DOWN is shown, and its text, for the E2E tests. */
   get downText() {
@@ -2582,6 +2584,9 @@ var ShipView = class {
     this.reviveBar?.destroy();
   }
 };
+function drawReviveBar(bar, fill) {
+  bar.fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA).fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2).fillStyle(REVIVE_FILL, 1).fillRect(0, 0, REVIVE_BAR_WIDTH * fill, REVIVE_BAR_HEIGHT);
+}
 
 // src/scenes/enemyview.ts
 var FLASH_MS = 70;
@@ -2654,6 +2659,53 @@ var EnemyView = class {
   }
 };
 
+// src/scenes/derelictview.ts
+import Phaser6 from "./vendor/phaser.js";
+var DERELICT_TINT = 9080729;
+var DerelictView = class {
+  hull;
+  label;
+  bar;
+  fill = -1;
+  constructor(scene, layer, x, y, angle, resolution) {
+    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser6.TintModes.MULTIPLY);
+    this.label = scene.add.text(x, y + DOWN_OFFSET, "", { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
+    layer.add([this.hull, this.label, this.bar]);
+  }
+  /** Shows the label and the rescue's progress (0 to 1); the bar shows once there is some. */
+  update(label, rescue) {
+    if (this.label.text !== label) {
+      this.label.setText(label);
+    }
+    const fill = Math.round(Math.min(Math.max(rescue, 0), 1) * REVIVE_BAR_WIDTH) / REVIVE_BAR_WIDTH;
+    if (fill === this.fill) {
+      return;
+    }
+    this.fill = fill;
+    this.bar.clear();
+    if (fill > 0) {
+      drawReviveBar(this.bar, fill);
+    }
+  }
+  destroy() {
+    this.hull.destroy();
+    this.label.destroy();
+    this.bar.destroy();
+  }
+};
+
+// src/net/derelict.ts
+function derelictLabel(goneTick, tick, tickRate) {
+  const seconds = Math.max(0, Math.ceil((goneTick - tick) / tickRate));
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `DERELICT ${String(m)}:${String(s).padStart(2, "0")}`;
+}
+function rescueNotice(name, hangar) {
+  return `${name} rescued a ship \xB7 hangar ${String(hangar)}`;
+}
+
 // src/scenes/netplay.ts
 var NOTICE_MS = 4e3;
 var now = () => performance.now();
@@ -2665,6 +2717,11 @@ var NetPlay = class {
   connection;
   remotes = /* @__PURE__ */ new Map();
   enemies = /* @__PURE__ */ new Map();
+  derelicts = /* @__PURE__ */ new Map();
+  /** Whether a snapshot came since connecting, so derelicts already there aren't announced. */
+  derelictsSeen = false;
+  /** Derelicts this player, or their companions, rescued (#52). */
+  rescues = 0;
   enemyVolleys = new TimedQueue(20);
   enemyWarnings = new TimedQueue(20);
   destructions = new TimedQueue(20);
@@ -2744,6 +2801,7 @@ var NetPlay = class {
             enemy.view.destroy(false);
             this.enemies.delete(id);
           }
+          this.syncDerelicts([], 0);
           this.resetTimeline(this.tickRate);
           options.pickups.clear();
           this.collecting.clear();
@@ -2787,6 +2845,13 @@ var NetPlay = class {
           const pickup = fromPickup(dropped);
           if (pickup !== void 0) {
             options.pickups.add(pickup, this.unlocks);
+          }
+        },
+        derelictRescued: (rescued) => {
+          const name = rescued.playerId === this.playerId ? this.name : this.remotes.get(rescued.playerId)?.name ?? "a squadmate";
+          this.say(rescueNotice(name, rescued.hangar));
+          if (rescued.playerId === this.playerId) {
+            this.rescues++;
           }
         },
         pickupTaken: (taken) => {
@@ -2857,6 +2922,38 @@ var NetPlay = class {
     }
   }
   /** Enemies as drawn, for the E2E tests. */
+  /** The derelicts waiting to be rescued, for the E2E tests (#52). */
+  get derelictList() {
+    return [...this.derelicts.entries()].map(([id, d]) => ({ id, x: d.state.x, y: d.state.y, rescue: d.state.rescue }));
+  }
+  /**
+   * Draws the snapshot's derelicts and drops the ones no longer in it; a new
+   * one after the first snapshot is announced.
+   */
+  syncDerelicts(states, tick) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const state of states) {
+      seen.add(state.derelictId);
+      let drawn = this.derelicts.get(state.derelictId);
+      if (drawn === void 0) {
+        const { scene, ships } = this.options;
+        drawn = { view: new DerelictView(scene, ships, state.x, state.y, state.angle, this.options.labelResolution()), state };
+        this.derelicts.set(state.derelictId, drawn);
+        if (this.derelictsSeen) {
+          this.say("Derelict released: hover beside it to rescue it into the hangar");
+        }
+      }
+      drawn.state = state;
+      drawn.view.update(derelictLabel(state.goneTick, tick, this.tickRate), state.rescue);
+    }
+    for (const [id, drawn] of this.derelicts) {
+      if (!seen.has(id)) {
+        drawn.view.destroy();
+        this.derelicts.delete(id);
+      }
+    }
+    this.derelictsSeen = tick > 0;
+  }
   /** The bosses as drawn, with their health (#89). */
   get bosses() {
     return [...this.enemies.values()].flatMap(
@@ -3313,6 +3410,7 @@ var NetPlay = class {
       }
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
+    this.syncDerelicts(snapshot.derelicts, snapshot.tick);
     for (const state of snapshot.enemies) {
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === void 0) {
@@ -3477,7 +3575,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser7.Scene {
+var SandboxScene = class extends Phaser8.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -3540,7 +3638,7 @@ var SandboxScene = class extends Phaser7.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser7.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser8.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -3587,6 +3685,8 @@ var SandboxScene = class extends Phaser7.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       boss: void 0,
+      derelicts: [],
+      rescues: 0,
       hangar: void 0,
       squadronMode: void 0
     };
@@ -3655,7 +3755,7 @@ var SandboxScene = class extends Phaser7.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser7.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser8.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -3665,7 +3765,7 @@ var SandboxScene = class extends Phaser7.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser7.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser8.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -3708,7 +3808,7 @@ var SandboxScene = class extends Phaser7.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser7.BlendModes.ADD,
+      blendMode: Phaser8.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -3717,7 +3817,7 @@ var SandboxScene = class extends Phaser7.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser7.BlendModes.ADD,
+      blendMode: Phaser8.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -3727,7 +3827,7 @@ var SandboxScene = class extends Phaser7.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser7.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    const bloom = Phaser8.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
     this.bloom = bloom?.parallelFilters;
     this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
@@ -3755,7 +3855,7 @@ var SandboxScene = class extends Phaser7.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser7.Input.Keyboard.KeyCodes;
+    const codes = Phaser8.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -3788,7 +3888,7 @@ var SandboxScene = class extends Phaser7.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser7.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser8.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -3999,11 +4099,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser7.Math.Vector2(cx, cy)];
+    const points = [new Phaser8.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser7.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser8.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -4397,6 +4497,8 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.derelicts = this.net?.derelictList ?? [];
+    this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);
   }
 };
@@ -4413,8 +4515,8 @@ async function start() {
   }
   await loadSim("/static/wasm/sim.wasm");
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser8.Game({
-    type: Phaser8.AUTO,
+  const game = new Phaser9.Game({
+    type: Phaser9.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -4423,7 +4525,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser8.Scale.NONE,
+      mode: Phaser9.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

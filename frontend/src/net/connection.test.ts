@@ -125,6 +125,7 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     squadronOrdered: (o) => log.events.push(`ordered by ${o.playerId}`),
     pickupDropped: (p) => log.events.push(`pickup dropped ${p.id}`),
     pickupTaken: (p) => log.events.push(`pickup taken ${p.id} by ${p.playerId}`),
+    derelictRescued: (r) => log.events.push(`derelict ${r.derelictId} rescued by ${r.playerId}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -188,6 +189,7 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'companionDismissed', value: { companion: 3 } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'pickupDropped', value: { id: 4 } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'pickupTaken', value: { id: 4, playerId: 'mo' } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'derelictRescued', value: { derelictId: 5, playerId: 'mo' } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -201,6 +203,7 @@ test('server messages reach their events', () => {
     'dismissed 3',
     'pickup dropped 4',
     'pickup taken 4 by mo',
+    'derelict 5 rescued by mo',
   ]);
   assert.equal(conn.connected, true);
 });

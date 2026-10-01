@@ -17,15 +17,15 @@ const HIT_FLASH_MS = 70;
 const LABEL_OFFSET = 26;
 const LABEL_LINE = 9;
 /** Where DOWN sits below a downed ship: under its name when it has one. */
-const DOWN_OFFSET = 18;
+export const DOWN_OFFSET = 18;
 const DOWN_UNDER_NAME = 36;
 /** The DOWN label's color, the mockup's gold, and the revive bar's in it. */
-const DOWN_COLOR = '#ffd27a';
+export const DOWN_COLOR = '#ffd27a';
 const REVIVE_FILL = 0xffd27a;
 /** The revive bar under DOWN (#66): its size, how far below the label's top it sits, and its track. */
-const REVIVE_BAR_WIDTH = 32;
+export const REVIVE_BAR_WIDTH = 32;
 const REVIVE_BAR_HEIGHT = 3;
-const REVIVE_BAR_BELOW = 11;
+export const REVIVE_BAR_BELOW = 11;
 const REVIVE_TRACK = 0x05030a;
 const REVIVE_TRACK_ALPHA = 0.85;
 
@@ -224,14 +224,9 @@ export class ShipView {
 
   private drawReviveBar(): void {
     const bar = this.reviveBar?.clear();
-    if (bar === undefined || this.revive <= 0) {
-      return;
+    if (bar !== undefined && this.revive > 0) {
+      drawReviveBar(bar, this.revive);
     }
-    bar
-      .fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA)
-      .fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2)
-      .fillStyle(REVIVE_FILL, 1)
-      .fillRect(0, 0, REVIVE_BAR_WIDTH * this.revive, REVIVE_BAR_HEIGHT);
   }
 
   /** Whether DOWN is shown, and its text, for the E2E tests. */
@@ -267,4 +262,13 @@ export class ShipView {
     this.downLabel?.destroy();
     this.reviveBar?.destroy();
   }
+}
+
+/** Draws a revive bar filled to fill (0 to 1) on a cleared bar; a rescue's looks the same (#52). */
+export function drawReviveBar(bar: Phaser.GameObjects.Graphics, fill: number): void {
+  bar
+    .fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA)
+    .fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2)
+    .fillStyle(REVIVE_FILL, 1)
+    .fillRect(0, 0, REVIVE_BAR_WIDTH * fill, REVIVE_BAR_HEIGHT);
 }

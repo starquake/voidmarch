@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 
 import type {
+  DerelictState,
   EnemyDestroyed,
   EnemyFired,
   PickupDropped,
@@ -55,6 +56,8 @@ import {
 import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
+import { DerelictView } from './derelictview.ts';
+import { derelictLabel, rescueNotice } from '../net/derelict.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
@@ -153,6 +156,14 @@ export interface NetFrame {
 }
 
 /** An enemy as the E2E tests see it. */
+/** A derelict waiting to be rescued, for the E2E tests (#52). */
+export interface DerelictDebug {
+  id: number;
+  x: number;
+  y: number;
+  rescue: number;
+}
+
 export interface EnemyDebug {
   id: number;
   kind: EnemyKind;
@@ -187,6 +198,11 @@ export class NetPlay {
   private readonly connection: Connection;
   private readonly remotes = new Map<string, Remote>();
   private readonly enemies = new Map<number, Enemy>();
+  private readonly derelicts = new Map<number, { view: DerelictView; state: DerelictState }>();
+  /** Whether a snapshot came since connecting, so derelicts already there aren't announced. */
+  private derelictsSeen = false;
+  /** Derelicts this player, or their companions, rescued (#52). */
+  rescues = 0;
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<number>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
@@ -268,6 +284,7 @@ export class NetPlay {
             enemy.view.destroy(false);
             this.enemies.delete(id);
           }
+          this.syncDerelicts([], 0);
           this.resetTimeline(this.tickRate);
           options.pickups.clear();
           this.collecting.clear();
@@ -312,6 +329,13 @@ export class NetPlay {
           const pickup = fromPickup(dropped);
           if (pickup !== undefined) {
             options.pickups.add(pickup, this.unlocks);
+          }
+        },
+        derelictRescued: (rescued) => {
+          const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
+          this.say(rescueNotice(name, rescued.hangar));
+          if (rescued.playerId === this.playerId) {
+            this.rescues++;
           }
         },
         pickupTaken: (taken) => {
@@ -392,6 +416,41 @@ export class NetPlay {
   }
 
   /** Enemies as drawn, for the E2E tests. */
+  /** The derelicts waiting to be rescued, for the E2E tests (#52). */
+  get derelictList(): DerelictDebug[] {
+    return [...this.derelicts.entries()].map(([id, d]) => ({ id, x: d.state.x, y: d.state.y, rescue: d.state.rescue }));
+  }
+
+  /**
+   * Draws the snapshot's derelicts and drops the ones no longer in it; a new
+   * one after the first snapshot is announced.
+   */
+  private syncDerelicts(states: readonly DerelictState[], tick: number): void {
+    const seen = new Set<number>();
+    for (const state of states) {
+      seen.add(state.derelictId);
+      let drawn = this.derelicts.get(state.derelictId);
+      if (drawn === undefined) {
+        const { scene, ships } = this.options;
+        drawn = { view: new DerelictView(scene, ships, state.x, state.y, state.angle, this.options.labelResolution()), state };
+        this.derelicts.set(state.derelictId, drawn);
+        if (this.derelictsSeen) {
+          this.say('Derelict released: hover beside it to rescue it into the hangar');
+        }
+      }
+      drawn.state = state;
+      drawn.view.update(derelictLabel(state.goneTick, tick, this.tickRate), state.rescue);
+    }
+    for (const [id, drawn] of this.derelicts) {
+      if (!seen.has(id)) {
+        drawn.view.destroy();
+        this.derelicts.delete(id);
+      }
+    }
+    // A disconnect syncs to tick 0: the next connection's first derelicts aren't news.
+    this.derelictsSeen = tick > 0;
+  }
+
   /** The bosses as drawn, with their health (#89). */
   get bosses(): DrawnBoss[] {
     return [...this.enemies.values()].flatMap((e) =>
@@ -902,6 +961,7 @@ export class NetPlay {
       remote.buffer.push(snapshot.tick, fromShipState(player.state));
     }
 
+    this.syncDerelicts(snapshot.derelicts, snapshot.tick);
     for (const state of snapshot.enemies) {
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === undefined) {

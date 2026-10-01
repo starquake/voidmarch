@@ -11,6 +11,7 @@ import {
   type SquadronJoined,
   type PickupDropped,
   type PickupTaken,
+  type DerelictRescued,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -72,6 +73,8 @@ export interface ConnectionEvents {
   pickupDropped(dropped: PickupDropped): void;
   /** A pickup was collected, and who gained what. */
   pickupTaken(taken: PickupTaken): void;
+  /** A derelict was rescued into the hangar (#52). */
+  derelictRescued(rescued: DerelictRescued): void;
 }
 
 export interface Timers {
@@ -284,6 +287,9 @@ export class Connection {
         break;
       case 'pickupTaken':
         events.pickupTaken(message.kind.value);
+        break;
+      case 'derelictRescued':
+        events.derelictRescued(message.kind.value);
         break;
       default:
     }
