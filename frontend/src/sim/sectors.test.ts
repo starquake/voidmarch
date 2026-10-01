@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { HOME_SECTOR, missionArrow, sectorCenter, sectorEdges, sectorLine, sectorName, sectorState } from './sectors.ts';
+import { HOME_SECTOR, missionArrow, missionBanner, missionCompleteBanner, sectorCenter, sectorEdges, sectorLine, sectorName, sectorState } from './sectors.ts';
 import { WORLD_HALF_SIZE } from './rules.gen.ts';
 
 test('sectors are named like the Go sim names them', () => {
@@ -54,4 +54,16 @@ test('the mission arrow points from the screen edge toward the mission', () => {
   assert.ok(corner !== undefined && Math.round(corner.y) === 580 && corner.x > 500);
   assert.equal(missionArrow({ x: 1600, y: 10 }, 'E4', 1000, 600, 20), undefined);
   assert.equal(missionArrow({ x: 0, y: 0 }, 'Z9', 1000, 600, 20), undefined);
+});
+
+test('a new mission is announced with what to do and how to find it', () => {
+  const lines = missionBanner('D3');
+  assert.equal(lines[0], 'New mission: sector D3');
+  assert.match(lines[1] ?? '', /D3 to clear it/);
+  assert.match(lines[2] ?? '', /gold arrow/);
+});
+
+test('a finished mission is announced with the part it gave', () => {
+  assert.deepEqual(missionCompleteBanner('D3', 'Mega Zapper'), ['Mission complete: sector D3 cleared', 'Your reward: Mega Zapper']);
+  assert.deepEqual(missionCompleteBanner('D3', undefined), ['Mission complete: sector D3 cleared']);
 });

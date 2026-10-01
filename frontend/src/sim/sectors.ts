@@ -80,3 +80,22 @@ export function missionArrow(
 
   return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
+
+/** The lines that announce a new mission in the middle of the screen (#101, decision 8). */
+export function missionBanner(sector: string): string[] {
+  return [
+    `New mission: sector ${sector}`,
+    `Destroy every Kla'ed ship in ${sector} to clear it.`,
+    'Follow the gold arrow at the edge of the screen.',
+  ];
+}
+
+/** The lines that announce the squadron's mission is done, and the part it gave this player, if any. */
+export function missionCompleteBanner(sector: string, part: string | undefined): string[] {
+  const lines = [`Mission complete: sector ${sector} cleared`];
+  if (part !== undefined) {
+    lines.push(`Your reward: ${part}`);
+  }
+
+  return lines;
+}

@@ -69,3 +69,6 @@ export const MISSION_COLOR = 0xffd27a;
 export const MISSION_CSS = '#ffd27a';
 export const MISSION_ARROW_SIZE_PX = 12;
 export const MISSION_ARROW_MARGIN_PX = 28;
+/** A new mission's banner (#101): how long it shows, and how far down the screen it sits. */
+export const MISSION_BANNER_MS = 6000;
+export const MISSION_BANNER_Y = 0.22;

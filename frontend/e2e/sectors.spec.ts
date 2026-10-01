@@ -29,6 +29,8 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
   expect((await state(page)).sector).toBe('Sector D4 · home');
   // A squadron starts with a mission in ring 1 (#101).
   await expect.poll(async () => (await state(page)).mission).toMatch(/^[C-E][3-5]$/);
+  // and it is announced in the middle of the screen, with the way to it.
+  await expect.poll(async () => (await state(page)).missionBanner).toMatch(/^New mission: sector [C-E][3-5]\n.*\nFollow the gold arrow/);
   await fitRockets(page);
   await flyInto(page, east);
   expect((await state(page)).sector).toBe(`Sector ${sector} · hostile`);

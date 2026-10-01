@@ -59,6 +59,7 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
+import { missionCompleteBanner } from '../sim/sectors.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
@@ -204,6 +205,8 @@ export class NetPlay {
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** Announcements waiting for the middle of the screen, oldest first (#101). */
+  readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
   readonly clearedSectors = new Set<string>();
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
@@ -920,6 +923,8 @@ export class NetPlay {
   /** A sector is cleared; the part it gave this player is theirs now (#101). */
   private sectorCleared(cleared: SectorCleared): void {
     this.clearedSectors.add(cleared.sector);
+    const ours = cleared.sector === this.mission;
+    let reward: string | undefined;
     let gained = '';
     for (const gain of cleared.gains) {
       const part = fromPart(gain.unlock?.part);
@@ -928,9 +933,13 @@ export class NetPlay {
       }
       const tier = tierOf(gain.unlock?.tier);
       this.unlocks.set(part, tier);
-      gained = ` · ${partLabel(part, tier)}`;
+      reward = partLabel(part, tier);
+      gained = ` · ${reward}`;
     }
     this.say(`Sector ${cleared.sector} cleared${gained}`);
+    if (ours) {
+      this.banners.push(missionCompleteBanner(cleared.sector, reward));
+    }
     this.options.pickups.regrade(this.unlocks);
     this.refit();
   }

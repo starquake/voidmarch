@@ -319,6 +319,8 @@ var MISSION_COLOR = 16765562;
 var MISSION_CSS = "#ffd27a";
 var MISSION_ARROW_SIZE_PX = 12;
 var MISSION_ARROW_MARGIN_PX = 28;
+var MISSION_BANNER_MS = 6e3;
+var MISSION_BANNER_Y = 0.22;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -1623,6 +1625,20 @@ function missionArrow(ship, target, width, height, margin) {
   const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
   return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
+function missionBanner(sector) {
+  return [
+    `New mission: sector ${sector}`,
+    `Destroy every Kla'ed ship in ${sector} to clear it.`,
+    "Follow the gold arrow at the edge of the screen."
+  ];
+}
+function missionCompleteBanner(sector, part) {
+  const lines = [`Mission complete: sector ${sector} cleared`];
+  if (part !== void 0) {
+    lines.push(`Your reward: ${part}`);
+  }
+  return lines;
+}
 
 // src/sim/world.ts
 function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
@@ -2784,6 +2800,8 @@ var NetPlay = class {
   derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** Announcements waiting for the middle of the screen, oldest first (#101). */
+  banners = [];
   /** The cleared sectors, by name (#99). */
   clearedSectors = /* @__PURE__ */ new Set();
   enemyVolleys = new TimedQueue(20);
@@ -3435,6 +3453,8 @@ var NetPlay = class {
   /** A sector is cleared; the part it gave this player is theirs now (#101). */
   sectorCleared(cleared) {
     this.clearedSectors.add(cleared.sector);
+    const ours = cleared.sector === this.mission;
+    let reward;
     let gained = "";
     for (const gain of cleared.gains) {
       const part = fromPart(gain.unlock?.part);
@@ -3443,9 +3463,13 @@ var NetPlay = class {
       }
       const tier = tierOf(gain.unlock?.tier);
       this.unlocks.set(part, tier);
-      gained = ` \xB7 ${partLabel(part, tier)}`;
+      reward = partLabel(part, tier);
+      gained = ` \xB7 ${reward}`;
     }
     this.say(`Sector ${cleared.sector} cleared${gained}`);
+    if (ours) {
+      this.banners.push(missionCompleteBanner(cleared.sector, reward));
+    }
     this.options.pickups.regrade(this.unlocks);
     this.refit();
   }
@@ -3696,6 +3720,9 @@ var SandboxScene = class extends Phaser8.Scene {
   bossBar;
   missionArrow;
   missionLabel;
+  missionBanner;
+  announcedMission;
+  missionBannerUntil = 0;
   downPanel;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   wasDown = false;
@@ -3782,6 +3809,7 @@ var SandboxScene = class extends Phaser8.Scene {
       boss: void 0,
       sector: "",
       mission: void 0,
+      missionBanner: void 0,
       derelicts: [],
       rescues: 0,
       hangar: void 0,
@@ -3810,11 +3838,36 @@ var SandboxScene = class extends Phaser8.Scene {
     this.scrollBackgrounds(time);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
+    this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
     this.publish();
+  }
+  /**
+   * Announces in the middle of the screen, one after another: a finished
+   * mission, then the squadron's new one whenever it starts or changes (#101).
+   */
+  announceMission(time) {
+    const net = this.net;
+    if (net === void 0) {
+      return;
+    }
+    const mission = net.mission;
+    if (mission !== void 0 && mission !== this.announcedMission) {
+      net.banners.push(missionBanner(mission));
+    }
+    this.announcedMission = mission;
+    if (this.missionBanner.visible && time <= this.missionBannerUntil) {
+      return;
+    }
+    const next = net.banners.shift();
+    this.missionBanner.setVisible(next !== void 0);
+    if (next !== void 0) {
+      this.missionBanner.setText(next);
+      this.missionBannerUntil = time + MISSION_BANNER_MS;
+    }
   }
   /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
   drawMissionArrow() {
@@ -3968,6 +4021,14 @@ var SandboxScene = class extends Phaser8.Scene {
       backgroundColor: "#05030acc"
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
     main.ignore(this.downPanel);
+    this.missionBanner = this.add.text(0, 0, "", {
+      fontFamily: "monospace",
+      fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
+      color: MISSION_CSS,
+      align: "center",
+      backgroundColor: "#05030acc"
+    }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
+    main.ignore(this.missionBanner);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
     this.missionLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
@@ -4323,6 +4384,7 @@ ${modeName(info)}`,
     this.layoutHud();
     this.bossBar.resize(width, dpr);
     this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
+    this.missionBanner.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * MISSION_BANNER_Y);
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -4625,6 +4687,7 @@ ${modeName(info)}`,
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
+    this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
