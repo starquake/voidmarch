@@ -209,6 +209,8 @@ export class NetPlay {
   rescues = 0;
   /** The world event running, as the server last said (#102). */
   worldEvent: WorldEvent | undefined;
+  /** The last sector cleared and the part it gave this player, for the E2E tests (#101). */
+  lastClear: { sector: string; reward: string | undefined } | undefined;
   /** Announcements waiting for the middle of the screen, oldest first (#101). */
   readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
@@ -979,6 +981,7 @@ export class NetPlay {
       gained = ` · ${reward}`;
     }
     this.say(`Sector ${cleared.sector} cleared${gained}`);
+    this.lastClear = { sector: cleared.sector, reward };
     if (ours) {
       this.banners.push(missionCompleteBanner(cleared.sector, reward));
     }

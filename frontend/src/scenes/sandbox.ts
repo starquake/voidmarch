@@ -275,6 +275,7 @@ export class SandboxScene extends Phaser.Scene {
       sector: '',
       mission: undefined,
       worldEvent: undefined,
+      lastClear: undefined,
       missionBanner: undefined,
       derelicts: [],
       rescues: 0,
@@ -1296,6 +1297,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
+    this.debug.lastClear = this.net?.lastClear;
     this.debug.worldEvent = this.net?.worldEvent === undefined ? undefined : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined);

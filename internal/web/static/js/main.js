@@ -2856,6 +2856,8 @@ var NetPlay = class {
   rescues = 0;
   /** The world event running, as the server last said (#102). */
   worldEvent;
+  /** The last sector cleared and the part it gave this player, for the E2E tests (#101). */
+  lastClear;
   /** Announcements waiting for the middle of the screen, oldest first (#101). */
   banners = [];
   /** The cleared sectors, by name (#99). */
@@ -3557,6 +3559,7 @@ var NetPlay = class {
       gained = ` \xB7 ${reward}`;
     }
     this.say(`Sector ${cleared.sector} cleared${gained}`);
+    this.lastClear = { sector: cleared.sector, reward };
     if (ours) {
       this.banners.push(missionCompleteBanner(cleared.sector, reward));
     }
@@ -3902,6 +3905,7 @@ var SandboxScene = class extends Phaser8.Scene {
       sector: "",
       mission: void 0,
       worldEvent: void 0,
+      lastClear: void 0,
       missionBanner: void 0,
       derelicts: [],
       rescues: 0,
@@ -4802,6 +4806,7 @@ ${modeName(info)}`,
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
+    this.debug.lastClear = this.net?.lastClear;
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
