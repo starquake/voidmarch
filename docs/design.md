@@ -226,7 +226,12 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
   - Everyone is told ("Sector C3 cleared"), and the server keeps it in its database (`cleared_sectors`) across restarts.
   - A cleared boss sector's Frigate doesn't come back.
   - **Every clear rewards the whole server** (#101): one ship to the shared hangar, within the 16-ship cap, and a part for every player online, named in the notice ("Sector E4 cleared · Mega Zapper").
-  - Retaking cleared sectors comes with #102, and the maps with #100.
+  - The maps come with #100.
+- **World events** (#102): one at a time, about every 5 minutes while anyone is online. Each is announced in a banner, named on the HUD with its time left ("D3 under attack · 9:12"), and pointed at by a red arrow at the screen's edge.
+  - **An attack:** a Frigate and a ring-sized garrison come at a cleared sector next to hostile space. Destroy them all within 10 minutes and the sector holds, adding a ship to the hangar. Otherwise it falls: it's forgotten as cleared and gets a fresh garrison.
+  - **Offline attacks:** with nobody online, an attack comes every 4 hours and runs an hour, so given long enough away everything but home goes back.
+  - **A distress call:** when nothing can be attacked, a derelict (#52) waits with a guard of 3 in a sector next to cleared ground or home. Rescuing it wins the call, and the derelict itself is the reward, with a part for whoever is near.
+  - A map can keep events away (`noEvents`); the E2E map does, since its specs share one server.
 - **Missions** (#101): each squadron has one, shown to everyone.
   - **The default:** the uncleared sector in the ring nearest home, nearest the squadron, so ring 1 comes first.
   - **Picking another:** a squadmate can send the squadron to another uncleared sector (the full map's job, #100). When the sector clears, the squadron gets its next default.
