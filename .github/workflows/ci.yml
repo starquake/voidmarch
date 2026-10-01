@@ -80,6 +80,12 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
+    # Microsoft's image has the browsers and their system packages, so nothing
+    # is installed per run (#115). The tag is the @playwright/test version in
+    # frontend/package.json; uid 1001 is the runner's, which owns the workspace.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001 --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -96,20 +102,6 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ matrix.browser }}-${{ hashFiles('frontend/package-lock.json') }}
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-        working-directory: frontend
-      # Headless Firefox needs an audio device before Web Audio starts; a null sink is enough.
-      - name: Virtual sound card
-        if: matrix.browser == 'firefox'
-        run: |
-          sudo apt-get install -y --no-install-recommends pulseaudio
-          pulseaudio -D --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=silent
-          pactl set-default-sink silent
       - run: npx playwright test --project=${{ matrix.browser }}
         working-directory: frontend
         # Firefox's own output in the job log, so a crash can be diagnosed (#18).
