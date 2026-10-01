@@ -404,6 +404,11 @@ export class NetPlay {
     return mission === undefined || mission === '' ? undefined : mission;
   }
 
+  /** Sends the ship's state now, so the server has a just-fitted loadout (#110). */
+  sendStateNow(): void {
+    this.connection.sendStateNow(this.options.sim.ship);
+  }
+
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
   orderSquadron(item: OrderItem, context: OrderContext): void {
     this.connection.sendSquadronOrder({

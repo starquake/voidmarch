@@ -2199,6 +2199,12 @@ var Connection = class {
     this.welcomed = false;
   }
   /** Sends the ship's state at most at the server's tick rate; the hub flies the companions. */
+  /** Sends the ship's state past the throttle, for a change the server must not miss, such as a fitted part (#110). */
+  sendStateNow(ship) {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
+    }
+  }
   sendState(ship, nowMs) {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
@@ -2987,6 +2993,10 @@ var NetPlay = class {
   get mission() {
     const mission = this.squadronInfo?.mission;
     return mission === void 0 || mission === "" ? void 0 : mission;
+  }
+  /** Sends the ship's state now, so the server has a just-fitted loadout (#110). */
+  sendStateNow() {
+    this.connection.sendStateNow(this.options.sim.ship);
   }
   /** Sends the player's order to the squadron, whose other players see it as a callout. */
   orderSquadron(item, context) {
@@ -4368,6 +4378,7 @@ ${modeName(info)}`,
   /** Fits a loadout, each part at the tier this player owns it at. */
   fit(loadout) {
     this.sim.setLoadout(withTiers(loadout, this.net?.unlocks ?? /* @__PURE__ */ new Map()));
+    this.net?.sendStateNow();
   }
   applyLoadout() {
     const { weapon, engine } = this.sim.ship.loadout;
