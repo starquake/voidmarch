@@ -111,6 +111,9 @@ func messages() []proto.Message {
 				{DerelictId: 1, X: 1, Y: 2, Angle: 0.5, Rescue: 0.25, GoneTick: 99},
 			},
 		}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_SectorCleared{
+			SectorCleared: &pb.SectorCleared{Sector: "C3", Tick: 11},
+		}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
 			DerelictRescued: &pb.DerelictRescued{
 				DerelictId: 1,

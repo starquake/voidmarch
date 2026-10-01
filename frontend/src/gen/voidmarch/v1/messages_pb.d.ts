@@ -630,6 +630,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: bool development = 16;
    */
   development: boolean;
+
+  /**
+   * The cleared sectors, by name ("C3") (#99).
+   *
+   * @generated from field: repeated string cleared_sectors = 17;
+   */
+  clearedSectors: string[];
 };
 
 /**
@@ -1405,6 +1412,12 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: DerelictRescued;
     case: "derelictRescued";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.SectorCleared sector_cleared = 19;
+     */
+    value: SectorCleared;
+    case: "sectorCleared";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1490,6 +1503,30 @@ export declare type PickupTaken = Message<"voidmarch.v1.PickupTaken"> & {
  * Use `create(PickupTakenSchema)` to create a new message.
  */
 export declare const PickupTakenSchema: GenMessage<PickupTaken>;
+
+/**
+ * SectorCleared is a sector whose garrison is destroyed, and its boss if it
+ * has one (#99).
+ *
+ * @generated from message voidmarch.v1.SectorCleared
+ */
+export declare type SectorCleared = Message<"voidmarch.v1.SectorCleared"> & {
+  /**
+   * @generated from field: string sector = 1;
+   */
+  sector: string;
+
+  /**
+   * @generated from field: uint32 tick = 2;
+   */
+  tick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.SectorCleared.
+ * Use `create(SectorClearedSchema)` to create a new message.
+ */
+export declare const SectorClearedSchema: GenMessage<SectorCleared>;
 
 /**
  * DerelictRescued is a derelict docked in the hangar (#52).

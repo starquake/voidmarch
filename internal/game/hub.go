@@ -465,6 +465,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Pickups:        h.pickupMessages(),
 		Loadout:        savedLoadout(loadout, unlocks),
 		Development:    h.development,
+		ClearedSectors: h.clearedNames(),
 	}
 
 	return joinResult{session: s, welcome: welcome}

@@ -1,6 +1,8 @@
 package game
 
 import (
+	"slices"
+
 	"github.com/starquake/voidmarch/internal/sim"
 )
 
@@ -28,6 +30,17 @@ func clearedSet(names []string) map[sim.Sector]bool {
 			out[s] = true
 		}
 	}
+
+	return out
+}
+
+// clearedNames are the cleared sectors' names, sorted.
+func (h *Hub) clearedNames() []string {
+	out := make([]string, 0, len(h.cleared))
+	for s := range h.cleared {
+		out = append(out, s.Name())
+	}
+	slices.Sort(out)
 
 	return out
 }

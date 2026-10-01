@@ -1503,9 +1503,11 @@ type Welcome struct {
 	// The loadout the player last fitted at home, unset for none (#78).
 	Loadout *Loadout `protobuf:"bytes,15,opt,name=loadout,proto3" json:"loadout,omitempty"`
 	// Whether this is a development server, where the 1/2/3 keys fit any part.
-	Development   bool `protobuf:"varint,16,opt,name=development,proto3" json:"development,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Development bool `protobuf:"varint,16,opt,name=development,proto3" json:"development,omitempty"`
+	// The cleared sectors, by name ("C3") (#99).
+	ClearedSectors []string `protobuf:"bytes,17,rep,name=cleared_sectors,json=clearedSectors,proto3" json:"cleared_sectors,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Welcome) Reset() {
@@ -1641,6 +1643,13 @@ func (x *Welcome) GetDevelopment() bool {
 		return x.Development
 	}
 	return false
+}
+
+func (x *Welcome) GetClearedSectors() []string {
+	if x != nil {
+		return x.ClearedSectors
+	}
+	return nil
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -2977,6 +2986,7 @@ type ServerMessage struct {
 	//	*ServerMessage_PickupDropped
 	//	*ServerMessage_PickupTaken
 	//	*ServerMessage_DerelictRescued
+	//	*ServerMessage_SectorCleared
 	Kind          isServerMessage_Kind `protobuf_oneof:"kind"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3181,6 +3191,15 @@ func (x *ServerMessage) GetDerelictRescued() *DerelictRescued {
 	return nil
 }
 
+func (x *ServerMessage) GetSectorCleared() *SectorCleared {
+	if x != nil {
+		if x, ok := x.Kind.(*ServerMessage_SectorCleared); ok {
+			return x.SectorCleared
+		}
+	}
+	return nil
+}
+
 type isServerMessage_Kind interface {
 	isServerMessage_Kind()
 }
@@ -3257,6 +3276,10 @@ type ServerMessage_DerelictRescued struct {
 	DerelictRescued *DerelictRescued `protobuf:"bytes,18,opt,name=derelict_rescued,json=derelictRescued,proto3,oneof"`
 }
 
+type ServerMessage_SectorCleared struct {
+	SectorCleared *SectorCleared `protobuf:"bytes,19,opt,name=sector_cleared,json=sectorCleared,proto3,oneof"`
+}
+
 func (*ServerMessage_Welcome) isServerMessage_Kind() {}
 
 func (*ServerMessage_Snapshot) isServerMessage_Kind() {}
@@ -3292,6 +3315,8 @@ func (*ServerMessage_PickupDropped) isServerMessage_Kind() {}
 func (*ServerMessage_PickupTaken) isServerMessage_Kind() {}
 
 func (*ServerMessage_DerelictRescued) isServerMessage_Kind() {}
+
+func (*ServerMessage_SectorCleared) isServerMessage_Kind() {}
 
 // PickupDropped is a part a kill left behind, collectable until gone_tick
 // (#77).
@@ -3443,6 +3468,60 @@ func (x *PickupTaken) GetGains() []*PickupGain {
 	return nil
 }
 
+// SectorCleared is a sector whose garrison is destroyed, and its boss if it
+// has one (#99).
+type SectorCleared struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sector        string                 `protobuf:"bytes,1,opt,name=sector,proto3" json:"sector,omitempty"`
+	Tick          uint32                 `protobuf:"varint,2,opt,name=tick,proto3" json:"tick,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SectorCleared) Reset() {
+	*x = SectorCleared{}
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SectorCleared) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SectorCleared) ProtoMessage() {}
+
+func (x *SectorCleared) ProtoReflect() protoreflect.Message {
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SectorCleared.ProtoReflect.Descriptor instead.
+func (*SectorCleared) Descriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *SectorCleared) GetSector() string {
+	if x != nil {
+		return x.Sector
+	}
+	return ""
+}
+
+func (x *SectorCleared) GetTick() uint32 {
+	if x != nil {
+		return x.Tick
+	}
+	return 0
+}
+
 // DerelictRescued is a derelict docked in the hangar (#52).
 type DerelictRescued struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
@@ -3458,7 +3537,7 @@ type DerelictRescued struct {
 
 func (x *DerelictRescued) Reset() {
 	*x = DerelictRescued{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[37]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3470,7 +3549,7 @@ func (x *DerelictRescued) String() string {
 func (*DerelictRescued) ProtoMessage() {}
 
 func (x *DerelictRescued) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[37]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3483,7 +3562,7 @@ func (x *DerelictRescued) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DerelictRescued.ProtoReflect.Descriptor instead.
 func (*DerelictRescued) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{37}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *DerelictRescued) GetDerelictId() uint32 {
@@ -3525,7 +3604,7 @@ type PickupGain struct {
 
 func (x *PickupGain) Reset() {
 	*x = PickupGain{}
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[38]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3537,7 +3616,7 @@ func (x *PickupGain) String() string {
 func (*PickupGain) ProtoMessage() {}
 
 func (x *PickupGain) ProtoReflect() protoreflect.Message {
-	mi := &file_voidmarch_v1_messages_proto_msgTypes[38]
+	mi := &file_voidmarch_v1_messages_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3550,7 +3629,7 @@ func (x *PickupGain) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickupGain.ProtoReflect.Descriptor instead.
 func (*PickupGain) Descriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{38}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *PickupGain) GetPlayerId() string {
@@ -3647,7 +3726,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	" \x01(\v2\x15.voidmarch.v1.CollectH\x00R\acollectB\x06\n" +
 	"\x04kind\"\x19\n" +
 	"\aCollect\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\"\xa0\x04\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\"\xc9\x04\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\rR\x05color\x12\x17\n" +
@@ -3666,7 +3745,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\aunlocks\x18\r \x03(\v2\x14.voidmarch.v1.UnlockR\aunlocks\x125\n" +
 	"\apickups\x18\x0e \x03(\v2\x1b.voidmarch.v1.PickupDroppedR\apickups\x12/\n" +
 	"\aloadout\x18\x0f \x01(\v2\x15.voidmarch.v1.LoadoutR\aloadout\x12 \n" +
-	"\vdevelopment\x18\x10 \x01(\bR\vdevelopmentJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
+	"\vdevelopment\x18\x10 \x01(\bR\vdevelopment\x12'\n" +
+	"\x0fcleared_sectors\x18\x11 \x03(\tR\x0eclearedSectorsJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -3769,7 +3849,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x12CompanionDismissed\x12\x1c\n" +
 	"\tcompanion\x18\x01 \x01(\rR\tcompanion\x12\x19\n" +
 	"\btaken_by\x18\x02 \x01(\tR\atakenBy\"\x06\n" +
-	"\x04Full\"\xa9\t\n" +
+	"\x04Full\"\xef\t\n" +
 	"\rServerMessage\x121\n" +
 	"\awelcome\x18\x01 \x01(\v2\x15.voidmarch.v1.WelcomeH\x00R\awelcome\x124\n" +
 	"\bsnapshot\x18\x02 \x01(\v2\x16.voidmarch.v1.SnapshotH\x00R\bsnapshot\x12.\n" +
@@ -3791,7 +3871,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x10squadron_ordered\x18\x0f \x01(\v2\x1d.voidmarch.v1.SquadronOrderedH\x00R\x0fsquadronOrdered\x12D\n" +
 	"\x0epickup_dropped\x18\x10 \x01(\v2\x1b.voidmarch.v1.PickupDroppedH\x00R\rpickupDropped\x12>\n" +
 	"\fpickup_taken\x18\x11 \x01(\v2\x19.voidmarch.v1.PickupTakenH\x00R\vpickupTaken\x12J\n" +
-	"\x10derelict_rescued\x18\x12 \x01(\v2\x1d.voidmarch.v1.DerelictRescuedH\x00R\x0fderelictRescuedB\x06\n" +
+	"\x10derelict_rescued\x18\x12 \x01(\v2\x1d.voidmarch.v1.DerelictRescuedH\x00R\x0fderelictRescued\x12D\n" +
+	"\x0esector_cleared\x18\x13 \x01(\v2\x1b.voidmarch.v1.SectorClearedH\x00R\rsectorClearedB\x06\n" +
 	"\x04kind\"\x94\x01\n" +
 	"\rPickupDropped\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12&\n" +
@@ -3803,7 +3884,10 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\vPickupTaken\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\rR\x02id\x12\x1b\n" +
 	"\tplayer_id\x18\x02 \x01(\tR\bplayerId\x12.\n" +
-	"\x05gains\x18\x03 \x03(\v2\x18.voidmarch.v1.PickupGainR\x05gains\"{\n" +
+	"\x05gains\x18\x03 \x03(\v2\x18.voidmarch.v1.PickupGainR\x05gains\";\n" +
+	"\rSectorCleared\x12\x16\n" +
+	"\x06sector\x18\x01 \x01(\tR\x06sector\x12\x12\n" +
+	"\x04tick\x18\x02 \x01(\rR\x04tick\"{\n" +
 	"\x0fDerelictRescued\x12\x1f\n" +
 	"\vderelict_id\x18\x01 \x01(\rR\n" +
 	"derelictId\x12\x1b\n" +
@@ -3863,7 +3947,7 @@ func file_voidmarch_v1_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_voidmarch_v1_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 40)
 var file_voidmarch_v1_messages_proto_goTypes = []any{
 	(Weapon)(0),                // 0: voidmarch.v1.Weapon
 	(Engine)(0),                // 1: voidmarch.v1.Engine
@@ -3908,8 +3992,9 @@ var file_voidmarch_v1_messages_proto_goTypes = []any{
 	(*ServerMessage)(nil),      // 40: voidmarch.v1.ServerMessage
 	(*PickupDropped)(nil),      // 41: voidmarch.v1.PickupDropped
 	(*PickupTaken)(nil),        // 42: voidmarch.v1.PickupTaken
-	(*DerelictRescued)(nil),    // 43: voidmarch.v1.DerelictRescued
-	(*PickupGain)(nil),         // 44: voidmarch.v1.PickupGain
+	(*SectorCleared)(nil),      // 43: voidmarch.v1.SectorCleared
+	(*DerelictRescued)(nil),    // 44: voidmarch.v1.DerelictRescued
+	(*PickupGain)(nil),         // 45: voidmarch.v1.PickupGain
 }
 var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	0,  // 0: voidmarch.v1.Loadout.weapon:type_name -> voidmarch.v1.Weapon
@@ -3968,15 +4053,16 @@ var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	27, // 53: voidmarch.v1.ServerMessage.squadron_ordered:type_name -> voidmarch.v1.SquadronOrdered
 	41, // 54: voidmarch.v1.ServerMessage.pickup_dropped:type_name -> voidmarch.v1.PickupDropped
 	42, // 55: voidmarch.v1.ServerMessage.pickup_taken:type_name -> voidmarch.v1.PickupTaken
-	43, // 56: voidmarch.v1.ServerMessage.derelict_rescued:type_name -> voidmarch.v1.DerelictRescued
-	7,  // 57: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
-	44, // 58: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
-	8,  // 59: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
-	60, // [60:60] is the sub-list for method output_type
-	60, // [60:60] is the sub-list for method input_type
-	60, // [60:60] is the sub-list for extension type_name
-	60, // [60:60] is the sub-list for extension extendee
-	0,  // [0:60] is the sub-list for field type_name
+	44, // 56: voidmarch.v1.ServerMessage.derelict_rescued:type_name -> voidmarch.v1.DerelictRescued
+	43, // 57: voidmarch.v1.ServerMessage.sector_cleared:type_name -> voidmarch.v1.SectorCleared
+	7,  // 58: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
+	45, // 59: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
+	8,  // 60: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
+	61, // [61:61] is the sub-list for method output_type
+	61, // [61:61] is the sub-list for method input_type
+	61, // [61:61] is the sub-list for extension type_name
+	61, // [61:61] is the sub-list for extension extendee
+	0,  // [0:61] is the sub-list for field type_name
 }
 
 func init() { file_voidmarch_v1_messages_proto_init() }
@@ -4020,6 +4106,7 @@ func file_voidmarch_v1_messages_proto_init() {
 		(*ServerMessage_PickupDropped)(nil),
 		(*ServerMessage_PickupTaken)(nil),
 		(*ServerMessage_DerelictRescued)(nil),
+		(*ServerMessage_SectorCleared)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -4027,7 +4114,7 @@ func file_voidmarch_v1_messages_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_voidmarch_v1_messages_proto_rawDesc), len(file_voidmarch_v1_messages_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   39,
+			NumMessages:   40,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

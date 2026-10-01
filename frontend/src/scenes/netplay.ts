@@ -203,6 +203,8 @@ export class NetPlay {
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** The cleared sectors, by name (#99). */
+  readonly clearedSectors = new Set<string>();
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<number>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
@@ -330,6 +332,9 @@ export class NetPlay {
           if (pickup !== undefined) {
             options.pickups.add(pickup, this.unlocks);
           }
+        },
+        sectorCleared: (cleared) => {
+          this.clearedSectors.add(cleared.sector);
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
@@ -847,6 +852,10 @@ export class NetPlay {
     this.status = 'online';
     this.playerId = welcome.playerId;
     this.name = welcome.name;
+    this.clearedSectors.clear();
+    for (const sector of welcome.clearedSectors) {
+      this.clearedSectors.add(sector);
+    }
     this.unlocks = defaultUnlocks();
     for (const [part, tier] of fromUnlocks(welcome.unlocks)) {
       this.unlocks.set(part, tier);

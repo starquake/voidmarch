@@ -12,6 +12,7 @@ import {
   type PickupDropped,
   type PickupTaken,
   type DerelictRescued,
+  type SectorCleared,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -75,6 +76,8 @@ export interface ConnectionEvents {
   pickupTaken(taken: PickupTaken): void;
   /** A derelict was rescued into the hangar (#52). */
   derelictRescued(rescued: DerelictRescued): void;
+  /** A sector's garrison is destroyed (#99). */
+  sectorCleared(cleared: SectorCleared): void;
 }
 
 export interface Timers {
@@ -290,6 +293,9 @@ export class Connection {
         break;
       case 'derelictRescued':
         events.derelictRescued(message.kind.value);
+        break;
+      case 'sectorCleared':
+        events.sectorCleared(message.kind.value);
         break;
       default:
     }
