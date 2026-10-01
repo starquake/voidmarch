@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser9 from "./vendor/phaser.js";
+import Phaser10 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -325,6 +325,20 @@ var MISSION_BANNER_ALPHA = 0.6;
 var MISSION_BANNER_BORDER_PX = 1;
 var EVENT_COLOR = 16734794;
 var EVENT_CSS = "#ff5a4a";
+var MINIMAP_WIDTH_PX = 170;
+var FULL_MAP_HEIGHT_PX = 470;
+var MAP_MARGIN_PX = 10;
+var MAP_HOME_COLOR = 3108764;
+var MAP_CLEARED_COLOR = 2910780;
+var MAP_HOSTILE_COLORS = [9056304, 9056304, 7218726, 5643549];
+var MAP_FILL_ALPHA = 0.9;
+var MAP_EDGE_COLOR = 1181712;
+var MAP_PANEL_COLOR = 328458;
+var MAP_PANEL_ALPHA = 0.82;
+var MAP_FRIGATE_COLOR = 16739163;
+var MAP_OTHER_MISSION_COLOR = 11566335;
+var MAP_YOU_COLOR = 16777215;
+var MAP_FLASH_MS = 300;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -572,7 +586,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser8 from "./vendor/phaser.js";
+import Phaser9 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -1140,6 +1154,356 @@ var LoadoutScreen = class {
   }
 };
 
+// src/scenes/mapview.ts
+import "./vendor/phaser.js";
+
+// src/sim/sectors.ts
+var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+var SQRT3 = Math.sqrt(3);
+function ring({ q, r }) {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+function hexName({ q, r }) {
+  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
+  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
+}
+function parseHex(name) {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
+    return void 0;
+  }
+  const q = col - GRID_RINGS;
+  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
+  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
+}
+function hexCenter({ q, r }) {
+  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
+}
+function sectorName(x, y) {
+  const q = 2 / 3 * x / SECTOR_RADIUS;
+  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
+  const s = -q - r;
+  let rq = Math.round(q);
+  let rr = Math.round(r);
+  const rs = Math.round(s);
+  const dq = Math.abs(rq - q);
+  const dr = Math.abs(rr - r);
+  const ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) {
+    rq = -rr - rs;
+  } else if (dr > ds) {
+    rr = -rq - rs;
+  }
+  const hex2 = { q: rq + 0, r: rr + 0 };
+  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
+}
+var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
+function sectorRing(name) {
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : ring(hex2);
+}
+var SECTOR_NAMES = (() => {
+  const names = [];
+  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
+    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
+      if (ring({ q, r }) <= GRID_RINGS) {
+        names.push(hexName({ q, r }));
+      }
+    }
+  }
+  return names;
+})();
+var HOME_SECTOR = sectorName(0, 0) ?? "";
+function sectorState(name, cleared) {
+  if (name === HOME_SECTOR) {
+    return "home";
+  }
+  if (cleared === void 0) {
+    return "unknown";
+  }
+  return cleared.has(name) ? "cleared" : "hostile";
+}
+function sectorLine(x, y, cleared) {
+  const name = sectorName(x, y);
+  if (name === void 0) {
+    return "";
+  }
+  const state = sectorState(name, cleared);
+  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
+}
+function sectorCorners(name) {
+  const hex2 = parseHex(name);
+  if (hex2 === void 0) {
+    return [];
+  }
+  const center = hexCenter(hex2);
+  return Array.from({ length: 6 }, (_, i) => ({
+    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
+    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
+  }));
+}
+function sectorCenter(name) {
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : hexCenter(hex2);
+}
+function missionArrow(ship, target, width, height, margin) {
+  const center = sectorCenter(target);
+  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
+    return void 0;
+  }
+  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
+  const halfW = width / 2 - margin;
+  const halfH = height / 2 - margin;
+  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
+  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
+}
+function missionBanner(sector) {
+  return [
+    `New mission: sector ${sector}`,
+    `Destroy every Kla'ed ship in ${sector} to clear it.`,
+    "Follow the gold arrow at the edge of the screen."
+  ];
+}
+function missionCompleteBanner(sector, part) {
+  const lines = [`Mission complete: sector ${sector} cleared`];
+  if (part !== void 0) {
+    lines.push(`Your reward: ${part}`);
+  }
+  return lines;
+}
+
+// src/sim/sectormap.ts
+function layoutForWidth(x, y, width) {
+  return { x, y, scale: width / (2 * GRID_EXTENT.x) };
+}
+function layoutForHeight(x, y, height) {
+  return { x, y, scale: height / (2 * GRID_EXTENT.y) };
+}
+function mapSize(layout) {
+  return { width: 2 * GRID_EXTENT.x * layout.scale, height: 2 * GRID_EXTENT.y * layout.scale };
+}
+var toScreen = (layout, p) => ({ x: layout.x + p.x * layout.scale, y: layout.y + p.y * layout.scale });
+function sectorFill(name, state, flash) {
+  if (flash && state.attack === name) {
+    return EVENT_COLOR;
+  }
+  if (name === HOME_SECTOR) {
+    return MAP_HOME_COLOR;
+  }
+  if (state.cleared.has(name)) {
+    return MAP_CLEARED_COLOR;
+  }
+  const ring2 = sectorRing(name) ?? 0;
+  return MAP_HOSTILE_COLORS[Math.min(ring2, MAP_HOSTILE_COLORS.length - 1)] ?? EVENT_COLOR;
+}
+function drawnMap(state, layout, flash) {
+  const outlines = /* @__PURE__ */ new Map();
+  for (const m of state.missions) {
+    if (m.own || !outlines.has(m.sector)) {
+      outlines.set(m.sector, m.own ? MISSION_COLOR : MAP_OTHER_MISSION_COLOR);
+    }
+  }
+  const sectors = SECTOR_NAMES.map((name) => ({
+    name,
+    center: toScreen(layout, sectorCenter(name) ?? { x: 0, y: 0 }),
+    corners: sectorCorners(name).map((c) => toScreen(layout, c)),
+    fill: sectorFill(name, state, flash),
+    outline: outlines.get(name)
+  }));
+  const frigateSectors = new Set(state.frigates.flatMap((f) => sectorName(f.x, f.y) ?? []));
+  const frigates = [...frigateSectors].map((name) => toScreen(layout, sectorCenter(name) ?? { x: 0, y: 0 }));
+  return {
+    sectors,
+    frigates,
+    you: toScreen(layout, state.you),
+    squadmates: state.squadmates.map((s) => ({ ...toScreen(layout, s), color: s.color }))
+  };
+}
+function sectorAtScreen(layout, x, y) {
+  return sectorName((x - layout.x) / layout.scale, (y - layout.y) / layout.scale);
+}
+function canPick(name, cleared) {
+  return name !== void 0 && name !== HOME_SECTOR && !cleared.has(name);
+}
+function mapTitle(mapName, cleared) {
+  const ringOne = SECTOR_NAMES.filter((name) => sectorRing(name) === 1);
+  const done = ringOne.filter((name) => cleared.has(name)).length;
+  const title = mapName === "" ? "SECTORS" : mapName.toUpperCase();
+  return `${title}  \xB7  ${String(done)} of ${String(ringOne.length)} ring-1 sectors cleared  \xB7  Tab closes`;
+}
+function missionsLine(missions) {
+  return missions.map((m) => `${m.squadron} \u2192 ${m.sector}`).join(" \xB7 ");
+}
+function mapLegend(missions) {
+  const own = missions.find((m) => m.own);
+  const sent = missions.map((m) => `\u25A0 ${m.squadron}${m.own ? " (you)" : ""}: ${m.sector}`);
+  return [
+    [...sent, "\u25B2 Frigate", "\u25CF you", "\u25CF squadmate"].join("     "),
+    own === void 0 ? "" : `Click an uncleared sector to send ${own.squadron} there.`
+  ];
+}
+
+// src/scenes/mapview.ts
+var FONT_PX = 12;
+var SMALL_FONT_PX = 11;
+var PANEL_PAD_X_PX = 60;
+var PANEL_PAD_TOP_PX = 34;
+var PANEL_PAD_BOTTOM_PX = 56;
+var MAP_DEPTH = 10;
+var MapView = class {
+  open = false;
+  mini;
+  miniLabel;
+  full;
+  title;
+  legend;
+  names = [];
+  miniLayout = layoutForWidth(0, 0, MINIMAP_WIDTH_PX);
+  fullLayout = layoutForHeight(0, 0, FULL_MAP_HEIGHT_PX);
+  dpr = 1;
+  scene;
+  hideFromWorld;
+  constructor(scene, hideFromWorld) {
+    const text = (size) => scene.add.text(0, 0, "", { fontFamily: "monospace", fontSize: `${String(size)}px`, color: "#d8f8ff", align: "center" }).setShadow(1, 1, "#000000", 0);
+    this.mini = scene.add.graphics();
+    this.miniLabel = text(SMALL_FONT_PX).setOrigin(0.5, 0);
+    this.full = scene.add.graphics();
+    this.title = text(FONT_PX).setOrigin(0.5, 0);
+    this.legend = text(FONT_PX).setOrigin(0.5, 0);
+    const objects = [this.mini, this.miniLabel, this.full, this.title, this.legend];
+    for (const o of [this.mini, this.miniLabel, this.full, this.title, this.legend]) {
+      o.setDepth(MAP_DEPTH);
+    }
+    this.setFullVisible(false);
+    hideFromWorld(objects);
+    this.scene = scene;
+    this.hideFromWorld = hideFromWorld;
+  }
+  /** Places both maps for a screen of width by height device pixels. */
+  resize(width, height, dpr) {
+    this.dpr = dpr;
+    const miniWidth = MINIMAP_WIDTH_PX * dpr;
+    const miniHeight = mapSize(layoutForWidth(0, 0, miniWidth)).height;
+    const margin = MAP_MARGIN_PX * dpr;
+    this.miniLayout = layoutForWidth(width - margin - miniWidth / 2, margin + miniHeight / 2, miniWidth);
+    this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, margin + miniHeight + margin / 2);
+    const fullHeight = Math.min(FULL_MAP_HEIGHT_PX * dpr, height - (PANEL_PAD_TOP_PX + PANEL_PAD_BOTTOM_PX) * dpr);
+    this.fullLayout = layoutForHeight(width / 2, height / 2 - (PANEL_PAD_BOTTOM_PX - PANEL_PAD_TOP_PX) * dpr / 2, fullHeight);
+    this.title.setFontSize(FONT_PX * dpr);
+    this.legend.setFontSize(FONT_PX * dpr);
+    for (const name of this.names) {
+      name.setFontSize(SMALL_FONT_PX * dpr);
+    }
+  }
+  /** Where the full map's grid sits. */
+  get layout() {
+    return this.fullLayout;
+  }
+  /** Opens or closes the full map. */
+  toggle() {
+    this.open = !this.open;
+    this.setFullVisible(this.open);
+  }
+  close() {
+    this.open = false;
+    this.setFullVisible(false);
+  }
+  /** Draws both maps; nothing when there's no state, offline. */
+  draw(state, mapName, nowMs) {
+    this.mini.clear();
+    this.full.clear();
+    if (state === void 0) {
+      this.miniLabel.setText("");
+      this.close();
+      return;
+    }
+    const flash = Math.floor(nowMs / MAP_FLASH_MS) % 2 === 0;
+    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2);
+    this.miniLabel.setText(missionsLine(state.missions));
+    if (!this.open) {
+      return;
+    }
+    const drawn = drawnMap(state, this.fullLayout, flash);
+    const size = mapSize(this.fullLayout);
+    const top = this.fullLayout.y - size.height / 2 - PANEL_PAD_TOP_PX * this.dpr;
+    const bottom = this.fullLayout.y + size.height / 2 + PANEL_PAD_BOTTOM_PX * this.dpr;
+    const halfWidth = size.width / 2 + PANEL_PAD_X_PX * this.dpr;
+    this.full.fillStyle(MAP_PANEL_COLOR, MAP_PANEL_ALPHA).fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, 6 * this.dpr);
+    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3);
+    this.drawNames(drawn);
+    this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + 10 * this.dpr);
+    const legendY = this.fullLayout.y + size.height / 2 + 10 * this.dpr;
+    this.legend.setText(mapLegend(state.missions).join("\n")).setPosition(this.fullLayout.x, legendY);
+  }
+  /** The sector a click on the open full map picks as the mission, if it can be picked. */
+  pick(x, y, cleared) {
+    if (!this.open) {
+      return void 0;
+    }
+    const name = sectorAtScreen(this.fullLayout, x, y);
+    return canPick(name, cleared) ? name : void 0;
+  }
+  drawGrid(g, drawn, layout, edge, outline) {
+    const scale = this.dpr;
+    for (const s of drawn.sectors) {
+      g.fillStyle(s.fill, MAP_FILL_ALPHA);
+      polygon(g, s.corners);
+      g.fillPath();
+      g.lineStyle(edge * scale, MAP_EDGE_COLOR, 1);
+      polygon(g, s.corners);
+      g.strokePath();
+    }
+    for (const s of drawn.sectors) {
+      if (s.outline !== void 0) {
+        g.lineStyle(outline * scale, s.outline, 1);
+        polygon(g, s.corners);
+        g.strokePath();
+      }
+    }
+    const marker = Math.max(4 * scale, SECTOR_RADIUS * layout.scale * 0.3);
+    g.fillStyle(MAP_FRIGATE_COLOR, 1);
+    for (const f of drawn.frigates) {
+      g.fillTriangle(f.x, f.y - marker, f.x - marker, f.y + marker * 0.8, f.x + marker, f.y + marker * 0.8);
+    }
+    const dot = Math.max(2 * scale, marker * 0.45);
+    for (const s of drawn.squadmates) {
+      g.fillStyle(s.color, 1).fillCircle(s.x, s.y, dot * 0.8);
+    }
+    g.fillStyle(MAP_YOU_COLOR, 1).fillCircle(drawn.you.x, drawn.you.y, dot);
+  }
+  drawNames(drawn) {
+    while (this.names.length < drawn.sectors.length) {
+      const text = this.scene.add.text(0, 0, "", { fontFamily: "monospace", fontSize: `${String(SMALL_FONT_PX * this.dpr)}px`, color: "#d8f8ff" }).setOrigin(0.5).setDepth(MAP_DEPTH + 1).setShadow(1, 1, "#000000", 0);
+      this.hideFromWorld([text]);
+      this.names.push(text);
+    }
+    const lift = SECTOR_RADIUS * this.fullLayout.scale * 0.55;
+    drawn.sectors.forEach((s, i) => {
+      this.names[i]?.setText(s.name).setPosition(s.center.x, s.center.y - lift).setVisible(true);
+    });
+  }
+  setFullVisible(visible) {
+    this.full.setVisible(visible);
+    this.title.setVisible(visible);
+    this.legend.setVisible(visible);
+    for (const name of this.names) {
+      name.setVisible(visible);
+    }
+  }
+};
+function polygon(g, corners) {
+  const [first, ...rest] = corners;
+  if (first === void 0) {
+    return;
+  }
+  g.beginPath().moveTo(first.x, first.y);
+  for (const c of rest) {
+    g.lineTo(c.x, c.y);
+  }
+  g.closePath();
+}
+
 // src/simwasm.ts
 var SCRATCH_SIZE = LAYOUT.scratchSize;
 var PATTERN_SIZE = 4;
@@ -1581,118 +1945,6 @@ function sandbox() {
   return loaded;
 }
 
-// src/sim/sectors.ts
-var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-var SQRT3 = Math.sqrt(3);
-function ring({ q, r }) {
-  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-}
-function hexName({ q, r }) {
-  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
-  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
-}
-function parseHex(name) {
-  const col = LETTERS.indexOf(name.charAt(0));
-  const row = Number(name.slice(1)) - 1;
-  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
-    return void 0;
-  }
-  const q = col - GRID_RINGS;
-  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
-  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
-}
-function hexCenter({ q, r }) {
-  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
-}
-function sectorName(x, y) {
-  const q = 2 / 3 * x / SECTOR_RADIUS;
-  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
-  const s = -q - r;
-  let rq = Math.round(q);
-  let rr = Math.round(r);
-  const rs = Math.round(s);
-  const dq = Math.abs(rq - q);
-  const dr = Math.abs(rr - r);
-  const ds = Math.abs(rs - s);
-  if (dq > dr && dq > ds) {
-    rq = -rr - rs;
-  } else if (dr > ds) {
-    rr = -rq - rs;
-  }
-  const hex2 = { q: rq + 0, r: rr + 0 };
-  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
-}
-var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
-var SECTOR_NAMES = (() => {
-  const names = [];
-  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
-    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
-      if (ring({ q, r }) <= GRID_RINGS) {
-        names.push(hexName({ q, r }));
-      }
-    }
-  }
-  return names;
-})();
-var HOME_SECTOR = sectorName(0, 0) ?? "";
-function sectorState(name, cleared) {
-  if (name === HOME_SECTOR) {
-    return "home";
-  }
-  if (cleared === void 0) {
-    return "unknown";
-  }
-  return cleared.has(name) ? "cleared" : "hostile";
-}
-function sectorLine(x, y, cleared) {
-  const name = sectorName(x, y);
-  if (name === void 0) {
-    return "";
-  }
-  const state = sectorState(name, cleared);
-  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
-}
-function sectorCorners(name) {
-  const hex2 = parseHex(name);
-  if (hex2 === void 0) {
-    return [];
-  }
-  const center = hexCenter(hex2);
-  return Array.from({ length: 6 }, (_, i) => ({
-    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
-    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
-  }));
-}
-function sectorCenter(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : hexCenter(hex2);
-}
-function missionArrow(ship, target, width, height, margin) {
-  const center = sectorCenter(target);
-  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
-    return void 0;
-  }
-  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
-  const halfW = width / 2 - margin;
-  const halfH = height / 2 - margin;
-  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
-  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
-}
-function missionBanner(sector) {
-  return [
-    `New mission: sector ${sector}`,
-    `Destroy every Kla'ed ship in ${sector} to clear it.`,
-    "Follow the gold arrow at the edge of the screen."
-  ];
-}
-function missionCompleteBanner(sector, part) {
-  const lines = [`Mission complete: sector ${sector} cleared`];
-  if (part !== void 0) {
-    lines.push(`Your reward: ${part}`);
-  }
-  return lines;
-}
-
 // src/sim/world.ts
 function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
   const random = seededRandom(seed);
@@ -1943,7 +2195,7 @@ function bossBar(bosses, x, y) {
 }
 
 // src/scenes/audio.ts
-import Phaser2 from "./vendor/phaser.js";
+import Phaser3 from "./vendor/phaser.js";
 
 // src/mix.ts
 var ENGINE_IDLE_VOLUME = 0.12;
@@ -2001,10 +2253,10 @@ var ShipAudio = class {
   /** Which sound backend Phaser picked for this browser. */
   get backend() {
     const sound = this.scene.sound;
-    if (sound instanceof Phaser2.Sound.WebAudioSoundManager) {
+    if (sound instanceof Phaser3.Sound.WebAudioSoundManager) {
       return "webaudio";
     }
-    return sound instanceof Phaser2.Sound.HTML5AudioSoundManager ? "html5" : "none";
+    return sound instanceof Phaser3.Sound.HTML5AudioSoundManager ? "html5" : "none";
   }
   /** The key of the playing track, or null. */
   get playingMusic() {
@@ -2089,7 +2341,7 @@ var ShipAudio = class {
     for (const file of musicFiles()) {
       loader.audio(file.key, file.urls);
     }
-    loader.once(Phaser2.Loader.Events.COMPLETE, () => {
+    loader.once(Phaser3.Loader.Events.COMPLETE, () => {
       this.musicLoaded = true;
       this.playMusic();
     });
@@ -2100,7 +2352,7 @@ var ShipAudio = class {
       return;
     }
     if (this.scene.sound.locked) {
-      this.scene.sound.once(Phaser2.Sound.Events.UNLOCKED, () => {
+      this.scene.sound.once(Phaser3.Sound.Events.UNLOCKED, () => {
         this.playMusic();
       });
       return;
@@ -2108,7 +2360,7 @@ var ShipAudio = class {
     const key = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
     this.music?.destroy();
     this.music = this.scene.sound.add(key, { volume: MUSIC_VOLUME });
-    this.music.once(Phaser2.Sound.Events.COMPLETE, () => {
+    this.music.once(Phaser3.Sound.Events.COMPLETE, () => {
       this.musicIndex++;
       this.playMusic();
     });
@@ -2126,7 +2378,7 @@ var TRACK = 328458;
 var TRACK_ALPHA = 0.8;
 var WIDTH_SHARE = 0.3;
 var TOP_PX = 8;
-var FONT_PX = 12;
+var FONT_PX2 = 12;
 var HEALTH_PX = 10;
 var SHIELD_PX = 3;
 var GAP_PX = 2;
@@ -2138,7 +2390,7 @@ var BossBarView = class {
   width = 0;
   scale = 1;
   constructor(scene, hide) {
-    const style = { fontFamily: "monospace", fontSize: `${String(FONT_PX)}px` };
+    const style = { fontFamily: "monospace", fontSize: `${String(FONT_PX2)}px` };
     this.name = scene.add.text(0, 0, "", { ...style, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.text = scene.add.text(0, 0, "", { ...style, color: TEXT_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bars = scene.add.graphics();
@@ -2156,9 +2408,9 @@ var BossBarView = class {
     this.width = Math.round(width * WIDTH_SHARE);
     this.scale = dpr;
     const x = width / 2;
-    this.name.setFontSize(FONT_PX * dpr).setPosition(x, TOP_PX * dpr);
+    this.name.setFontSize(FONT_PX2 * dpr).setPosition(x, TOP_PX * dpr);
     this.bars.setPosition(Math.round(x - this.width / 2), this.name.y + this.name.height + GAP_PX * dpr);
-    this.text.setFontSize(FONT_PX * dpr).setPosition(x, this.bars.y + (HEALTH_PX + SHIELD_PX + 2 * GAP_PX) * dpr);
+    this.text.setFontSize(FONT_PX2 * dpr).setPosition(x, this.bars.y + (HEALTH_PX + SHIELD_PX + 2 * GAP_PX) * dpr);
     this.draw();
   }
   /** Shows bar, or hides it when undefined. */
@@ -2527,10 +2779,10 @@ var TimedQueue = class {
 };
 
 // src/scenes/enemyview.ts
-import Phaser5 from "./vendor/phaser.js";
+import Phaser6 from "./vendor/phaser.js";
 
 // src/scenes/shipview.ts
-import Phaser4 from "./vendor/phaser.js";
+import Phaser5 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
 var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
@@ -2610,7 +2862,7 @@ var ShipView = class {
   setTint(color) {
     this.tint = color;
     for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
-      part.setTint(color).setTintMode(Phaser4.TintModes.MULTIPLY);
+      part.setTint(color).setTintMode(Phaser5.TintModes.MULTIPLY);
     }
   }
   /** Fits the parts; unchanged parts keep their animation running. */
@@ -2633,7 +2885,7 @@ var ShipView = class {
   }
   /** A part's own tint: the owner's color for a companion, else its tier's (#77, decision 12). */
   restoreTint(part) {
-    part.setTintMode(Phaser4.TintModes.MULTIPLY);
+    part.setTintMode(Phaser5.TintModes.MULTIPLY);
     const l = this.loadout;
     const tier = l === void 0 ? 0 : part === this.weapon ? l.weaponTier : part === this.engine ? l.engineTier : part === this.shield ? l.shieldTier : 0;
     const color = this.tint ?? tierColor(tier);
@@ -2727,7 +2979,7 @@ var ShipView = class {
   }
   /** A short white flash of a part; the shield then shows only while charged. */
   flash(part) {
-    part.setVisible(true).setTint(16777215).setTintMode(Phaser4.TintModes.FILL);
+    part.setVisible(true).setTint(16777215).setTintMode(Phaser5.TintModes.FILL);
     this.scene.time.delayedCall(HIT_FLASH_MS, () => {
       this.restoreTint(part);
       if (part === this.shield) {
@@ -2763,7 +3015,7 @@ var EnemyView = class {
     const engine = scene.add.sprite(0, 0, keys.enemyEngine(kind)).play(keys.enemyEngine(kind));
     this.base = scene.add.image(0, 0, keys.enemyBase(kind));
     this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(kind), 0);
-    this.weapon.on(Phaser5.Animations.Events.ANIMATION_COMPLETE, () => {
+    this.weapon.on(Phaser6.Animations.Events.ANIMATION_COMPLETE, () => {
       this.weapon.setFrame(0);
     });
     const parts = [engine, this.base, this.weapon];
@@ -2797,9 +3049,9 @@ var EnemyView = class {
   }
   /** A short white flash where a shot landed. */
   flash() {
-    this.base.setTint(16777215).setTintMode(Phaser5.TintModes.FILL);
+    this.base.setTint(16777215).setTintMode(Phaser6.TintModes.FILL);
     this.scene.time.delayedCall(FLASH_MS, () => {
-      this.base.clearTint().setTintMode(Phaser5.TintModes.MULTIPLY);
+      this.base.clearTint().setTintMode(Phaser6.TintModes.MULTIPLY);
     });
   }
   /** Plays the pack's destruction animation in place of the ship, then goes. */
@@ -2811,7 +3063,7 @@ var EnemyView = class {
     const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.kind)).setRotation(this.root.rotation);
     this.root.parentContainer.add(boom);
     this.root.destroy();
-    boom.once(Phaser5.Animations.Events.ANIMATION_COMPLETE, () => {
+    boom.once(Phaser6.Animations.Events.ANIMATION_COMPLETE, () => {
       boom.destroy();
     });
     boom.play(keys.enemyDestruction(this.kind));
@@ -2819,7 +3071,7 @@ var EnemyView = class {
 };
 
 // src/scenes/derelictview.ts
-import Phaser6 from "./vendor/phaser.js";
+import Phaser7 from "./vendor/phaser.js";
 var DERELICT_TINT = 9080729;
 var DerelictView = class {
   hull;
@@ -2827,7 +3079,7 @@ var DerelictView = class {
   bar;
   fill = -1;
   constructor(scene, layer, x, y, angle, resolution) {
-    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser6.TintModes.MULTIPLY);
+    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser7.TintModes.MULTIPLY);
     this.label = scene.add.text(x, y + DOWN_OFFSET, "", { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
     layer.add([this.hull, this.label, this.bar]);
@@ -3124,6 +3376,19 @@ var NetPlay = class {
   get mission() {
     const mission = this.squadronInfo?.mission;
     return mission === void 0 || mission === "" ? void 0 : mission;
+  }
+  /** What the maps show (#100), with the local ship at you. */
+  mapState(you) {
+    return {
+      cleared: this.clearedSectors,
+      frigates: this.bosses.filter((b) => b.kind === "frigate"),
+      missions: (this.squadrons?.squadrons ?? []).flatMap(
+        (s) => s.mission === "" ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }]
+      ),
+      attack: this.worldEvent?.kind === WorldEventKind.ATTACK ? this.worldEvent.sector : void 0,
+      you,
+      squadmates: [...this.remotes.values()].filter((r) => r.ownerId === "" && this.isSquadmate(r)).map((r) => ({ x: r.view.root.x, y: r.view.root.y, color: r.color }))
+    };
   }
   /** Sends the squadron to another sector, picked on the full map (#100). */
   pickMission(sector) {
@@ -3849,7 +4114,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser8.Scene {
+var SandboxScene = class extends Phaser9.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -3863,6 +4128,7 @@ var SandboxScene = class extends Phaser8.Scene {
   net;
   /** The loadout screen at the home planet (#78). */
   loadoutScreen = new LoadoutScreen();
+  maps;
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   enemyFire;
@@ -3919,7 +4185,7 @@ var SandboxScene = class extends Phaser8.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser8.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser9.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -3965,6 +4231,8 @@ var SandboxScene = class extends Phaser8.Scene {
       squadron: "",
       squadronScreen: false,
       loadoutScreen: false,
+      mapOpen: false,
+      mapLayout: { x: 0, y: 0, scale: 0 },
       boss: void 0,
       sector: "",
       mission: void 0,
@@ -3999,6 +4267,7 @@ var SandboxScene = class extends Phaser8.Scene {
     this.scrollBackgrounds(time);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
+    this.drawMaps();
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -4113,7 +4382,7 @@ var SandboxScene = class extends Phaser8.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser8.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -4123,7 +4392,7 @@ var SandboxScene = class extends Phaser8.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser8.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -4166,7 +4435,7 @@ var SandboxScene = class extends Phaser8.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser8.BlendModes.ADD,
+      blendMode: Phaser9.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -4175,7 +4444,7 @@ var SandboxScene = class extends Phaser8.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser8.BlendModes.ADD,
+      blendMode: Phaser9.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -4185,7 +4454,7 @@ var SandboxScene = class extends Phaser8.Scene {
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser8.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
+    const bloom = Phaser9.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
     this.bloom = bloom?.parallelFilters;
     this.bloomBlur = bloom?.blur;
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
@@ -4217,6 +4486,7 @@ var SandboxScene = class extends Phaser8.Scene {
     this.missionLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
     this.eventLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: EVENT_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
     main.ignore([this.missionArrow, this.missionLabel, this.eventLabel]);
+    this.maps = new MapView(this, (objects) => main.ignore(objects));
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -4225,7 +4495,7 @@ var SandboxScene = class extends Phaser8.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser8.Input.Keyboard.KeyCodes;
+    const codes = Phaser9.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -4237,8 +4507,13 @@ var SandboxScene = class extends Phaser8.Scene {
       if (event.repeat) {
         return;
       }
-      if (this.loadoutScreen.open) {
+      if (this.maps.open) {
+        this.mapKey(event);
+      } else if (this.loadoutScreen.open) {
         this.loadoutKey(event);
+      } else if (event.code === "Tab" && this.canOpenMap()) {
+        event.preventDefault();
+        this.maps.toggle();
       } else if (event.code === "KeyL") {
         this.openLoadout();
       } else if (event.code === "KeyQ") {
@@ -4255,14 +4530,42 @@ var SandboxScene = class extends Phaser8.Scene {
     const onBlur = () => {
       this.closeOrderRing();
     };
+    this.input.on(Phaser9.Input.Events.POINTER_DOWN, (pointer) => {
+      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set());
+      if (sector !== void 0) {
+        this.net?.pickMission(sector);
+      }
+    });
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser8.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     });
+  }
+  /** The full map opens online, and not over the join screen or the order ring, where Tab and the mouse are theirs. */
+  canOpenMap() {
+    const squadronScreen = document.querySelector("#squadron-form");
+    return this.net?.status === "online" && this.orderPress === void 0 && squadronScreen?.hidden !== false;
+  }
+  /** A key while the full map is open: Tab and Esc close it, and the rest wait. */
+  mapKey(event) {
+    if (event.code === "Tab" || event.code === "Escape") {
+      event.preventDefault();
+      this.maps.close();
+    }
+  }
+  /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
+  drawMaps() {
+    const net = this.net;
+    const state = net?.status === "online" ? net.mapState(this.sim.ship) : void 0;
+    this.maps.draw(state, net?.mapName ?? "", performance.now());
+    const alpha = this.maps.open ? 0 : 1;
+    for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
+      o.setAlpha(alpha);
+    }
   }
   /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
   openLoadout() {
@@ -4472,11 +4775,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser8.Math.Vector2(cx, cy)];
+    const points = [new Phaser9.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser8.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser9.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -4570,6 +4873,7 @@ ${modeName(info)}`,
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
     this.layoutHud();
+    this.maps.resize(width, height, dpr);
     this.bossBar.resize(width, dpr);
     this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
     this.missionBanner.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * MISSION_BANNER_Y);
@@ -4581,7 +4885,7 @@ ${modeName(info)}`,
   readInput() {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main);
-    if (this.loadoutScreen.open) {
+    if (this.loadoutScreen.open || this.maps.open) {
       const { x, y, angle } = this.sim.ship;
       return {
         up: false,
@@ -4875,6 +5179,8 @@ ${modeName(info)}`,
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
+    this.debug.mapOpen = this.maps.open;
+    this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
     this.debug.lastClear = this.net?.lastClear;
@@ -4899,8 +5205,8 @@ async function start() {
   }
   await loadSim("/static/wasm/sim.wasm");
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser9.Game({
-    type: Phaser9.AUTO,
+  const game = new Phaser10.Game({
+    type: Phaser10.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -4909,7 +5215,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser9.Scale.NONE,
+      mode: Phaser10.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

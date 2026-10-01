@@ -26,6 +26,7 @@ import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { defaultUnlocks, partLabel, tierCss, withTiers } from '../sim/parts.ts';
 import { LoadoutScreen } from '../loadout.ts';
+import { MapView } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
@@ -165,6 +166,7 @@ export class SandboxScene extends Phaser.Scene {
   private net: NetPlay | undefined;
   /** The loadout screen at the home planet (#78). */
   private readonly loadoutScreen = new LoadoutScreen();
+  private maps!: MapView;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   private enemyFire!: Phaser.GameObjects.Layer;
@@ -270,6 +272,8 @@ export class SandboxScene extends Phaser.Scene {
       squadron: '',
       squadronScreen: false,
       loadoutScreen: false,
+      mapOpen: false,
+      mapLayout: { x: 0, y: 0, scale: 0 },
       boss: undefined,
       sector: '',
       mission: undefined,
@@ -305,6 +309,7 @@ export class SandboxScene extends Phaser.Scene {
     this.scrollBackgrounds(time);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
+    this.drawMaps();
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -566,6 +571,7 @@ export class SandboxScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setShadow(1, 1, '#000000', 0);
     main.ignore([this.missionArrow, this.missionLabel, this.eventLabel]);
+    this.maps = new MapView(this, (objects) => main.ignore(objects));
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -590,8 +596,13 @@ export class SandboxScene extends Phaser.Scene {
       if (event.repeat) {
         return;
       }
-      if (this.loadoutScreen.open) {
+      if (this.maps.open) {
+        this.mapKey(event);
+      } else if (this.loadoutScreen.open) {
         this.loadoutKey(event);
+      } else if (event.code === 'Tab' && this.canOpenMap()) {
+        event.preventDefault();
+        this.maps.toggle();
       } else if (event.code === 'KeyL') {
         this.openLoadout();
       } else if (event.code === 'KeyQ') {
@@ -609,6 +620,13 @@ export class SandboxScene extends Phaser.Scene {
     const onBlur = (): void => {
       this.closeOrderRing();
     };
+    // A click on the open full map sends the squadron there (#100, decision 10).
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? new Set());
+      if (sector !== undefined) {
+        this.net?.pickMission(sector);
+      }
+    });
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
@@ -617,6 +635,32 @@ export class SandboxScene extends Phaser.Scene {
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
     });
+  }
+
+  /** The full map opens online, and not over the join screen or the order ring, where Tab and the mouse are theirs. */
+  private canOpenMap(): boolean {
+    const squadronScreen = document.querySelector<HTMLFormElement>('#squadron-form');
+
+    return this.net?.status === 'online' && this.orderPress === undefined && squadronScreen?.hidden !== false;
+  }
+
+  /** A key while the full map is open: Tab and Esc close it, and the rest wait. */
+  private mapKey(event: KeyboardEvent): void {
+    if (event.code === 'Tab' || event.code === 'Escape') {
+      event.preventDefault();
+      this.maps.close();
+    }
+  }
+
+  /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
+  private drawMaps(): void {
+    const net = this.net;
+    const state = net?.status === 'online' ? net.mapState(this.sim.ship) : undefined;
+    this.maps.draw(state, net?.mapName ?? '', performance.now());
+    const alpha = this.maps.open ? 0 : 1;
+    for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
+      o.setAlpha(alpha);
+    }
   }
 
   /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
@@ -960,6 +1004,7 @@ export class SandboxScene extends Phaser.Scene {
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
     this.layoutHud();
+    this.maps.resize(width, height, dpr);
     this.bossBar.resize(width, dpr);
     this.downPanel
       .setFontSize(DOWN_PANEL_FONT_PX * dpr)
@@ -978,8 +1023,8 @@ export class SandboxScene extends Phaser.Scene {
   private readInput(): InputSnapshot {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-    if (this.loadoutScreen.open) {
-      // The ship holds still under the screen, still facing where it was (#78, decision 8).
+    if (this.loadoutScreen.open || this.maps.open) {
+      // The ship holds still under the screen or the map, still facing where it was (#78 and #100).
       const { x, y, angle } = this.sim.ship;
 
       return {
@@ -1301,6 +1346,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
+    this.debug.mapOpen = this.maps.open;
+    this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
     this.debug.lastClear = this.net?.lastClear;

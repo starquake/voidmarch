@@ -61,6 +61,7 @@ import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
 import { missionCompleteBanner, sectorName } from '../sim/sectors.ts';
+import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
@@ -434,6 +435,22 @@ export class NetPlay {
     const mission = this.squadronInfo?.mission;
 
     return mission === undefined || mission === '' ? undefined : mission;
+  }
+
+  /** What the maps show (#100), with the local ship at you. */
+  mapState(you: { x: number; y: number }): MapState {
+    return {
+      cleared: this.clearedSectors,
+      frigates: this.bosses.filter((b) => b.kind === 'frigate'),
+      missions: (this.squadrons?.squadrons ?? []).flatMap((s) =>
+        s.mission === '' ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }],
+      ),
+      attack: this.worldEvent?.kind === WorldEventKind.ATTACK ? this.worldEvent.sector : undefined,
+      you,
+      squadmates: [...this.remotes.values()]
+        .filter((r) => r.ownerId === '' && this.isSquadmate(r))
+        .map((r) => ({ x: r.view.root.x, y: r.view.root.y, color: r.color })),
+    };
   }
 
   /** Sends the squadron to another sector, picked on the full map (#100). */
