@@ -2,5 +2,8 @@
   "name": "e2e",
   "bosses": [
     { "kind": "frigate", "x": 0, "y": -1100 }
+  ],
+  "derelicts": [
+    { "x": -420, "y": -120 }
   ]
 }

@@ -251,6 +251,8 @@ export class SandboxScene extends Phaser.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       boss: undefined,
+      derelicts: [],
+      rescues: 0,
       hangar: undefined,
       squadronMode: undefined,
     };
@@ -1157,6 +1159,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
+    this.debug.derelicts = this.net?.derelictList ?? [];
+    this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);
   }
 }

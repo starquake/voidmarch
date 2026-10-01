@@ -28,6 +28,20 @@ func TestLoad_TheEmbeddedMaps(t *testing.T) {
 	}
 }
 
+func TestLoad_OnlyTheTestMapHasADerelict(t *testing.T) {
+	t.Parallel()
+
+	for name, want := range map[string]int{"e2e": 1, "frontier": 0} {
+		m, err := Load(name)
+		if err != nil {
+			t.Fatalf("Load(%q) error = %v", name, err)
+		}
+		if got := len(m.Derelicts); got != want {
+			t.Errorf("%s has %d derelict spots, want %d", name, got, want)
+		}
+	}
+}
+
 func TestLoad_UnknownMap(t *testing.T) {
 	t.Parallel()
 

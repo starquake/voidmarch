@@ -157,8 +157,12 @@ type Hub struct {
 	savedFleet int
 	// pickups are the parts on the ground (#77). saves carries the unlocks
 	// and loadouts to save, in order, to the saver goroutine.
-	pickups       map[uint32]*pickup
-	nextPickup    uint32
+	pickups    map[uint32]*pickup
+	nextPickup uint32
+	// derelicts wait to be rescued into the hangar (#52).
+	derelicts     map[uint32]*derelict
+	nextDerelict  uint32
+	derelictSpots []point
 	dropChance    float64
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
@@ -245,6 +249,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		savedFleet: -1,
 
 		pickups:       make(map[uint32]*pickup),
+		derelicts:     make(map[uint32]*derelict),
+		derelictSpots: derelictSpots(o.worldMap),
 		dropChance:    o.dropChance,
 		dropChanceSet: o.dropChanceSet,
 		saveUnlock:    o.saveUnlock,
@@ -520,14 +526,16 @@ func (h *Hub) step() {
 	h.sendLostCompanionsHome()
 	h.dockHomingCompanions()
 	h.bumpShips()
+	h.stepDerelicts()
 	enemies := h.enemySnapshot()
+	derelicts := h.derelictSnapshot()
 	companions := h.companionSnapshots()
 
 	for id, m := range h.members {
 		if m.gone {
 			continue
 		}
-		snapshot := &pb.Snapshot{Tick: h.tick, Enemies: enemies}
+		snapshot := &pb.Snapshot{Tick: h.tick, Enemies: enemies, Derelicts: derelicts}
 		for otherID, other := range h.members {
 			if otherID == id || other.state == nil {
 				continue

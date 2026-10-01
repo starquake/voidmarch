@@ -959,6 +959,13 @@ export declare type Snapshot = Message<"voidmarch.v1.Snapshot"> & {
    * @generated from field: repeated voidmarch.v1.EnemyState enemies = 3;
    */
   enemies: EnemyState[];
+
+  /**
+   * Derelict ships waiting to be rescued (#52).
+   *
+   * @generated from field: repeated voidmarch.v1.DerelictState derelicts = 4;
+   */
+  derelicts: DerelictState[];
 };
 
 /**
@@ -966,6 +973,52 @@ export declare type Snapshot = Message<"voidmarch.v1.Snapshot"> & {
  * Use `create(SnapshotSchema)` to create a new message.
  */
 export declare const SnapshotSchema: GenMessage<Snapshot>;
+
+/**
+ * DerelictState is a derelict ship drifting where it was released, until it
+ * is rescued or gone_tick passes.
+ *
+ * @generated from message voidmarch.v1.DerelictState
+ */
+export declare type DerelictState = Message<"voidmarch.v1.DerelictState"> & {
+  /**
+   * @generated from field: uint32 derelict_id = 1;
+   */
+  derelictId: number;
+
+  /**
+   * @generated from field: float x = 2;
+   */
+  x: number;
+
+  /**
+   * @generated from field: float y = 3;
+   */
+  y: number;
+
+  /**
+   * @generated from field: float angle = 4;
+   */
+  angle: number;
+
+  /**
+   * The rescue's progress, from 0 to 1.
+   *
+   * @generated from field: float rescue = 5;
+   */
+  rescue: number;
+
+  /**
+   * @generated from field: uint32 gone_tick = 6;
+   */
+  goneTick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.DerelictState.
+ * Use `create(DerelictStateSchema)` to create a new message.
+ */
+export declare const DerelictStateSchema: GenMessage<DerelictState>;
 
 /**
  * EnemyFired is an enemy firing its pattern; every client expands the pattern
@@ -1346,6 +1399,12 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: PickupTaken;
     case: "pickupTaken";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.DerelictRescued derelict_rescued = 18;
+     */
+    value: DerelictRescued;
+    case: "derelictRescued";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1431,6 +1490,43 @@ export declare type PickupTaken = Message<"voidmarch.v1.PickupTaken"> & {
  * Use `create(PickupTakenSchema)` to create a new message.
  */
 export declare const PickupTakenSchema: GenMessage<PickupTaken>;
+
+/**
+ * DerelictRescued is a derelict docked in the hangar (#52).
+ *
+ * @generated from message voidmarch.v1.DerelictRescued
+ */
+export declare type DerelictRescued = Message<"voidmarch.v1.DerelictRescued"> & {
+  /**
+   * @generated from field: uint32 derelict_id = 1;
+   */
+  derelictId: number;
+
+  /**
+   * The player who finished the rescue, or whose companion did.
+   *
+   * @generated from field: string player_id = 2;
+   */
+  playerId: string;
+
+  /**
+   * @generated from field: uint32 tick = 3;
+   */
+  tick: number;
+
+  /**
+   * The hangar's ships after it docked.
+   *
+   * @generated from field: uint32 hangar = 4;
+   */
+  hangar: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.DerelictRescued.
+ * Use `create(DerelictRescuedSchema)` to create a new message.
+ */
+export declare const DerelictRescuedSchema: GenMessage<DerelictRescued>;
 
 /**
  * PickupGain is one player's new tier of a part (0 when newly unlocked).

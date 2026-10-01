@@ -105,6 +105,20 @@ func messages() []proto.Message {
 			Tick:    8,
 			Players: []*pb.PlayerSnapshot{{PlayerId: "p1/1", Name: "Sanne", OwnerId: "p1"}},
 		}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_Snapshot{Snapshot: &pb.Snapshot{
+			Tick: 9,
+			Derelicts: []*pb.DerelictState{
+				{DerelictId: 1, X: 1, Y: 2, Angle: 0.5, Rescue: 0.25, GoneTick: 99},
+			},
+		}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
+			DerelictRescued: &pb.DerelictRescued{
+				DerelictId: 1,
+				PlayerId:   "p1",
+				Tick:       10,
+				Hangar:     4,
+			},
+		}},
 	}
 }
 

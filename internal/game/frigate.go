@@ -167,11 +167,13 @@ func (f *frigateFight) takeHit(damage int, tick uint32) int {
 	return damage - absorbed
 }
 
-// frigateDestroyed frees its spot until the Frigate comes back.
+// frigateDestroyed frees its spot until the Frigate comes back, and
+// releases a derelict where it went down (#52).
 func (h *Hub) frigateDestroyed(e *enemy) {
 	spot := &h.frigates[e.frigate.spot]
 	spot.enemyID = 0
 	spot.respawnAt = h.tick + frigateRespawnTicks
+	h.releaseDerelict(e.x, e.y, 0)
 }
 
 // upShips are the ships that are up, players and companions alike, with the
