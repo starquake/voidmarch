@@ -140,7 +140,7 @@ As built (#48), in `internal/sim/bump.go`: ships and enemies don't overlap.
   latest states, and applies the companions' rams, so every ship is moved
   by whoever flies it.
 - A downed ship won't bump once going down exists (#47).
-- A player and their own companions only push each other, never ram (#68): no shield charge or hull step on either side. Rams with any other ship, squadmates' companions included, and with enemies still hurt.
+- Friendly ships, players and companions alike, only push each other, never ram (#68, widened in #112): no shield charge or hull step on either side. Only rams between a friendly ship and an enemy hurt. @starquake, 2026-10-01: "companions keep bumping into eachother, maybe we should just remove that damage."
 - Companions keep a little room from other friendly ships, so orders that
   send a wing to one place don't make it ram itself (see §13, "Keeping
   apart").

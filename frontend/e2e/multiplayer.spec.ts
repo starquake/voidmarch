@@ -110,9 +110,9 @@ test('two ships flown into each other bump apart', async ({ browser, baseURL }) 
         async () => {
           const now = await track();
 
-          return now.rams > 0 && now.distance >= SHIPS_TOUCH - 1;
+          return closest <= SHIPS_TOUCH + 4 && now.distance >= SHIPS_TOUCH - 1;
         },
-        { message: 'Mo rams Sanne and stays out of her ship', intervals: [50] },
+        { message: 'Mo pushes into Sanne and stays out of her ship', intervals: [50] },
       )
       .toBe(true);
     for (let i = 0; i < 10; i++) {
@@ -121,8 +121,9 @@ test('two ships flown into each other bump apart', async ({ browser, baseURL }) 
     }
     await mo.keyboard.up(toward);
     expect(closest, 'the closest the ships came, center to center').toBeGreaterThan(SHIPS_TOUCH / 2);
-    // Rams hurt both: Sanne's own client counts his ram on her too.
-    await expect.poll(async () => (await state(sanne)).rams, { message: 'Sanne counts the ram' }).toBeGreaterThan(0);
+    // Friendly ships only push: neither counts a ram (#112).
+    expect((await apart()).rams, 'rams Mo took or made').toBe(0);
+    expect((await state(sanne)).rams, 'rams Sanne took or made').toBe(0);
   } finally {
     await sanne.context().close();
     await mo.context().close();

@@ -3316,8 +3316,7 @@ var NetPlay = class {
       const s = remote.drawn;
       if (s !== void 0 && s.damage < MAX_DAMAGE) {
         const side = this.playerId !== void 0 && this.playerId < id ? 1 : -1;
-        const gentle = remote.ownerId !== "" && remote.ownerId === this.playerId;
-        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side, gentle });
+        bodies.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: SHIP_RADIUS, key: this.bumpKey(id), side, gentle: true });
         rammed.push(void 0);
       }
     }
