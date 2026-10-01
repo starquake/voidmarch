@@ -496,6 +496,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		Development:    h.development,
 		ClearedSectors: h.clearedNames(),
 		WorldEvent:     eventMessage(h.event),
+		MapName:        h.mapName(),
 	}
 
 	return joinResult{session: s, welcome: welcome}

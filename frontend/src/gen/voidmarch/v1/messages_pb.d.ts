@@ -693,6 +693,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: voidmarch.v1.WorldEvent world_event = 18;
    */
   worldEvent?: WorldEvent | undefined;
+
+  /**
+   * The game map's name ("frontier"), for the full map's title (#100).
+   *
+   * @generated from field: string map_name = 19;
+   */
+  mapName: string;
 };
 
 /**

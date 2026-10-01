@@ -215,6 +215,8 @@ export class NetPlay {
   readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
   readonly clearedSectors = new Set<string>();
+  /** The game map's name ("frontier"), for the full map's title (#100). */
+  mapName = '';
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<number>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
@@ -432,6 +434,11 @@ export class NetPlay {
     const mission = this.squadronInfo?.mission;
 
     return mission === undefined || mission === '' ? undefined : mission;
+  }
+
+  /** Sends the squadron to another sector, picked on the full map (#100). */
+  pickMission(sector: string): void {
+    this.connection.sendPickMission(sector);
   }
 
   /** On a development server, starts an attack on the sector the ship is in, if it's cleared (#102). */
@@ -907,6 +914,7 @@ export class NetPlay {
     this.playerId = welcome.playerId;
     this.name = welcome.name;
     this.worldEvent = welcome.worldEvent;
+    this.mapName = welcome.mapName;
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);

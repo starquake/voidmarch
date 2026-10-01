@@ -49,6 +49,15 @@ func (h *Hub) clearedNames() []string {
 	return out
 }
 
+// mapName is the game map's name, empty without one.
+func (h *Hub) mapName() string {
+	if h.worldMap == nil {
+		return ""
+	}
+
+	return h.worldMap.Name
+}
+
 // Garrisons, in world pixels and hub ticks (#99).
 const (
 	// garrisonReach is how close to its sector a ship wakes a garrison.

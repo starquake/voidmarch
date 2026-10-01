@@ -260,6 +260,13 @@ test('a development attack names its sector', () => {
   assert.equal(sent?.kind.case === 'devStartAttack' ? sent.kind.value.sector : '', 'E4');
 });
 
+test('a mission pick names its sector', () => {
+  const { conn, socket } = welcomed();
+  conn.sendPickMission('C3');
+  const sent = socket.messages().at(-1);
+  assert.equal(sent?.kind.case === 'pickMission' ? sent.kind.value.sector : '', 'C3');
+});
+
 test('shots carry their pool ids and the wire weapon', () => {
   const { conn, socket } = welcomed();
   conn.sendShot({ id: 1, weapon: 'rockets', muzzle: 1, x: 1, y: 2, angle: 0.5 });

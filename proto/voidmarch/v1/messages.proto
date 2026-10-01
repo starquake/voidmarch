@@ -244,6 +244,8 @@ message Welcome {
   repeated string cleared_sectors = 17;
   // The world event running, if any (#102).
   WorldEvent world_event = 18;
+  // The game map's name ("frontier"), for the full map's title (#100).
+  string map_name = 19;
 }
 
 // PlayerSnapshot is one other player at a tick.
