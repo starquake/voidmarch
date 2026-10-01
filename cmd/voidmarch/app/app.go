@@ -22,6 +22,7 @@ import (
 	"github.com/starquake/voidmarch/internal/store"
 	"github.com/starquake/voidmarch/internal/version"
 	"github.com/starquake/voidmarch/internal/web"
+	"github.com/starquake/voidmarch/internal/world"
 )
 
 // expiryInterval is how often unused registrations are cleared (#19).
@@ -113,7 +114,12 @@ func newHub(
 
 		return nil, err
 	}
+	m, err := world.Load(cfg.Map)
+	if err != nil {
+		return nil, fmt.Errorf("error loading map: %w", err)
+	}
 	hubOptions := []game.HubOption{
+		game.WithMap(m),
 		game.WithPoolStart(poolStart),
 		game.WithSaveFleet(fleetSaver(ctx, logger, db)),
 		game.WithSaveUnlock(unlockSaver(ctx, logger, playerStore)),

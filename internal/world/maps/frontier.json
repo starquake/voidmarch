@@ -1,0 +1,6 @@
+{
+  "name": "frontier",
+  "bosses": [
+    { "kind": "frigate", "x": 0, "y": -1600 }
+  ]
+}

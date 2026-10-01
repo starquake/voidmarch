@@ -44,6 +44,9 @@ func TestParse_Defaults(t *testing.T) {
 	if cfg.DropChance != nil {
 		t.Errorf("cfg.DropChance = %v, want unset", *cfg.DropChance)
 	}
+	if got, want := cfg.Map, "frontier"; got != want {
+		t.Errorf("cfg.Map = %q, want %q", got, want)
+	}
 }
 
 func TestParse_Values(t *testing.T) {
@@ -61,6 +64,7 @@ func TestParse_Values(t *testing.T) {
 		"REGISTER_LIMIT":    "0",
 		"TRUSTED_PROXY_IPS": "10.0.0.0/8, 127.0.0.1/32",
 		"DROP_CHANCE":       "1",
+		"MAP":               "e2e",
 	}))
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
@@ -89,6 +93,9 @@ func TestParse_Values(t *testing.T) {
 	}
 	if got, want := len(cfg.TrustedProxyCIDRs), 2; got != want {
 		t.Errorf("len(cfg.TrustedProxyCIDRs) = %d, want %d", got, want)
+	}
+	if got, want := cfg.Map, "e2e"; got != want {
+		t.Errorf("cfg.Map = %q, want %q", got, want)
 	}
 	if cfg.DropChance == nil || *cfg.DropChance != 1 {
 		t.Errorf("cfg.DropChance = %v, want 1", cfg.DropChance)
@@ -155,6 +162,11 @@ func TestParse_Errors(t *testing.T) {
 			name: "drop chance not a number",
 			env:  map[string]string{"APP_ENV": "development", "DROP_CHANCE": "always"},
 			want: ErrInvalidDropChance,
+		},
+		{
+			name: "unknown map",
+			env:  map[string]string{"MAP": "atlantis"},
+			want: ErrUnknownMap,
 		},
 		{
 			name: "trusted proxy not a CIDR",
