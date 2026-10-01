@@ -93,7 +93,11 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   (`frontend/src/net/interpolation.ts`), and their shots on the same delayed
   timeline, so both line up.
 - **Enemies are the server's** (`internal/game/enemies.go`): it spawns, steers
-  and fires them, and applies the clients' `Hit` reports. Enemy bullets are
+  and fires them, and applies the clients' `Hit` reports. Each sector of the
+  7 × 7 grid (`internal/sim/sectors.go`) holds a garrison that takes the
+  field when a ship comes near (`internal/game/sectors.go`, #99); destroying
+  it clears the sector, saved in `cleared_sectors`. The E2E map keeps a
+  garrison in D5 that never runs out, for the hunting specs. Enemy bullets are
   never streamed: `EnemyFired` carries a seed, and `internal/sim/patterns.go`,
   run in the browser as WebAssembly, expands it identically on every client. Hub tests use `WithSeed` and step the
   hub by hand, so enemy behaviour is deterministic.
