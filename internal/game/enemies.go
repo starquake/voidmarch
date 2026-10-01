@@ -31,7 +31,6 @@ const (
 	// leave, so every shot is telegraphed (docs/design.md, section 3).
 	fireWarning = 6
 
-	fighterShare  = 0.4
 	scoutWander   = 60
 	wanderEvery   = TickRate / 2
 	strafeFlip    = 1.0 / 80
@@ -56,8 +55,8 @@ const (
 	fighterFireEvery    = 2 * TickRate
 	fighterKeepDistance = 170
 
-	// aggroRange covers the whole spawn ring, so every enemy spawned for a
-	// player comes for them.
+	// aggroRange covers a straggler's whole spawn ring, so it comes for the
+	// player it was sent at; a garrison engages anyone in its sector instead.
 	aggroRange = nearRadius
 	// fireRange stays inside the Scout's bullet reach (110 px/s for 3.2 s,
 	// ENEMY_BULLET_STATS in frontend/src/sim/tuning.ts), so no shot falls short.
@@ -149,7 +148,7 @@ func (h *Hub) stepEnemies() {
 	}
 }
 
-// playersOutsideSafeZone are the ships enemies spawn around and target:
+// playersOutsideSafeZone are the ships enemies target and stragglers come at:
 // players and their companions alike, while they're up (#47).
 func (h *Hub) playersOutsideSafeZone() []point {
 	var out []point
@@ -171,14 +170,6 @@ func (h *Hub) playersOutsideSafeZone() []point {
 	}
 
 	return out
-}
-
-func (h *Hub) addEnemy(x, y float64) {
-	kind := pb.EnemyKind_ENEMY_KIND_SCOUT
-	if h.rng.Float64() < fighterShare {
-		kind = pb.EnemyKind_ENEMY_KIND_FIGHTER
-	}
-	h.addEnemyOf(kind, x, y)
 }
 
 // addEnemyOf adds an enemy of kind at (x, y).
