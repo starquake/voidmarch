@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 // squadronCap is the most ships in a squadron, companions included
@@ -26,6 +27,9 @@ type squadron struct {
 	members []string
 	// mode is the squadron's standing orders for every companion in it.
 	mode pb.CompanionMode
+	// mission is the sector it's sent to, while hasMission (#101).
+	mission    sim.Sector
+	hasMission bool
 }
 
 // nextSquadronName is the first free name, or "" when all are taken.
@@ -69,6 +73,9 @@ func (h *Hub) squadronsMessage() *pb.Squadrons {
 	}
 	for _, sq := range list {
 		info := &pb.SquadronInfo{Name: sq.name, Mode: sq.mode}
+		if sq.hasMission {
+			info.Mission = sq.mission.Name()
+		}
 		for _, id := range sq.members {
 			m := h.members[id]
 			if m == nil {
@@ -114,6 +121,7 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		}
 		h.leaveSquadron(id, m)
 		sq = &squadron{name: next, mode: pb.CompanionMode_COMPANION_MODE_ESCORT}
+		sq.mission, sq.hasMission = sim.MissionFor(h.cleared, shipAt(m))
 		h.squadrons[next] = sq
 	case m.squadron:
 		sq = h.squadrons[name]

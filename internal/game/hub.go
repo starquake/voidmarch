@@ -510,6 +510,8 @@ func (h *Hub) handleMessage(in inbound) {
 		h.squadronOrder(in.session.Player.ID, m, kind.SquadronOrder)
 	case *pb.ClientMessage_Collect:
 		h.collect(in.session.Player.ID, m, kind.Collect.GetId())
+	case *pb.ClientMessage_PickMission:
+		h.pickMission(m, kind.PickMission.GetSector())
 	case *pb.ClientMessage_Shot:
 		if kind.Shot.GetCompanion() != 0 {
 			return

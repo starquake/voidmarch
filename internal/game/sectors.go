@@ -224,16 +224,20 @@ func (h *Hub) clearIfDone(s sim.Sector) {
 	h.clearSector(s)
 }
 
-// clearSector marks s cleared, saves it and tells everyone.
+// clearSector marks s cleared, saves it, rewards it, moves the missions
+// sent there on, and tells everyone.
 func (h *Hub) clearSector(s sim.Sector) {
 	h.cleared[s] = true
 	name := s.Name()
 	if h.saveSector != nil {
 		h.saves <- func() { h.saveSector(name) }
 	}
+	gains := h.rewardClear()
+	h.moveMissionsOn(s)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_SectorCleared{
-		SectorCleared: &pb.SectorCleared{Sector: name, Tick: h.tick},
+		SectorCleared: &pb.SectorCleared{Sector: name, Tick: h.tick, Gains: gains},
 	}}, "")
+	h.broadcastSquadrons()
 }
 
 // spawnStragglers sends the odd Scout into a cleared sector someone is in,
