@@ -80,6 +80,13 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
+    # Microsoft's image has the browsers and their system packages, so nothing
+    # is installed per run (#115). The tag is the @playwright/test version in
+    # frontend/package.json. Chromium runs as uid 1001, the runner's, which
+    # owns the workspace; Firefox as root, to install its sound card.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: ${{ matrix.browser == 'firefox' && '--user root --ipc=host' || '--user 1001 --ipc=host' }}
     strategy:
       fail-fast: false
       matrix:
@@ -96,21 +103,21 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ matrix.browser }}-${{ hashFiles('frontend/package-lock.json') }}
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-        working-directory: frontend
-      # Headless Firefox needs an audio device before Web Audio starts; a null sink is enough.
+      # Headless Firefox needs an audio device before Web Audio starts; a null
+      # sink is enough, and the image has no sound server. As root, PulseAudio
+      # only runs in system mode, so it listens on a socket anyone may use.
       - name: Virtual sound card
         if: matrix.browser == 'firefox'
         run: |
-          sudo apt-get install -y --no-install-recommends pulseaudio
-          pulseaudio -D --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=silent
-          pactl set-default-sink silent
-      - run: npx playwright test --project=${{ matrix.browser }}
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends pulseaudio
+          pulseaudio --system --daemonize --exit-idle-time=-1 -n \
+            --load="module-native-protocol-unix socket=/tmp/pulse.sock auth-anonymous=1" \
+            --load="module-null-sink sink_name=silent"
+          for _ in $(seq 1 20); do [ -S /tmp/pulse.sock ] && break; sleep 0.5; done
+          PULSE_SERVER=unix:/tmp/pulse.sock pactl info
+      # Firefox refuses to run as root under another user's HOME.
+      - run: ${{ matrix.browser == 'firefox' && 'HOME=/root PULSE_SERVER=unix:/tmp/pulse.sock ' || '' }}npx playwright test --project=${{ matrix.browser }}
         working-directory: frontend
         # Firefox's own output in the job log, so a crash can be diagnosed (#18).
         env:
@@ -122,22 +129,64 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 7
 
+  # Builds and smoke-tests the image alongside the other jobs (#115), so it
+  # adds nothing to the run's time; publish pushes it from main afterwards.
   docker:
-    needs: [lint, build, e2e]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+      - name: Build date
+        id: builddate
+        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.builddate.outputs.date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test the image
+        env:
+          IMAGE: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+        run: |
+          docker run -d --name voidmarch -p 8080:8080 "$IMAGE"
+          for _ in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8080/healthz && exit 0
+            sleep 1
+          done
+          docker logs voidmarch
+          exit 1
+
+  # Pushes and signs the image from main, once every check has passed. The
+  # docker job above has filled the build cache, so this build is quick.
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [lint, build, e2e, docker]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
       id-token: write # keyless cosign signing
-    env:
-      PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
       - uses: actions/checkout@v7
       - uses: sigstore/cosign-installer@v4.1.2
-        if: env.PUSH == 'true'
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
-        if: env.PUSH == 'true'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -158,8 +207,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: ${{ env.PUSH == 'true' }}
-          load: ${{ env.PUSH != 'true' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -167,20 +215,7 @@ jobs:
             DATE=${{ steps.builddate.outputs.date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Smoke test the image
-        if: env.PUSH != 'true'
-        env:
-          IMAGE: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
-        run: |
-          docker run -d --name voidmarch -p 8080:8080 "$IMAGE"
-          for _ in $(seq 1 20); do
-            curl -sf http://127.0.0.1:8080/healthz && exit 0
-            sleep 1
-          done
-          docker logs voidmarch
-          exit 1
       - name: Sign the image
-        if: env.PUSH == 'true'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build.outputs.digest }}
