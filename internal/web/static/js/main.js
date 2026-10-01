@@ -319,6 +319,7 @@ var MISSION_COLOR = 16765562;
 var MISSION_CSS = "#ffd27a";
 var MISSION_ARROW_SIZE_PX = 24;
 var MISSION_ARROW_MARGIN_PX = 44;
+var MISSION_LABEL_OFFSET = 1.4;
 var MISSION_BANNER_MS = 6e3;
 var MISSION_BANNER_Y = 0.22;
 var MISSION_BANNER_ALPHA = 0.6;
@@ -326,6 +327,7 @@ var MISSION_BANNER_BORDER_PX = 1;
 var EVENT_COLOR = 16734794;
 var EVENT_CSS = "#ff5a4a";
 var MINIMAP_WIDTH_PX = 170;
+var MINIMAP_INSET_PX = 96;
 var FULL_MAP_HEIGHT_PX = 470;
 var MAP_MARGIN_PX = 10;
 var MAP_HOME_COLOR = 3108764;
@@ -1280,6 +1282,12 @@ function layoutForWidth(x, y, width) {
 function layoutForHeight(x, y, height) {
   return { x, y, scale: height / (2 * GRID_EXTENT.y) };
 }
+function minimapLayout(width, dpr) {
+  const miniWidth = MINIMAP_WIDTH_PX * dpr;
+  const inset = MINIMAP_INSET_PX * dpr;
+  const miniHeight = mapSize(layoutForWidth(0, 0, miniWidth)).height;
+  return layoutForWidth(width - inset - miniWidth / 2, inset + miniHeight / 2, miniWidth);
+}
 function mapSize(layout) {
   return { width: 2 * GRID_EXTENT.x * layout.scale, height: 2 * GRID_EXTENT.y * layout.scale };
 }
@@ -1391,11 +1399,9 @@ var MapView = class {
   /** Places both maps for a screen of width by height device pixels. */
   resize(width, height, dpr) {
     this.dpr = dpr;
-    const miniWidth = MINIMAP_WIDTH_PX * dpr;
-    const miniHeight = mapSize(layoutForWidth(0, 0, miniWidth)).height;
-    const margin = MAP_MARGIN_PX * dpr;
-    this.miniLayout = layoutForWidth(width - margin - miniWidth / 2, margin + miniHeight / 2, miniWidth);
-    this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, margin + miniHeight + margin / 2);
+    this.miniLayout = minimapLayout(width, dpr);
+    const miniBottom = this.miniLayout.y + mapSize(this.miniLayout).height / 2;
+    this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, miniBottom + MAP_MARGIN_PX * dpr / 2);
     const fullHeight = Math.min(FULL_MAP_HEIGHT_PX * dpr, height - (PANEL_PAD_TOP_PX + PANEL_PAD_BOTTOM_PX) * dpr);
     this.fullLayout = layoutForHeight(width / 2, height / 2 - (PANEL_PAD_BOTTOM_PX - PANEL_PAD_TOP_PX) * dpr / 2, fullHeight);
     this.title.setFontSize(FONT_PX * dpr);
@@ -4339,7 +4345,7 @@ var SandboxScene = class extends Phaser9.Scene {
     const left = side(Math.PI / 2);
     const right = side(-Math.PI / 2);
     g.fillStyle(color, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
-    label.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * 1.4, at2.y - Math.sin(at2.angle) * size * 1.4);
+    label.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * MISSION_LABEL_OFFSET, at2.y - Math.sin(at2.angle) * size * MISSION_LABEL_OFFSET);
   }
   createBackgrounds() {
     this.backgrounds = keys.background.map((key, i) => {

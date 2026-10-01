@@ -9,6 +9,7 @@ import {
   mapLegend,
   mapSize,
   mapTitle,
+  minimapLayout,
   missionsLine,
   sectorAtScreen,
   sectorFill,
@@ -21,6 +22,10 @@ import {
   MAP_HOME_COLOR,
   MAP_HOSTILE_COLORS,
   MAP_OTHER_MISSION_COLOR,
+  MINIMAP_WIDTH_PX,
+  MISSION_ARROW_MARGIN_PX,
+  MISSION_ARROW_SIZE_PX,
+  MISSION_LABEL_OFFSET,
   MISSION_COLOR,
 } from './tuning.ts';
 
@@ -44,6 +49,19 @@ test('a layout fits the whole grid to a width or a height', () => {
   assert.ok(Math.abs(mapSize(full).height - 470) < 1e-9);
   assert.ok(mapSize(full).width < 470, 'the grid is taller than wide');
   assert.equal(GRID_EXTENT.x, 5445);
+});
+
+test('the minimap sits inside the edge arrows\' track, clear of the arrows and their labels', () => {
+  for (const dpr of [1, 2]) {
+    const width = 1280 * dpr;
+    const layout = minimapLayout(width, dpr);
+    const size = mapSize(layout);
+    const halfLabel = 8;
+    const track = (MISSION_ARROW_MARGIN_PX + MISSION_ARROW_SIZE_PX * MISSION_LABEL_OFFSET + halfLabel) * dpr;
+    assert.ok(Math.abs(size.width - MINIMAP_WIDTH_PX * dpr) < 1e-9);
+    assert.ok(layout.x + size.width / 2 <= width - track, 'clear of the right edge\'s arrows');
+    assert.ok(layout.y - size.height / 2 >= track, 'clear of the top edge\'s arrows');
+  }
 });
 
 test('sectors are home blue, cleared green and hostile red, darker by ring', () => {

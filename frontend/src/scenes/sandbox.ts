@@ -42,6 +42,7 @@ import {
   EVENT_CSS,
   MISSION_ARROW_MARGIN_PX,
   MISSION_ARROW_SIZE_PX,
+  MISSION_LABEL_OFFSET,
   MISSION_BANNER_ALPHA,
   MISSION_BANNER_BORDER_PX,
   MISSION_BANNER_MS,
@@ -385,7 +386,7 @@ export class SandboxScene extends Phaser.Scene {
     label
       .setText(mission)
       .setFontSize(HUD_FONT_PX * dpr)
-      .setPosition(at.x - Math.cos(at.angle) * size * 1.4, at.y - Math.sin(at.angle) * size * 1.4);
+      .setPosition(at.x - Math.cos(at.angle) * size * MISSION_LABEL_OFFSET, at.y - Math.sin(at.angle) * size * MISSION_LABEL_OFFSET);
   }
 
   private createBackgrounds(): void {

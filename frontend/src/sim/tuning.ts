@@ -69,6 +69,8 @@ export const MISSION_COLOR = 0xffd27a;
 export const MISSION_CSS = '#ffd27a';
 export const MISSION_ARROW_SIZE_PX = 24;
 export const MISSION_ARROW_MARGIN_PX = 44;
+/** How far in from an edge arrow its sector label sits, in arrow lengths. */
+export const MISSION_LABEL_OFFSET = 1.4;
 /** A new mission's banner (#101): how long it shows, and how far down the screen it sits. */
 export const MISSION_BANNER_MS = 6000;
 export const MISSION_BANNER_Y = 0.22;
@@ -81,6 +83,8 @@ export const EVENT_CSS = '#ff5a4a';
 
 /** The maps (#100): the minimap's width and the full map's height, in CSS pixels. */
 export const MINIMAP_WIDTH_PX = 170;
+/** How far the minimap sits in from the top and right: inside the edge arrows' track and their labels (#100). */
+export const MINIMAP_INSET_PX = 96;
 export const FULL_MAP_HEIGHT_PX = 470;
 export const MAP_MARGIN_PX = 10;
 export const MAP_HOME_COLOR = 0x2f6f9c;

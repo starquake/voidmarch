@@ -8,6 +8,7 @@ import {
   mapLegend,
   mapSize,
   mapTitle,
+  minimapLayout,
   missionsLine,
   sectorAtScreen,
   type DrawnMap,
@@ -86,11 +87,9 @@ export class MapView {
   /** Places both maps for a screen of width by height device pixels. */
   resize(width: number, height: number, dpr: number): void {
     this.dpr = dpr;
-    const miniWidth = MINIMAP_WIDTH_PX * dpr;
-    const miniHeight = mapSize(layoutForWidth(0, 0, miniWidth)).height;
-    const margin = MAP_MARGIN_PX * dpr;
-    this.miniLayout = layoutForWidth(width - margin - miniWidth / 2, margin + miniHeight / 2, miniWidth);
-    this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, margin + miniHeight + margin / 2);
+    this.miniLayout = minimapLayout(width, dpr);
+    const miniBottom = this.miniLayout.y + mapSize(this.miniLayout).height / 2;
+    this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, miniBottom + (MAP_MARGIN_PX * dpr) / 2);
     const fullHeight = Math.min(FULL_MAP_HEIGHT_PX * dpr, height - (PANEL_PAD_TOP_PX + PANEL_PAD_BOTTOM_PX) * dpr);
     this.fullLayout = layoutForHeight(width / 2, height / 2 - ((PANEL_PAD_BOTTOM_PX - PANEL_PAD_TOP_PX) * dpr) / 2, fullHeight);
     this.title.setFontSize(FONT_PX * dpr);

@@ -5,6 +5,8 @@ import {
   MAP_HOME_COLOR,
   MAP_HOSTILE_COLORS,
   MAP_OTHER_MISSION_COLOR,
+  MINIMAP_INSET_PX,
+  MINIMAP_WIDTH_PX,
   MISSION_COLOR,
 } from './tuning.ts';
 
@@ -63,6 +65,15 @@ export function layoutForWidth(x: number, y: number, width: number): MapLayout {
 /** The layout that fits the whole grid height pixels tall, centered on (x, y). */
 export function layoutForHeight(x: number, y: number, height: number): MapLayout {
   return { x, y, scale: height / (2 * GRID_EXTENT.y) };
+}
+
+/** The minimap's layout on a screen width device pixels wide, in from its top right corner. */
+export function minimapLayout(width: number, dpr: number): MapLayout {
+  const miniWidth = MINIMAP_WIDTH_PX * dpr;
+  const inset = MINIMAP_INSET_PX * dpr;
+  const miniHeight = mapSize(layoutForWidth(0, 0, miniWidth)).height;
+
+  return layoutForWidth(width - inset - miniWidth / 2, inset + miniHeight / 2, miniWidth);
 }
 
 /** How big the grid is drawn at this layout, in screen pixels. */
