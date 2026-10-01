@@ -22,11 +22,10 @@ type bumper struct {
 	owner string
 }
 
-// gentle reports whether a and b are a player and one of their own
-// companions: they only push each other, never ram (#68).
+// gentle reports whether a and b are both friendly ships, players or
+// companions: they only push each other, never ram (#68, #112).
 func gentle(a, b *bumper) bool {
-	return (a.owner != "" && a.owner == b.key && b.ship == nil && b.enemy == nil) ||
-		(b.owner != "" && b.owner == a.key && a.ship == nil && a.enemy == nil)
+	return a.enemy == nil && b.enemy == nil
 }
 
 func (b *bumper) movable() bool { return b.ship != nil || b.enemy != nil }

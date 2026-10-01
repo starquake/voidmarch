@@ -58,7 +58,7 @@ func TestBump_ItsOwnerOnlyPushesACompanion(t *testing.T) {
 	}
 }
 
-func TestBump_AnotherPlayerRammingACompanionHurtsIt(t *testing.T) {
+func TestBump_AnotherPlayerRammingACompanionOnlyPushesIt(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
@@ -68,10 +68,13 @@ func TestBump_AnotherPlayerRammingACompanionHurtsIt(t *testing.T) {
 	b.Send(state(0, -180))
 	grant(t, a)
 	before, after := ramCompanion(t, a, b, tick)
-	if after.GetShield() >= before.GetShield() && after.GetDamage() <= before.GetDamage() {
+	if after.GetShield() < before.GetShield() || after.GetDamage() > before.GetDamage() {
 		t.Errorf(
-			"a/1 rammed by b: shield %v, damage %v; want less shield or more damage than %v, %v",
-			after.GetShield(), after.GetDamage(), before.GetShield(), before.GetDamage(),
+			"a/1 rammed by b: shield %v, damage %v; want them kept at %v, %v: friendly ships never hurt each other",
+			after.GetShield(),
+			after.GetDamage(),
+			before.GetShield(),
+			before.GetDamage(),
 		)
 	}
 }
