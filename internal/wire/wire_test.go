@@ -121,6 +121,20 @@ func messages() []proto.Message {
 				Gains:  []*pb.PickupGain{{PlayerId: "p1"}},
 			},
 		}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EventStarted{EventStarted: &pb.EventStarted{
+			Event: &pb.WorldEvent{
+				Kind:     pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK,
+				Sector:   "D3",
+				EndsTick: 12000,
+			},
+		}}},
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EventEnded{EventEnded: &pb.EventEnded{
+			Event: &pb.WorldEvent{
+				Kind:   pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS,
+				Sector: "C4",
+			},
+			Won: true,
+		}}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
 			DerelictRescued: &pb.DerelictRescued{
 				DerelictId: 1,

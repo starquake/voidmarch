@@ -8,6 +8,7 @@ import type {
   PickupTaken,
   SectorCleared,
   Snapshot,
+  WorldEvent,
   SquadronInfo,
   SquadronJoined,
   SquadronOrdered,
@@ -205,6 +206,8 @@ export class NetPlay {
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
   rescues = 0;
+  /** The world event running, as the server last said (#102). */
+  worldEvent: WorldEvent | undefined;
   /** Announcements waiting for the middle of the screen, oldest first (#101). */
   readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
@@ -339,6 +342,12 @@ export class NetPlay {
         },
         sectorCleared: (cleared) => {
           this.sectorCleared(cleared);
+        },
+        eventStarted: (started) => {
+          this.worldEvent = started.event;
+        },
+        eventEnded: () => {
+          this.worldEvent = undefined;
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
@@ -867,6 +876,7 @@ export class NetPlay {
     this.status = 'online';
     this.playerId = welcome.playerId;
     this.name = welcome.name;
+    this.worldEvent = welcome.worldEvent;
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);

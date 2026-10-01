@@ -50,3 +50,12 @@ func (q *Queries) ClearedSectors(ctx context.Context) ([]string, error) {
 	}
 	return items, nil
 }
+
+const unclearSector = `-- name: UnclearSector :exec
+DELETE FROM cleared_sectors WHERE name = ?
+`
+
+func (q *Queries) UnclearSector(ctx context.Context, name string) error {
+	_, err := q.db.ExecContext(ctx, unclearSector, name)
+	return err
+}
