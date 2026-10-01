@@ -68,6 +68,8 @@ func writeTunables(w writer) {
 	w("export const TICK_SECONDS = 1 / TICK_RATE;\n")
 	w("export const MAX_TICKS_PER_FRAME = %d;\n", sim.MaxTicksPerFrame)
 	w("export const WORLD_HALF_SIZE = %d;\n", sim.WorldHalfSize)
+	w("export const SECTOR_SIZE = %d;\n", sim.SectorSize)
+	w("export const GRID_SIZE = %d;\n", sim.GridSize)
 	w("export const WORLD_EDGE_BAND = %d;\n", sim.WorldEdgeBand)
 	w("export const SAFE_ZONE_RADIUS = %d;\n", sim.SafeZoneRadius)
 	w("export const SHIP_RADIUS = %d;\n", sim.ShipRadius)

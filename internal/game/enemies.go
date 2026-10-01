@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 // Spawning, in world pixels and ticks. The view is 640x360 art pixels, so
@@ -27,7 +28,7 @@ const (
 	// safeRadius keeps enemies away from the home planet (docs/design.md,
 	// section 8); they don't fire at players inside it either.
 	safeRadius = 300
-	worldHalf  = 2000
+	worldHalf  = sim.WorldHalfSize
 
 	// maxHitDamage caps a reported hit at the strongest weapon's damage.
 	maxHitDamage = 12
