@@ -39,6 +39,8 @@ import {
   SAFE_ZONE_RADIUS,
   MISSION_ARROW_MARGIN_PX,
   MISSION_ARROW_SIZE_PX,
+  MISSION_BANNER_ALPHA,
+  MISSION_BANNER_BORDER_PX,
   MISSION_BANNER_MS,
   MISSION_BANNER_Y,
   MISSION_COLOR,
@@ -177,6 +179,7 @@ export class SandboxScene extends Phaser.Scene {
   private missionArrow!: Phaser.GameObjects.Graphics;
   private missionLabel!: Phaser.GameObjects.Text;
   private missionBanner!: Phaser.GameObjects.Text;
+  private missionFrame!: Phaser.GameObjects.Graphics;
   private announcedMission: string | undefined;
   private missionBannerUntil = 0;
   private downPanel!: Phaser.GameObjects.Text;
@@ -325,10 +328,24 @@ export class SandboxScene extends Phaser.Scene {
     }
     const next = net.banners.shift();
     this.missionBanner.setVisible(next !== undefined);
+    this.missionFrame.setVisible(next !== undefined);
     if (next !== undefined) {
       this.missionBanner.setText(next);
+      this.drawMissionFrame();
       this.missionBannerUntil = time + MISSION_BANNER_MS;
     }
+  }
+
+  /** The banner's black, see-through box with a thin gold border, fitted around its text. */
+  private drawMissionFrame(): void {
+    const b = this.missionBanner.getBounds();
+    const line = MISSION_BANNER_BORDER_PX * this.dpr();
+    this.missionFrame
+      .clear()
+      .fillStyle(0x000000, MISSION_BANNER_ALPHA)
+      .fillRect(b.x, b.y, b.width, b.height)
+      .lineStyle(line, MISSION_COLOR, 1)
+      .strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
   }
 
   /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
@@ -344,14 +361,14 @@ export class SandboxScene extends Phaser.Scene {
     }
     const size = MISSION_ARROW_SIZE_PX * dpr;
     const tip = { x: at.x + Math.cos(at.angle) * size, y: at.y + Math.sin(at.angle) * size };
-    const side = (turn: number) => ({ x: at.x + Math.cos(at.angle + turn) * size * 0.6, y: at.y + Math.sin(at.angle + turn) * size * 0.6 });
+    const side = (turn: number) => ({ x: at.x + Math.cos(at.angle + turn) * size * 0.7, y: at.y + Math.sin(at.angle + turn) * size * 0.7 });
     const left = side(Math.PI / 2);
     const right = side(-Math.PI / 2);
     g.fillStyle(MISSION_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
     this.missionLabel
       .setText(mission)
       .setFontSize(HUD_FONT_PX * dpr)
-      .setPosition(at.x - Math.cos(at.angle) * size * 1.6, at.y - Math.sin(at.angle) * size * 1.6);
+      .setPosition(at.x - Math.cos(at.angle) * size * 1.4, at.y - Math.sin(at.angle) * size * 1.4);
   }
 
   private createBackgrounds(): void {
@@ -507,18 +524,18 @@ export class SandboxScene extends Phaser.Scene {
       .setShadow(1, 1, '#000000', 0)
       .setVisible(false);
     main.ignore(this.downPanel);
+    this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add
       .text(0, 0, '', {
         fontFamily: 'monospace',
         fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
         color: MISSION_CSS,
         align: 'center',
-        backgroundColor: '#05030acc',
       })
       .setOrigin(0.5, 0)
       .setShadow(1, 1, '#000000', 0)
       .setVisible(false);
-    main.ignore(this.missionBanner);
+    main.ignore([this.missionFrame, this.missionBanner]);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
     this.missionLabel = this.add
@@ -925,6 +942,7 @@ export class SandboxScene extends Phaser.Scene {
       .setFontSize(DOWN_PANEL_FONT_PX * dpr)
       .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
       .setPosition(width / 2, height * MISSION_BANNER_Y);
+    this.drawMissionFrame();
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
