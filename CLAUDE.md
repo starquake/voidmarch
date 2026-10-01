@@ -344,8 +344,11 @@ for looking, never for assuring behaviour.
 
 `main` is protected by the ruleset in `.github/rulesets/main.json`, which is
 the source of truth. Its required checks are the jobs of `ci.yml`: `lint`,
-`build`, `e2e (chromium)`, `e2e (firefox)` and `docker`. When you add, rename
-or remove a job, change the ruleset file in the same PR and apply it:
+`build`, `e2e (chromium)`, `e2e (firefox)` and `docker` (which builds and
+smoke-tests the image alongside the others). `publish`, which pushes and signs
+the image from `main` once they pass, is not required: on a pull request it is
+skipped. When you add, rename or remove a required job, change the ruleset
+file in the same PR and apply it:
 
 ```bash
 RID=$(gh api repos/starquake/voidmarch/rulesets --jq '.[] | select(.name=="main").id')
