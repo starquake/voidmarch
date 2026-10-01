@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test';
 
-import { expect, registerPlayer, test } from './fixtures.ts';
+import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { flyOut } from './hunt.ts';
 
 import type { DebugState } from '../src/debug.ts';
@@ -22,9 +22,7 @@ const VIEWPORT = { width: 480, height: 270 };
 async function otherPlayer(browser: Browser, baseURL: string, name: string): Promise<Page> {
   const context = await browser.newContext({ baseURL, viewport: VIEWPORT });
   const token = await registerPlayer(context.request, name);
-  await context.addInitScript((t) => {
-    localStorage.setItem('voidmarch.token', t);
-  }, token);
+  await signIn(context, token);
   const page = await context.newPage();
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');

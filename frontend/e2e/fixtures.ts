@@ -1,4 +1,4 @@
-import { test as base, type APIRequestContext } from '@playwright/test';
+import { test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 
 export { expect } from '@playwright/test';
 
@@ -11,16 +11,38 @@ export async function registerPlayer(request: APIRequestContext, name: string): 
 }
 
 /**
- * Every page starts as a registered player, so the game skips the name screen;
- * the name screen's own spec opts out with a fresh page.
+ * The controls a spec's pages start with: ship-relative, since the helpers
+ * steer by pointing and holding W, or the game's own default (#104).
  */
-export const test = base.extend<{ token: string }>({
+export type Controls = 'ship' | 'game';
+
+/**
+ * Signs every page of target in as the player with token. With `ship`
+ * controls it also saves ship-relative, unless a page already saved a mode.
+ */
+export async function signIn(target: Page | BrowserContext, token: string, controls: Controls = 'ship'): Promise<void> {
+  await target.addInitScript(
+    ([t, c]) => {
+      localStorage.setItem('voidmarch.token', t);
+      if (c === 'ship' && localStorage.getItem('voidmarch.controlMode') === null) {
+        localStorage.setItem('voidmarch.controlMode', 'ship');
+      }
+    },
+    [token, controls] as const,
+  );
+}
+
+/**
+ * Every page starts as a registered player, so the game skips the name screen;
+ * the name screen's own spec opts out with a fresh page. A spec testing the
+ * game's own control default sets `controls` to `game`.
+ */
+export const test = base.extend<{ token: string; controls: Controls }>({
+  controls: ['ship', { option: true }],
   token: [
-    async ({ page, request }, use) => {
+    async ({ page, request, controls }, use) => {
       const token = await registerPlayer(request, 'Tester');
-      await page.addInitScript((t) => {
-        localStorage.setItem('voidmarch.token', t);
-      }, token);
+      await signIn(page, token, controls);
       await use(token);
     },
     { auto: true },

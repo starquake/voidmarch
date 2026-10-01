@@ -32,15 +32,14 @@ make server
 
 | Input | Action |
 |---|---|
-| W / S | Thrust toward / away from the mouse |
-| A / D | Strafe left / right |
+| W / A / S / D | Move up / left / down / right on the screen |
 | Mouse | Aim |
 | Left button (hold) | Fire |
 | G | Draw a companion from the hangar (at the home planet) |
 | L | Loadout screen: fit your parts (at the home planet); Esc closes it |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
-| C | Switch to screen-relative movement (W is up the screen) and back |
+| C | Switch to ship-relative movement (W flies toward the mouse) and back |
 | M | Sound on/off |
 | N | Music on/off |
 
