@@ -8,6 +8,7 @@ import (
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/sim"
+	"github.com/starquake/voidmarch/internal/world"
 )
 
 // derelictTicks is how long a derelict waits to be rescued, in hub ticks.
@@ -19,11 +20,13 @@ type derelict struct {
 	x, y, angle float64
 	rescue      float64
 	goneTick    uint32
+	// spot is the map spot it waits at, from 1; 0 for one a Frigate released.
+	spot int
 }
 
 // releaseDerelict puts a derelict at (x, y), unless the fleet, counting the
 // derelicts already waiting, is full: none is released that couldn't dock.
-func (h *Hub) releaseDerelict(x, y float64) {
+func (h *Hub) releaseDerelict(x, y float64, spot int) {
 	if h.fleet()+len(h.derelicts) >= sim.MaxFleet {
 		return
 	}
@@ -33,12 +36,40 @@ func (h *Hub) releaseDerelict(x, y float64) {
 		y:        y,
 		angle:    h.rng.Float64() * fullTurnFloat,
 		goneTick: h.tick + derelictTicks,
+		spot:     spot,
 	}
+}
+
+// fillDerelictSpots puts a derelict at every map spot without one.
+func (h *Hub) fillDerelictSpots() {
+	waiting := make(map[int]bool, len(h.derelicts))
+	for _, d := range h.derelicts {
+		waiting[d.spot] = true
+	}
+	for i, p := range h.derelictSpots {
+		if !waiting[i+1] {
+			h.releaseDerelict(p.x, p.y, i+1)
+		}
+	}
+}
+
+// derelictSpots are m's derelict spots; none without a map.
+func derelictSpots(m *world.Map) []point {
+	if m == nil {
+		return nil
+	}
+	out := make([]point, 0, len(m.Derelicts))
+	for _, s := range m.Derelicts {
+		out = append(out, point{s.X, s.Y})
+	}
+
+	return out
 }
 
 // stepDerelicts fills or drains each derelict's rescue with the nearest ship
 // that is up, docks the rescued and lets the expired go.
 func (h *Hub) stepDerelicts() {
+	h.fillDerelictSpots()
 	if len(h.derelicts) == 0 {
 		return
 	}

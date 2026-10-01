@@ -32,6 +32,15 @@ type Map struct {
 	Name string `json:"name"`
 	// Bosses are where encounter bosses sit, one per spot.
 	Bosses []Boss `json:"bosses"`
+	// Derelicts are where a derelict ship always waits to be rescued: a new
+	// one comes as soon as the last is rescued or gone (#52).
+	Derelicts []Spot `json:"derelicts,omitempty"`
+}
+
+// Spot is a place on the map.
+type Spot struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 // Boss is an encounter boss's spot.

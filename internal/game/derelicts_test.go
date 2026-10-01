@@ -7,6 +7,7 @@ import (
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/sim"
+	"github.com/starquake/voidmarch/internal/world"
 )
 
 // rescueTicks is how many hub ticks a rescue takes, with one to spare.
@@ -131,5 +132,25 @@ func TestDerelicts_NoneWhileTheFleetIsFull(t *testing.T) {
 	a, _ := join(t, hub, "a")
 	if snap, _ := latest(t, a, tick, 1, 0, 0); len(snap.GetDerelicts()) != 0 {
 		t.Errorf("%d derelicts with a full fleet, want 0", len(snap.GetDerelicts()))
+	}
+}
+
+func TestDerelicts_AMapSpotAlwaysHasOneWaiting(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", Derelicts: []world.Spot{{X: 0, Y: -600}}}
+	hub, tick := testHub(t, WithMap(m), WithPoolStart(3))
+	a, _ := join(t, hub, "a")
+	first := must(latest(t, a, tick, 1, 0, 0)).GetDerelicts()
+	if len(first) != 1 || first[0].GetX() != 0 || first[0].GetY() != -600 {
+		t.Fatalf("derelicts at the start = %+v, want one at the map's spot", first)
+	}
+
+	var again []*pb.DerelictState
+	for range rescueTicks + 1 {
+		again = must(latest(t, a, tick, 1, 60, -600)).GetDerelicts()
+	}
+	if len(again) != 1 || again[0].GetDerelictId() == first[0].GetDerelictId() {
+		t.Errorf("derelicts after the rescue = %+v, want a new one at the spot", again)
 	}
 }

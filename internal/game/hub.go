@@ -162,6 +162,7 @@ type Hub struct {
 	// derelicts wait to be rescued into the hangar (#52).
 	derelicts     map[uint32]*derelict
 	nextDerelict  uint32
+	derelictSpots []point
 	dropChance    float64
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
@@ -249,6 +250,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 
 		pickups:       make(map[uint32]*pickup),
 		derelicts:     make(map[uint32]*derelict),
+		derelictSpots: derelictSpots(o.worldMap),
 		dropChance:    o.dropChance,
 		dropChanceSet: o.dropChanceSet,
 		saveUnlock:    o.saveUnlock,
