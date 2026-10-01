@@ -20,13 +20,15 @@ async function flyInto(page: Page, east: boolean): Promise<void> {
 
 // The e2e map gives E4 and C4 a garrison of 2, one sector per browser: a
 // cleared sector stays cleared on the shared server.
-test('destroying a sector\'s garrison clears it', async ({ page }, testInfo) => {
+test('destroying a sector\'s garrison clears it, and its clear gives this player a part', async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   const east = testInfo.project.name !== 'firefox';
   const sector = east ? 'E4' : 'C4';
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   expect((await state(page)).sector).toBe('Sector D4 · home');
+  // A squadron starts with a mission in ring 1 (#101).
+  await expect.poll(async () => (await state(page)).mission).toMatch(/^[C-E][3-5]$/);
   await fitRockets(page);
   await flyInto(page, east);
   expect((await state(page)).sector).toBe(`Sector ${sector} · hostile`);
@@ -42,4 +44,7 @@ test('destroying a sector\'s garrison clears it', async ({ page }, testInfo) => 
     }
   }
   expect((await state(page)).sector).toBe(cleared);
+  await expect
+    .poll(async () => (await state(page)).notice, { message: 'the clear names the part it gave' })
+    .toMatch(new RegExp(`^Sector ${sector} cleared · `));
 });
