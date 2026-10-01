@@ -105,3 +105,42 @@ func TestGarrisonSize(t *testing.T) {
 		t.Error("the outer rings have no more Fighters than ring 1")
 	}
 }
+
+func TestMissionFor(t *testing.T) {
+	t.Parallel()
+
+	sector := func(name string) Sector {
+		s, _ := ParseSector(name)
+
+		return s
+	}
+	tests := []struct {
+		name    string
+		cleared []string
+		near    Vec
+		want    string
+	}{
+		{"ring 1 first, nearest the squadron", nil, Vec{X: 1600, Y: 0}, "E4"},
+		{"another squadron's spot", nil, Vec{X: 0, Y: -1700}, "D3"},
+		{"a far squadron still gets ring 1", nil, Vec{X: 4800, Y: 4800}, "E5"},
+		{"cleared sectors are skipped", []string{"E4"}, Vec{X: 1600, Y: 0}, "E3"},
+	}
+	for _, tc := range tests {
+		cleared := map[Sector]bool{}
+		for _, n := range tc.cleared {
+			cleared[sector(n)] = true
+		}
+		got, ok := MissionFor(cleared, tc.near)
+		if !ok || got.Name() != tc.want {
+			t.Errorf("%s: MissionFor() = %s, %t; want %s", tc.name, got.Name(), ok, tc.want)
+		}
+	}
+
+	all := map[Sector]bool{}
+	for _, s := range Sectors() {
+		all[s] = true
+	}
+	if s, ok := MissionFor(all, Vec{}); ok {
+		t.Errorf("MissionFor(everything cleared) = %s, want none", s.Name())
+	}
+}
