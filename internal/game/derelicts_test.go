@@ -2,7 +2,11 @@ package game_test
 
 import (
 	"cmp"
+	"context"
+	"log/slog"
+	"slices"
 	"testing"
+	"time"
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -152,5 +156,38 @@ func TestDerelicts_AMapSpotAlwaysHasOneWaiting(t *testing.T) {
 	}
 	if len(again) != 1 || again[0].GetDerelictId() == first[0].GetDerelictId() {
 		t.Errorf("derelicts after the rescue = %+v, want a new one at the spot", again)
+	}
+}
+
+func TestDerelicts_ARescueSavesTheBiggerFleet(t *testing.T) {
+	t.Parallel()
+
+	saves := &fleetSaves{}
+	ctx, cancel := context.WithCancel(t.Context())
+	ticks := make(chan time.Time)
+	hub := NewHub(
+		slog.New(slog.DiscardHandler),
+		WithSeed(1),
+		WithPoolStart(3),
+		WithSaveFleet(saves.save),
+		WithDerelictAt(0, -600),
+	)
+	done := make(chan struct{})
+	go func() {
+		hub.Run(ctx, ticks)
+		close(done)
+	}()
+
+	a, _ := join(t, hub, "a")
+	for range rescueTicks + 1 {
+		a.Send(state(60, -600))
+		ticks <- time.Time{}
+		drain(a)
+	}
+	cancel()
+	<-done
+
+	if got, want := saves.all(), []int{3, 4}; !slices.Equal(got, want) {
+		t.Errorf("saved fleets = %v, want %v", got, want)
 	}
 }
