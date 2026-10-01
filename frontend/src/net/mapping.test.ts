@@ -72,6 +72,7 @@ test('unknown or missing parts fall back to the defaults', () => {
 test('enemy kinds map from the wire', () => {
   assert.equal(fromEnemyKind(EnemyKind.SCOUT), 'scout');
   assert.equal(fromEnemyKind(EnemyKind.FIGHTER), 'fighter');
+  assert.equal(fromEnemyKind(EnemyKind.FRIGATE), 'frigate');
   assert.equal(fromEnemyKind(EnemyKind.UNSPECIFIED), 'scout');
 });
 

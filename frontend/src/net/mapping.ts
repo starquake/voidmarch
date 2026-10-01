@@ -53,7 +53,16 @@ const SHIELD_IDS = reverse(SHIELDS);
 export const toWeapon = (id: WeaponId): Weapon => WEAPONS[id];
 
 /** The sim's enemy kind for a wire kind; anything unknown is drawn as a Scout. */
-export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => (kind === WireEnemyKind.FIGHTER ? 'fighter' : 'scout');
+export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => {
+  switch (kind) {
+    case WireEnemyKind.FIGHTER:
+      return 'fighter';
+    case WireEnemyKind.FRIGATE:
+      return 'frigate';
+    default:
+      return 'scout';
+  }
+};
 
 /** The sim's weapon for a wire weapon; unknown values fall back to the default. */
 export const fromWeapon = (w: Weapon): WeaponId => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;

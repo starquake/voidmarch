@@ -905,6 +905,32 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
    * @generated from field: float vy = 7;
    */
   vy: number;
+
+  /**
+   * A boss's health bar (#89); left at zero for the rest.
+   *
+   * @generated from field: float hp = 8;
+   */
+  hp: number;
+
+  /**
+   * @generated from field: float max_hp = 9;
+   */
+  maxHp: number;
+
+  /**
+   * The shield's charge left, as damage it can still take.
+   *
+   * @generated from field: float shield = 10;
+   */
+  shield: number;
+
+  /**
+   * The players its health was scaled for, a companion counting half.
+   *
+   * @generated from field: float scaled_for = 11;
+   */
+  scaledFor: number;
 };
 
 /**
@@ -1560,6 +1586,11 @@ export enum EnemyKind {
    * @generated from enum value: ENEMY_KIND_FIGHTER = 2;
    */
   FIGHTER = 2,
+
+  /**
+   * @generated from enum value: ENEMY_KIND_FRIGATE = 3;
+   */
+  FRIGATE = 3,
 }
 
 /**

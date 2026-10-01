@@ -371,11 +371,16 @@ func downed(s *pb.ShipState) bool {
 }
 
 func simEnemyKind(kind pb.EnemyKind) sim.EnemyKind {
-	if kind == pb.EnemyKind_ENEMY_KIND_FIGHTER {
+	switch kind {
+	case pb.EnemyKind_ENEMY_KIND_FIGHTER:
 		return sim.EnemyFighter
+	case pb.EnemyKind_ENEMY_KIND_FRIGATE:
+		return sim.EnemyFrigate
+	case pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, pb.EnemyKind_ENEMY_KIND_SCOUT:
+		fallthrough
+	default:
+		return sim.EnemyScout
 	}
-
-	return sim.EnemyScout
 }
 
 func simMode(mode pb.CompanionMode) sim.Mode {
