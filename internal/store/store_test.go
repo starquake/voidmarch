@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 2; got != want {
+	if got, want := version, 3; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -67,6 +67,33 @@ func TestOpen_ReopeningKeepsRowsAndMigratesNothing(t *testing.T) {
 	}
 	if !ok || ships != 4 {
 		t.Errorf("Hangar() = %d, %t, want 4, true", ships, ok)
+	}
+}
+
+func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "voidmarch.db")
+	db, err := Open(t.Context(), path)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	if err = ClearSector(t.Context(), db, "G7", time.Unix(1, 0)); err != nil {
+		t.Fatalf("ClearSector() error = %v", err)
+	}
+	if _, err = db.ExecContext(t.Context(), "PRAGMA user_version = 2"); err != nil {
+		t.Fatalf("setting user_version: %v", err)
+	}
+	_ = db.Close()
+
+	db, err = Open(t.Context(), path)
+	if err != nil {
+		t.Fatalf("Open() again error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	names, err := ClearedSectors(t.Context(), db)
+	if err != nil || len(names) != 0 {
+		t.Errorf("ClearedSectors() after the hex migration = %v, %v, want none", names, err)
 	}
 }
 
