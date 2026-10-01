@@ -237,8 +237,11 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
   - **On a development server**, **K** starts an attack at once on the cleared sector you're in, for trying events and for E2E.
 - **Missions** (#101): each squadron has one, shown to everyone.
   - **The default:** the uncleared sector in the ring nearest home, nearest the squadron, so ring 1 comes first.
-  - **Picking another:** a squadmate can send the squadron to another uncleared sector (the full map's job, #100). When the sector clears, the squadron gets its next default.
+  - **Picking another:** a squadmate clicks another uncleared sector on the full map to send the squadron there (#100). When the sector clears, the squadron gets its next default.
   - **On screen:** the HUD says "Mission: D5", and a gold arrow at the screen's edge points to it while you're elsewhere.
+- **The maps** (#100), drawn from what the client already knows:
+  - **The minimap** sits small in the top right, always: every sector, home blue, cleared green and hostile red darker by ring; a coral triangle for each Frigate still up; your squadron's mission outlined in gold and the others' in violet; a white dot for you and dots for your squadmates. A line under it names each squadron's mission. A sector under attack flashes on both maps.
+  - **The full map** toggles on Tab, with Esc closing it too. It adds the sector names, a title with ring 1's progress, and a legend. While it's open the world runs on, the ship holds still, and the HUD's text lines hide. A click on an uncleared sector sends your squadron there.
 - Camera follows the player, parallax backgrounds from the Environment pack.
 - **Home planet** at the center of D4 (Environment planet). Spawn point, loadout changes, safe zone.
 - **The loadout screen** (#78): **L** opens it inside the safe zone, and L or Esc closes it. It shows three columns, weapon, engine and shield. Each part has its pickup icon, its name in its tier's color and a line on what it's good at. Parts not found yet are dimmed. A click, or 1/2/3 for a slot and the arrow keys, fits an owned part at its tier. The hangar line has a Summon button, and G still works. While it's open the world runs on and the ship holds still. It closes if the ship leaves home or goes down. The server saves a loadout fitted at home from owned parts, and a player's next visit starts with it. On a development server, and offline, the 1/2/3 keys still cycle every part without the screen.
