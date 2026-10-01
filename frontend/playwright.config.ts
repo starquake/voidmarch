@@ -34,8 +34,7 @@ export default defineConfig({
     { name: 'firefox', use: {
       ...devices['Desktop Firefox'],
       viewport: { width: 640, height: 360 },
-      // Audio without a sound device: CI's container has none, and the music spec needs it to play (#115).
-      launchOptions: { firefoxUserPrefs: { 'media.volume_scale': '0.0', 'media.cubeb.force_null_context': true } },
+      launchOptions: { firefoxUserPrefs: { 'media.volume_scale': '0.0' } },
     } },
   ],
   webServer: {
