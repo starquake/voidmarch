@@ -323,6 +323,8 @@ var MISSION_BANNER_MS = 6e3;
 var MISSION_BANNER_Y = 0.22;
 var MISSION_BANNER_ALPHA = 0.6;
 var MISSION_BANNER_BORDER_PX = 1;
+var EVENT_COLOR = 16734794;
+var EVENT_CSS = "#ff5a4a";
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -674,6 +676,8 @@ var CompanionModeSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 4
 var CompanionMode = /* @__PURE__ */ tsEnum(CompanionModeSchema);
 var CompanionOneShotSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 5);
 var CompanionOneShot = /* @__PURE__ */ tsEnum(CompanionOneShotSchema);
+var WorldEventKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 6);
+var WorldEventKind = /* @__PURE__ */ tsEnum(WorldEventKindSchema);
 
 // src/net/codec.ts
 function wireFormatFrom(search) {
@@ -2798,6 +2802,36 @@ function rescueNotice(name, hangar) {
   return `${name} rescued a ship \xB7 hangar ${String(hangar)}`;
 }
 
+// src/net/events.ts
+function timeLeft(endsTick, tick, tickRate) {
+  const seconds = Math.max(0, Math.ceil((endsTick - tick) / tickRate));
+  return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, "0")}`;
+}
+function eventLine(event, tick, tickRate) {
+  if (event === void 0) {
+    return "";
+  }
+  const left = timeLeft(event.endsTick, tick, tickRate);
+  return event.kind === WorldEventKind.ATTACK ? `${event.sector} under attack \xB7 ${left}` : `Distress call in ${event.sector} \xB7 ${left}`;
+}
+function eventStartBanner(event) {
+  return event.kind === WorldEventKind.ATTACK ? [
+    `Sector ${event.sector} is under attack!`,
+    "Destroy the Frigate and its fleet before time runs out, or lose the sector.",
+    "Follow the red arrow at the edge of the screen."
+  ] : [
+    `Distress call from sector ${event.sector}`,
+    "Hover beside the derelict ship to rescue it before it drifts off.",
+    "Follow the red arrow at the edge of the screen."
+  ];
+}
+function eventEndBanner(event, won) {
+  if (event.kind === WorldEventKind.ATTACK) {
+    return won ? [`Sector ${event.sector} held!`, "A ship joins the hangar."] : [`Sector ${event.sector} has fallen`];
+  }
+  return won ? [`Derelict rescued in sector ${event.sector}`] : [`The derelict in sector ${event.sector} drifted off`];
+}
+
 // src/scenes/netplay.ts
 var NOTICE_MS = 4e3;
 var now = () => performance.now();
@@ -2950,9 +2984,20 @@ var NetPlay = class {
         },
         eventStarted: (started) => {
           this.worldEvent = started.event;
+          if (started.event !== void 0) {
+            this.banners.push(eventStartBanner(started.event));
+          }
         },
-        eventEnded: () => {
+        eventEnded: (ended) => {
           this.worldEvent = void 0;
+          const event = ended.event;
+          if (event === void 0) {
+            return;
+          }
+          if (event.kind === WorldEventKind.ATTACK && !ended.won) {
+            this.clearedSectors.delete(event.sector);
+          }
+          this.banners.push(eventEndBanner(event, ended.won));
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : this.remotes.get(rescued.playerId)?.name ?? "a squadmate";
@@ -3002,6 +3047,11 @@ var NetPlay = class {
   /** The player's squadron as the server last listed it. */
   get squadronInfo() {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+  /** The HUD's line for the world event running, counting down (#102). */
+  eventLine(nowMs) {
+    const tick = this.clock.tickAt(nowMs);
+    return tick === void 0 ? "" : eventLine(this.worldEvent, tick, this.tickRate);
   }
   /** The player's squadron's mission (#101), undefined without one. */
   get mission() {
@@ -3746,6 +3796,7 @@ var SandboxScene = class extends Phaser8.Scene {
   bossBar;
   missionArrow;
   missionLabel;
+  eventLabel;
   missionBanner;
   missionFrame;
   announcedMission;
@@ -3836,6 +3887,7 @@ var SandboxScene = class extends Phaser8.Scene {
       boss: void 0,
       sector: "",
       mission: void 0,
+      worldEvent: void 0,
       missionBanner: void 0,
       derelicts: [],
       rescues: 0,
@@ -3904,14 +3956,21 @@ var SandboxScene = class extends Phaser8.Scene {
     const line = MISSION_BANNER_BORDER_PX * this.dpr();
     this.missionFrame.clear().fillStyle(0, MISSION_BANNER_ALPHA).fillRect(b.x, b.y, b.width, b.height).lineStyle(line, MISSION_COLOR, 1).strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
   }
-  /** The arrow at the screen's edge toward the squadron's mission while it's elsewhere (#101). */
+  /**
+   * The arrows at the screen's edge: gold toward the squadron's mission (#101),
+   * red toward a world event (#102), each while the ship is elsewhere.
+   */
   drawMissionArrow() {
     const g = this.missionArrow.clear();
-    const mission = this.net?.mission;
+    this.drawArrow(g, this.missionLabel, this.net?.mission, MISSION_COLOR);
+    this.drawArrow(g, this.eventLabel, this.net?.worldEvent?.sector, EVENT_COLOR);
+  }
+  drawArrow(g, label, sector, color) {
+    const mission = sector;
     const { width, height } = this.scale;
     const dpr = this.dpr();
     const at2 = mission === void 0 ? void 0 : missionArrow(this.sim.ship, mission, width, height, MISSION_ARROW_MARGIN_PX * dpr);
-    this.missionLabel.setVisible(at2 !== void 0);
+    label.setVisible(at2 !== void 0);
     if (at2 === void 0 || mission === void 0) {
       return;
     }
@@ -3920,8 +3979,8 @@ var SandboxScene = class extends Phaser8.Scene {
     const side = (turn) => ({ x: at2.x + Math.cos(at2.angle + turn) * size * 0.7, y: at2.y + Math.sin(at2.angle + turn) * size * 0.7 });
     const left = side(Math.PI / 2);
     const right = side(-Math.PI / 2);
-    g.fillStyle(MISSION_COLOR, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
-    this.missionLabel.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * 1.4, at2.y - Math.sin(at2.angle) * size * 1.4);
+    g.fillStyle(color, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
+    label.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * 1.4, at2.y - Math.sin(at2.angle) * size * 1.4);
   }
   createBackgrounds() {
     this.backgrounds = keys.background.map((key, i) => {
@@ -4067,7 +4126,8 @@ var SandboxScene = class extends Phaser8.Scene {
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
     this.missionLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
-    main.ignore([this.missionArrow, this.missionLabel]);
+    this.eventLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: EVENT_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+    main.ignore([this.missionArrow, this.missionLabel, this.eventLabel]);
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
     this.hudCamera.ignore(this.world);
   }
@@ -4598,6 +4658,7 @@ ${modeName(info)}`,
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0),
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
+      this.net?.eventLine(performance.now()) ?? "",
       this.netStatus(),
       this.squadronStatus()
     ]);
@@ -4724,6 +4785,7 @@ ${modeName(info)}`,
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
+    this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
     this.debug.derelicts = this.net?.derelictList ?? [];

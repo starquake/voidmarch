@@ -72,6 +72,8 @@ export interface DebugState {
   /** The derelicts waiting to be rescued, and how many this player rescued (#52). */
   derelicts: DerelictDebug[];
   rescues: number;
+  /** The world event running, as the HUD's line says it (#102). */
+  worldEvent: string | undefined;
   /** The player's squadron's mission (#101), and its banner while it shows. */
   mission: string | undefined;
   missionBanner: string | undefined;

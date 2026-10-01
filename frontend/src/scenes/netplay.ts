@@ -15,7 +15,7 @@ import type {
   Squadrons,
   Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
-import { CompanionMode, CompanionOneShot } from '../gen/voidmarch/v1/messages_pb.js';
+import { CompanionMode, CompanionOneShot, WorldEventKind } from '../gen/voidmarch/v1/messages_pb.js';
 import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
@@ -61,6 +61,7 @@ import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
 import { missionCompleteBanner } from '../sim/sectors.ts';
+import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
@@ -345,9 +346,20 @@ export class NetPlay {
         },
         eventStarted: (started) => {
           this.worldEvent = started.event;
+          if (started.event !== undefined) {
+            this.banners.push(eventStartBanner(started.event));
+          }
         },
-        eventEnded: () => {
+        eventEnded: (ended) => {
           this.worldEvent = undefined;
+          const event = ended.event;
+          if (event === undefined) {
+            return;
+          }
+          if (event.kind === WorldEventKind.ATTACK && !ended.won) {
+            this.clearedSectors.delete(event.sector);
+          }
+          this.banners.push(eventEndBanner(event, ended.won));
         },
         derelictRescued: (rescued) => {
           const name = rescued.playerId === this.playerId ? this.name : (this.remotes.get(rescued.playerId)?.name ?? 'a squadmate');
@@ -404,6 +416,13 @@ export class NetPlay {
   /** The player's squadron as the server last listed it. */
   get squadronInfo(): SquadronInfo | undefined {
     return this.squadrons?.squadrons.find((s) => s.name === this.squadron);
+  }
+
+  /** The HUD's line for the world event running, counting down (#102). */
+  eventLine(nowMs: number): string {
+    const tick = this.clock.tickAt(nowMs);
+
+    return tick === undefined ? '' : eventLine(this.worldEvent, tick, this.tickRate);
   }
 
   /** The player's squadron's mission (#101), undefined without one. */

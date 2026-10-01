@@ -75,3 +75,6 @@ export const MISSION_BANNER_Y = 0.22;
 /** The banner's box: black at this opacity, with a gold border this thick in CSS pixels. */
 export const MISSION_BANNER_ALPHA = 0.6;
 export const MISSION_BANNER_BORDER_PX = 1;
+/** A world event's arrow and label (#102), in the enemy coral. */
+export const EVENT_COLOR = 0xff5a4a;
+export const EVENT_CSS = '#ff5a4a';
