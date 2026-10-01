@@ -3,8 +3,10 @@ package store_test
 import (
 	"errors"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/starquake/voidmarch/internal/store"
 )
@@ -22,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 1; got != want {
+	if got, want := version, 2; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -32,7 +34,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := mode, "wal"; got != want {
 		t.Errorf("journal_mode = %q, want %q", got, want)
 	}
-	for _, table := range []string{"players", "unlocks", "hangar"} {
+	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)
 		if err = row.Scan(&n); err != nil {
@@ -134,5 +136,30 @@ func TestHangar(t *testing.T) {
 		if err != nil || !ok || got != ships {
 			t.Errorf("Hangar() = %d, %t, %v, want %d, true, nil", got, ok, err, ships)
 		}
+	}
+}
+
+func TestClearedSectors(t *testing.T) {
+	t.Parallel()
+
+	db, err := Open(t.Context(), filepath.Join(t.TempDir(), "voidmarch.db"))
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	names, err := ClearedSectors(t.Context(), db)
+	if err != nil || len(names) != 0 {
+		t.Errorf("ClearedSectors() on a fresh file = %v, %v, want none", names, err)
+	}
+	at := time.Unix(1_790_000_000, 0)
+	for _, name := range []string{"E3", "C3", "E3"} {
+		if err = ClearSector(t.Context(), db, name, at); err != nil {
+			t.Fatalf("ClearSector(%s) error = %v", name, err)
+		}
+	}
+	names, err = ClearedSectors(t.Context(), db)
+	if err != nil || !slices.Equal(names, []string{"C3", "E3"}) {
+		t.Errorf("ClearedSectors() = %v, %v, want [C3 E3]", names, err)
 	}
 }

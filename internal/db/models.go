@@ -8,6 +8,11 @@ import (
 	"database/sql"
 )
 
+type ClearedSector struct {
+	Name      string
+	ClearedAt int64
+}
+
 type Hangar struct {
 	ID    int64
 	Ships int64

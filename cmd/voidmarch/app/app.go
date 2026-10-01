@@ -118,12 +118,20 @@ func newHub(
 	if err != nil {
 		return nil, fmt.Errorf("error loading map: %w", err)
 	}
+	cleared, err := store.ClearedSectors(ctx, db)
+	if err != nil {
+		logger.ErrorContext(ctx, "error reading cleared sectors", slog.Any("err", err))
+
+		return nil, fmt.Errorf("error starting the hub: %w", err)
+	}
 	hubOptions := []game.HubOption{
 		game.WithMap(m),
 		game.WithPoolStart(poolStart),
 		game.WithSaveFleet(fleetSaver(ctx, logger, db)),
 		game.WithSaveUnlock(unlockSaver(ctx, logger, playerStore)),
 		game.WithSaveLoadout(loadoutSaver(ctx, logger, playerStore)),
+		game.WithClearedSectors(cleared),
+		game.WithSaveSector(sectorSaver(ctx, logger, db)),
 	}
 	if !cfg.IsProduction() {
 		hubOptions = append(hubOptions, game.WithDevelopment())
@@ -208,6 +216,19 @@ func fleetSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(int) 
 		defer cancel()
 		if err := store.SaveHangar(saveCtx, db, ships); err != nil {
 			logger.ErrorContext(saveCtx, "error saving fleet", slog.Any("err", err))
+		}
+	}
+}
+
+// sectorSaver saves the sectors the hub clears, like fleetSaver.
+func sectorSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(string) {
+	ctx = context.WithoutCancel(ctx)
+
+	return func(name string) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := store.ClearSector(saveCtx, db, name, time.Now()); err != nil {
+			logger.ErrorContext(saveCtx, "error saving cleared sector", slog.Any("err", err))
 		}
 	}
 }

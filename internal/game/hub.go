@@ -163,6 +163,9 @@ type Hub struct {
 	derelicts     map[uint32]*derelict
 	nextDerelict  uint32
 	derelictSpots []point
+	// cleared are the sectors whose garrison is gone (#99).
+	cleared       map[sim.Sector]bool
+	saveSector    func(name string)
 	dropChance    float64
 	dropChanceSet bool
 	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
@@ -195,6 +198,8 @@ type hubOptions struct {
 	saveLoadout   func(player string, l sim.Loadout)
 	development   bool
 	worldMap      *world.Map
+	cleared       []string
+	saveSector    func(name string)
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -251,6 +256,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		pickups:       make(map[uint32]*pickup),
 		derelicts:     make(map[uint32]*derelict),
 		derelictSpots: derelictSpots(o.worldMap),
+		cleared:       clearedSet(o.cleared),
+		saveSector:    o.saveSector,
 		dropChance:    o.dropChance,
 		dropChanceSet: o.dropChanceSet,
 		saveUnlock:    o.saveUnlock,
