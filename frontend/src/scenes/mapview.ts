@@ -34,6 +34,17 @@ const SMALL_FONT_PX = 11;
 const PANEL_PAD_X_PX = 60;
 const PANEL_PAD_TOP_PX = 34;
 const PANEL_PAD_BOTTOM_PX = 56;
+const PANEL_CORNER_PX = 6;
+/** The gap between the panel's edge or the grid and the title and legend. */
+const TEXT_GAP_PX = 10;
+/** Marker sizes as shares of a sector's drawn radius, with a floor in CSS pixels. */
+const FRIGATE_SHARE = 0.3;
+const FRIGATE_MIN_PX = 4;
+const YOU_SHARE_OF_FRIGATE = 0.45;
+const YOU_MIN_PX = 2;
+const SQUADMATE_SHARE_OF_YOU = 0.8;
+/** How high above a sector's center its name sits, as a share of its radius. */
+const NAME_LIFT_SHARE = 0.55;
 /** Above the rest of the HUD; the sector names above the full map's grid. */
 const MAP_DEPTH = 10;
 
@@ -128,11 +139,11 @@ export class MapView {
     const halfWidth = size.width / 2 + PANEL_PAD_X_PX * this.dpr;
     this.full
       .fillStyle(MAP_PANEL_COLOR, MAP_PANEL_ALPHA)
-      .fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, 6 * this.dpr);
+      .fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, PANEL_CORNER_PX * this.dpr);
     this.drawGrid(this.full, drawn, this.fullLayout, 2, 3);
     this.drawNames(drawn);
-    this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + 10 * this.dpr);
-    const legendY = this.fullLayout.y + size.height / 2 + 10 * this.dpr;
+    this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
+    const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
     this.legend.setText(mapLegend(state.missions).join('\n')).setPosition(this.fullLayout.x, legendY);
   }
 
@@ -163,14 +174,14 @@ export class MapView {
         g.strokePath();
       }
     }
-    const marker = Math.max(4 * scale, SECTOR_RADIUS * layout.scale * 0.3);
+    const marker = Math.max(FRIGATE_MIN_PX * scale, SECTOR_RADIUS * layout.scale * FRIGATE_SHARE);
     g.fillStyle(MAP_FRIGATE_COLOR, 1);
     for (const f of drawn.frigates) {
-      g.fillTriangle(f.x, f.y - marker, f.x - marker, f.y + marker * 0.8, f.x + marker, f.y + marker * 0.8);
+      g.fillTriangle(f.x, f.y - marker, f.x - marker, f.y + marker, f.x + marker, f.y + marker);
     }
-    const dot = Math.max(2 * scale, marker * 0.45);
+    const dot = Math.max(YOU_MIN_PX * scale, marker * YOU_SHARE_OF_FRIGATE);
     for (const s of drawn.squadmates) {
-      g.fillStyle(s.color, 1).fillCircle(s.x, s.y, dot * 0.8);
+      g.fillStyle(s.color, 1).fillCircle(s.x, s.y, dot * SQUADMATE_SHARE_OF_YOU);
     }
     g.fillStyle(MAP_YOU_COLOR, 1).fillCircle(drawn.you.x, drawn.you.y, dot);
   }
@@ -185,7 +196,7 @@ export class MapView {
       this.hideFromWorld([text]);
       this.names.push(text);
     }
-    const lift = SECTOR_RADIUS * this.fullLayout.scale * 0.55;
+    const lift = SECTOR_RADIUS * this.fullLayout.scale * NAME_LIFT_SHARE;
     drawn.sectors.forEach((s, i) => {
       this.names[i]?.setText(s.name).setPosition(s.center.x, s.center.y - lift).setVisible(true);
     });
