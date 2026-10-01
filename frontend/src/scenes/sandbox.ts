@@ -676,7 +676,7 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     switch (code) {
-      case 'KeyE':
+      case 'KeyK':
         this.net?.devStartAttack();
         break;
       case 'Digit1':

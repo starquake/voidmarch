@@ -232,7 +232,7 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
   - **Offline attacks:** with nobody online, an attack comes every 4 hours and runs an hour, so given long enough away everything but home goes back.
   - **A distress call:** when nothing can be attacked, a derelict (#52) waits with a guard of 3 in a sector next to cleared ground or home. Rescuing it wins the call, and the derelict itself is the reward, with a part for whoever is near.
   - A map can keep events away (`noEvents`); the E2E map does, since its specs share one server.
-  - **On a development server**, **E** starts an attack at once on the cleared sector you're in, for trying events and for E2E.
+  - **On a development server**, **K** starts an attack at once on the cleared sector you're in, for trying events and for E2E.
 - **Missions** (#101): each squadron has one, shown to everyone.
   - **The default:** the uncleared sector in the ring nearest home, nearest the squadron, so ring 1 comes first.
   - **Picking another:** a squadmate can send the squadron to another uncleared sector (the full map's job, #100). When the sector clears, the squadron gets its next default.

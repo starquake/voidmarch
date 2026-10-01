@@ -4250,7 +4250,7 @@ var SandboxScene = class extends Phaser8.Scene {
       return;
     }
     switch (code) {
-      case "KeyE":
+      case "KeyK":
         this.net?.devStartAttack();
         break;
       case "Digit1":

@@ -77,9 +77,9 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
   expect(last?.sector).toBe(sector);
   expect(last?.reward, 'the clear gave this player a part').toBeDefined();
 
-  // E on a development server sends an attack at the cleared sector (#102):
+  // K on a development server sends an attack at the cleared sector (#102):
   // the HUD counts it down and a banner says what to do.
-  await page.keyboard.press('e');
+  await page.keyboard.press('k');
   await expect.poll(async () => (await state(page)).worldEvent).toMatch(new RegExp(`^${sector} under attack · \\d+:\\d\\d$`));
   await expect
     .poll(async () => (await state(page)).missionBanner, { timeout: 20_000 })
