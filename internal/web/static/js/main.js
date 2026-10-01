@@ -1622,6 +1622,7 @@ function sectorName(x, y) {
   const hex2 = { q: rq + 0, r: rr + 0 };
   return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
 }
+var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
 var SECTOR_NAMES = (() => {
   const names = [];
   for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {

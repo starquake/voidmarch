@@ -56,6 +56,16 @@ export function sectorName(x: number, y: number): string | undefined {
   return ring(hex) <= GRID_RINGS ? hexName(hex) : undefined;
 }
 
+/** How far the grid reaches from home's center, to its outer corners across and its outer sides down. */
+export const GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
+
+/** A sector's ring: 0 for home, 1 for the six around it, and so on; undefined off the grid. */
+export function sectorRing(name: string): number | undefined {
+  const hex = parseHex(name);
+
+  return hex === undefined ? undefined : ring(hex);
+}
+
 /** Every sector's name, home and the rings around it. */
 export const SECTOR_NAMES: readonly string[] = (() => {
   const names: string[] = [];

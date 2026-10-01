@@ -78,3 +78,22 @@ export const MISSION_BANNER_BORDER_PX = 1;
 /** A world event's arrow and label (#102), in the enemy coral. */
 export const EVENT_COLOR = 0xff5a4a;
 export const EVENT_CSS = '#ff5a4a';
+
+/** The maps (#100): the minimap's width and the full map's height, in CSS pixels. */
+export const MINIMAP_WIDTH_PX = 170;
+export const FULL_MAP_HEIGHT_PX = 470;
+export const MAP_MARGIN_PX = 10;
+export const MAP_HOME_COLOR = 0x2f6f9c;
+export const MAP_CLEARED_COLOR = 0x2c6a3c;
+/** Hostile sectors by ring, darker the farther from home. */
+export const MAP_HOSTILE_COLORS: readonly number[] = [0x8a3030, 0x8a3030, 0x6e2626, 0x561d1d];
+export const MAP_FILL_ALPHA = 0.9;
+export const MAP_EDGE_COLOR = 0x120810;
+export const MAP_PANEL_COLOR = 0x05030a;
+export const MAP_PANEL_ALPHA = 0.82;
+export const MAP_FRIGATE_COLOR = 0xff6b5b;
+/** Another squadron's mission (#101, decision 7). */
+export const MAP_OTHER_MISSION_COLOR = 0xb07cff;
+export const MAP_YOU_COLOR = 0xffffff;
+/** How often a sector under attack flashes, per half cycle (#100, decision 3). */
+export const MAP_FLASH_MS = 300;
