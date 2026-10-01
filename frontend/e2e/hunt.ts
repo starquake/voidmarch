@@ -59,6 +59,27 @@ export async function flyOut(page: Page): Promise<void> {
 }
 
 /**
+ * Cycles the weapon with the development key 1 until rockets are fitted. A
+ * hunt that goes round again finds them fitted already, and one more press
+ * would step past them (#96).
+ */
+async function fitRockets(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const { weapon } = (await state(page)).loadout;
+        if (weapon !== 'rockets') {
+          await page.keyboard.press('1');
+        }
+
+        return weapon;
+      },
+      { message: 'rockets are fitted', intervals: [250] },
+    )
+    .toBe('rockets');
+}
+
+/**
  * Keeps the nearest enemy in the sights until one this player shot down is
  * gone, or the ship goes down. Chasing one strafing enemy at a slow runner's
  * frame rate can miss for good (#31).
@@ -94,8 +115,7 @@ export async function hunt(page: Page): Promise<'shot' | 'down'> {
  * respawns at home and goes again.
  */
 export async function shootOneDown(page: Page): Promise<void> {
-  await page.keyboard.press('1');
-  await expect.poll(async () => (await state(page)).loadout.weapon).toBe('rockets');
+  await fitRockets(page);
   for (let tries = 1; ; tries++) {
     await flyOut(page);
     await expect
