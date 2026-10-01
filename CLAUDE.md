@@ -177,7 +177,10 @@ answer given in chat is written back into the issue body before acting on it.
   once the required checks pass. Claude never merges one by hand and never adds
   `ready to merge` to one. It keeps them mergeable: one left behind `main` is
   rebased locally and force-pushed, and a `frontend/` bump that fails only on
-  bundle drift gets the rebuilt bundle committed onto its branch.
+  bundle drift gets the rebuilt bundle committed onto its branch. A bump of
+  `@playwright/test` gets the E2E job's image tag (`ci.yml`,
+  `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
+  on its branch: the image carries the browsers that version expects.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,
   bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
   for anything touching the client, on every commit. The ruleset lives as code
