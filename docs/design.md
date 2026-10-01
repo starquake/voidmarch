@@ -218,10 +218,12 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 
 ## 8. World structure: the frontier
 
-- **A 7 × 7 grid of 1,600 px sectors**, A1 to G7, an 11,200 px world (#90 decision 5, built in #99).
-  - The HUD names the sector you're in, with its state ("Sector B3 · hostile", "cleared" or "home"), and faint lines mark the sector edges.
+- **37 hexagonal sectors**: home and three rings around it, flat-top hexagons 990 px from center to corner, about the area of the 1,600 px squares they replaced (#117, built after #99's 7 × 7 grid).
+  - Sectors are named on a column-and-row grid with home in D4: ring 1 is D3 above home, E3, E4, D5, C4 and C3 clockwise. Columns run A to G, and the rows of the outer columns are shorter (A2 to A5).
+  - The world's edge is a hexagon 5,445 px from home to each side, through the outer sectors' far corners.
+  - The HUD names the sector you're in, with its state ("Sector B3 · hostile", "cleared" or "home"), and faint lines outline each sector.
   - The grid's geometry is a sim rule (`internal/sim/sectors.go`), shared by the server, the client and the WebAssembly sim.
-  - The game map (`internal/world`, `MAP`) holds what's in each sector: boss sectors (the `frontier` map puts a Frigate in each corner of ring 1: C3, E3, C5 and E5), garrison overrides and derelict spots.
+  - The game map (`internal/world`, `MAP`) holds what's in each sector: boss sectors (the `frontier` map puts a Frigate in alternate sectors of ring 1: D3, E4 and C4), garrison overrides and derelict spots.
 - **A sector is cleared** once its garrison is destroyed, and its Frigate too in a boss sector.
   - Everyone is told ("Sector C3 cleared"), and the server keeps it in its database (`cleared_sectors`) across restarts.
   - A cleared boss sector's Frigate doesn't come back.
@@ -241,9 +243,9 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **Home planet** at the center of D4 (Environment planet). Spawn point, loadout changes, safe zone.
 - **The loadout screen** (#78): **L** opens it inside the safe zone, and L or Esc closes it. It shows three columns, weapon, engine and shield. Each part has its pickup icon, its name in its tier's color and a line on what it's good at. Parts not found yet are dimmed. A click, or 1/2/3 for a slot and the arrow keys, fits an owned part at its tier. The hangar line has a Summon button, and G still works. While it's open the world runs on and the ship holds still. It closes if the ship leaves home or goes down. The server saves a loadout fitted at home from owned parts, and a player's next visit starts with it. On a development server, and offline, the 1/2/3 keys still cycle every part without the screen.
 - **Three rings** around it, bands of sectors by distance from home:
-  1. Kla'ed space: the 8 sectors around home
-  2. Nairan space: the next 16
-  3. Nautolan space (the third pack): the outer 24
+  1. Kla'ed space: the 6 sectors around home
+  2. Nairan space: the next 12
+  3. Nautolan space (the third pack): the outer 18
 - Each ring gets its own **tinted background** so it feels distinct (recoloring allowed).
 - Ring N+1 is inaccessible until ring N's Dreadnought is destroyed (barrier/boundary; no special art needed — e.g. a hard edge or tinted zone).
 - Asteroids (Environment pack) as obstacles/cover.
