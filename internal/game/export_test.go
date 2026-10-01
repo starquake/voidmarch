@@ -46,3 +46,13 @@ const (
 	FrigateRespawnTicks = frigateRespawnTicks
 	DespawnAfter        = despawnAfter
 )
+
+// WithDerelictAt starts the hub with a derelict at (x, y).
+func WithDerelictAt(x, y float64) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) { h.releaseDerelict(x, y) })
+	}
+}
+
+// DerelictTicks exposes derelictTicks for tests.
+const DerelictTicks = derelictTicks

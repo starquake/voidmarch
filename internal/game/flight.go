@@ -23,6 +23,7 @@ const (
 // every client and are tested against the enemies here.
 func (h *Hub) flyCompanions() {
 	owners := slices.Sorted(maps.Keys(h.members))
+	derelicts := h.derelictPoints()
 	for range substeps {
 		for _, id := range owners {
 			m := h.members[id]
@@ -34,6 +35,7 @@ func (h *Hub) flyCompanions() {
 				owner = mover(m.state)
 			}
 			m.wing.Observe(owner)
+			m.wing.Derelicts = derelicts
 			for _, shot := range m.wing.Step(h.brainEnemies(m), h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}
