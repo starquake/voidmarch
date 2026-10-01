@@ -123,12 +123,21 @@ func writeTunables(w writer) {
 	}
 	w(endObject)
 
+	writeEnemies(w)
+}
+
+// writeEnemies writes the enemies' hit circles and the Frigate's numbers
+// the client draws with.
+func writeEnemies(w writer) {
 	w("/** Hit circles in art pixels, from the sprites' opaque extent. */\n")
 	w("export const ENEMY_RADIUS = {\n")
 	for _, k := range sim.EnemyKinds() {
 		w("  %s: %s,\n", k, num(sim.EnemyRadius(k)))
 	}
 	w(endObject)
+	w("export const FRIGATE_REACH = %d;\n", sim.FrigateReach)
+	w("export const FRIGATE_SHIELD = %d;\n", sim.FrigateShield)
+	w("export const FRIGATE_SHIELD_RADIUS = %d;\n", sim.FrigateShieldRadius)
 }
 
 // writeShieldStats writes each shield's arc, charges and recharge time.

@@ -7,7 +7,7 @@ export const ENGINES = ['base', 'bigPulse', 'burst', 'supercharged'] as const;
 /** Shields in index order. */
 export const SHIELDS = ['front', 'frontAndSide', 'round', 'invincibility'] as const;
 /** Enemy classes in index order, matching the server's EnemyKind. */
-export const ENEMY_KINDS = ['scout', 'fighter'] as const;
+export const ENEMY_KINDS = ['scout', 'fighter', 'frigate'] as const;
 /** Projectile kinds in index order: the weapons, then the enemy bullets. */
 export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet', 'shard'] as const;
 /** Factions in index order: this player's, another player's, an enemy's. */
@@ -105,8 +105,12 @@ export const WEAPON_STATS = {
 export const ENEMY_RADIUS = {
   scout: 11,
   fighter: 12,
+  frigate: 19,
 } as const;
 
+export const FRIGATE_REACH = 800;
+export const FRIGATE_SHIELD = 20;
+export const FRIGATE_SHIELD_RADIUS = 25;
 /** Where the WebAssembly sim's state sits in its float64 array (internal/simbridge). */
 export const LAYOUT = {
   ticks: 0,

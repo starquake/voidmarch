@@ -135,7 +135,7 @@ function musicFiles() {
 var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
 var SHIELDS = ["front", "frontAndSide", "round", "invincibility"];
-var ENEMY_KINDS = ["scout", "fighter"];
+var ENEMY_KINDS = ["scout", "fighter", "frigate"];
 var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "shard"];
 var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", weaponTier: 0, engineTier: 0, shieldTier: 0 };
@@ -210,7 +210,8 @@ var WEAPON_STATS = {
 };
 var ENEMY_RADIUS = {
   scout: 11,
-  fighter: 12
+  fighter: 12,
+  frigate: 19
 };
 var LAYOUT = {
   ticks: 0,
@@ -368,7 +369,8 @@ var still = (key, url, size) => ({
 });
 var KLAED_FILES = {
   scout: { engine: 10, weapons: 6, destruction: 10 },
-  fighter: { engine: 10, weapons: 6, destruction: 9 }
+  fighter: { engine: 10, weapons: 6, destruction: 9 },
+  frigate: { engine: 12, weapons: 6, destruction: 9, shield: 40 }
 };
 var BULLET_VARIANT = "blue";
 var BULLET_FRAMES = {
@@ -459,6 +461,7 @@ var keys = {
   enemyEngine: (kind) => `klaed-${kind}-engine`,
   enemyWeapons: (kind) => `klaed-${kind}-weapons`,
   enemyDestruction: (kind) => `klaed-${kind}-destruction`,
+  enemyShield: (kind) => `klaed-${kind}-shield`,
   enemyBullet: (id) => id === "klaedBullet" ? "klaed-bullet" : "klaed-big-bullet",
   pickup: (part) => `pickup-${part}`
 };
@@ -499,13 +502,14 @@ function sheets() {
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
-    ...["scout", "fighter"].flatMap((kind) => {
+    ...ENEMY_KINDS.flatMap((kind) => {
       const f = KLAED_FILES[kind];
       return [
         still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, 64),
         strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, 64, f.engine, 12),
         strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, 64, f.weapons, 18, false),
-        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false)
+        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false),
+        ...f.shield === void 0 ? [] : [strip(keys.enemyShield(kind), `${klaed}/${kind}-shield.png`, 64, f.shield, 20)]
       ];
     }),
     ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({

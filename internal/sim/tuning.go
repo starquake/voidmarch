@@ -44,6 +44,34 @@ const (
 	EnemyMuzzle = 14
 )
 
+// The Frigate, an encounter boss (#89).
+const (
+	// FrigateBaseHP and FrigateHPPerPlayer make its health: the base plus a
+	// share per player near it when the fight starts.
+	FrigateBaseHP      = 40
+	FrigateHPPerPlayer = 30
+	// FrigateCompanionWeight is the share a companion counts for.
+	FrigateCompanionWeight = 0.5
+	// FrigateReach is how close a ship is to count as in the fight.
+	FrigateReach = 800
+	// FrigateRingBullets is how many bullets a ring has.
+	FrigateRingBullets = 12
+	// FrigateRingInterval is the seconds between rings.
+	FrigateRingInterval = 3
+	// FrigateMuzzle is how far from its center a ring's bullets leave.
+	FrigateMuzzle = 24
+	// FrigateShield is the damage the shield takes before it drops.
+	FrigateShield = 20
+	// FrigateShieldDelay is the seconds without a hit before the shield
+	// recharges, all at once.
+	FrigateShieldDelay = 8
+	// FrigateShieldRadius is where the shield bubble is drawn, from the
+	// sprite's opaque extent.
+	FrigateShieldRadius = 25
+	// FrigateRespawn is the seconds after it's destroyed before it's back.
+	FrigateRespawn = 300
+)
+
 // Companion brains (docs/design.md, section 13).
 const (
 	// BrainArriveSeconds: a companion aims for the speed that would reach its
@@ -369,6 +397,7 @@ const (
 	// part; catch-up doubles them.
 	ScoutDropChance   = 0.1
 	FighterDropChance = 0.3
+	FrigateDropChance = 1
 	CatchUpDrops      = 2
 	// DropReach is how close to a kill a player counts as nearby: the part
 	// favors what they lack, and a player behind their squadron makes drops

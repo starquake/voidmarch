@@ -47,4 +47,29 @@ func TestEnemies(t *testing.T) {
 	if EnemyHP(EnemyFighter) <= EnemyHP(EnemyScout) {
 		t.Error("the Fighter is no tougher than the Scout")
 	}
+	if EnemyRadius(EnemyFrigate) <= EnemyRadius(EnemyFighter) {
+		t.Error("the Frigate is no bigger than the Fighter")
+	}
+}
+
+func TestFrigateHP(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		weight float64
+		want   float64
+	}{
+		{0, 40},
+		{1, 70},
+		{3, 130},
+		{1.5, 85},
+	}
+	for _, tc := range tests {
+		if got := FrigateHP(tc.weight); got != tc.want {
+			t.Errorf("FrigateHP(%v) = %v, want %v", tc.weight, got, tc.want)
+		}
+	}
+	if got, want := EnemyHP(EnemyFrigate), FrigateHP(1); got != want {
+		t.Errorf("EnemyHP(frigate) = %v, want %v", got, want)
+	}
 }
