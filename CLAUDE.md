@@ -118,8 +118,9 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   companion's state, shot or hit (#51). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
   home planet, 4 ships per squadron). Summons draw from the shared hangar,
-  `POOL_START` ships on a fresh database (3 by default); the E2E server sets 15,
-  since the specs share it, and hub tests without `WithPoolStart` get a ship
+  `POOL_START` ships on a fresh database (3 by default); the E2E server sets 13,
+  since the specs share it and the 16-ship fleet cap must leave room for its
+  derelict rescues (#52), and hub tests without `WithPoolStart` get a ship
   per seat. The hub saves the fleet through `WithSaveFleet`.
 - **Persistence** (`internal/store`, #76): a SQLite file at `DB_PATH` through
   `modernc.org/sqlite`, pure Go so the build stays cgo-free. Migrations are

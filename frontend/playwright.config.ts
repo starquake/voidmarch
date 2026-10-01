@@ -41,12 +41,13 @@ export default defineConfig({
     command: 'go run ./cmd/voidmarch',
     cwd: '..',
     url: `http://127.0.0.1:${port}/healthz`,
-    // The specs share one hangar, so it holds a ship for every seat but one.
+    // The specs share one hangar, one spec at a time. The 16-ship fleet cap
+    // leaves room for three rescued derelicts (#52): one per browser, and a retry.
     env: {
       APP_ENV: 'development',
       HOST: '127.0.0.1',
       PORT: port,
-      POOL_START: '15',
+      POOL_START: '13',
       DB_PATH: dbPath,
       // Every spec registers its players from one address.
       REGISTER_LIMIT: '0',
