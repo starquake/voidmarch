@@ -103,18 +103,32 @@ func (h *Hub) startAttack(ticks uint32) bool {
 	force := &garrison{sector: s, base: sim.GarrisonSize(s.Ring()), counted: map[string]bool{}}
 	h.garrisons[s] = force
 	c := s.Center()
-	h.frigates = append(h.frigates, frigateSpot{at: point{c.X, c.Y}, sector: s, once: true})
 	h.event = &worldEvent{
 		kind:     pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK,
 		sector:   s,
 		endsTick: h.tick + ticks,
 		force:    force,
-		frigate:  len(h.frigates) - 1,
+		frigate:  h.attackSpot(frigateSpot{at: point{c.X, c.Y}, sector: s, once: true}),
 	}
 	h.spawnFrigates()
 	h.broadcastEvent()
 
 	return true
+}
+
+// attackSpot puts an attack's Frigate spot in the list, in a finished
+// attack's place if there is one, so the list doesn't grow over a weekend.
+func (h *Hub) attackSpot(spot frigateSpot) int {
+	for i, old := range h.frigates {
+		if old.once && old.enemyID == 0 && old.respawnAt == math.MaxUint32 {
+			h.frigates[i] = spot
+
+			return i
+		}
+	}
+	h.frigates = append(h.frigates, spot)
+
+	return len(h.frigates) - 1
 }
 
 // startDistress puts a derelict with a small guard in a sector next to
