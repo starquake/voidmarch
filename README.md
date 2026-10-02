@@ -37,6 +37,7 @@ make server
 | Left button (hold) | Fire |
 | G | Draw a companion from the hangar (at the home planet) |
 | L | Loadout screen: fit your parts (at the home planet); Esc closes it |
+| Tab | Full map: click an uncleared sector to send your squadron there; Tab or Esc closes it |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
 | C | Switch to ship-relative movement (W flies toward the mouse) and back |
@@ -97,7 +98,9 @@ of it clears the sector for good. Its losses stay, so you can wear it down
 over several visits. Every cleared sector adds a ship to the hangar and gives
 everyone online a part. Your squadron has a mission, the nearest uncleared
 sector: the HUD names it, and a gold arrow at the screen's edge points the
-way. Every few minutes a world event calls everyone somewhere. It might be an
+way. The minimap in the top right shows every sector's state, the Frigates,
+each squadron's mission and your squadmates; **Tab** opens the full map, where
+a click sends your squadron to another sector. Every few minutes a world event calls everyone somewhere. It might be an
 attack on a cleared sector, to beat within 10 minutes or lose the sector, or a
 derelict's distress call. A red arrow points to it. While nobody is online,
 the enemy takes a sector back every 4 hours. Scouts, fast and erratic, go down in two hits;

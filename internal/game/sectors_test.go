@@ -35,6 +35,20 @@ func killAll(s *Session, snap *pb.Snapshot) {
 	}
 }
 
+func TestWelcome_NamesTheMap(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "frontier"}
+	hub, _ := testHub(t, WithMap(m))
+	if _, w := join(t, hub, "a"); w.GetMapName() != "frontier" {
+		t.Errorf("Welcome.MapName = %q, want frontier", w.GetMapName())
+	}
+	bare, _ := testHub(t)
+	if _, w := join(t, bare, "a"); w.GetMapName() != "" {
+		t.Errorf("Welcome.MapName without a map = %q, want empty", w.GetMapName())
+	}
+}
+
 // towardE4 is the point d along the line from home's center to E4's, the
 // sector down and right of it: home's edge is 857 along, E4's center 1,715.
 func towardE4(d float64) (x, y float32) {

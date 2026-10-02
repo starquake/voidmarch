@@ -61,6 +61,7 @@ import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, rescueNotice } from '../net/derelict.ts';
 import { missionCompleteBanner, sectorName } from '../sim/sectors.ts';
+import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
@@ -215,6 +216,8 @@ export class NetPlay {
   readonly banners: string[][] = [];
   /** The cleared sectors, by name (#99). */
   readonly clearedSectors = new Set<string>();
+  /** The game map's name ("frontier"), for the full map's title (#100). */
+  mapName = '';
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<number>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
@@ -432,6 +435,27 @@ export class NetPlay {
     const mission = this.squadronInfo?.mission;
 
     return mission === undefined || mission === '' ? undefined : mission;
+  }
+
+  /** What the maps show (#100), with the local ship at you. */
+  mapState(you: { x: number; y: number }): MapState {
+    return {
+      cleared: this.clearedSectors,
+      frigates: this.bosses.filter((b) => b.kind === 'frigate'),
+      missions: (this.squadrons?.squadrons ?? []).flatMap((s) =>
+        s.mission === '' ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }],
+      ),
+      attack: this.worldEvent?.kind === WorldEventKind.ATTACK ? this.worldEvent.sector : undefined,
+      you,
+      squadmates: [...this.remotes.values()]
+        .filter((r) => r.ownerId === '' && this.isSquadmate(r))
+        .map((r) => ({ x: r.view.root.x, y: r.view.root.y, color: r.color })),
+    };
+  }
+
+  /** Sends the squadron to another sector, picked on the full map (#100). */
+  pickMission(sector: string): void {
+    this.connection.sendPickMission(sector);
   }
 
   /** On a development server, starts an attack on the sector the ship is in, if it's cleared (#102). */
@@ -907,6 +931,7 @@ export class NetPlay {
     this.playerId = welcome.playerId;
     this.name = welcome.name;
     this.worldEvent = welcome.worldEvent;
+    this.mapName = welcome.mapName;
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);

@@ -221,7 +221,13 @@ export class Connection {
     }
   }
 
-  /** Says our ship flew over a pickup; the server decides who gets it. */
+  /** Sends the squadron to a sector (#101); the server keeps it only if it's uncleared. */
+  sendPickMission(sector: string): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'pickMission', value: { sector } } }));
+    }
+  }
+
   /** Starts an attack on a cleared sector at once; a development server only (#102). */
   sendDevStartAttack(sector: string): void {
     if (this.welcomed) {
@@ -229,6 +235,7 @@ export class Connection {
     }
   }
 
+  /** Says our ship flew over a pickup; the server decides who gets it. */
   sendCollect(id: number): void {
     if (this.welcomed) {
       this.send(create(ClientMessageSchema, { kind: { case: 'collect', value: { id } } }));

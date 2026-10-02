@@ -1682,7 +1682,9 @@ type Welcome struct {
 	// The cleared sectors, by name ("C3") (#99).
 	ClearedSectors []string `protobuf:"bytes,17,rep,name=cleared_sectors,json=clearedSectors,proto3" json:"cleared_sectors,omitempty"`
 	// The world event running, if any (#102).
-	WorldEvent    *WorldEvent `protobuf:"bytes,18,opt,name=world_event,json=worldEvent,proto3" json:"world_event,omitempty"`
+	WorldEvent *WorldEvent `protobuf:"bytes,18,opt,name=world_event,json=worldEvent,proto3" json:"world_event,omitempty"`
+	// The game map's name ("frontier"), for the full map's title (#100).
+	MapName       string `protobuf:"bytes,19,opt,name=map_name,json=mapName,proto3" json:"map_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1834,6 +1836,13 @@ func (x *Welcome) GetWorldEvent() *WorldEvent {
 		return x.WorldEvent
 	}
 	return nil
+}
+
+func (x *Welcome) GetMapName() string {
+	if x != nil {
+		return x.MapName
+	}
+	return ""
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -4136,7 +4145,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\vPickMission\x12\x16\n" +
 	"\x06sector\x18\x01 \x01(\tR\x06sector\"\x19\n" +
 	"\aCollect\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\rR\x02id\"\x84\x05\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\"\x9f\x05\n" +
 	"\aWelcome\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\rR\x05color\x12\x17\n" +
@@ -4158,7 +4167,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\vdevelopment\x18\x10 \x01(\bR\vdevelopment\x12'\n" +
 	"\x0fcleared_sectors\x18\x11 \x03(\tR\x0eclearedSectors\x129\n" +
 	"\vworld_event\x18\x12 \x01(\v2\x18.voidmarch.v1.WorldEventR\n" +
-	"worldEventJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
+	"worldEvent\x12\x19\n" +
+	"\bmap_name\x18\x13 \x01(\tR\amapNameJ\x04\b\b\x10\tR\x0fsummon_anywhere\"\xbd\x01\n" +
 	"\x0ePlayerSnapshot\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
