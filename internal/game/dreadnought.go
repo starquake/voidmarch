@@ -1,7 +1,9 @@
 package game
 
 import (
+	"maps"
 	"math"
+	"slices"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/sim"
@@ -21,6 +23,8 @@ const (
 	dreadnoughtVolleyGap   = 2 * TickRate
 	dreadnoughtBeamGap     = 6
 	dreadnoughtShieldTicks = sim.DreadnoughtShieldDelay * TickRate
+	// dreadnoughtDerelictRing is how far from the wreck its fall's derelicts wait.
+	dreadnoughtDerelictRing = 140
 	// dreadnoughtSaveEvery is how often its health is saved while it's awake.
 	dreadnoughtSaveEvery = 60 * TickRate
 	// regenPerTick is the health it gets back each hub tick.
@@ -112,6 +116,20 @@ func (h *Hub) wakeDreadnought() {
 	h.broadcastFrontier()
 }
 
+// closeRingsIfFallenBack closes rings 2 and 3 again once ring 1 has fewer
+// than sim.DreadnoughtWakesAt cleared sectors (#8 decision 9); reopening
+// them takes a fresh Dreadnought, which wakes once ring 1 is back.
+func (h *Hub) closeRingsIfFallenBack() {
+	if h.frontier.OpenRings < ringTwo || h.ringOneCleared() >= sim.DreadnoughtWakesAt {
+		return
+	}
+	h.frontier = sim.Frontier{OpenRings: 1}
+	if h.saveOpenRings != nil {
+		h.saves <- func() { h.saveOpenRings(1) }
+	}
+	h.broadcastFrontier()
+}
+
 // stepDreadnought regenerates it, recharges its shield, and fires its
 // volleys in turn at the nearest ship in range.
 func (h *Hub) stepDreadnought(e *enemy, ships []upShip) {
@@ -170,9 +188,34 @@ func (f *dreadnoughtFight) takeHit(damage int, tick uint32) int {
 	return damage - absorbed
 }
 
-// dreadnoughtFallen opens rings 2 and 3 (#8 decision 12) and saves a fresh
-// Dreadnought's health for the next time one wakes.
-func (h *Hub) dreadnoughtFallen() {
+// dreadnoughtFallen rewards the players near e, releases its derelicts and
+// tells everyone (#125), opens rings 2 and 3 (#8 decision 12), and saves a
+// fresh Dreadnought's health for the next time one wakes.
+func (h *Hub) dreadnoughtFallen(e *enemy) {
+	var gains []*pb.PickupGain
+	for _, id := range slices.Sorted(maps.Keys(h.members)) {
+		m := h.members[id]
+		if m.gone || m.state == nil || downed(m.state) {
+			continue
+		}
+		if math.Hypot(float64(m.state.GetX())-e.x, float64(m.state.GetY())-e.y) > sim.FrigateReach {
+			continue
+		}
+		if gain := h.grantPart(id, m); gain != nil {
+			gains = append(gains, gain)
+		}
+	}
+	for n := range sim.DreadnoughtDerelicts {
+		angle := fullTurnFloat * float64(n) / sim.DreadnoughtDerelicts
+		h.releaseDerelict(
+			e.x+dreadnoughtDerelictRing*math.Cos(angle),
+			e.y+dreadnoughtDerelictRing*math.Sin(angle),
+			0,
+		)
+	}
+	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_BossFell{BossFell: &pb.BossFell{
+		Kind: e.kind, Gains: gains, Tick: h.tick,
+	}}}, "")
 	h.dreadnoughtID = 0
 	h.dreadnoughtHP = sim.DreadnoughtHP
 	h.saveDreadnoughtHP(sim.DreadnoughtHP)

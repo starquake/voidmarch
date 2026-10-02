@@ -129,6 +129,7 @@ func (h *Hub) stepEnemies() {
 	h.stepGarrisons(ships)
 	h.spawnStragglers(players)
 	h.spawnFrigates()
+	h.closeRingsIfFallenBack()
 	h.wakeDreadnought()
 	// In id order: steering draws from h.rng, so map order would make a
 	// seeded hub differ between runs.
@@ -414,7 +415,7 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		h.frigateDestroyed(e)
 	}
 	if e.dread != nil {
-		h.dreadnoughtFallen()
+		h.dreadnoughtFallen(e)
 	}
 	delete(h.enemies, e.id)
 	if e.garrison != nil {

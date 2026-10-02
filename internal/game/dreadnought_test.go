@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"math"
 	"slices"
 	"sync"
 	"testing"
@@ -171,6 +172,8 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 		WithDreadnought(30),
 		WithSaveDreadnought(saves.hp),
 		WithSaveOpenRings(saves.ring),
+		// Ring 1 holds, so the rings stay open once it falls.
+		WithClearedSectors(ringOne(4)),
 	)
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
@@ -210,4 +213,124 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 			rings,
 		)
 	}
+}
+
+func TestDreadnought_ItsFallRewardsThoseNearAndReleasesDerelicts(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m), WithDreadnought(1), WithPoolStart(3))
+	near, _ := join(t, hub, "near")
+	far, _ := join(t, hub, "far")
+	d := dreadnoughtIn(must(latest(t, near, tick, 1, 0, 0)))
+	x, y := d.GetX(), d.GetY()+300
+	far.Send(state(0, 0))
+	must(latest(t, near, tick, 1, x, y))
+	drain(far)
+
+	shots := sim.DreadnoughtShield/MaxHitDamage + 2
+	for shot := range uint32(shots) { //nolint:gosec // a few shots.
+		hitFrigate(near, d.GetEnemyId(), shot+1)
+	}
+	snap, others := latest(t, near, tick, 1, x, y)
+	var fell *pb.BossFell
+	for _, msg := range others {
+		if f := msg.GetBossFell(); f != nil {
+			fell = f
+		}
+	}
+	if fell == nil || fell.GetKind() != pb.EnemyKind_ENEMY_KIND_DREADNOUGHT {
+		t.Fatalf("BossFell = %+v, want the Dreadnought's fall", fell)
+	}
+	got := map[string]bool{}
+	for _, g := range fell.GetGains() {
+		got[g.GetPlayerId()] = true
+	}
+	if !got["near"] || got["far"] {
+		t.Errorf("parts went to %v, want the player near it and not the one far away", got)
+	}
+	free := 0
+	for _, dr := range snap.GetDerelicts() {
+		if !dr.GetHeld() &&
+			math.Hypot(float64(dr.GetX()-d.GetX()), float64(dr.GetY()-d.GetY())) < 200 {
+			free++
+		}
+	}
+	if free != sim.DreadnoughtDerelicts {
+		t.Errorf("%d free derelicts by the wreck, want %d", free, sim.DreadnoughtDerelicts)
+	}
+}
+
+// frontierIn is the last Frontier among messages, or nil.
+func frontierIn(messages []*pb.ServerMessage) *pb.Frontier {
+	var f *pb.Frontier
+	for _, msg := range messages {
+		if got := msg.GetFrontier(); got != nil {
+			f = got
+		}
+	}
+
+	return f
+}
+
+func TestDreadnought_TheRingsCloseWhenRingOneFallsBack(t *testing.T) {
+	t.Parallel()
+
+	saves := &saved{}
+	hub, tick := testHub(
+		t,
+		WithOpenRings(3),
+		WithClearedSectors(ringOne(3)),
+		WithSaveOpenRings(saves.ring),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	_, others := latest(t, a, tick, 1, 0, 0)
+	if f := frontierIn(others); f.GetOpenRings() != 1 {
+		t.Errorf(
+			"frontier %+v with rings 2 and 3 open and 3 of ring 1 cleared, want them closed",
+			f,
+		)
+	}
+	must(latest(t, a, tick, 1, 0, 0))
+	if _, rings := saves.all(); !slices.Equal(rings, []int{1}) {
+		t.Errorf("saved rings %v, want 1", rings)
+	}
+
+	kept, tick := testHub(t, WithOpenRings(3), WithClearedSectors(ringOne(4)), NoEvents)
+	b, _ := join(t, kept, "b")
+	if _, others := latest(t, b, tick, 2, 0, 0); frontierIn(others) != nil {
+		t.Errorf(
+			"frontier %+v with 4 of ring 1 cleared, want rings 2 and 3 left open",
+			frontierIn(others),
+		)
+	}
+}
+
+func TestDreadnought_ReopeningTakesAFreshOne(t *testing.T) {
+	t.Parallel()
+
+	// Ring 1 fell back to 3 cleared while rings 2 and 3 were open; E4's
+	// garrison of one is all that stands between it and 4 again.
+	cleared := slices.DeleteFunc(ringOne(6), func(n string) bool { return n == "E4" })[:3]
+	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m), WithOpenRings(3), WithClearedSectors(cleared))
+	a, _ := join(t, hub, "a")
+	if f := frontierIn(must2(latest(t, a, tick, 1, 0, 0))); f.GetOpenRings() != 1 {
+		t.Fatalf("frontier %+v, want rings 2 and 3 closed first", f)
+	}
+	snap := must(latest(t, a, tick, 1, enterX, enterY))
+	killAll(a, snap)
+	for range 3 {
+		snap = must(latest(t, a, tick, 1, enterX, enterY))
+	}
+	d := dreadnoughtIn(snap)
+	if d == nil || d.GetHp() != sim.DreadnoughtHP {
+		t.Errorf("Dreadnought %+v once ring 1 was back at 4, want a fresh one at full health", d)
+	}
+}
+
+// must2 is the messages from latest, without its snapshot.
+func must2(_ *pb.Snapshot, messages []*pb.ServerMessage) []*pb.ServerMessage {
+	return messages
 }

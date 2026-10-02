@@ -134,7 +134,9 @@ Once four of the six sectors around home are cleared, the Kla'ed Dreadnought
 wakes in one of the ring-2 sectors, which opens for it. It has 200,000 health,
 kept between sessions and regenerating 2,000 an hour, and fires rings of big
 bullets, sweeping Ray beams and spreads of Waves from behind its shield.
-Destroying it opens rings 2 and 3.
+Destroying it opens rings 2 and 3, gives every player near it a part, and
+leaves 3 derelicts by the wreck. If ring 1 later falls back below four cleared
+sectors, rings 2 and 3 close again until a new Dreadnought is beaten.
 
 ## Parts
 

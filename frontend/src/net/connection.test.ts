@@ -130,6 +130,7 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     eventStarted: (e) => log.events.push(`event in ${e.event?.sector ?? ''}`),
     eventEnded: (e) => log.events.push(`event ${e.won ? 'won' : 'lost'}`),
     frontier: (f) => log.events.push(`frontier ${String(f.openRings)} ${f.opened.join(',')}`),
+    bossFell: (f) => log.events.push(`boss fell, ${String(f.gains.length)} gains`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -198,6 +199,7 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'eventStarted', value: { event: { sector: 'D3' } } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'eventEnded', value: { won: true } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'frontier', value: { openRings: 1, opened: ['D2'] } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'bossFell', value: { gains: [{ playerId: 'me' }] } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -216,6 +218,7 @@ test('server messages reach their events', () => {
     'event in D3',
     'event won',
     'frontier 1 D2',
+    'boss fell, 1 gains',
   ]);
   assert.equal(conn.connected, true);
 });

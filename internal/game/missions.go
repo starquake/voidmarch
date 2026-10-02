@@ -54,24 +54,30 @@ func (h *Hub) rewardClear() []*pb.PickupGain {
 	}
 	var gains []*pb.PickupGain
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
-		m := h.members[id]
-		if m.gone {
-			continue
-		}
-		part, ok := sim.DropFor([]sim.Unlocks{m.unlocks}, nil, 1, h.rng.Uint32())
-		if !ok || !m.unlocks.Grant(part) {
-			continue
-		}
-		tier := m.unlocks[part]
-		gains = append(gains, &pb.PickupGain{
-			PlayerId: id,
-			Unlock:   &pb.Unlock{Part: pbPart(part), Tier: wireTier(tier)},
-		})
-		if h.saveUnlock != nil {
-			who := id
-			h.saves <- func() { h.saveUnlock(who, part, tier) }
+		if m := h.members[id]; !m.gone {
+			if gain := h.grantPart(id, m); gain != nil {
+				gains = append(gains, gain)
+			}
 		}
 	}
 
 	return gains
+}
+
+// grantPart grants m a part it can use and saves it, and returns the gain,
+// or nil when there's none to give.
+func (h *Hub) grantPart(id string, m *member) *pb.PickupGain {
+	part, ok := sim.DropFor([]sim.Unlocks{m.unlocks}, nil, 1, h.rng.Uint32())
+	if !ok || !m.unlocks.Grant(part) {
+		return nil
+	}
+	tier := m.unlocks[part]
+	if h.saveUnlock != nil {
+		h.saves <- func() { h.saveUnlock(id, part, tier) }
+	}
+
+	return &pb.PickupGain{
+		PlayerId: id,
+		Unlock:   &pb.Unlock{Part: pbPart(part), Tier: wireTier(tier)},
+	}
 }

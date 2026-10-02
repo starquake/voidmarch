@@ -1522,6 +1522,12 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: Frontier;
     case: "frontier";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.BossFell boss_fell = 23;
+     */
+    value: BossFell;
+    case: "bossFell";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1530,6 +1536,35 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
  * Use `create(ServerMessageSchema)` to create a new message.
  */
 export declare const ServerMessageSchema: GenMessage<ServerMessage>;
+
+/**
+ * BossFell says a siege boss was destroyed (#125): the parts it gave the
+ * players near it.
+ *
+ * @generated from message voidmarch.v1.BossFell
+ */
+export declare type BossFell = Message<"voidmarch.v1.BossFell"> & {
+  /**
+   * @generated from field: voidmarch.v1.EnemyKind kind = 1;
+   */
+  kind: EnemyKind;
+
+  /**
+   * @generated from field: repeated voidmarch.v1.PickupGain gains = 2;
+   */
+  gains: PickupGain[];
+
+  /**
+   * @generated from field: uint32 tick = 3;
+   */
+  tick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.BossFell.
+ * Use `create(BossFellSchema)` to create a new message.
+ */
+export declare const BossFellSchema: GenMessage<BossFell>;
 
 /**
  * Frontier is which sectors are open (#123): home and the rings up to

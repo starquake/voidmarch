@@ -455,7 +455,16 @@ message ServerMessage {
     EventStarted event_started = 20;
     EventEnded event_ended = 21;
     Frontier frontier = 22;
+    BossFell boss_fell = 23;
   }
+}
+
+// BossFell says a siege boss was destroyed (#125): the parts it gave the
+// players near it.
+message BossFell {
+  EnemyKind kind = 1;
+  repeated PickupGain gains = 2;
+  uint32 tick = 3;
 }
 
 // Frontier is which sectors are open (#123): home and the rings up to

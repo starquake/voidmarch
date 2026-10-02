@@ -16,6 +16,7 @@ import {
   type EventStarted,
   type EventEnded,
   type Frontier as FrontierMessage,
+  type BossFell,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -86,6 +87,8 @@ export interface ConnectionEvents {
   eventEnded(ended: EventEnded): void;
   /** Which sectors are open changed (#123). */
   frontier(frontier: FrontierMessage): void;
+  /** A siege boss fell, and what it gave the players near it (#125). */
+  bossFell(fell: BossFell): void;
 }
 
 export interface Timers {
@@ -334,6 +337,9 @@ export class Connection {
         break;
       case 'frontier':
         events.frontier(message.kind.value);
+        break;
+      case 'bossFell':
+        events.bossFell(message.kind.value);
         break;
       default:
     }

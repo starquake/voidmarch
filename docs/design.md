@@ -220,7 +220,8 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **Health:** 200,000, saved in the database with the time of the save, every minute while it's awake and when it falls. It regenerates 2,000 an hour, the hours nobody was on included, up to full.
 - **Fight:** it fires at the nearest ship within 520 px, taking its volleys in turn: a ring of 12 big bullets; a Ray sweep of 6 beams across 1.2 radians, each beam 6 Ray segments, 0.3 s apart; then a spread of 5 Waves across 0.9 radians, 2 s between them. The Ray and Wave are the pack's, recolored blue like all enemy fire. A shield bubble takes 120 damage first and comes back after 8 s without a hit. Each volley's seed says which it is, so every client expands it the same way.
 - **On screen:** the boss bar names it, and the maps mark its sector with a bigger triangle than a Frigate's.
-- **Its fall** opens rings 2 and 3 (#8 decision 12) and saves a fresh Dreadnought's health for the next time one wakes. What else it gives, and closing the rings again, is #125.
+- **Its fall** opens rings 2 and 3 (#8 decision 12) and saves a fresh Dreadnought's health for the next time one wakes. Every player who is up within 800 px of it gets a part, and 3 derelicts wait free around the wreck (#125). Everyone sees a banner, with the part they won.
+- **Ring 1 falling back:** whenever fewer than 4 of ring 1's sectors are cleared while rings 2 and 3 are open, they close again, with a banner, and a fresh Dreadnought at full health wakes once ring 1 is back at 4 (#8 decisions 9 and 10).
 
 ## 8. World structure: the frontier
 
