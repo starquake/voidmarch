@@ -8,6 +8,8 @@ const (
 	EnemyScout   EnemyKind = "scout"
 	EnemyFighter EnemyKind = "fighter"
 	EnemyFrigate EnemyKind = "frigate"
+	// EnemyDreadnought is the siege boss (#8).
+	EnemyDreadnought EnemyKind = "dreadnought"
 )
 
 // EnemyBulletID names an enemy bullet from the Kla'ed projectiles.
@@ -17,11 +19,14 @@ type EnemyBulletID string
 const (
 	KlaedBullet    EnemyBulletID = "klaedBullet"
 	KlaedBigBullet EnemyBulletID = "klaedBigBullet"
+	// KlaedRay and KlaedWave are the Dreadnought's (#124).
+	KlaedRay  EnemyBulletID = "klaedRay"
+	KlaedWave EnemyBulletID = "klaedWave"
 )
 
 // EnemyKinds lists every enemy class.
 func EnemyKinds() []EnemyKind {
-	return []EnemyKind{EnemyScout, EnemyFighter, EnemyFrigate}
+	return []EnemyKind{EnemyScout, EnemyFighter, EnemyFrigate, EnemyDreadnought}
 }
 
 // EnemyBullet is each enemy's bullet: the Scout's small one, the big one
@@ -37,12 +42,14 @@ func EnemyBullet(kind EnemyKind) EnemyBulletID {
 // EnemyRadius is an enemy's hit circle in art pixels, from the sprite's
 // opaque extent.
 func EnemyRadius(kind EnemyKind) float64 {
-	const scout, fighter, frigate = 11, 12, 19
+	const scout, fighter, frigate, dreadnought = 11, 12, 19, 44
 	switch kind {
 	case EnemyFighter:
 		return fighter
 	case EnemyFrigate:
 		return frigate
+	case EnemyDreadnought:
+		return dreadnought
 	case EnemyScout:
 		fallthrough
 	default:
@@ -59,6 +66,8 @@ func EnemyHP(kind EnemyKind) float64 {
 		return fighter
 	case EnemyFrigate:
 		return FrigateHP(1)
+	case EnemyDreadnought:
+		return DreadnoughtHP
 	case EnemyScout:
 		fallthrough
 	default:

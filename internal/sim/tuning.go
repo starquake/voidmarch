@@ -117,6 +117,34 @@ const (
 	FrigateRespawn = 300
 )
 
+// The Kla'ed Dreadnought, the siege boss (#8, #124).
+const (
+	// DreadnoughtHP is its health, kept across sessions, and
+	// DreadnoughtRegenPerHour what it gets back an hour (#8 decision 5).
+	DreadnoughtHP           = 200000
+	DreadnoughtRegenPerHour = 2000
+	// DreadnoughtWakesAt is how many of ring 1's sectors must be cleared
+	// for it to wake (#8 decision 1).
+	DreadnoughtWakesAt = 4
+	// DreadnoughtMuzzle is how far from its center its shots leave.
+	DreadnoughtMuzzle = 48
+	// DreadnoughtRaySegments make one Ray beam, DreadnoughtRaySpacing apart.
+	DreadnoughtRaySegments = 6
+	DreadnoughtRaySpacing  = 34
+	// DreadnoughtRaySweep is the arc one sweep of beams turns through, and
+	// DreadnoughtRayBeams how many beams it fires across it.
+	DreadnoughtRaySweep = 1.2
+	DreadnoughtRayBeams = 6
+	// DreadnoughtWaves is how many Wave arcs a spread has, across
+	// DreadnoughtWaveSpread radians.
+	DreadnoughtWaves      = 5
+	DreadnoughtWaveSpread = 0.9
+	// DreadnoughtShield is the damage the shield takes before it drops,
+	// and DreadnoughtShieldDelay the seconds without a hit before it's back.
+	DreadnoughtShield      = 120
+	DreadnoughtShieldDelay = 8
+)
+
 // Companion brains (docs/design.md, section 13).
 const (
 	// BrainArriveSeconds: a companion aims for the speed that would reach its
@@ -381,11 +409,18 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 // EnemyBulletStatsOf is how an enemy bullet flies: slow and readable, so it
 // can be dodged (docs/design.md, section 3).
 func EnemyBulletStatsOf(id EnemyBulletID) ProjectileStats {
-	if id == KlaedBigBullet {
+	switch id {
+	case KlaedBigBullet:
 		return ProjectileStats{Speed: 130, MaxSpeed: 130, Lifetime: 3}
+	case KlaedRay:
+		return ProjectileStats{Speed: 200, MaxSpeed: 200, Lifetime: 2.5}
+	case KlaedWave:
+		return ProjectileStats{Speed: 100, MaxSpeed: 100, Lifetime: 4}
+	case KlaedBullet:
+		fallthrough
+	default:
+		return ProjectileStats{Speed: 110, MaxSpeed: 110, Lifetime: 3.2}
 	}
-
-	return ProjectileStats{Speed: 110, MaxSpeed: 110, Lifetime: 3.2}
 }
 
 // ShieldStats is a shield's coverage against strength against recharge; used

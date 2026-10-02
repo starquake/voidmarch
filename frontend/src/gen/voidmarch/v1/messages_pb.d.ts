@@ -1947,6 +1947,13 @@ export enum EnemyKind {
    * @generated from enum value: ENEMY_KIND_FRIGATE = 3;
    */
   FRIGATE = 3,
+
+  /**
+   * The Kla'ed Dreadnought, the siege boss (#124).
+   *
+   * @generated from enum value: ENEMY_KIND_DREADNOUGHT = 4;
+   */
+  DREADNOUGHT = 4,
 }
 
 /**

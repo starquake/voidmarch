@@ -29,19 +29,26 @@ const still = (key: string, url: string, size: number): Sheet => ({
 });
 
 
-const KLAED_FILES: Record<EnemyKind, { engine: number; weapons: number; destruction: number; shield?: number }> = {
-  scout: { engine: 10, weapons: 6, destruction: 10 },
-  fighter: { engine: 10, weapons: 6, destruction: 9 },
-  frigate: { engine: 12, weapons: 6, destruction: 9, shield: 40 },
+const KLAED_FILES: Record<EnemyKind, { size: number; engine: number; weapons: number; destruction: number; shield?: number }> = {
+  scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
+  fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
+  frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
+  dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
 };
 
 /** Enemy bullet strips: frames are narrower than they are tall. */
 /** Enemy bullets are drawn in the blue recolor, apart from the players' orange shots (#36). */
 const BULLET_VARIANT = 'blue';
 
-const BULLET_FRAMES: Record<string, { width: number; frames: number }> = {
-  bullet: { width: 4, frames: 4 },
-  'big-bullet': { width: 8, frames: 4 },
+/** The Kla'ed bullets: every enemy bullet but a burst's shard, drawn from the player's own shot. */
+type KlaedBulletId = Exclude<EnemyBulletId, 'shard'>;
+
+const BULLET_FRAMES: Record<KlaedBulletId, { file: string; width: number; height: number; frames: number }> = {
+  klaedBullet: { file: 'bullet', width: 4, height: 16, frames: 4 },
+  klaedBigBullet: { file: 'big-bullet', width: 8, height: 16, frames: 4 },
+  // The Dreadnought's (#124): a beam segment, and a wave arc.
+  klaedRay: { file: 'ray', width: 18, height: 38, frames: 4 },
+  klaedWave: { file: 'wave', width: 64, height: 64, frames: 6 },
 };
 
 const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true): Sheet => ({
@@ -147,7 +154,7 @@ export const keys = {
   enemyWeapons: (kind: EnemyKind): string => `klaed-${kind}-weapons`,
   enemyDestruction: (kind: EnemyKind): string => `klaed-${kind}-destruction`,
   enemyShield: (kind: EnemyKind): string => `klaed-${kind}-shield`,
-  enemyBullet: (id: EnemyBulletId): string => (id === 'klaedBullet' ? 'klaed-bullet' : 'klaed-big-bullet'),
+  enemyBullet: (id: KlaedBulletId): string => `klaed-${BULLET_FRAMES[id].file}`,
   pickup: (part: PartId): string => `pickup-${part}`,
 };
 
@@ -201,18 +208,18 @@ export function sheets(): Sheet[] {
       const f = KLAED_FILES[kind];
 
       return [
-        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, 64),
-        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, 64, f.engine, 12),
-        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, 64, f.weapons, 18, false),
-        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, 64, f.destruction, 14, false),
-        ...(f.shield === undefined ? [] : [strip(keys.enemyShield(kind), `${klaed}/${kind}-shield.png`, 64, f.shield, 20)]),
+        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, f.size),
+        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, f.size, f.engine, 12),
+        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, f.size, f.weapons, 18, false),
+        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
+        ...(f.shield === undefined ? [] : [strip(keys.enemyShield(kind), `${klaed}/${kind}-shield.png`, f.size, f.shield, 20)]),
       ];
     }),
-    ...Object.entries(BULLET_FRAMES).map(([name, f]) => ({
-      key: `klaed-${name}`,
-      url: `${klaed}/${name}-${BULLET_VARIANT}.png`,
+    ...Object.values(BULLET_FRAMES).map((f) => ({
+      key: `klaed-${f.file}`,
+      url: `${klaed}/${f.file}-${BULLET_VARIANT}.png`,
       frameWidth: f.width,
-      frameHeight: 16,
+      frameHeight: f.height,
       frames: f.frames,
       fps: 12,
       loop: true,
