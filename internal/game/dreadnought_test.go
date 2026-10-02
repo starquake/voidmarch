@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"math"
 	"slices"
 	"sync"
 	"testing"
@@ -209,5 +210,51 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 			hps,
 			rings,
 		)
+	}
+}
+
+func TestDreadnought_ItsFallRewardsThoseNearAndReleasesDerelicts(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m), WithDreadnought(1), WithPoolStart(3))
+	near, _ := join(t, hub, "near")
+	far, _ := join(t, hub, "far")
+	d := dreadnoughtIn(must(latest(t, near, tick, 1, 0, 0)))
+	x, y := d.GetX(), d.GetY()+300
+	far.Send(state(0, 0))
+	must(latest(t, near, tick, 1, x, y))
+	drain(far)
+
+	shots := sim.DreadnoughtShield/MaxHitDamage + 2
+	for shot := range uint32(shots) { //nolint:gosec // a few shots.
+		hitFrigate(near, d.GetEnemyId(), shot+1)
+	}
+	snap, others := latest(t, near, tick, 1, x, y)
+	var fell *pb.BossFell
+	for _, msg := range others {
+		if f := msg.GetBossFell(); f != nil {
+			fell = f
+		}
+	}
+	if fell == nil || fell.GetKind() != pb.EnemyKind_ENEMY_KIND_DREADNOUGHT {
+		t.Fatalf("BossFell = %+v, want the Dreadnought's fall", fell)
+	}
+	got := map[string]bool{}
+	for _, g := range fell.GetGains() {
+		got[g.GetPlayerId()] = true
+	}
+	if !got["near"] || got["far"] {
+		t.Errorf("parts went to %v, want the player near it and not the one far away", got)
+	}
+	free := 0
+	for _, dr := range snap.GetDerelicts() {
+		if !dr.GetHeld() &&
+			math.Hypot(float64(dr.GetX()-d.GetX()), float64(dr.GetY()-d.GetY())) < 200 {
+			free++
+		}
+	}
+	if free != sim.DreadnoughtDerelicts {
+		t.Errorf("%d free derelicts by the wreck, want %d", free, sim.DreadnoughtDerelicts)
 	}
 }

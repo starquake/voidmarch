@@ -5,6 +5,7 @@ import type {
   EnemyDestroyed,
   EnemyFired,
   PickupDropped,
+  PickupGain,
   PickupTaken,
   SectorCleared,
   Snapshot,
@@ -60,6 +61,7 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, heldLabel, holders, rescueNotice } from '../net/derelict.ts';
+import { bossFellBanner, ringsClosedBanner } from '../net/frontier.ts';
 import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
@@ -363,6 +365,9 @@ export class NetPlay {
         frontier: (frontier) => {
           this.setFrontier(frontier);
         },
+        bossFell: (fell) => {
+          this.bossFell(fell.gains);
+        },
         eventEnded: (ended) => {
           this.worldEvent = undefined;
           const event = ended.event;
@@ -445,8 +450,28 @@ export class NetPlay {
     return mission === undefined || mission === '' ? undefined : mission;
   }
 
+  /** Takes the parts the fall gave this player, and announces it (#125). */
+  private bossFell(gains: readonly PickupGain[]): void {
+    let reward: string | undefined;
+    for (const gain of gains) {
+      const part = fromPart(gain.unlock?.part);
+      if (gain.playerId === this.playerId && part !== undefined) {
+        const tier = tierOf(gain.unlock?.tier);
+        this.unlocks.set(part, tier);
+        reward = partLabel(part, tier);
+      }
+    }
+    this.banners.push(bossFellBanner(reward));
+    this.options.pickups.regrade(this.unlocks);
+    this.refit();
+  }
+
   /** Takes the server's frontier, and hands it to the sim so the ship stays out of closed sectors (#123). */
   private setFrontier(message: { openRings: number; opened: readonly string[] }): void {
+    const closed = ringsClosedBanner(this.frontier.openRings, message.openRings);
+    if (closed !== undefined) {
+      this.banners.push(closed);
+    }
     this.frontier = { openRings: message.openRings, opened: new Set(message.opened) };
     this.frontierVersion++;
     this.options.sim.setFrontier(message.openRings, message.opened);

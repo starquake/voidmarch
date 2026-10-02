@@ -143,6 +143,9 @@ const (
 	// and DreadnoughtShieldDelay the seconds without a hit before it's back.
 	DreadnoughtShield      = 120
 	DreadnoughtShieldDelay = 8
+	// DreadnoughtDerelicts is how many derelicts its fall releases (#8
+	// decision 8).
+	DreadnoughtDerelicts = 3
 )
 
 // Companion brains (docs/design.md, section 13).
