@@ -364,6 +364,8 @@ var MAP_FRIGATE_COLOR = 16739163;
 var MAP_OTHER_MISSION_COLOR = 11566335;
 var MAP_YOU_COLOR = 16777215;
 var MAP_FLASH_MS = 300;
+var RING_TINTS = [16777215, 16777215, 9429168, 9417983];
+var RING_TINT_FADE_MS = 1500;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -1350,10 +1352,15 @@ function missionArrow(ship, target, width, height, margin) {
   const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
   return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
+var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
+function sectorFaction(name) {
+  const ring2 = sectorRing(name) ?? 1;
+  return ENEMY_FACTIONS[Math.min(Math.max(ring2, 1), ENEMY_FACTIONS.length) - 1] ?? "klaed";
+}
 function missionBanner(sector) {
   return [
     `New mission: sector ${sector}`,
-    `Destroy every Kla'ed ship in ${sector} to clear it.`,
+    `Destroy every ${FACTION_NAMES[sectorFaction(sector)]} ship in ${sector} to clear it.`,
     "Follow the gold arrow at the edge of the screen."
   ];
 }
@@ -1363,6 +1370,26 @@ function missionCompleteBanner(sector, part) {
     lines.push(`Your reward: ${part}`);
   }
   return lines;
+}
+var WHITE = 16777215;
+var CHANNELS = [16, 8, 0];
+var CHANNEL_MAX = 255;
+function ringTint(x, y) {
+  const name = sectorName(x, y);
+  const ring2 = name === void 0 ? void 0 : sectorRing(name);
+  return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
+}
+function fadeColor(a, b, t) {
+  const share = Math.min(1, Math.max(0, t));
+  let out = 0;
+  for (const shift of CHANNELS) {
+    const from = a >> shift & CHANNEL_MAX;
+    const to = b >> shift & CHANNEL_MAX;
+    const step = (to - from) * share;
+    const moved = share > 0 && Math.abs(step) < 1 ? from + Math.sign(to - from) : Math.round(from + step);
+    out |= moved << shift;
+  }
+  return out;
 }
 
 // src/sim/sectormap.ts
@@ -4326,6 +4353,8 @@ var SandboxScene = class extends Phaser9.Scene {
   world;
   backgrounds = [];
   backgroundFrame = 0;
+  /** The background's tint now, fading toward the ring the ship is in (#136). */
+  backgroundTint = 16777215;
   ships;
   pickups;
   partsLine = [];
@@ -4476,7 +4505,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.updateOrderMenu(time);
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
-    this.scrollBackgrounds(time);
+    this.scrollBackgrounds(time, deltaMs);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
     this.drawMaps();
@@ -5274,16 +5303,22 @@ ${modeName(info)}`,
       this.shakeFor(weapon);
     }
   }
-  /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
-  scrollBackgrounds(time) {
+  /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
+  scrollBackgrounds(time, deltaMs) {
     const camera = this.cameras.main;
     const frame = Math.floor(time / 1e3 * BACKGROUND_FPS) % BACKGROUND_FRAMES;
     const frameChanged = frame !== this.backgroundFrame;
     this.backgroundFrame = frame;
+    const tint = fadeColor(this.backgroundTint, ringTint(this.sim.ship.x, this.sim.ship.y), deltaMs / RING_TINT_FADE_MS);
+    const tintChanged = tint !== this.backgroundTint;
+    this.backgroundTint = tint;
     for (const { sprite, factor } of this.backgrounds) {
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
       if (frameChanged) {
         sprite.setFrame(frame);
+      }
+      if (tintChanged) {
+        sprite.setTint(tint);
       }
     }
   }

@@ -58,8 +58,20 @@ import {
   CLOSED_EDGE_COLOR,
   CLOSED_EDGE_WIDTH,
   CLOSED_SHADE_ALPHA,
+  RING_TINT_FADE_MS,
 } from '../sim/tuning.ts';
-import { ALL_OPEN, closedEdges, missionArrow, missionBanner, SECTOR_NAMES, sectorCorners, sectorLine, sectorOpen } from '../sim/sectors.ts';
+import {
+  ALL_OPEN,
+  fadeColor,
+  closedEdges,
+  missionArrow,
+  missionBanner,
+  ringTint,
+  SECTOR_NAMES,
+  sectorCorners,
+  sectorLine,
+  sectorOpen,
+} from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
@@ -162,6 +174,8 @@ export class SandboxScene extends Phaser.Scene {
   private world!: Phaser.GameObjects.Layer;
   private backgrounds: Background[] = [];
   private backgroundFrame = 0;
+  /** The background's tint now, fading toward the ring the ship is in (#136). */
+  private backgroundTint = 0xffffff;
   private ships!: Phaser.GameObjects.Container;
   private pickups!: PickupsView;
   private partsLine: Phaser.GameObjects.Text[] = [];
@@ -316,7 +330,7 @@ export class SandboxScene extends Phaser.Scene {
     this.updateOrderMenu(time);
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
-    this.scrollBackgrounds(time);
+    this.scrollBackgrounds(time, deltaMs);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
     this.drawMaps();
@@ -1231,16 +1245,22 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Scrolls each layer at its parallax factor; TileSprites cannot play animations, so frames step here. */
-  private scrollBackgrounds(time: number): void {
+  /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
+  private scrollBackgrounds(time: number, deltaMs: number): void {
     const camera = this.cameras.main;
     const frame = Math.floor((time / 1000) * BACKGROUND_FPS) % BACKGROUND_FRAMES;
     const frameChanged = frame !== this.backgroundFrame;
     this.backgroundFrame = frame;
+    const tint = fadeColor(this.backgroundTint, ringTint(this.sim.ship.x, this.sim.ship.y), deltaMs / RING_TINT_FADE_MS);
+    const tintChanged = tint !== this.backgroundTint;
+    this.backgroundTint = tint;
     for (const { sprite, factor } of this.backgrounds) {
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
       if (frameChanged) {
         sprite.setFrame(frame);
+      }
+      if (tintChanged) {
+        sprite.setTint(tint);
       }
     }
   }
