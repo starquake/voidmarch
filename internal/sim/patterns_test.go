@@ -191,12 +191,12 @@ func TestEnemyKinds_TheDreadnoughtIsTheBiggest(t *testing.T) {
 		t.Fatal("EnemyKinds() leaves out the Dreadnought")
 	}
 	if EnemyRadius(EnemyDreadnought) <= EnemyRadius(EnemyFrigate) ||
-		EnemyHP(EnemyDreadnought) != DreadnoughtHP {
+		EnemyHP(EnemyDreadnought) != DreadnoughtMaxHP(1) {
 		t.Errorf(
-			"Dreadnought radius %v, hp %v; want bigger than a Frigate, %d",
+			"Dreadnought radius %v, hp %v; want bigger than a Frigate, %v",
 			EnemyRadius(EnemyDreadnought),
 			EnemyHP(EnemyDreadnought),
-			DreadnoughtHP,
+			DreadnoughtMaxHP(1),
 		)
 	}
 	for _, id := range []EnemyBulletID{KlaedRay, KlaedWave} {
@@ -206,23 +206,41 @@ func TestEnemyKinds_TheDreadnoughtIsTheBiggest(t *testing.T) {
 	}
 }
 
+func TestDreadnoughtMaxHP(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		weight float64
+		want   float64
+	}{
+		{0, DreadnoughtBaseHP},
+		{1, DreadnoughtBaseHP + DreadnoughtHPPerPlayer},
+		{4.5, DreadnoughtBaseHP + 4.5*DreadnoughtHPPerPlayer},
+	}
+	for _, tc := range tests {
+		if got := DreadnoughtMaxHP(tc.weight); got != tc.want {
+			t.Errorf("DreadnoughtMaxHP(%v) = %v, want %v", tc.weight, got, tc.want)
+		}
+	}
+}
+
 func TestDreadnoughtRegen(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		hp    int
+		share float64
 		hours float64
-		want  int
+		want  float64
 	}{
-		{100_000, 0, 100_000},
-		{100_000, 1, 100_000 + DreadnoughtRegenPerHour},
-		{100_000, 2.5, 100_000 + 5*DreadnoughtRegenPerHour/2},
-		{DreadnoughtHP - 10, 1, DreadnoughtHP},
-		{100_000, -3, 100_000},
+		{0.5, 0, 0.5},
+		{0.5, 1, 0.5 + DreadnoughtRegenPerHour},
+		{0.5, 2.5, 0.5 + 2.5*DreadnoughtRegenPerHour},
+		{1 - DreadnoughtRegenPerHour/2, 1, 1},
+		{0.5, -3, 0.5},
 	}
 	for _, tc := range tests {
-		if got := DreadnoughtRegen(tc.hp, tc.hours); got != tc.want {
-			t.Errorf("DreadnoughtRegen(%d, %v) = %d, want %d", tc.hp, tc.hours, got, tc.want)
+		if got := DreadnoughtRegen(tc.share, tc.hours); math.Abs(got-tc.want) > 1e-12 {
+			t.Errorf("DreadnoughtRegen(%v, %v) = %v, want %v", tc.share, tc.hours, got, tc.want)
 		}
 	}
 }

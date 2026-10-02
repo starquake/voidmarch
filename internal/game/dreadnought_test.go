@@ -37,15 +37,15 @@ func dreadnoughtIn(snap *pb.Snapshot) *pb.EnemyState {
 
 // saved collects what a hub saves, off its tick goroutine.
 type saved struct {
-	mu    sync.Mutex
-	hps   []int
-	rings []int
+	mu     sync.Mutex
+	shares []float64
+	rings  []int
 }
 
-func (s *saved) hp(hp int) {
+func (s *saved) share(share float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.hps = append(s.hps, hp)
+	s.shares = append(s.shares, share)
 }
 
 func (s *saved) ring(n int) {
@@ -54,11 +54,11 @@ func (s *saved) ring(n int) {
 	s.rings = append(s.rings, n)
 }
 
-func (s *saved) all() (hps, rings []int) {
+func (s *saved) all() (shares []float64, rings []int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return slices.Clone(s.hps), slices.Clone(s.rings)
+	return slices.Clone(s.shares), slices.Clone(s.rings)
 }
 
 func TestDreadnought_WakesOnceFourOfRingOneAreCleared(t *testing.T) {
@@ -78,7 +78,9 @@ func TestDreadnought_WakesOnceFourOfRingOneAreCleared(t *testing.T) {
 		t.Fatal("no Dreadnought with 4 of ring 1 cleared")
 	}
 	s, ok := sim.SectorAt(float64(d.GetX()), float64(d.GetY()))
-	if !ok || s.Ring() != 2 || d.GetHp() != sim.DreadnoughtHP || d.GetMaxHp() != sim.DreadnoughtHP {
+	// Nobody is near it, so its maximum is the base alone.
+	full := float32(sim.DreadnoughtMaxHP(0))
+	if !ok || s.Ring() != 2 || d.GetHp() != full || d.GetMaxHp() != full {
 		t.Errorf("Dreadnought %+v in %s, want it in ring 2 at full health", d, s.Name())
 	}
 	var frontier *pb.Frontier
@@ -110,20 +112,28 @@ func TestDreadnought_NeverWakesWithTheRingsOpen(t *testing.T) {
 	}
 }
 
-func TestDreadnought_KeepsItsHealthAndRegenerates(t *testing.T) {
+func TestDreadnought_KeepsItsShareAndScalesToThoseNear(t *testing.T) {
 	t.Parallel()
 
-	m := &world.Map{Name: "test", DreadnoughtAwake: true}
-	hub, tick := testHub(t, WithMap(m), WithDreadnought(150_000))
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m), WithDreadnought(0.75))
 	a, _ := join(t, hub, "a")
-	start := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0))).GetHp()
-	if start != 150_000 {
-		t.Fatalf("hp = %v, want the saved 150000", start)
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	if got, want := d.GetHp(), float32(0.75*sim.DreadnoughtMaxHP(0)); got != want {
+		t.Fatalf("hp = %v with nobody near, want the saved share of the base, %v", got, want)
 	}
-	// An hour's 2,000 is one point every 36 ticks.
-	after := dreadnoughtIn(must(latest(t, a, tick, 360, 0, 0))).GetHp()
-	if got := after - start; got < 9 || got > 10 {
-		t.Errorf("hp went up %v in 360 ticks, want about 10", got)
+	x, y := d.GetX(), d.GetY()+300
+	d = dreadnoughtIn(must(latest(t, a, tick, 1, x, y)))
+	if got, want := d.GetMaxHp(), float32(sim.DreadnoughtMaxHP(1)); got != want ||
+		d.GetHp() != 0.75*want || d.GetScaledFor() != 1 {
+		t.Fatalf("Dreadnought %+v with one ship near, want 3/4 of %v, scaled for 1", d, want)
+	}
+	// A hundredth of its health an hour is 1/72,000 a tick, so 1,800 ticks
+	// give back a quarter of a thousandth: 5 of 20,000.
+	start := d.GetHp()
+	after := dreadnoughtIn(must(latest(t, a, tick, 1800, x, y))).GetHp()
+	if got := after - start; got < 4 || got > 6 {
+		t.Errorf("hp went up %v in 1800 ticks, want about 5", got)
 	}
 }
 
@@ -169,8 +179,8 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 	hub, tick := testHub(
 		t,
 		WithMap(m),
-		WithDreadnought(30),
-		WithSaveDreadnought(saves.hp),
+		WithDreadnought(0.003),
+		WithSaveDreadnought(saves.share),
 		WithSaveOpenRings(saves.ring),
 		// Ring 1 holds, so the rings stay open once it falls.
 		WithClearedSectors(ringOne(4)),
@@ -205,11 +215,11 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 		t.Errorf("frontier %+v once it fell, want rings 2 and 3 open", frontier)
 	}
 	must(latest(t, a, tick, 1, 0, 0))
-	hps, rings := saves.all()
-	if !slices.Contains(hps, sim.DreadnoughtHP) || !slices.Equal(rings, []int{3}) {
+	shares, rings := saves.all()
+	if !slices.Contains(shares, 1) || !slices.Equal(rings, []int{3}) {
 		t.Errorf(
-			"saved health %v and rings %v, want a fresh Dreadnought's health and 3 rings",
-			hps,
+			"saved shares %v and rings %v, want a fresh Dreadnought's whole health and 3 rings",
+			shares,
 			rings,
 		)
 	}
@@ -219,7 +229,7 @@ func TestDreadnought_ItsFallRewardsThoseNearAndReleasesDerelicts(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithDreadnought(1), WithPoolStart(3))
+	hub, tick := testHub(t, WithMap(m), WithDreadnought(0.0005), WithPoolStart(3))
 	near, _ := join(t, hub, "near")
 	far, _ := join(t, hub, "far")
 	d := dreadnoughtIn(must(latest(t, near, tick, 1, 0, 0)))
@@ -325,7 +335,7 @@ func TestDreadnought_ReopeningTakesAFreshOne(t *testing.T) {
 		snap = must(latest(t, a, tick, 1, enterX, enterY))
 	}
 	d := dreadnoughtIn(snap)
-	if d == nil || d.GetHp() != sim.DreadnoughtHP {
+	if d == nil || d.GetHp() != d.GetMaxHp() {
 		t.Errorf("Dreadnought %+v once ring 1 was back at 4, want a fresh one at full health", d)
 	}
 }

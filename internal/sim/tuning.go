@@ -119,10 +119,14 @@ const (
 
 // The Kla'ed Dreadnought, the siege boss (#8, #124).
 const (
-	// DreadnoughtHP is its health, kept across sessions, and
-	// DreadnoughtRegenPerHour what it gets back an hour (#8 decision 5).
-	DreadnoughtHP           = 200000
-	DreadnoughtRegenPerHour = 2000
+	// DreadnoughtBaseHP and DreadnoughtHPPerPlayer make its maximum health:
+	// the base plus a share for each ship near it, so 3-6 friends beat it in
+	// an evening (#132).
+	DreadnoughtBaseHP      = 10000
+	DreadnoughtHPPerPlayer = 10000
+	// DreadnoughtRegenPerHour is the share of its health it gets back an
+	// hour; the share left is what's kept across sessions.
+	DreadnoughtRegenPerHour = 0.01
 	// DreadnoughtWakesAt is how many of ring 1's sectors must be cleared
 	// for it to wake (#8 decision 1).
 	DreadnoughtWakesAt = 4

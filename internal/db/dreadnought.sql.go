@@ -10,32 +10,32 @@ import (
 )
 
 const dreadnought = `-- name: Dreadnought :one
-SELECT hp, updated_at FROM dreadnought WHERE id = 1
+SELECT health, updated_at FROM dreadnought WHERE id = 1
 `
 
 type DreadnoughtRow struct {
-	Hp        int64
+	Health    float64
 	UpdatedAt int64
 }
 
 func (q *Queries) Dreadnought(ctx context.Context) (DreadnoughtRow, error) {
 	row := q.db.QueryRowContext(ctx, dreadnought)
 	var i DreadnoughtRow
-	err := row.Scan(&i.Hp, &i.UpdatedAt)
+	err := row.Scan(&i.Health, &i.UpdatedAt)
 	return i, err
 }
 
 const saveDreadnought = `-- name: SaveDreadnought :exec
-INSERT INTO dreadnought (id, hp, updated_at) VALUES (1, ?, ?)
-ON CONFLICT (id) DO UPDATE SET hp = excluded.hp, updated_at = excluded.updated_at
+INSERT INTO dreadnought (id, health, updated_at) VALUES (1, ?, ?)
+ON CONFLICT (id) DO UPDATE SET health = excluded.health, updated_at = excluded.updated_at
 `
 
 type SaveDreadnoughtParams struct {
-	Hp        int64
+	Health    float64
 	UpdatedAt int64
 }
 
 func (q *Queries) SaveDreadnought(ctx context.Context, arg SaveDreadnoughtParams) error {
-	_, err := q.db.ExecContext(ctx, saveDreadnought, arg.Hp, arg.UpdatedAt)
+	_, err := q.db.ExecContext(ctx, saveDreadnought, arg.Health, arg.UpdatedAt)
 	return err
 }

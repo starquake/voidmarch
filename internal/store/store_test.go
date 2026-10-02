@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 5; got != want {
+	if got, want := version, 6; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -209,12 +209,12 @@ func TestDreadnoughtHealth(t *testing.T) {
 		t.Errorf("DreadnoughtHealth() on a fresh file = %t, %v; want none saved", ok, err)
 	}
 	at := time.Unix(1_700_000_000, 0)
-	if err = SaveDreadnoughtHealth(t.Context(), db, 150_000, at); err != nil {
+	if err = SaveDreadnoughtHealth(t.Context(), db, 0.75, at); err != nil {
 		t.Fatalf("SaveDreadnoughtHealth() error = %v", err)
 	}
 	d, ok, err := DreadnoughtHealth(t.Context(), db)
-	if err != nil || !ok || d.HP != 150_000 || !d.At.Equal(at) {
-		t.Errorf("DreadnoughtHealth() = %+v, %t, %v; want 150000 at %v", d, ok, err, at)
+	if err != nil || !ok || d.Health != 0.75 || !d.At.Equal(at) {
+		t.Errorf("DreadnoughtHealth() = %+v, %t, %v; want 0.75 at %v", d, ok, err, at)
 	}
 }
 

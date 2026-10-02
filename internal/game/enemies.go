@@ -404,7 +404,7 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 	case e.frigate != nil:
 		e.hp -= e.frigate.takeHit(int(min(damage, maxHitDamage)), h.tick)
 	case e.dread != nil:
-		e.hp -= e.dread.takeHit(int(min(damage, maxHitDamage)), h.tick)
+		e.hp = e.dread.takeHit(int(min(damage, maxHitDamage)), h.tick)
 	default:
 		e.hp = damaged(e.hp, damage)
 	}
@@ -469,8 +469,9 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 		}
 		if d := e.dread; d != nil {
 			state.Hp = float32(e.hp)
-			state.MaxHp = sim.DreadnoughtHP
+			state.MaxHp = float32(d.maxHP())
 			state.Shield = float32(d.shield)
+			state.ScaledFor = float32(d.weight)
 		}
 		out = append(out, state)
 	}

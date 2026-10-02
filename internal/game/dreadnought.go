@@ -27,35 +27,52 @@ const (
 	dreadnoughtDerelictRing = 140
 	// dreadnoughtSaveEvery is how often its health is saved while it's awake.
 	dreadnoughtSaveEvery = 60 * TickRate
-	// regenPerTick is the health it gets back each hub tick.
-	regenPerTick = float64(sim.DreadnoughtRegenPerHour) / (60 * 60 * TickRate)
+	// regenPerTick is the share of its health it gets back each hub tick.
+	regenPerTick = sim.DreadnoughtRegenPerHour / (60 * 60 * TickRate)
 )
 
 // dreadnoughtFight is the Dreadnought's state beyond an enemy's: its
-// shield, which volley comes next, and the health it regenerates.
+// shield, which volley comes next, and its health, as the share of its
+// maximum left and the weight of the ships near it that the maximum
+// follows (#132).
 type dreadnoughtFight struct {
 	shield  int
 	lastHit uint32
 	next    sim.DreadnoughtVolley
 	// beams is how many beams of a Ray sweep are left, fired from
 	// across the sweep.
-	beams int
-	from  float64
-	// regen is the health regenerated but not yet a whole point.
-	regen float64
+	beams  int
+	from   float64
+	share  float64
+	weight float64
 }
 
-// WithDreadnought sets the Kla'ed Dreadnought's health as saved, its offline
-// regeneration applied (#124); a hub starts with it at full health.
-func WithDreadnought(hp int) HubOption {
+// maxHP is its maximum health for the ships near it now.
+func (f *dreadnoughtFight) maxHP() float64 {
+	return sim.DreadnoughtMaxHP(f.weight)
+}
+
+// hp is its health, never 0 while any share is left.
+func (f *dreadnoughtFight) hp() int {
+	if f.share <= 0 {
+		return 0
+	}
+
+	return max(1, int(math.Round(f.share*f.maxHP())))
+}
+
+// WithDreadnought sets the share of the Kla'ed Dreadnought's health left,
+// from 0 to 1, as saved, its offline regeneration applied (#124, #132); a
+// hub starts with it whole.
+func WithDreadnought(share float64) HubOption {
 	return func(o *hubOptions) {
-		o.dreadnoughtHP = hp
+		o.dreadnoughtShare = share
 	}
 }
 
-// WithSaveDreadnought saves the Dreadnought's health, off the tick
-// goroutine, while it's awake and when it falls.
-func WithSaveDreadnought(save func(hp int)) HubOption {
+// WithSaveDreadnought saves the share of the Dreadnought's health left, off
+// the tick goroutine, while it's awake and when it falls.
+func WithSaveDreadnought(save func(share float64)) HubOption {
 	return func(o *hubOptions) {
 		o.saveDreadnought = save
 	}
@@ -106,10 +123,10 @@ func (h *Hub) wakeDreadnought() {
 		x:        c.X,
 		y:        c.Y,
 		angle:    quarterTurn,
-		hp:       h.dreadnoughtHP,
 		lastNear: h.tick,
-		dread:    &dreadnoughtFight{shield: sim.DreadnoughtShield},
+		dread:    &dreadnoughtFight{shield: sim.DreadnoughtShield, share: h.dreadnoughtShare},
 	}
+	e.hp = e.dread.hp()
 	h.enemies[e.id] = e
 	h.dreadnoughtID = e.id
 	h.frontier.Opened = map[sim.Sector]bool{s: true}
@@ -130,18 +147,22 @@ func (h *Hub) closeRingsIfFallenBack() {
 	h.broadcastFrontier()
 }
 
-// stepDreadnought regenerates it, recharges its shield, and fires its
-// volleys in turn at the nearest ship in range.
+// stepDreadnought scales it to the ships near it, regenerates it,
+// recharges its shield, and fires its volleys in turn at the nearest ship in
+// range.
 func (h *Hub) stepDreadnought(e *enemy, ships []upShip) {
 	f := e.dread
 	e.lastNear = h.tick
-	f.regen += regenPerTick
-	if whole := int(f.regen); whole > 0 {
-		e.hp = min(sim.DreadnoughtHP, e.hp+whole)
-		f.regen -= float64(whole)
+	f.weight = 0
+	for _, s := range ships {
+		if math.Hypot(s.at.x-e.x, s.at.y-e.y) <= sim.FrigateReach {
+			f.weight += s.weight
+		}
 	}
+	f.share = math.Min(1, f.share+regenPerTick)
+	e.hp = f.hp()
 	if h.tick%dreadnoughtSaveEvery == 0 {
-		h.saveDreadnoughtHP(e.hp)
+		h.saveDreadnoughtShare(f.share)
 	}
 	if f.shield < sim.DreadnoughtShield && h.tick-f.lastHit >= dreadnoughtShieldTicks {
 		f.shield = sim.DreadnoughtShield
@@ -179,13 +200,15 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip) {
 	}
 }
 
-// takeHit is the damage left after the shield takes what it can.
+// takeHit takes damage, the shield first, off its share, and returns its
+// health after.
 func (f *dreadnoughtFight) takeHit(damage int, tick uint32) int {
 	f.lastHit = tick
 	absorbed := min(f.shield, damage)
 	f.shield -= absorbed
+	f.share = math.Max(0, f.share-float64(damage-absorbed)/f.maxHP())
 
-	return damage - absorbed
+	return f.hp()
 }
 
 // dreadnoughtFallen rewards the players near e, releases its derelicts and
@@ -217,8 +240,8 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 		Kind: e.kind, Gains: gains, Tick: h.tick,
 	}}}, "")
 	h.dreadnoughtID = 0
-	h.dreadnoughtHP = sim.DreadnoughtHP
-	h.saveDreadnoughtHP(sim.DreadnoughtHP)
+	h.dreadnoughtShare = 1
+	h.saveDreadnoughtShare(1)
 	h.frontier = sim.Frontier{OpenRings: sim.GridRings}
 	if h.saveOpenRings != nil {
 		h.saves <- func() { h.saveOpenRings(sim.GridRings) }
@@ -226,10 +249,11 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 	h.broadcastFrontier()
 }
 
-// saveDreadnoughtHP saves its health off the tick goroutine.
-func (h *Hub) saveDreadnoughtHP(hp int) {
+// saveDreadnoughtShare saves the share of its health left off the tick
+// goroutine.
+func (h *Hub) saveDreadnoughtShare(share float64) {
 	if h.saveDreadnought != nil {
-		h.saves <- func() { h.saveDreadnought(hp) }
+		h.saves <- func() { h.saveDreadnought(share) }
 	}
 }
 
