@@ -116,6 +116,20 @@ func (h *Hub) wakeDreadnought() {
 	h.broadcastFrontier()
 }
 
+// closeRingsIfFallenBack closes rings 2 and 3 again once ring 1 has fewer
+// than sim.DreadnoughtWakesAt cleared sectors (#8 decision 9); reopening
+// them takes a fresh Dreadnought, which wakes once ring 1 is back.
+func (h *Hub) closeRingsIfFallenBack() {
+	if h.frontier.OpenRings < ringTwo || h.ringOneCleared() >= sim.DreadnoughtWakesAt {
+		return
+	}
+	h.frontier = sim.Frontier{OpenRings: 1}
+	if h.saveOpenRings != nil {
+		h.saves <- func() { h.saveOpenRings(1) }
+	}
+	h.broadcastFrontier()
+}
+
 // stepDreadnought regenerates it, recharges its shield, and fires its
 // volleys in turn at the nearest ship in range.
 func (h *Hub) stepDreadnought(e *enemy, ships []upShip) {

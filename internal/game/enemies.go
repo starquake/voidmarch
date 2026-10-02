@@ -129,6 +129,7 @@ func (h *Hub) stepEnemies() {
 	h.stepGarrisons(ships)
 	h.spawnStragglers(players)
 	h.spawnFrigates()
+	h.closeRingsIfFallenBack()
 	h.wakeDreadnought()
 	// In id order: steering draws from h.rng, so map order would make a
 	// seeded hub differ between runs.
