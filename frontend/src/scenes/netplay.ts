@@ -60,7 +60,7 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, heldLabel, holders, rescueNotice } from '../net/derelict.ts';
-import { missionCompleteBanner, sectorName } from '../sim/sectors.ts';
+import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
@@ -220,6 +220,9 @@ export class NetPlay {
   readonly clearedSectors = new Set<string>();
   /** The game map's name ("frontier"), for the full map's title (#100). */
   mapName = '';
+  /** Which sectors are open (#123), and a count that moves on every change, for redrawing. */
+  frontier: Frontier = ALL_OPEN;
+  frontierVersion = 0;
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<number>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
@@ -357,6 +360,9 @@ export class NetPlay {
             this.banners.push(eventStartBanner(started.event));
           }
         },
+        frontier: (frontier) => {
+          this.setFrontier(frontier);
+        },
         eventEnded: (ended) => {
           this.worldEvent = undefined;
           const event = ended.event;
@@ -439,10 +445,18 @@ export class NetPlay {
     return mission === undefined || mission === '' ? undefined : mission;
   }
 
+  /** Takes the server's frontier, and hands it to the sim so the ship stays out of closed sectors (#123). */
+  private setFrontier(message: { openRings: number; opened: readonly string[] }): void {
+    this.frontier = { openRings: message.openRings, opened: new Set(message.opened) };
+    this.frontierVersion++;
+    this.options.sim.setFrontier(message.openRings, message.opened);
+  }
+
   /** What the maps show (#100), with the local ship at you. */
   mapState(you: { x: number; y: number }): MapState {
     return {
       cleared: this.clearedSectors,
+      frontier: this.frontier,
       frigates: this.bosses.filter((b) => b.kind === 'frigate'),
       missions: (this.squadrons?.squadrons ?? []).flatMap((s) =>
         s.mission === '' ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }],
@@ -943,6 +957,9 @@ export class NetPlay {
     this.name = welcome.name;
     this.worldEvent = welcome.worldEvent;
     this.mapName = welcome.mapName;
+    if (welcome.frontier !== undefined) {
+      this.setFrontier(welcome.frontier);
+    }
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);

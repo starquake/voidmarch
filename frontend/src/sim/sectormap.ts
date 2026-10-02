@@ -1,7 +1,8 @@
-import { GRID_EXTENT, HOME_SECTOR, SECTOR_NAMES, sectorCenter, sectorCorners, sectorName, sectorRing } from './sectors.ts';
+import { GRID_EXTENT, HOME_SECTOR, SECTOR_NAMES, sectorCenter, sectorCorners, sectorName, sectorOpen, sectorRing, type Frontier } from './sectors.ts';
 import {
   EVENT_COLOR,
   MAP_CLEARED_COLOR,
+  MAP_CLOSED_COLOR,
   MAP_HOME_COLOR,
   MAP_HOSTILE_COLORS,
   MAP_OTHER_MISSION_COLOR,
@@ -32,6 +33,8 @@ export interface MapMission {
 /** What the maps show (#100): the client's own view of the world. */
 export interface MapState {
   cleared: ReadonlySet<string>;
+  /** Which sectors are open (#123). */
+  frontier: Frontier;
   /** Where the Frigates still up are. */
   frigates: readonly Point[];
   missions: readonly MapMission[];
@@ -88,6 +91,9 @@ export function sectorFill(name: string, state: MapState, flash: boolean): numbe
   if (flash && state.attack === name) {
     return EVENT_COLOR;
   }
+  if (!sectorOpen(name, state.frontier)) {
+    return MAP_CLOSED_COLOR;
+  }
   if (name === HOME_SECTOR) {
     return MAP_HOME_COLOR;
   }
@@ -130,9 +136,9 @@ export function sectorAtScreen(layout: MapLayout, x: number, y: number): string 
   return sectorName((x - layout.x) / layout.scale, (y - layout.y) / layout.scale);
 }
 
-/** Whether a squadron can be sent to the sector: on the grid, not home and not cleared. */
-export function canPick(name: string | undefined, cleared: ReadonlySet<string>): name is string {
-  return name !== undefined && name !== HOME_SECTOR && !cleared.has(name);
+/** Whether a squadron can be sent to the sector: on the grid, open, not home and not cleared. */
+export function canPick(name: string | undefined, cleared: ReadonlySet<string>, frontier: Frontier): name is string {
+  return name !== undefined && name !== HOME_SECTOR && !cleared.has(name) && sectorOpen(name, frontier);
 }
 
 /** The full map's title: the map's name and ring 1's progress. */

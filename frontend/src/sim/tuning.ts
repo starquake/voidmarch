@@ -92,6 +92,13 @@ export const MAP_CLEARED_COLOR = 0x2c6a3c;
 /** Hostile sectors by ring, darker the farther from home. */
 export const MAP_HOSTILE_COLORS: readonly number[] = [0x8a3030, 0x8a3030, 0x6e2626, 0x561d1d];
 export const MAP_FILL_ALPHA = 0.9;
+/** A closed sector on the maps (#123). */
+export const MAP_CLOSED_COLOR = 0x2a2a33;
+/** In the world, a closed sector's shade and its edge with the open ones (#123). */
+export const CLOSED_SHADE_ALPHA = 0.45;
+export const CLOSED_EDGE_COLOR = 0xff5a4a;
+export const CLOSED_EDGE_ALPHA = 0.85;
+export const CLOSED_EDGE_WIDTH = 3;
 export const MAP_EDGE_COLOR = 0x120810;
 export const MAP_PANEL_COLOR = 0x05030a;
 export const MAP_PANEL_ALPHA = 0.82;

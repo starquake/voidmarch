@@ -54,8 +54,12 @@ import {
   VIEW_HEIGHT,
   VIEW_WIDTH,
   WEAPON_STATS,
+  CLOSED_EDGE_ALPHA,
+  CLOSED_EDGE_COLOR,
+  CLOSED_EDGE_WIDTH,
+  CLOSED_SHADE_ALPHA,
 } from '../sim/tuning.ts';
-import { missionArrow, missionBanner, SECTOR_NAMES, sectorCorners, sectorLine } from '../sim/sectors.ts';
+import { ALL_OPEN, closedEdges, missionArrow, missionBanner, SECTOR_NAMES, sectorCorners, sectorLine, sectorOpen } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
@@ -168,6 +172,9 @@ export class SandboxScene extends Phaser.Scene {
   /** The loadout screen at the home planet (#78). */
   private readonly loadoutScreen = new LoadoutScreen();
   private maps!: MapView;
+  /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
+  private closedLayer!: Phaser.GameObjects.Graphics;
+  private closedDrawn = -1;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   private enemyFire!: Phaser.GameObjects.Layer;
@@ -274,6 +281,7 @@ export class SandboxScene extends Phaser.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       mapOpen: false,
+      openRings: 0,
       mapLayout: { x: 0, y: 0, scale: 0 },
       boss: undefined,
       sector: '',
@@ -311,6 +319,7 @@ export class SandboxScene extends Phaser.Scene {
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
     this.drawMaps();
+    this.drawClosed();
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -411,6 +420,8 @@ export class SandboxScene extends Phaser.Scene {
       }
     }
     this.world.add(lines);
+    this.closedLayer = this.add.graphics();
+    this.world.add(this.closedLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -623,7 +634,7 @@ export class SandboxScene extends Phaser.Scene {
     };
     // A click on the open full map sends the squadron there (#100, decision 10).
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
-      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? new Set());
+      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== undefined) {
         this.net?.pickMission(sector);
       }
@@ -650,6 +661,34 @@ export class SandboxScene extends Phaser.Scene {
     if (event.code === 'Tab' || event.code === 'Escape') {
       event.preventDefault();
       this.maps.close();
+    }
+  }
+
+  /** Shades the closed sectors and draws their edge with the open ones, whenever the frontier changes (#123). */
+  private drawClosed(): void {
+    const version = this.net?.frontierVersion ?? 0;
+    if (version === this.closedDrawn) {
+      return;
+    }
+    this.closedDrawn = version;
+    const frontier = this.net?.frontier ?? ALL_OPEN;
+    const g = this.closedLayer.clear();
+    for (const name of SECTOR_NAMES) {
+      if (sectorOpen(name, frontier)) {
+        continue;
+      }
+      const [first, ...rest] = sectorCorners(name);
+      if (first !== undefined) {
+        g.fillStyle(0x000000, CLOSED_SHADE_ALPHA).beginPath().moveTo(first.x, first.y);
+        for (const corner of rest) {
+          g.lineTo(corner.x, corner.y);
+        }
+        g.closePath().fillPath();
+      }
+    }
+    g.lineStyle(CLOSED_EDGE_WIDTH, CLOSED_EDGE_COLOR, CLOSED_EDGE_ALPHA);
+    for (const { a, b } of closedEdges(frontier)) {
+      g.lineBetween(a.x, a.y, b.x, b.y);
     }
   }
 
@@ -1212,7 +1251,7 @@ export class SandboxScene extends Phaser.Scene {
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
       'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
       'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
-      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined),
+      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),
       this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? '',
       this.netStatus(),
@@ -1348,13 +1387,14 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.mapOpen = this.maps.open;
+    this.debug.openRings = this.net?.frontier.openRings ?? 0;
     this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
     this.debug.lastClear = this.net?.lastClear;
     this.debug.worldEvent = this.net?.worldEvent === undefined ? undefined : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
-    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined);
+    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);

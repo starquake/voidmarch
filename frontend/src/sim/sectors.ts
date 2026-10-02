@@ -89,11 +89,52 @@ export const SECTOR_NAMES: readonly string[] = (() => {
 export const HOME_SECTOR = sectorName(0, 0) ?? '';
 
 /** What a sector is to the HUD: home, or cleared or hostile; just "unknown" offline. */
-export type SectorState = 'home' | 'cleared' | 'hostile' | 'unknown';
+export type SectorState = 'home' | 'cleared' | 'hostile' | 'closed' | 'unknown';
 
-export function sectorState(name: string, cleared: ReadonlySet<string> | undefined): SectorState {
+/** Which sectors are open (#123), as the server says: the rings up to openRings, 0 for all, and those opened on their own. */
+export interface Frontier {
+  openRings: number;
+  opened: ReadonlySet<string>;
+}
+
+/** Every sector open: offline, and before the server says otherwise. */
+export const ALL_OPEN: Frontier = { openRings: 0, opened: new Set() };
+
+/** Whether ships may fly in the named sector, as the Go sim's Frontier.Open says. */
+export function sectorOpen(name: string, frontier: Frontier): boolean {
+  const ring = sectorRing(name);
+
+  return ring !== undefined && (frontier.openRings === 0 || ring <= frontier.openRings || frontier.opened.has(name));
+}
+
+/** The sides where an open sector meets a closed one, to draw as the closed rings' edge (#123). */
+export function closedEdges(frontier: Frontier): { a: { x: number; y: number }; b: { x: number; y: number } }[] {
+  const edges: { a: { x: number; y: number }; b: { x: number; y: number } }[] = [];
+  for (const name of SECTOR_NAMES) {
+    if (sectorOpen(name, frontier)) {
+      continue;
+    }
+    const center = sectorCenter(name) ?? { x: 0, y: 0 };
+    const corners = sectorCorners(name);
+    corners.forEach((a, i) => {
+      const b = corners[(i + 1) % corners.length] ?? a;
+      const side = ((2 * i + 1) * Math.PI) / 6;
+      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
+      if (across !== undefined && sectorOpen(across, frontier)) {
+        edges.push({ a, b });
+      }
+    });
+  }
+
+  return edges;
+}
+
+export function sectorState(name: string, cleared: ReadonlySet<string> | undefined, frontier: Frontier = ALL_OPEN): SectorState {
   if (name === HOME_SECTOR) {
     return 'home';
+  }
+  if (!sectorOpen(name, frontier)) {
+    return 'closed';
   }
   if (cleared === undefined) {
     return 'unknown';
@@ -103,12 +144,12 @@ export function sectorState(name: string, cleared: ReadonlySet<string> | undefin
 }
 
 /** The HUD's sector line: "Sector B3 · hostile". */
-export function sectorLine(x: number, y: number, cleared: ReadonlySet<string> | undefined): string {
+export function sectorLine(x: number, y: number, cleared: ReadonlySet<string> | undefined, frontier: Frontier = ALL_OPEN): string {
   const name = sectorName(x, y);
   if (name === undefined) {
     return '';
   }
-  const state = sectorState(name, cleared);
+  const state = sectorState(name, cleared, frontier);
 
   return state === 'unknown' ? `Sector ${name}` : `Sector ${name} · ${state}`;
 }

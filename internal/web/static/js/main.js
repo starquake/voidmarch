@@ -335,6 +335,11 @@ var MAP_HOME_COLOR = 3108764;
 var MAP_CLEARED_COLOR = 2910780;
 var MAP_HOSTILE_COLORS = [9056304, 9056304, 7218726, 5643549];
 var MAP_FILL_ALPHA = 0.9;
+var MAP_CLOSED_COLOR = 2763315;
+var CLOSED_SHADE_ALPHA = 0.45;
+var CLOSED_EDGE_COLOR = 16734794;
+var CLOSED_EDGE_ALPHA = 0.85;
+var CLOSED_EDGE_WIDTH = 3;
 var MAP_EDGE_COLOR = 1181712;
 var MAP_PANEL_COLOR = 328458;
 var MAP_PANEL_ALPHA = 0.82;
@@ -1221,21 +1226,48 @@ var SECTOR_NAMES = (() => {
   return names;
 })();
 var HOME_SECTOR = sectorName(0, 0) ?? "";
-function sectorState(name, cleared) {
+var ALL_OPEN = { openRings: 0, opened: /* @__PURE__ */ new Set() };
+function sectorOpen(name, frontier) {
+  const ring2 = sectorRing(name);
+  return ring2 !== void 0 && (frontier.openRings === 0 || ring2 <= frontier.openRings || frontier.opened.has(name));
+}
+function closedEdges(frontier) {
+  const edges = [];
+  for (const name of SECTOR_NAMES) {
+    if (sectorOpen(name, frontier)) {
+      continue;
+    }
+    const center = sectorCenter(name) ?? { x: 0, y: 0 };
+    const corners = sectorCorners(name);
+    corners.forEach((a, i) => {
+      const b = corners[(i + 1) % corners.length] ?? a;
+      const side = (2 * i + 1) * Math.PI / 6;
+      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
+      if (across !== void 0 && sectorOpen(across, frontier)) {
+        edges.push({ a, b });
+      }
+    });
+  }
+  return edges;
+}
+function sectorState(name, cleared, frontier = ALL_OPEN) {
   if (name === HOME_SECTOR) {
     return "home";
+  }
+  if (!sectorOpen(name, frontier)) {
+    return "closed";
   }
   if (cleared === void 0) {
     return "unknown";
   }
   return cleared.has(name) ? "cleared" : "hostile";
 }
-function sectorLine(x, y, cleared) {
+function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
   const name = sectorName(x, y);
   if (name === void 0) {
     return "";
   }
-  const state = sectorState(name, cleared);
+  const state = sectorState(name, cleared, frontier);
   return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
 }
 function sectorCorners(name) {
@@ -1300,6 +1332,9 @@ function sectorFill(name, state, flash) {
   if (flash && state.attack === name) {
     return EVENT_COLOR;
   }
+  if (!sectorOpen(name, state.frontier)) {
+    return MAP_CLOSED_COLOR;
+  }
   if (name === HOME_SECTOR) {
     return MAP_HOME_COLOR;
   }
@@ -1335,8 +1370,8 @@ function drawnMap(state, layout, flash) {
 function sectorAtScreen(layout, x, y) {
   return sectorName((x - layout.x) / layout.scale, (y - layout.y) / layout.scale);
 }
-function canPick(name, cleared) {
-  return name !== void 0 && name !== HOME_SECTOR && !cleared.has(name);
+function canPick(name, cleared, frontier) {
+  return name !== void 0 && name !== HOME_SECTOR && !cleared.has(name) && sectorOpen(name, frontier);
 }
 function mapTitle(mapName, cleared) {
   const ringOne = SECTOR_NAMES.filter((name) => sectorRing(name) === 1);
@@ -1455,12 +1490,12 @@ var MapView = class {
     this.legend.setText(mapLegend(state.missions).join("\n")).setPosition(this.fullLayout.x, legendY);
   }
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
-  pick(x, y, cleared) {
+  pick(x, y, cleared, frontier) {
     if (!this.open) {
       return void 0;
     }
     const name = sectorAtScreen(this.fullLayout, x, y);
-    return canPick(name, cleared) ? name : void 0;
+    return canPick(name, cleared, frontier) ? name : void 0;
   }
   drawGrid(g, drawn, layout, edge, outline) {
     const scale = this.dpr;
@@ -2703,6 +2738,9 @@ var Connection = class {
       case "eventEnded":
         events.eventEnded(message.kind.value);
         break;
+      case "frontier":
+        events.frontier(message.kind.value);
+        break;
       default:
     }
   }
@@ -3209,6 +3247,9 @@ var NetPlay = class {
   clearedSectors = /* @__PURE__ */ new Set();
   /** The game map's name ("frontier"), for the full map's title (#100). */
   mapName = "";
+  /** Which sectors are open (#123), and a count that moves on every change, for redrawing. */
+  frontier = ALL_OPEN;
+  frontierVersion = 0;
   enemyVolleys = new TimedQueue(20);
   enemyWarnings = new TimedQueue(20);
   destructions = new TimedQueue(20);
@@ -3343,6 +3384,9 @@ var NetPlay = class {
             this.banners.push(eventStartBanner(started.event));
           }
         },
+        frontier: (frontier) => {
+          this.setFrontier(frontier);
+        },
         eventEnded: (ended) => {
           this.worldEvent = void 0;
           const event = ended.event;
@@ -3413,10 +3457,17 @@ var NetPlay = class {
     const mission = this.squadronInfo?.mission;
     return mission === void 0 || mission === "" ? void 0 : mission;
   }
+  /** Takes the server's frontier, and hands it to the sim so the ship stays out of closed sectors (#123). */
+  setFrontier(message) {
+    this.frontier = { openRings: message.openRings, opened: new Set(message.opened) };
+    this.frontierVersion++;
+    this.options.sim.setFrontier(message.openRings, message.opened);
+  }
   /** What the maps show (#100), with the local ship at you. */
   mapState(you) {
     return {
       cleared: this.clearedSectors,
+      frontier: this.frontier,
       frigates: this.bosses.filter((b) => b.kind === "frigate"),
       missions: (this.squadrons?.squadrons ?? []).flatMap(
         (s) => s.mission === "" ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }]
@@ -3861,6 +3912,9 @@ var NetPlay = class {
     this.name = welcome.name;
     this.worldEvent = welcome.worldEvent;
     this.mapName = welcome.mapName;
+    if (welcome.frontier !== void 0) {
+      this.setFrontier(welcome.frontier);
+    }
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);
@@ -4172,6 +4226,9 @@ var SandboxScene = class extends Phaser9.Scene {
   /** The loadout screen at the home planet (#78). */
   loadoutScreen = new LoadoutScreen();
   maps;
+  /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
+  closedLayer;
+  closedDrawn = -1;
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   enemyFire;
@@ -4275,6 +4332,7 @@ var SandboxScene = class extends Phaser9.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       mapOpen: false,
+      openRings: 0,
       mapLayout: { x: 0, y: 0, scale: 0 },
       boss: void 0,
       sector: "",
@@ -4311,6 +4369,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
     this.drawMaps();
+    this.drawClosed();
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -4396,6 +4455,8 @@ var SandboxScene = class extends Phaser9.Scene {
       }
     }
     this.world.add(lines);
+    this.closedLayer = this.add.graphics();
+    this.world.add(this.closedLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -4574,7 +4635,7 @@ var SandboxScene = class extends Phaser9.Scene {
       this.closeOrderRing();
     };
     this.input.on(Phaser9.Input.Events.POINTER_DOWN, (pointer) => {
-      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set());
+      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
         this.net?.pickMission(sector);
       }
@@ -4598,6 +4659,33 @@ var SandboxScene = class extends Phaser9.Scene {
     if (event.code === "Tab" || event.code === "Escape") {
       event.preventDefault();
       this.maps.close();
+    }
+  }
+  /** Shades the closed sectors and draws their edge with the open ones, whenever the frontier changes (#123). */
+  drawClosed() {
+    const version = this.net?.frontierVersion ?? 0;
+    if (version === this.closedDrawn) {
+      return;
+    }
+    this.closedDrawn = version;
+    const frontier = this.net?.frontier ?? ALL_OPEN;
+    const g = this.closedLayer.clear();
+    for (const name of SECTOR_NAMES) {
+      if (sectorOpen(name, frontier)) {
+        continue;
+      }
+      const [first, ...rest] = sectorCorners(name);
+      if (first !== void 0) {
+        g.fillStyle(0, CLOSED_SHADE_ALPHA).beginPath().moveTo(first.x, first.y);
+        for (const corner of rest) {
+          g.lineTo(corner.x, corner.y);
+        }
+        g.closePath().fillPath();
+      }
+    }
+    g.lineStyle(CLOSED_EDGE_WIDTH, CLOSED_EDGE_COLOR, CLOSED_EDGE_ALPHA);
+    for (const { a, b } of closedEdges(frontier)) {
+      g.lineBetween(a.x, a.y, b.x, b.y);
     }
   }
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
@@ -5095,7 +5183,7 @@ ${modeName(info)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
-      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0),
+      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? "",
       this.netStatus(),
@@ -5223,13 +5311,14 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.mapOpen = this.maps.open;
+    this.debug.openRings = this.net?.frontier.openRings ?? 0;
     this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
     this.debug.lastClear = this.net?.lastClear;
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
-    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
+    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);
