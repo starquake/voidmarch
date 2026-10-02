@@ -55,6 +55,9 @@ type ProjectileSpawn struct {
 	X     float64
 	Y     float64
 	Angle float64
+	// Curve bends the shot sideways by Curve*f*f at f px along its line,
+	// positive to its left; 0 flies straight (#137).
+	Curve float64
 }
 
 // SpawnOptions describe a projectile that isn't a fresh shot of this
@@ -83,9 +86,11 @@ type Projectile struct {
 	OriginX float64
 	OriginY float64
 	Angle   float64
-	Age     float64
-	X       float64
-	Y       float64
+	// Curve bends it sideways, as its spawn's.
+	Curve float64
+	Age   float64
+	X     float64
+	Y     float64
 	// BaseAge is the age at which the origin and angle were last set: 0,
 	// unless a seeking shot turned (#72).
 	BaseAge float64
@@ -118,10 +123,23 @@ func Traveled(stats ProjectileStats, age float64) float64 {
 // the same spawn.
 func PositionAt(p *Projectile, age float64) Vec {
 	stats := ProjectileStatsOf(p.Kind)
-	lateral := stats.Zigzag.Amplitude * TriangleWave(age*stats.Zigzag.Frequency)
-	offset := RotateOffset(Traveled(stats, age)-Traveled(stats, p.BaseAge), lateral, p.Angle)
+	along := Traveled(stats, age) - Traveled(stats, p.BaseAge)
+	lateral := stats.Zigzag.Amplitude*TriangleWave(age*stats.Zigzag.Frequency) + p.Curve*along*along
+	offset := RotateOffset(along, lateral, p.Angle)
 
 	return Vec{X: p.OriginX + offset.X, Y: p.OriginY + offset.Y}
+}
+
+// HeadingAt is the way p points at the given age: its angle, turned along
+// its curve.
+func HeadingAt(p *Projectile, age float64) float64 {
+	if p.Curve == 0 {
+		return p.Angle
+	}
+	stats := ProjectileStatsOf(p.Kind)
+	along := Traveled(stats, age) - Traveled(stats, p.BaseAge)
+
+	return p.Angle + math.Atan(2*p.Curve*along)
 }
 
 // Place puts p where its age says.
@@ -193,6 +211,7 @@ func (p *Pool) Spawn(shot ProjectileSpawn, opts SpawnOptions) *Projectile {
 	}
 	chosen.OriginX, chosen.OriginY = shot.X, shot.Y
 	chosen.Angle = shot.Angle
+	chosen.Curve = shot.Curve
 	chosen.Age = opts.AgeSeconds
 	chosen.BaseAge, chosen.Shard, chosen.hits = 0, opts.Shard, 0
 	chosen.PiercesLeft = 0

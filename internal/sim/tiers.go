@@ -153,7 +153,7 @@ func Behind(player Unlocks, squadmates []Unlocks) bool {
 // DropChance is the chance a kill of kind drops a part, before catch-up.
 func DropChance(kind EnemyKind) float64 {
 	switch kind {
-	case EnemyFighter:
+	case EnemyFighter, EnemyBomber, EnemyTorpedo:
 		return FighterDropChance
 	case EnemyFrigate, EnemyDreadnought:
 		return FrigateDropChance

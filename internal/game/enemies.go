@@ -54,6 +54,23 @@ const (
 	fighterFireEvery    = 2 * TickRate
 	fighterKeepDistance = 170
 
+	// The Bomber keeps its distance, where its pair of shots cross (#137).
+	bomberHP           = 10
+	bomberMaxSpeed     = 60
+	bomberAcceleration = 150
+	bomberFireEvery    = 7 * TickRate / 2
+	bomberKeepDistance = sim.BomberConverge
+
+	torpedoHP           = 8
+	torpedoMaxSpeed     = 80
+	torpedoAcceleration = 200
+	torpedoFireEvery    = 4 * TickRate
+	torpedoKeepDistance = 260
+	// torpedoWarning is how long a Torpedo Ship holds still, lined up,
+	// before its Torpedo leaves; holdDamping slows it to a stop meanwhile.
+	torpedoWarning = 3 * TickRate / 4
+	holdDamping    = 0.8
+
 	// aggroRange covers a straggler's whole spawn ring, so it comes for the
 	// player it was sent at; a garrison engages anyone in its sector instead.
 	aggroRange = nearRadius
@@ -82,7 +99,8 @@ func statsFor(kind pb.EnemyKind, faction sim.EnemyFaction) enemyStats {
 		aggroRange:   aggroRange,
 		keepDistance: scoutKeepDistance,
 	}
-	if kind == pb.EnemyKind_ENEMY_KIND_FIGHTER {
+	switch kind {
+	case pb.EnemyKind_ENEMY_KIND_FIGHTER:
 		stats = enemyStats{
 			hp:           fighterHP,
 			maxSpeed:     fighterMaxSpeed,
@@ -91,6 +109,28 @@ func statsFor(kind pb.EnemyKind, faction sim.EnemyFaction) enemyStats {
 			aggroRange:   aggroRange,
 			keepDistance: fighterKeepDistance,
 		}
+	case pb.EnemyKind_ENEMY_KIND_BOMBER:
+		stats = enemyStats{
+			hp:           bomberHP,
+			maxSpeed:     bomberMaxSpeed,
+			acceleration: bomberAcceleration,
+			fireEvery:    bomberFireEvery,
+			aggroRange:   aggroRange,
+			keepDistance: bomberKeepDistance,
+		}
+	case pb.EnemyKind_ENEMY_KIND_TORPEDO:
+		stats = enemyStats{
+			hp:           torpedoHP,
+			maxSpeed:     torpedoMaxSpeed,
+			acceleration: torpedoAcceleration,
+			fireEvery:    torpedoFireEvery,
+			aggroRange:   aggroRange,
+			keepDistance: torpedoKeepDistance,
+		}
+	case pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, pb.EnemyKind_ENEMY_KIND_SCOUT,
+		pb.EnemyKind_ENEMY_KIND_FRIGATE, pb.EnemyKind_ENEMY_KIND_DREADNOUGHT:
+		fallthrough
+	default:
 	}
 	tougher := sim.FactionStats(faction)
 	stats.hp = int(math.Round(float64(stats.hp) * tougher.Health))
@@ -113,6 +153,9 @@ type enemy struct {
 	strafe float64
 	// wanderX and wanderY offset the Scout's goal around its target.
 	wanderX, wanderY float64
+	// holdUntil is the tick a Torpedo Ship lined up for its shot holds
+	// still until (#137).
+	holdUntil uint32
 	// frigate is a Frigate's fight, dread the Dreadnought's; nil for the rest.
 	frigate *frigateFight
 	dread   *dreadnoughtFight
@@ -225,7 +268,11 @@ func (h *Hub) steer(e *enemy, players []point) {
 
 	// A garrison engages anyone in its sector, and roams it otherwise (#121).
 	engaged := found && (distance < stats.aggroRange || e.garrison != nil)
+	holding := h.tick < e.holdUntil
 	switch {
+	case holding:
+		e.vx *= holdDamping
+		e.vy *= holdDamping
 	case engaged:
 		accelerate(e, h.goal(e, target, stats), stats)
 	case e.garrison != nil:
@@ -249,6 +296,9 @@ func (h *Hub) steer(e *enemy, players []point) {
 		keepInSector(e, e.garrison.sector)
 	}
 
+	if holding {
+		return
+	}
 	if !engaged {
 		faceTravel(e)
 
@@ -266,9 +316,16 @@ func (h *Hub) steer(e *enemy, players []point) {
 }
 
 // goal is where the enemy wants to be: a Scout darts around near its target,
-// a Fighter holds its distance and strafes.
+// a Fighter holds its distance and strafes, and a Bomber or a Torpedo Ship
+// keeps its distance.
 func (h *Hub) goal(e *enemy, target point, stats enemyStats) point {
 	away := math.Atan2(e.y-target.y, e.x-target.x)
+	if e.kind == pb.EnemyKind_ENEMY_KIND_BOMBER || e.kind == pb.EnemyKind_ENEMY_KIND_TORPEDO {
+		return point{
+			x: target.x + stats.keepDistance*math.Cos(away),
+			y: target.y + stats.keepDistance*math.Sin(away),
+		}
+	}
 	if e.kind == pb.EnemyKind_ENEMY_KIND_FIGHTER {
 		if h.rng.Float64() < strafeFlip {
 			e.strafe = -e.strafe
@@ -368,19 +425,25 @@ func (h *Hub) fireVolley(e *enemy, angle float64, volley sim.DreadnoughtVolley) 
 	h.fireAt(e, angle, sim.DreadnoughtSeed(h.rng.Uint32(), volley))
 }
 
-// fireAt fires e's pattern along angle with seed, after the warning.
+// fireAt fires e's pattern along angle with seed, after the warning; a
+// Torpedo Ship holds still through its longer one.
 func (h *Hub) fireAt(e *enemy, angle float64, seed uint32) {
 	h.noteAttack(e)
+	warning := uint32(fireWarning)
+	if e.kind == pb.EnemyKind_ENEMY_KIND_TORPEDO {
+		warning = torpedoWarning
+		e.holdUntil = h.tick + warning
+	}
 	// The hub flies the bullets too, against its companions (#46).
 	h.volleys = append(
 		h.volleys,
-		volley{tick: h.tick + fireWarning, enemyID: e.id, angle: angle, seed: seed},
+		volley{tick: h.tick + warning, enemyID: e.id, angle: angle, seed: seed},
 	)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
 		EnemyId:   e.id,
 		Kind:      e.kind,
-		Tick:      h.tick + fireWarning,
-		WarnTicks: fireWarning,
+		Tick:      h.tick + warning,
+		WarnTicks: warning,
 		Faction:   pbEnemyFaction(e.faction),
 		Seed:      seed,
 		X:         float32(e.x),

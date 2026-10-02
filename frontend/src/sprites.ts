@@ -32,10 +32,11 @@ const still = (key: string, url: string, size: number): Sheet => ({
 interface EnemyFiles {
   size: number;
   engine: number;
-  weapons: number;
+  /** No pack draws a Bomber's weapons, so it has none and glows instead (#137). */
+  weapons?: number;
   destruction: number;
   shield?: number;
-  /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps. */
+  /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps, and a Torpedo Ship's as long as its longer hold. */
   weaponsFps?: number;
 }
 
@@ -53,10 +54,14 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
   nairan: {
     scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
     fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, weaponsFps: 84 },
+    bomber: { size: 64, engine: 8, destruction: 16 },
+    torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
     fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 },
+    bomber: { size: 64, engine: 8, destruction: 10 },
+    torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
   },
 };
 
@@ -77,6 +82,11 @@ const BULLET_FRAMES: Record<FleetBulletId, { faction: EnemyFaction; file: string
   nairanRay: { faction: 'nairan', file: 'ray', width: 18, height: 38, frames: 4 },
   nautolanBullet: { faction: 'nautolan', file: 'bullet', width: 12, height: 12, frames: 6 },
   nautolanSpinningBullet: { faction: 'nautolan', file: 'spinning-bullet', width: 8, height: 8, frames: 8 },
+  // The heavy hitters' (#137): the Bombers' Rockets and Bombs, the Torpedo Ships' Torpedoes and Waves.
+  nairanRocket: { faction: 'nairan', file: 'rocket', width: 9, height: 16, frames: 4 },
+  nairanTorpedo: { faction: 'nairan', file: 'torpedo', width: 9, height: 24, frames: 3 },
+  nautolanBomb: { faction: 'nautolan', file: 'bomb', width: 16, height: 16, frames: 16 },
+  nautolanWave: { faction: 'nautolan', file: 'wave', width: 64, height: 64, frames: 6 },
 };
 
 const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true): Sheet => ({
@@ -242,7 +252,9 @@ export function sheets(): Sheet[] {
         return [
           still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size),
           strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
-          strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false),
+          ...(f.weapons === undefined
+            ? []
+            : [strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false)]),
           strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
           ...(f.shield === undefined ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.size, f.shield, 20)]),
         ];

@@ -75,6 +75,8 @@ test('enemy kinds map from the wire', () => {
   assert.equal(fromEnemyKind(EnemyKind.FIGHTER), 'fighter');
   assert.equal(fromEnemyKind(EnemyKind.DREADNOUGHT), 'dreadnought');
   assert.equal(fromEnemyKind(EnemyKind.FRIGATE), 'frigate');
+  assert.equal(fromEnemyKind(EnemyKind.BOMBER), 'bomber');
+  assert.equal(fromEnemyKind(EnemyKind.TORPEDO), 'torpedo');
   assert.equal(fromEnemyKind(EnemyKind.UNSPECIFIED), 'scout');
 });
 

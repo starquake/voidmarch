@@ -80,6 +80,18 @@ func GarrisonFighterShare(ring int) float64 {
 	return math.Min(most, ring1+perRing*float64(max(ring-1, 0)))
 }
 
+// GarrisonHeavyShare is the share of a garrison that are Bombers and
+// Torpedo Ships, half each, by ring: none in ring 1, which the Kla'ed hold
+// with Scouts and Fighters only (#137).
+func GarrisonHeavyShare(ring int) float64 {
+	const ring2, perRing = 0.2, 0.1
+	if ring < 2 {
+		return 0
+	}
+
+	return ring2 + perRing*float64(ring-2)
+}
+
 // Derelicts and the fleet (#52).
 const (
 	// DerelictLifetime is the seconds a derelict waits to be rescued, once
@@ -414,6 +426,27 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 	}
 }
 
+// The Bomber and the Torpedo Ship (#137).
+const (
+	// BomberSplay is how far either side of its aim a Bomber's two shots
+	// leave, and BomberConverge how far along the aim they cross: about where
+	// a Bomber keeps its target.
+	BomberSplay    = 0.4
+	BomberConverge = 240
+	// TorpedoHitSteps is the hull steps a Torpedo takes (#137 decision 1).
+	TorpedoHitSteps = 2
+)
+
+// HitSteps is how many hull steps, or shield charges, a hit by kind takes:
+// one for every shot but a Torpedo's.
+func HitSteps(kind ProjectileKind) int {
+	if id := EnemyBulletID(kind); id == NairanTorpedo || id == NautolanWave {
+		return TorpedoHitSteps
+	}
+
+	return 1
+}
+
 // FactionStat is how much tougher a faction's Scouts and Fighters are than
 // the Kla'ed (#9 decision 14): Health multiplies their hit points and Shots
 // how often they fire. A hit still takes one hull step, so the later
@@ -451,6 +484,16 @@ func EnemyBulletStatsOf(id EnemyBulletID) ProjectileStats {
 		return ProjectileStats{Speed: 165, MaxSpeed: 165, Lifetime: 2.1}
 	case NautolanSpinningBullet:
 		return ProjectileStats{Speed: 195, MaxSpeed: 195, Lifetime: 2}
+	// The heavy hitters' shots are slow (#9 decision 3), the Nautolan's a
+	// quarter faster than the Nairan's.
+	case NairanRocket:
+		return ProjectileStats{Speed: 80, MaxSpeed: 80, Lifetime: 4.5}
+	case NautolanBomb:
+		return ProjectileStats{Speed: 100, MaxSpeed: 100, Lifetime: 3.6}
+	case NairanTorpedo:
+		return ProjectileStats{Speed: 70, MaxSpeed: 70, Lifetime: 6}
+	case NautolanWave:
+		return ProjectileStats{Speed: 88, MaxSpeed: 88, Lifetime: 4.8}
 	case KlaedBigBullet:
 		return ProjectileStats{Speed: 130, MaxSpeed: 130, Lifetime: 3}
 	case KlaedRay:

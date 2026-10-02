@@ -42,6 +42,9 @@ enum EnemyKind {
   ENEMY_KIND_FRIGATE = 3;
   // The Kla'ed Dreadnought, the siege boss (#124).
   ENEMY_KIND_DREADNOUGHT = 4;
+  // The later factions' slow heavy hitters (#137).
+  ENEMY_KIND_BOMBER = 5;
+  ENEMY_KIND_TORPEDO = 6;
 }
 
 // The alien fleet an enemy belongs to, one per ring (#9): the kind says how

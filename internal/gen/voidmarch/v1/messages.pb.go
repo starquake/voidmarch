@@ -203,6 +203,9 @@ const (
 	EnemyKind_ENEMY_KIND_FRIGATE     EnemyKind = 3
 	// The Kla'ed Dreadnought, the siege boss (#124).
 	EnemyKind_ENEMY_KIND_DREADNOUGHT EnemyKind = 4
+	// The later factions' slow heavy hitters (#137).
+	EnemyKind_ENEMY_KIND_BOMBER  EnemyKind = 5
+	EnemyKind_ENEMY_KIND_TORPEDO EnemyKind = 6
 )
 
 // Enum value maps for EnemyKind.
@@ -213,6 +216,8 @@ var (
 		2: "ENEMY_KIND_FIGHTER",
 		3: "ENEMY_KIND_FRIGATE",
 		4: "ENEMY_KIND_DREADNOUGHT",
+		5: "ENEMY_KIND_BOMBER",
+		6: "ENEMY_KIND_TORPEDO",
 	}
 	EnemyKind_value = map[string]int32{
 		"ENEMY_KIND_UNSPECIFIED": 0,
@@ -220,6 +225,8 @@ var (
 		"ENEMY_KIND_FIGHTER":     2,
 		"ENEMY_KIND_FRIGATE":     3,
 		"ENEMY_KIND_DREADNOUGHT": 4,
+		"ENEMY_KIND_BOMBER":      5,
+		"ENEMY_KIND_TORPEDO":     6,
 	}
 )
 
@@ -4623,13 +4630,15 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\fSHIELD_FRONT\x10\x01\x12\x19\n" +
 	"\x15SHIELD_FRONT_AND_SIDE\x10\x02\x12\x10\n" +
 	"\fSHIELD_ROUND\x10\x03\x12\x18\n" +
-	"\x14SHIELD_INVINCIBILITY\x10\x04*\x89\x01\n" +
+	"\x14SHIELD_INVINCIBILITY\x10\x04*\xb8\x01\n" +
 	"\tEnemyKind\x12\x1a\n" +
 	"\x16ENEMY_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10ENEMY_KIND_SCOUT\x10\x01\x12\x16\n" +
 	"\x12ENEMY_KIND_FIGHTER\x10\x02\x12\x16\n" +
 	"\x12ENEMY_KIND_FRIGATE\x10\x03\x12\x1a\n" +
-	"\x16ENEMY_KIND_DREADNOUGHT\x10\x04*|\n" +
+	"\x16ENEMY_KIND_DREADNOUGHT\x10\x04\x12\x15\n" +
+	"\x11ENEMY_KIND_BOMBER\x10\x05\x12\x16\n" +
+	"\x12ENEMY_KIND_TORPEDO\x10\x06*|\n" +
 	"\fEnemyFaction\x12\x1d\n" +
 	"\x19ENEMY_FACTION_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13ENEMY_FACTION_KLAED\x10\x01\x12\x18\n" +

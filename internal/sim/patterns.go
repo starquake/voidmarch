@@ -18,17 +18,42 @@ func EnemyPattern(
 	if kind == EnemyDreadnought {
 		return dreadnoughtPattern(x, y, angle, seed, random)
 	}
+	bullet := ProjectileKind(EnemyBullet(kind, faction))
+	if kind == EnemyBomber {
+		return bomberPair(bullet, x, y, angle)
+	}
+	if kind == EnemyTorpedo {
+		// A Torpedo Ship lines up first, so its one shot goes straight down
+		// the line it announced.
+		muzzle := RotateOffset(EnemyMuzzle, 0, angle)
+
+		return []ProjectileSpawn{{Kind: bullet, X: x + muzzle.X, Y: y + muzzle.Y, Angle: angle}}
+	}
 	aim := angle + (random.Next()*2-1)*EnemyAimJitter
 	muzzle := RotateOffset(EnemyMuzzle, 0, aim)
 
-	return []ProjectileSpawn{
-		{
-			Kind:  ProjectileKind(EnemyBullet(kind, faction)),
-			X:     x + muzzle.X,
-			Y:     y + muzzle.Y,
-			Angle: aim,
-		},
+	return []ProjectileSpawn{{Kind: bullet, X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim}}
+}
+
+// bomberPair is a Bomber's two shots (#137 decision 2): they leave
+// BomberSplay either side of angle and curve back in to cross the line
+// BomberConverge along it, where the target was.
+func bomberPair(bullet ProjectileKind, x, y, angle float64) []ProjectileSpawn {
+	cos := math.Cos(BomberSplay)
+	// Bent by Curve*f*f at f along its own line, a shot meets the aim line
+	// at f = BomberConverge*cos.
+	bend := math.Sin(BomberSplay) / (BomberConverge * cos * cos)
+	muzzle := RotateOffset(EnemyMuzzle, 0, angle)
+	sides := []float64{-1, 1}
+	pair := make([]ProjectileSpawn, 0, len(sides))
+	for _, side := range sides {
+		aim := angle + side*BomberSplay
+		pair = append(pair, ProjectileSpawn{
+			Kind: bullet, X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim, Curve: -side * bend,
+		})
 	}
+
+	return pair
 }
 
 // DreadnoughtVolley is which of its attacks a Dreadnought volley is: the

@@ -187,7 +187,9 @@ func (h *Hub) stepCompanionShots() {
 		case sim.FactionEnemy:
 			if i, direction, ok := sim.FirstShipHit(companions, from.X, from.Y, p.X, p.Y); ok {
 				p.Active = false
-				sim.TakeHit(ships[i], direction)
+				for range sim.HitSteps(p.Kind) {
+					sim.TakeHit(ships[i], direction)
+				}
 				// Its shield may be spent now, for the next bullet this step.
 				companions[i] = sim.TargetOf(ships[i])
 			}
@@ -381,6 +383,10 @@ func simEnemyKind(kind pb.EnemyKind) sim.EnemyKind {
 		return sim.EnemyFrigate
 	case pb.EnemyKind_ENEMY_KIND_DREADNOUGHT:
 		return sim.EnemyDreadnought
+	case pb.EnemyKind_ENEMY_KIND_BOMBER:
+		return sim.EnemyBomber
+	case pb.EnemyKind_ENEMY_KIND_TORPEDO:
+		return sim.EnemyTorpedo
 	case pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, pb.EnemyKind_ENEMY_KIND_SCOUT:
 		fallthrough
 	default:

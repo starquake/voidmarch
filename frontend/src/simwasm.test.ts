@@ -132,9 +132,9 @@ test('an enemy bullet meets the front shield ahead, and only the hull behind', a
   const from = hits[0]?.from ?? NaN;
   assert.ok(Math.abs(from + Math.PI / 2) < 1e-9, `from ${String(from)}`);
 
-  assert.equal(s.takeHit(from), true);
+  assert.equal(s.takeHit(from, 'autoCannon'), true);
   assert.deepEqual([s.ship.shield, s.ship.damage, s.ship.sinceHit], [2, 0, 0]);
-  assert.equal(s.takeHit(Math.PI / 2), false);
+  assert.equal(s.takeHit(Math.PI / 2, 'autoCannon'), false);
   assert.deepEqual([s.ship.shield, s.ship.damage], [2, 1]);
   assert.deepEqual(s.shipScan(TICK_SECONDS, []), []);
 });
@@ -143,7 +143,7 @@ test('a squadmate near recharges the shield faster', async () => {
   const recharged = async (squadmateDistance: number): Promise<number> => {
     const s = await sim();
     s.advance(TICK_SECONDS, input());
-    s.takeHit(-Math.PI / 2);
+    s.takeHit(-Math.PI / 2, 'autoCannon');
     for (let t = 0; t < 4 * TICK_RATE; t++) {
       s.advance(TICK_SECONDS, input(), squadmateDistance);
     }
@@ -174,7 +174,7 @@ test('three hull hits take the ship down; it respawns whole after the delay', as
   const s = await sim();
   s.advance(TICK_SECONDS, input());
   for (let i = 0; i < MAX_DAMAGE; i++) {
-    s.takeHit(Math.PI / 2);
+    s.takeHit(Math.PI / 2, 'autoCannon');
   }
   assert.equal(s.downed, true);
   assert.equal(s.ship.shield, 0);
@@ -193,7 +193,7 @@ test('three hull hits take the ship down; it respawns whole after the delay', as
 test('a friend near revives a downed ship, one hull step up', async () => {
   const s = await sim();
   for (let i = 0; i < MAX_DAMAGE; i++) {
-    s.takeHit(Math.PI / 2);
+    s.takeHit(Math.PI / 2, 'autoCannon');
   }
   // A squadmate 30 px away revives in 3 s.
   for (let t = 0; t < 4 * TICK_RATE; t++) {
@@ -302,6 +302,18 @@ test("each faction's Scouts and Fighters fire their own pack's bullets", async (
   assert.equal(s.enemyPattern('fighter', 'nairan', 0, 0, 0, 1)[0]?.kind, 'nairanRay');
   assert.equal(s.enemyPattern('scout', 'nautolan', 0, 0, 0, 1)[0]?.kind, 'nautolanBullet');
   assert.equal(s.enemyPattern('fighter', 'nautolan', 0, 0, 0, 1)[0]?.kind, 'nautolanSpinningBullet');
+});
+
+test('a Bomber fires a pair that curves in, and a Torpedo takes two hull steps', async () => {
+  const s = await sim();
+  const pair = s.enemyPattern('bomber', 'nairan', 0, 0, 0, 1);
+  assert.equal(pair.length, 2);
+  assert.ok(pair.every((b) => b.kind === 'nairanRocket'));
+  assert.ok((pair[0]?.curve ?? 0) * (pair[1]?.curve ?? 0) < 0, 'the two curve toward each other');
+  const [torpedo] = s.enemyPattern('torpedo', 'nautolan', 0, 0, 0, 1);
+  assert.equal(torpedo?.kind, 'nautolanWave');
+  s.takeHit(Math.PI / 2, 'nautolanWave');
+  assert.equal(s.ship.damage, 2);
 });
 
 test('a Frigate fires a whole ring of big bullets', async () => {

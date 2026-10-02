@@ -82,7 +82,7 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 	}
 
 	b = New()
-	b.Spawn(0, 0, 0, 0, 0, 10, 0)
+	b.Spawn(0, 0, 0, 0, 0, 0, 10, 0)
 	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	if b.State[HeaderExpired] != 1 {
 		t.Errorf("expired = %v, want the spawned-old shot", b.State[HeaderExpired])
@@ -154,14 +154,14 @@ func TestProjectiles(t *testing.T) {
 	b := New()
 	bullet := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.KlaedBullet))
 	enemy := slices.Index(Factions(), sim.FactionEnemy)
-	s := b.Spawn(bullet, enemy, 10, 20, 0, 0.5, 0)
+	s := b.Spawn(bullet, enemy, 10, 20, 0, 0, 0.5, 0)
 	if s < 0 || slot(b, s)[ProjectileKind] != float64(bullet) || slot(b, s)[ProjectileAge] != 0.5 {
 		t.Fatalf("spawned slot %d = %v, want a half-second-old bullet", s, slot(b, s))
 	}
-	if b.Spawn(99, 0, 0, 0, 0, 0, 0) != -1 || b.Spawn(0, 9, 0, 0, 0, 0, 0) != -1 {
+	if b.Spawn(99, 0, 0, 0, 0, 0, 0, 0) != -1 || b.Spawn(0, 9, 0, 0, 0, 0, 0, 0) != -1 {
 		t.Error("spawned an unknown kind or faction")
 	}
-	remote := b.Spawn(0, slices.Index(Factions(), sim.FactionRemote), 0, 0, 0, 0, 77)
+	remote := b.Spawn(0, slices.Index(Factions(), sim.FactionRemote), 0, 0, 0, 0, 0, 77)
 	if slot(b, remote)[ProjectileShotID] != 77 {
 		t.Errorf("remote shot id = %v, want 77", slot(b, remote)[ProjectileShotID])
 	}
@@ -326,9 +326,9 @@ func TestHitScan(t *testing.T) {
 		Factions(),
 		sim.FactionEnemy,
 	)
-	hitting := b.Spawn(0, own, -20, 0, 0, 0, 0)
-	missing := b.Spawn(0, own, -20, 100, 0, 0, 0)
-	bullet := b.Spawn(4, enemy, -20, 0, 0, 0, 0)
+	hitting := b.Spawn(0, own, -20, 0, 0, 0, 0, 0)
+	missing := b.Spawn(0, own, -20, 100, 0, 0, 0, 0)
+	bullet := b.Spawn(4, enemy, -20, 0, 0, 0, 0, 0)
 	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	copy(b.Scratch[:], []float64{0, 0, 10})
 
@@ -361,8 +361,8 @@ func TestShipScan(t *testing.T) {
 	// Flying down at the ship from 80 px above, now 5 px from its center:
 	// on the way it met the front shield.
 	age := 75 / sim.ProjectileStatsOf(kind).Speed
-	slot := b.Spawn(bullet, enemy, x, y-80, math.Pi/2, age, 0)
-	b.Spawn(0, slices.Index(Factions(), sim.FactionOwn), x, y-80, math.Pi/2, age, 0)
+	slot := b.Spawn(bullet, enemy, x, y-80, math.Pi/2, 0, age, 0)
+	b.Spawn(0, slices.Index(Factions(), sim.FactionOwn), x, y-80, math.Pi/2, 0, age, 0)
 	copy(
 		b.Scratch[:],
 		[]float64{x, y, angle, float64(slices.Index(sim.Shields(), sim.ShieldFront)), 3},
@@ -388,7 +388,7 @@ func TestTakeHit(t *testing.T) {
 	b := New()
 	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	full := b.State[HeaderShipShieldCharge]
-	if !b.TakeHit(-math.Pi/2) || b.State[HeaderShipShieldCharge] != full-1 ||
+	if !b.TakeHit(-math.Pi/2, 0) || b.State[HeaderShipShieldCharge] != full-1 ||
 		b.State[HeaderShipDamage] != 0 {
 		t.Errorf(
 			"hit ahead: shield %v, damage %v, want one charge less",
@@ -396,8 +396,42 @@ func TestTakeHit(t *testing.T) {
 			b.State[HeaderShipDamage],
 		)
 	}
-	if b.TakeHit(math.Pi/2) || b.State[HeaderShipDamage] != 1 || b.State[HeaderShipSinceHit] != 0 {
+	if b.TakeHit(math.Pi/2, 0) || b.State[HeaderShipDamage] != 1 ||
+		b.State[HeaderShipSinceHit] != 0 {
 		t.Errorf("hit from behind: damage %v, want the hull hit", b.State[HeaderShipDamage])
+	}
+}
+
+func TestTakeHit_ATorpedoTakesTwoSteps(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
+	torpedo := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.NairanTorpedo))
+	b.TakeHit(math.Pi/2, torpedo)
+	if got, want := b.State[HeaderShipDamage], float64(sim.TorpedoHitSteps); got != want {
+		t.Errorf("a Torpedo from behind: damage %v, want %v", got, want)
+	}
+}
+
+func TestEnemyPattern_ABomberPairCurvesIn(t *testing.T) {
+	t.Parallel()
+
+	b := New()
+	bomber := slices.Index(sim.EnemyKinds(), sim.EnemyBomber)
+	nairan := slices.Index(sim.EnemyFactions(), sim.Nairan)
+	want := sim.EnemyPattern(sim.EnemyBomber, sim.Nairan, 0, 0, 0, 1)
+	if n := b.EnemyPattern(bomber, nairan, 0, 0, 0, 1); n != len(want) || n != 2 {
+		t.Fatalf("EnemyPattern(bomber) = %d shots, want 2", n)
+	}
+	if b.Scratch[4] != want[0].Curve || b.Scratch[9] != want[1].Curve || want[0].Curve == 0 {
+		t.Errorf(
+			"curves = %v and %v, want %v and %v",
+			b.Scratch[4],
+			b.Scratch[9],
+			want[0].Curve,
+			want[1].Curve,
+		)
 	}
 }
 
@@ -407,7 +441,7 @@ func TestAdvance_FormationBonus(t *testing.T) {
 	alone, together := New(), New()
 	for _, b := range []*Bridge{alone, together} {
 		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
-		b.TakeHit(-math.Pi / 2)
+		b.TakeHit(-math.Pi/2, 0)
 		// A frame covers at most a few ticks, so wait out the delay tick by tick.
 		for range int(sim.ShieldRechargeDelay/sim.TickSeconds) + 1 {
 			b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
@@ -440,7 +474,7 @@ func TestRespawn(t *testing.T) {
 	}
 	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
 	for range sim.MaxDamage {
-		b.TakeHit(math.Pi / 2)
+		b.TakeHit(math.Pi/2, 0)
 	}
 	if b.Respawn(0, 0) {
 		t.Fatal("respawned the moment it went down")
@@ -469,7 +503,7 @@ func TestAdvance_AFriendNearRevives(t *testing.T) {
 
 	b := New()
 	for range sim.MaxDamage {
-		b.TakeHit(math.Pi / 2)
+		b.TakeHit(math.Pi/2, 0)
 	}
 	for range int(sim.ReviveSeconds/sim.TickSeconds) / 2 {
 		b.Advance(sim.TickSeconds, sim.Command{}, sim.NoSquadmate, 20)
@@ -510,7 +544,7 @@ func TestHitScan_AZapperShotPierces(t *testing.T) {
 	b := New()
 	own := slices.Index(Factions(), sim.FactionOwn)
 	zapper := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.WeaponZapper))
-	slot := b.Spawn(zapper, own, 0, 0, 0, 0.2, 0)
+	slot := b.Spawn(zapper, own, 0, 0, 0, 0, 0.2, 0)
 	// Three enemies in a row along its path, and a fourth.
 	for i, id := range []int{11, 12, 13, 14} {
 		target(b, i, 0, 0, 200, id)
@@ -535,7 +569,7 @@ func TestSteer_ARocketTurns(t *testing.T) {
 	b := New()
 	own := slices.Index(Factions(), sim.FactionOwn)
 	rocket := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.WeaponRockets))
-	slot := b.Spawn(rocket, own, 0, 0, 0, 0, 0)
+	slot := b.Spawn(rocket, own, 0, 0, 0, 0, 0, 0)
 	target(b, 0, 200, -100, 10, 1)
 	b.Steer(own, sim.TickSeconds, 1)
 	if angle := b.State[PoolOffset+slot*ProjectileSize+ProjectileAngle]; angle >= 0 {
@@ -588,7 +622,7 @@ func TestBurst_ShardsPassTheEnemyTheBallHit(t *testing.T) {
 	b := New()
 	own := slices.Index(Factions(), sim.FactionOwn)
 	gun := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.WeaponBigSpaceGun))
-	ball := b.Spawn(gun, own, 0, 0, 0, 0.1, 0)
+	ball := b.Spawn(gun, own, 0, 0, 0, 0, 0.1, 0)
 	target(b, 0, 0, 0, 40, 5)
 	if b.HitScan(own, 0.1, 1) != 1 {
 		t.Fatal("the ball missed the enemy it sits in")

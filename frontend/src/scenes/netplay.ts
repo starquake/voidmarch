@@ -229,7 +229,7 @@ export class NetPlay {
   frontier: Frontier = ALL_OPEN;
   frontierVersion = 0;
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
-  private enemyWarnings = new TimedQueue<number>(20);
+  private enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
   private shotEnds = new TimedQueue<ShotEnd>(20);
   private latestSnapshot = 0;
@@ -746,8 +746,8 @@ export class NetPlay {
         enemy.view.place(pose.x, pose.y, pose.angle);
       }
     }
-    for (const { item: enemyId } of this.enemyWarnings.due(renderTick)) {
-      this.enemies.get(enemyId)?.view.warn();
+    for (const { item } of this.enemyWarnings.due(renderTick)) {
+      this.enemies.get(item.enemyId)?.view.warn((item.warnTicks * 1000) / this.tickRate);
     }
     for (const { item: volley, ageSeconds } of this.enemyVolleys.due(renderTick)) {
       this.fireVolley(volley, ageSeconds);
@@ -855,7 +855,7 @@ export class NetPlay {
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
       if (target.id === -1) {
         this.hitsTaken++;
-        sim.takeHit(from);
+        sim.takeHit(from, p.kind);
         frame.hitsOnMe.push({ x: p.x, y: p.y });
       } else {
         frame.enemyHits.push({ x: p.x, y: p.y });
@@ -949,7 +949,7 @@ export class NetPlay {
   }
 
   private enemyFired(fired: EnemyFired): void {
-    this.enemyWarnings.add(fired.tick - fired.warnTicks, fired.enemyId);
+    this.enemyWarnings.add(fired.tick - fired.warnTicks, { enemyId: fired.enemyId, warnTicks: fired.warnTicks });
     this.enemyVolleys.add(fired.tick, {
       enemyId: fired.enemyId,
       kind: fromEnemyKind(fired.kind),
@@ -1105,7 +1105,7 @@ export class NetPlay {
   private resetTimeline(tickRate: number): void {
     this.shots = new TimedQueue<RemoteShotItem>(tickRate);
     this.enemyVolleys = new TimedQueue<EnemyVolley>(tickRate);
-    this.enemyWarnings = new TimedQueue<number>(tickRate);
+    this.enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(tickRate);
     this.destructions = new TimedQueue<EnemyDestroyed>(tickRate);
     this.shotEnds = new TimedQueue<ShotEnd>(tickRate);
   }

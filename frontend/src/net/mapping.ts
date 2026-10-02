@@ -62,6 +62,10 @@ export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => {
       return 'frigate';
     case WireEnemyKind.DREADNOUGHT:
       return 'dreadnought';
+    case WireEnemyKind.BOMBER:
+      return 'bomber';
+    case WireEnemyKind.TORPEDO:
+      return 'torpedo';
     default:
       return 'scout';
   }

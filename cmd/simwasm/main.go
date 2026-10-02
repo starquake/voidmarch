@@ -51,8 +51,8 @@ func respawn(x, y float64) int32 {
 }
 
 //go:wasmexport takeHit
-func takeHit(from float64) int32 {
-	if bridge.TakeHit(from) {
+func takeHit(from float64, kind int32) int32 {
+	if bridge.TakeHit(from, int(kind)) {
 		return 1
 	}
 
@@ -106,8 +106,8 @@ func openSector(q, r int32) {
 }
 
 //go:wasmexport spawn
-func spawn(kind, faction int32, x, y, angle, age float64, shotID int32) int32 {
-	return int32(bridge.Spawn(int(kind), int(faction), x, y, angle, age, int(shotID)))
+func spawn(kind, faction int32, x, y, angle, curve, age float64, shotID int32) int32 {
+	return int32(bridge.Spawn(int(kind), int(faction), x, y, angle, curve, age, int(shotID)))
 }
 
 //go:wasmexport deactivate
