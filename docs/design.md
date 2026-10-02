@@ -182,8 +182,8 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 
 - **Garrisons** (#99) replace the old spawning around players. Each sector but home holds one.
   - **Size:** 8 Kla'ed in ring 1, 12 in ring 2 and 16 in ring 3, with more Fighters outward (3, 6 and 10). That's for one player: each other player who enters adds half again, and each companion a quarter, counted once. Joiners add, and leavers take nothing away.
-  - **Taking the field:** a garrison waits as a count until a ship comes within 400 px of its sector. Then it takes the field around the sector's center, up to 24 at once (a map can cap it lower), with reinforcements only at posts out of every ship's sight.
-  - **Holding the sector:** it engages anyone inside, chases only within the sector, and drifts back to its posts when they leave. After 30 s with nobody near it goes back to a count.
+  - **Taking the field:** a garrison waits as a count until a ship comes within 400 px of its sector. Then it takes the field anywhere in the sector, at least 80 px in from its sides, up to 24 at once (a map can cap it lower), with reinforcements only where no ship can see them.
+  - **Holding the sector:** it engages anyone inside and chases only within the sector. While nobody is in it, each ship roams from one random point in the sector to the next at 40% of its top speed (#121). After 30 s with nobody near it goes back to a count.
   - **Losses stay** until the sector is cleared, held in memory.
   - **A cleared sector** gets the odd straggler: at most one Scout a minute while someone is in it. The home sector is quiet.
 - **Scout**: 2 HP, fast (150 px/s), wanders erratically and closes to about 90 px; fires one small bullet.
@@ -200,7 +200,7 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **Health scales with the number of players nearby** when the fight starts (and optionally as players join).
 - Reset if everyone leaves or goes down.
 
-**The Frigate, as built (#89).** One sits at each Frigate spot of the game map (`internal/world`, chosen with `MAP`), with three Fighters that stay while it does. It never moves; it turns to the nearest ship and fires a ring of 12 big bullets every 3 s at anyone within 380 px.
+**The Frigate, as built (#89).** One patrols each Frigate sector of the game map (`internal/world`, chosen with `MAP`), with three Fighters that keep station around it while it's there. It spawns at a random spot at least 200 px in from its sector's sides and drifts at 20 px/s from one random point in the sector to the next, holding still while any ship is within 380 px (#121). Bumps don't move it. It turns to the nearest ship and fires a ring of 12 big bullets every 3 s at anyone within 380 px.
 
 - **Health**: 40, plus 30 for every player who comes within 800 px, a companion counting half. Each ship counts once, joiners add their share, and leavers take nothing away.
 - **Shield**: a bubble that takes 20 damage before the hull, and recharges all at once after 8 s without a hit.
@@ -350,7 +350,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 
 - **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The server flies every companion (#51), so a companion keeps flying whoever is online, and on the wire they are players with an owner.
 - **Where from** (#49): one hangar pool for the whole server holds the companion ships waiting at home. G at the home planet draws one, first come, first served; a companion that goes home, or whose player drops, docks back into it. Players and companions come from different pools: a joiner who takes a companion's place (a takeover, or displacing one from a full world) holds that ship until they leave, so joining and leaving never add companions. The pool starts at `POOL_START` ships (3 by default) and is kept in the store across restarts (#6).
-- **Rescues grow it** (#52, as built). A derelict waits beside every Frigate, 160 px below it, from the moment the Frigate spawns (#114): the Main Ship's "very damaged" hull, grayed, labeled "DERELICT" with the time left.
+- **Rescues grow it** (#52, as built). A derelict waits beside every Frigate, 160 px below it and towed along on its patrol, from the moment the Frigate spawns (#114): the Main Ship's "very damaged" hull, grayed, labeled "DERELICT" with the time left.
   - **Held:** while any enemy is within 600 px it is held: a darker hull, "DERELICT · HELD BY n" counting the enemies near, no timer and no rescue. The first time none is near it is freed, for good, and its 2 minutes start. A Frigate spot has one derelict at a time: a Frigate that comes back brings a new one only once the last is rescued or gone.
   - A player or companion hovering within 100 px for 5 s rescues it into the hangar, the way a revive works. Companions go to one within 400 px, except in Hold and Stealth. A bar under the label shows the progress, which drains when nobody is near.
   - An unrescued derelict drifts off 2 minutes after it was freed.

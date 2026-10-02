@@ -94,7 +94,8 @@ squadmates see "you: Attack", and every companion in the squadron follows.
 The world is 37 hexagonal sectors, home in D4 and three rings around it. The HUD
 names the sector you're in. Every other sector is held by a Kla'ed
 garrison: 8 ships next to home, more farther out, and more again for every
-ship that comes in. It comes for anyone in its sector, and destroying all
+ship that comes in. Its ships roam the whole sector and come for anyone in
+it, and destroying all
 of it clears the sector for good. Its losses stay, so you can wear it down
 over several visits. Every cleared sector adds a ship to the hangar and gives
 everyone online a part. Your squadron has a mission, the nearest uncleared
@@ -119,8 +120,9 @@ or after 3 s you respawn with **H** at home or **J** beside a squadmate.
 Enemies need the server, so
 offline the sandbox stays empty.
 
-A Kla'ed Frigate with three Fighters waits in three of the six sectors around
-home (D3, E4 and C4), and a boss sector is cleared only once its Frigate is down too. It fires slow
+A Kla'ed Frigate with three Fighters patrols three of the six sectors around
+home (D3, E4 and C4), holding still once you're in range, and a boss sector
+is cleared only once its Frigate is down too. It fires slow
 rings of big bullets behind a shield bubble that recharges when left alone,
 and it's tougher for every player who comes near, a companion counting half.
 Its health bar shows at the top while you're close. If everyone near it goes
