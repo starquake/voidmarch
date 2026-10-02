@@ -5,8 +5,12 @@ import { TRIES, aimAt, state } from './hunt.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
+/** The e2e map's derelict spot, rescuable at once; the Frigate's waits held beside it (#114). */
+const SPOT = { x: -420, y: -120 };
+
 /** The e2e map's derelict, as drawn. */
-const derelict = (s: DebugState): DebugState['derelicts'][number] | undefined => s.derelicts[0];
+const derelict = (s: DebugState): DebugState['derelicts'][number] | undefined =>
+  s.derelicts.find((d) => Math.hypot(d.x - SPOT.x, d.y - SPOT.y) < 1);
 
 /** The most of a rescue's bar seen filled. */
 let filled = 0;

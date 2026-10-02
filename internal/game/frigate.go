@@ -15,9 +15,12 @@ import (
 const (
 	frigateEscorts      = 3
 	frigateEscortRadius = 120
-	frigateRingEvery    = sim.FrigateRingInterval * TickRate
-	frigateShieldTicks  = sim.FrigateShieldDelay * TickRate
-	frigateRespawnTicks = sim.FrigateRespawn * TickRate
+	// frigateDerelictOffset is how far below its Frigate a held derelict
+	// waits (#114).
+	frigateDerelictOffset = 160
+	frigateRingEvery      = sim.FrigateRingInterval * TickRate
+	frigateShieldTicks    = sim.FrigateShieldDelay * TickRate
+	frigateRespawnTicks   = sim.FrigateRespawn * TickRate
 	// frigateFireRange stays inside the big bullet's reach (130 px/s for 3 s).
 	frigateFireRange = 380
 )
@@ -106,7 +109,21 @@ func (h *Hub) spawnFrigates() {
 			)
 			escort.escortOf = f.id
 		}
+		h.holdDerelictBeside(i)
 	}
+}
+
+// holdDerelictBeside puts a held derelict beside Frigate spot i, unless
+// its last one is still waiting (#114).
+func (h *Hub) holdDerelictBeside(i int) {
+	for _, d := range h.derelicts {
+		if d.frigateSpot == i+1 {
+			return
+		}
+	}
+	at := h.frigates[i].at
+	id := h.holdDerelict(at.x, at.y+frigateDerelictOffset)
+	h.derelicts[id].frigateSpot = i + 1
 }
 
 // reset heals the Frigate fully, for nobody, and puts it back on its spot.
@@ -172,8 +189,7 @@ func (f *frigateFight) takeHit(damage int, tick uint32) int {
 	return damage - absorbed
 }
 
-// frigateDestroyed frees its spot until the Frigate comes back, and
-// releases a derelict where it went down (#52).
+// frigateDestroyed frees its spot until the Frigate comes back.
 func (h *Hub) frigateDestroyed(e *enemy) {
 	spot := &h.frigates[e.frigate.spot]
 	spot.enemyID = 0
@@ -181,7 +197,6 @@ func (h *Hub) frigateDestroyed(e *enemy) {
 	if spot.once {
 		spot.respawnAt = math.MaxUint32
 	}
-	h.releaseDerelict(e.x, e.y, 0)
 	h.clearIfDone(spot.sector)
 }
 

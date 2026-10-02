@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"log/slog"
+	"math"
 	"slices"
 	"testing"
 	"time"
@@ -17,32 +18,90 @@ import (
 // rescueTicks is how many hub ticks a rescue takes, with one to spare.
 const rescueTicks = int(sim.ReviveSeconds*TickRate) + 1
 
-func TestDerelicts_AFrigateReleasesOneWhereItWentDown(t *testing.T) {
+// hitAll reports a hit of the most damage a shot does on each of enemies,
+// with shot ids from first.
+func hitAll(s *Session, enemies []*pb.EnemyState, first uint32) {
+	for i, e := range enemies {
+		hitFrigate(s, e.GetEnemyId(), first+uint32(i)) //nolint:gosec // few enemies.
+	}
+}
+
+// heldBeside is the snapshot's derelict waiting beside the frigateMap's
+// Frigate, or nil.
+func heldBeside(snap *pb.Snapshot) *pb.DerelictState {
+	for _, d := range snap.GetDerelicts() {
+		if d.GetX() == 0 && d.GetY() == d3Y+FrigateDerelictOffset {
+			return d
+		}
+	}
+
+	return nil
+}
+
+func TestDerelicts_AFrigateHoldsOneBesideItUntilItsFleetIsGone(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithMap(frigateMap), WithPoolStart(3), NoEvents)
+	a, _ := join(t, hub, "a")
+	snap := must(latest(t, a, tick, 1, 0, 0))
+	d := heldBeside(snap)
+	if d == nil || !d.GetHeld() || d.GetGoneTick() != math.MaxUint32 {
+		t.Fatalf(
+			"derelicts %+v, want one held beside the Frigate, its time not running",
+			snap.GetDerelicts(),
+		)
+	}
+
+	f := frigateIn(snap)
+	for shot := range uint32(10) {
+		hitFrigate(a, f.GetEnemyId(), shot+1)
+	}
+	if d = heldBeside(must(latest(t, a, tick, 1, 0, 0))); d == nil || !d.GetHeld() {
+		t.Fatalf("derelict %+v with the Frigate down and its escorts up, want it still held", d)
+	}
+
+	hitAll(a, must(latest(t, a, tick, 1, 0, 0)).GetEnemies(), 100)
+	snap = must(latest(t, a, tick, 1, 0, 0))
+	d = heldBeside(snap)
+	if d == nil || d.GetHeld() {
+		t.Fatalf("derelict %+v with no enemy near, want it freed", d)
+	}
+	if got, want := d.GetGoneTick(), snap.GetTick()+DerelictTicks; got != want {
+		t.Errorf("gone at tick %d once freed, want %d", got, want)
+	}
+}
+
+func TestDerelicts_AHeldOneCantBeRescued(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t, WithMap(frigateMap), WithPoolStart(3))
 	a, _ := join(t, hub, "a")
-	f := frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
+	snap, others := latest(t, a, tick, rescueTicks, 0, d3Y+FrigateDerelictOffset+40)
+	if d := heldBeside(snap); d == nil || d.GetRescue() != 0 {
+		t.Errorf("held derelict %+v after hovering beside it, want no rescue", d)
+	}
+	for _, msg := range others {
+		if msg.GetDerelictRescued() != nil {
+			t.Fatal("a held derelict was rescued")
+		}
+	}
+}
+
+func TestDerelicts_OnePerFrigateSpot(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithMap(frigateMap), WithPoolStart(3), NoEvents)
+	a, _ := join(t, hub, "a")
+	f := frigateIn(must(latest(t, a, tick, 1, 0, 0)))
 	for shot := range uint32(10) {
 		hitFrigate(a, f.GetEnemyId(), shot+1)
 	}
-	snap, _ := latest(t, a, tick, 1, 0, -1000)
-
-	derelicts := snap.GetDerelicts()
-	if len(derelicts) != 1 {
-		t.Fatalf("%d derelicts after the Frigate went down, want 1", len(derelicts))
+	snap := must(latest(t, a, tick, FrigateRespawnTicks+2, 0, 0))
+	if frigateIn(snap) == nil {
+		t.Fatal("the Frigate didn't come back")
 	}
-	d := derelicts[0]
-	if d.GetX() != f.GetX() || d.GetY() != f.GetY() || d.GetRescue() != 0 {
-		t.Errorf(
-			"derelict %+v, want one at the Frigate's (%v, %v), not yet rescued",
-			d,
-			f.GetX(),
-			f.GetY(),
-		)
-	}
-	if got, want := d.GetGoneTick(), snap.GetTick()-1+DerelictTicks; got != want {
-		t.Errorf("gone at tick %d, want %d", got, want)
+	if n := len(snap.GetDerelicts()); n != 1 {
+		t.Errorf("%d derelicts after the Frigate came back to its waiting one, want 1", n)
 	}
 }
 

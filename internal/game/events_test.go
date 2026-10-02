@@ -151,7 +151,7 @@ func TestEvents_WithNobodyOnlineAnAttackComesEveryFewHours(t *testing.T) {
 	}
 }
 
-func TestEvents_ADistressCallIsWonByTheRescue(t *testing.T) {
+func TestEvents_ADistressCallIsWonByTheRescueOnceItsGuardIsGone(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t, WithPoolStart(3), WithEventTimes(1, 1<<30, 1<<30, 1<<30))
@@ -168,6 +168,19 @@ func TestEvents_ADistressCallIsWonByTheRescue(t *testing.T) {
 	if s, ok := sim.SectorAt(float64(d.GetX()), float64(d.GetY())); !ok || s.Ring() != 1 {
 		t.Errorf("derelict at (%v, %v), want it in a sector next to home", d.GetX(), d.GetY())
 	}
+	if !d.GetHeld() {
+		t.Error("the distress call's derelict isn't held by its guard")
+	}
+
+	killAll(a, snap)
+	started, _, snap = eventMessages(t, a, tick, 2, 0, 0)
+	if len(started) != 1 || !started[0].GetOngoing() ||
+		started[0].GetEvent().GetEndsTick() != snap.GetDerelicts()[0].GetGoneTick() {
+		t.Errorf(
+			"started = %+v once the guard was gone, want the call to end with the freed derelict",
+			started,
+		)
+	}
 
 	_, ended, _ := eventMessages(t, a, tick, rescueTicks+2, d.GetX()+40, d.GetY())
 	if len(ended) != 1 || !ended[0].GetWon() {
@@ -175,13 +188,34 @@ func TestEvents_ADistressCallIsWonByTheRescue(t *testing.T) {
 	}
 }
 
-func TestEvents_ADistressCallIsLostWhenTheDerelictDriftsOff(t *testing.T) {
+func TestEvents_ADistressCallStillHeldWhenTimeIsUpIsLost(t *testing.T) {
+	t.Parallel()
+
+	const lasts = 50
+	hub, tick := testHub(t, WithPoolStart(3), WithEventTimes(1, lasts, 1<<30, 1<<30))
+	a, _ := join(t, hub, "a")
+	_, _, snap := eventMessages(t, a, tick, 2, 0, 0)
+	held := snap.GetDerelicts()[0].GetDerelictId()
+	_, ended, snap := eventMessages(t, a, tick, lasts+1, 0, 0)
+	if len(ended) == 0 || ended[0].GetWon() {
+		t.Errorf("ended = %+v, want the distress call lost", ended)
+	}
+	for _, d := range snap.GetDerelicts() {
+		if d.GetDerelictId() == held {
+			t.Errorf("derelict %d is still there after its call was lost", held)
+		}
+	}
+}
+
+func TestEvents_ADistressCallIsLostWhenTheFreedDerelictDriftsOff(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t, WithPoolStart(3), WithEventTimes(1, 1<<30, 1<<30, 1<<30))
 	a, _ := join(t, hub, "a")
+	_, _, snap := eventMessages(t, a, tick, 2, 0, 0)
+	killAll(a, snap)
 	_, ended, _ := eventMessages(t, a, tick, int(DerelictTicks)+3, 0, 0)
-	if len(ended) == 0 || ended[0].GetWon() {
+	if len(ended) != 1 || ended[0].GetWon() {
 		t.Errorf("ended = %+v, want the distress call lost", ended)
 	}
 }

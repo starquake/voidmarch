@@ -82,8 +82,12 @@ func GarrisonFighterShare(ring int) float64 {
 
 // Derelicts and the fleet (#52).
 const (
-	// DerelictLifetime is the seconds a derelict waits to be rescued.
+	// DerelictLifetime is the seconds a derelict waits to be rescued, once
+	// freed.
 	DerelictLifetime = 120
+	// DerelictHoldRadius is how near an enemy holds a derelict (#114): it
+	// can't be rescued, and its time doesn't run, until none is.
+	DerelictHoldRadius = 600
 	// MaxFleet caps the companion ships, docked or out: the server's seats.
 	MaxFleet = 16
 )

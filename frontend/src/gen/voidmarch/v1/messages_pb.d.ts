@@ -1090,6 +1090,14 @@ export declare type DerelictState = Message<"voidmarch.v1.DerelictState"> & {
    * @generated from field: uint32 gone_tick = 6;
    */
   goneTick: number;
+
+  /**
+   * Held while enemies are near it (#114): no timer and no rescue until
+   * they're gone; gone_tick counts only once it's freed.
+   *
+   * @generated from field: bool held = 7;
+   */
+  held: boolean;
 };
 
 /**
@@ -1625,6 +1633,14 @@ export declare type EventStarted = Message<"voidmarch.v1.EventStarted"> & {
    * @generated from field: voidmarch.v1.WorldEvent event = 1;
    */
   event?: WorldEvent | undefined;
+
+  /**
+   * Set when the event already running changed, like a distress call whose
+   * derelict was freed and now ends sooner or later (#114): no new banner.
+   *
+   * @generated from field: bool ongoing = 2;
+   */
+  ongoing: boolean;
 };
 
 /**
