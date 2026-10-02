@@ -126,6 +126,7 @@ type point struct{ x, y float64 }
 func (h *Hub) stepEnemies() {
 	players := h.playersOutsideSafeZone()
 	ships := h.upShips()
+	online := h.onlineWeight()
 	h.stepGarrisons(ships)
 	h.spawnStragglers(players)
 	h.spawnFrigates()
@@ -136,12 +137,12 @@ func (h *Hub) stepEnemies() {
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
 		if e.frigate != nil {
-			h.stepFrigate(e, ships)
+			h.stepFrigate(e, ships, online)
 
 			continue
 		}
 		if e.dread != nil {
-			h.stepDreadnought(e, ships)
+			h.stepDreadnought(e, ships, online)
 
 			continue
 		}

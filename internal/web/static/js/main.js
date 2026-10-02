@@ -2268,7 +2268,7 @@ function bossBar(bosses, x, y) {
   }
   const hp = Math.max(0, Math.ceil(nearest.hp));
   const max = Math.round(nearest.maxHp);
-  const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} nearby` : "";
+  const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} online` : "";
   return {
     name: boss.name,
     health: Math.min(hp / max, 1),

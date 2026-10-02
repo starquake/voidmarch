@@ -78,7 +78,7 @@ func EnemyHP(kind EnemyKind) float64 {
 }
 
 // DreadnoughtMaxHP is the Dreadnought's maximum health for the weight of the
-// ships near it: each player weighs 1, each companion FrigateCompanionWeight.
+// players online: each player weighs 1, each companion FrigateCompanionWeight.
 func DreadnoughtMaxHP(weight float64) float64 {
 	return DreadnoughtBaseHP + DreadnoughtHPPerPlayer*weight
 }
@@ -93,8 +93,8 @@ func DreadnoughtRegen(share, hours float64) float64 {
 	return math.Min(1, share+hours*DreadnoughtRegenPerHour)
 }
 
-// FrigateHP is a Frigate's hit points for the weight of the players near it
-// when the fight starts: each player weighs 1, each companion FrigateCompanionWeight.
+// FrigateHP is a Frigate's hit points for the weight of the players online:
+// each player weighs 1, each companion FrigateCompanionWeight.
 func FrigateHP(weight float64) float64 {
 	return FrigateBaseHP + FrigateHPPerPlayer*weight
 }

@@ -85,9 +85,9 @@ func TestFrigate_TakesASpotInItsSectorWithEscorts(t *testing.T) {
 			FrigateMargin,
 		)
 	}
-	if f.GetHp() != sim.FrigateBaseHP || f.GetMaxHp() != sim.FrigateBaseHP ||
-		f.GetShield() != sim.FrigateShield || f.GetScaledFor() != 0 {
-		t.Errorf("Frigate %+v, want base health and a full shield, scaled for nobody", f)
+	if full := float32(sim.FrigateHP(1)); f.GetHp() != full || f.GetMaxHp() != full ||
+		f.GetShield() != sim.FrigateShield || f.GetScaledFor() != 1 {
+		t.Errorf("Frigate %+v, want full health for the one player online and a full shield", f)
 	}
 	escorts := 0
 	for _, e := range snap.GetEnemies() {
@@ -116,7 +116,7 @@ func TestFrigate_EscortsStayWhileItIsThere(t *testing.T) {
 	}
 }
 
-func TestFrigate_HealthScalesWithShipsNear(t *testing.T) {
+func TestFrigate_HealthScalesWithPlayersOnline(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t, WithMap(frigateMap))
@@ -124,34 +124,31 @@ func TestFrigate_HealthScalesWithShipsNear(t *testing.T) {
 	b, _ := join(t, hub, "b")
 	c, _ := join(t, hub, "c")
 	x, y := inFrigateRange(t, a, tick)
-	step := func(bAt, cAt [2]float32) *pb.EnemyState {
-		b.Send(state(bAt[0], bAt[1]))
-		c.Send(state(cAt[0], cAt[1]))
-		snap, _ := latest(t, a, tick, 1, x, y)
-		drain(b)
-		drain(c)
-
-		return frigateIn(snap)
+	b.Send(state(0, 0))
+	c.Send(state(0, 0))
+	f := frigateIn(must(latest(t, a, tick, 1, x, y)))
+	if got, want := f.GetMaxHp(), float32(sim.FrigateHP(3)); got != want ||
+		f.GetScaledFor() != 3 {
+		t.Fatalf("Frigate %+v with one of three online near, want %v, scaled for 3", f, want)
 	}
-	near, far := [2]float32{x + 50, y}, [2]float32{0, 0}
-
-	f := step(near, far)
-	if got, want := f.GetMaxHp(), float32(sim.FrigateHP(2)); got != want {
-		t.Errorf("max hp with two near = %v, want %v", got, want)
+	for shot := range uint32(sim.FrigateShield/MaxHitDamage + 6) { //nolint:gosec // a few shots.
+		hitFrigate(a, f.GetEnemyId(), shot+1)
 	}
-	if got := f.GetScaledFor(); got != 2 {
-		t.Errorf("scaled for %v, want 2", got)
+	hurt := frigateIn(must(latest(t, a, tick, 1, x, y))).GetHp()
+	b.Leave()
+	c.Leave()
+	f = frigateIn(must(latest(t, a, tick, 1, x, y)))
+	if got, want := f.GetMaxHp(), float32(sim.FrigateHP(1)); got != want ||
+		f.GetScaledFor() != 1 {
+		t.Errorf("Frigate %+v once two logged off, want %v, scaled for 1", f, want)
 	}
-	f = step(near, near)
-	if got, want := f.GetMaxHp(), float32(sim.FrigateHP(3)); got != want {
-		t.Errorf("max hp after a third joined = %v, want %v", got, want)
-	}
-	if got, want := f.GetHp(), float32(sim.FrigateHP(3)); got != want {
-		t.Errorf("hp after a third joined = %v, want %v", got, want)
-	}
-	f = step(far, far)
-	if got, want := f.GetMaxHp(), float32(sim.FrigateHP(3)); got != want {
-		t.Errorf("max hp after two left = %v, want it kept at %v", got, want)
+	share := float64(hurt) / sim.FrigateHP(3)
+	if got, want := float64(f.GetHp()), share*sim.FrigateHP(1); math.Abs(got-want) > 1 {
+		t.Errorf(
+			"hp = %v once two logged off, want the same share of the smaller maximum, %v",
+			got,
+			want,
+		)
 	}
 }
 
@@ -227,9 +224,10 @@ func TestFrigate_ResetsWhenNobodyNearIsUp(t *testing.T) {
 		snap = next(t, a).GetSnapshot()
 	}
 	f = frigateIn(snap)
-	if f.GetHp() != sim.FrigateBaseHP || f.GetMaxHp() != sim.FrigateBaseHP ||
-		f.GetShield() != sim.FrigateShield || f.GetScaledFor() != 0 {
-		t.Errorf("Frigate %+v once its one player was down, want it healed for nobody", f)
+	// Downed, the player is still online, so it heals for them.
+	if full := float32(sim.FrigateHP(1)); f.GetHp() != full || f.GetMaxHp() != full ||
+		f.GetShield() != sim.FrigateShield || f.GetScaledFor() != 1 {
+		t.Errorf("Frigate %+v once its one player was down, want it healed for them", f)
 	}
 }
 

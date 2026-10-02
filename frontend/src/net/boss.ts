@@ -6,7 +6,7 @@ export interface BossHealth {
   hp: number;
   maxHp: number;
   shield: number;
-  /** The players its health was scaled for, a companion counting half. */
+  /** The players online its health was scaled for, a companion counting half. */
   scaledFor: number;
 }
 
@@ -49,7 +49,7 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   }
   const hp = Math.max(0, Math.ceil(nearest.hp));
   const max = Math.round(nearest.maxHp);
-  const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} nearby` : '';
+  const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} online` : '';
 
   return {
     name: boss.name,

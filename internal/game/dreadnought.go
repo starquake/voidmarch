@@ -33,7 +33,7 @@ const (
 
 // dreadnoughtFight is the Dreadnought's state beyond an enemy's: its
 // shield, which volley comes next, and its health, as the share of its
-// maximum left and the weight of the ships near it that the maximum
+// maximum left and the weight of the players online that the maximum
 // follows (#132).
 type dreadnoughtFight struct {
 	shield  int
@@ -47,7 +47,7 @@ type dreadnoughtFight struct {
 	weight float64
 }
 
-// maxHP is its maximum health for the ships near it now.
+// maxHP is its maximum health for the players online now.
 func (f *dreadnoughtFight) maxHP() float64 {
 	return sim.DreadnoughtMaxHP(f.weight)
 }
@@ -124,7 +124,11 @@ func (h *Hub) wakeDreadnought() {
 		y:        c.Y,
 		angle:    quarterTurn,
 		lastNear: h.tick,
-		dread:    &dreadnoughtFight{shield: sim.DreadnoughtShield, share: h.dreadnoughtShare},
+		dread: &dreadnoughtFight{
+			shield: sim.DreadnoughtShield,
+			share:  h.dreadnoughtShare,
+			weight: h.onlineWeight(),
+		},
 	}
 	e.hp = e.dread.hp()
 	h.enemies[e.id] = e
@@ -147,18 +151,13 @@ func (h *Hub) closeRingsIfFallenBack() {
 	h.broadcastFrontier()
 }
 
-// stepDreadnought scales it to the ships near it, regenerates it,
+// stepDreadnought scales it to the players online, regenerates it,
 // recharges its shield, and fires its volleys in turn at the nearest ship in
 // range.
-func (h *Hub) stepDreadnought(e *enemy, ships []upShip) {
+func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	f := e.dread
 	e.lastNear = h.tick
-	f.weight = 0
-	for _, s := range ships {
-		if math.Hypot(s.at.x-e.x, s.at.y-e.y) <= sim.FrigateReach {
-			f.weight += s.weight
-		}
-	}
+	f.weight = online
 	f.share = math.Min(1, f.share+regenPerTick)
 	e.hp = f.hp()
 	if h.tick%dreadnoughtSaveEvery == 0 {

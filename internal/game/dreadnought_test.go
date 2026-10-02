@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -61,6 +62,21 @@ func (s *saved) all() (shares []float64, rings []int) {
 	return slices.Clone(s.shares), slices.Clone(s.rings)
 }
 
+// settle waits up to a second for the saves, which run off the tick
+// goroutine, to satisfy ok, and returns them.
+func (s *saved) settle(
+	ok func(shares []float64, rings []int) bool,
+) (shares []float64, rings []int) {
+	deadline := time.Now().Add(time.Second)
+	for {
+		shares, rings = s.all()
+		if ok(shares, rings) || time.Now().After(deadline) {
+			return shares, rings
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestDreadnought_WakesOnceFourOfRingOneAreCleared(t *testing.T) {
 	t.Parallel()
 
@@ -78,8 +94,7 @@ func TestDreadnought_WakesOnceFourOfRingOneAreCleared(t *testing.T) {
 		t.Fatal("no Dreadnought with 4 of ring 1 cleared")
 	}
 	s, ok := sim.SectorAt(float64(d.GetX()), float64(d.GetY()))
-	// Nobody is near it, so its maximum is the base alone.
-	full := float32(sim.DreadnoughtMaxHP(0))
+	full := float32(sim.DreadnoughtMaxHP(1))
 	if !ok || s.Ring() != 2 || d.GetHp() != full || d.GetMaxHp() != full {
 		t.Errorf("Dreadnought %+v in %s, want it in ring 2 at full health", d, s.Name())
 	}
@@ -112,28 +127,37 @@ func TestDreadnought_NeverWakesWithTheRingsOpen(t *testing.T) {
 	}
 }
 
-func TestDreadnought_KeepsItsShareAndScalesToThoseNear(t *testing.T) {
+func TestDreadnought_KeepsItsShareAndScalesToThoseOnline(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
 	hub, tick := testHub(t, WithMap(m), WithDreadnought(0.75))
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
-	if got, want := d.GetHp(), float32(0.75*sim.DreadnoughtMaxHP(0)); got != want {
-		t.Fatalf("hp = %v with nobody near, want the saved share of the base, %v", got, want)
-	}
-	x, y := d.GetX(), d.GetY()+300
-	d = dreadnoughtIn(must(latest(t, a, tick, 1, x, y)))
-	if got, want := d.GetMaxHp(), float32(sim.DreadnoughtMaxHP(1)); got != want ||
-		d.GetHp() != 0.75*want || d.GetScaledFor() != 1 {
-		t.Fatalf("Dreadnought %+v with one ship near, want 3/4 of %v, scaled for 1", d, want)
+	if got, want := d.GetHp(), float32(0.75*sim.DreadnoughtMaxHP(1)); got != want ||
+		d.GetScaledFor() != 1 {
+		t.Fatalf("Dreadnought %+v with one player online, want the saved share, %v", d, want)
 	}
 	// A hundredth of its health an hour is 1/72,000 a tick, so 1,800 ticks
 	// give back a quarter of a thousandth: 5 of 20,000.
 	start := d.GetHp()
-	after := dreadnoughtIn(must(latest(t, a, tick, 1800, x, y))).GetHp()
+	after := dreadnoughtIn(must(latest(t, a, tick, 1800, 0, 0))).GetHp()
 	if got := after - start; got < 4 || got > 6 {
 		t.Errorf("hp went up %v in 1800 ticks, want about 5", got)
+	}
+	b, _ := join(t, hub, "b")
+	b.Send(state(0, 0))
+	d = dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	drain(b)
+	share := float64(after) / sim.DreadnoughtMaxHP(1)
+	if got, want := d.GetMaxHp(), float32(sim.DreadnoughtMaxHP(2)); got != want ||
+		math.Abs(float64(d.GetHp()/want)-share) > 1e-4 || d.GetScaledFor() != 2 {
+		t.Errorf(
+			"Dreadnought %+v with a second player far away, want %v of %v, scaled for 2",
+			d,
+			share,
+			want,
+		)
 	}
 }
 
@@ -192,7 +216,7 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 		hitFrigate(a, d.GetEnemyId(), shot+1)
 	}
 	d = dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
-	if d == nil || d.GetHp() >= 30 || d.GetShield() != 0 {
+	if d == nil || d.GetHp() >= float32(0.003*sim.DreadnoughtMaxHP(1)) || d.GetShield() != 0 {
 		t.Fatalf(
 			"Dreadnought %+v after its shield's worth of hits and one more, want the shield down and hurt",
 			d,
@@ -214,9 +238,10 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 	if frontier.GetOpenRings() != 3 {
 		t.Errorf("frontier %+v once it fell, want rings 2 and 3 open", frontier)
 	}
-	must(latest(t, a, tick, 1, 0, 0))
-	shares, rings := saves.all()
-	if !slices.Contains(shares, 1) || !slices.Equal(rings, []int{3}) {
+	fell := func(shares []float64, rings []int) bool {
+		return slices.Contains(shares, 1) && slices.Equal(rings, []int{3})
+	}
+	if shares, rings := saves.settle(fell); !fell(shares, rings) {
 		t.Errorf(
 			"saved shares %v and rings %v, want a fresh Dreadnought's whole health and 3 rings",
 			shares,
@@ -302,8 +327,8 @@ func TestDreadnought_TheRingsCloseWhenRingOneFallsBack(t *testing.T) {
 			f,
 		)
 	}
-	must(latest(t, a, tick, 1, 0, 0))
-	if _, rings := saves.all(); !slices.Equal(rings, []int{1}) {
+	closed := func(_ []float64, rings []int) bool { return slices.Equal(rings, []int{1}) }
+	if _, rings := saves.settle(closed); !slices.Equal(rings, []int{1}) {
 		t.Errorf("saved rings %v, want 1", rings)
 	}
 
