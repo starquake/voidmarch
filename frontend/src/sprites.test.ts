@@ -43,6 +43,18 @@ test("every faction's Scouts and Fighters, and every enemy bullet, have their sh
   }
 });
 
+test("each faction's fodder telegraphs a volley for about as long as the Kla'ed", () => {
+  const klaed = sheets().find((s) => s.key === keys.enemyWeapons('klaed', 'scout'));
+  assert.ok(klaed !== undefined);
+  for (const faction of ENEMY_FACTIONS) {
+    for (const kind of ['scout', 'fighter'] as const) {
+      const sheet = sheets().find((s) => s.key === keys.enemyWeapons(faction, kind));
+      assert.ok(sheet !== undefined);
+      assert.ok(Math.abs(sheet.frames / sheet.fps - klaed.frames / klaed.fps) < 0.01, `${faction} ${kind}: ${String(sheet.frames / sheet.fps)} s`);
+    }
+  }
+});
+
 test('sheet keys are unique', () => {
   const all = sheets().map((s) => s.key);
   assert.equal(new Set(all).size, all.length);

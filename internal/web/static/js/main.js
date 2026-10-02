@@ -232,6 +232,7 @@ var ENEMY_RADIUS = {
     dreadnought: 44
   }
 };
+var RING_FACTIONS = ["klaed", "klaed", "nairan", "nautolan"];
 var FRIGATE_REACH = 800;
 var FRIGATE_SHIELD = 20;
 var DREADNOUGHT_SHIELD = 120;
@@ -424,6 +425,7 @@ var still = (key, url, size) => ({
   fps: 0,
   loop: false
 });
+var WEAPONS_FPS = 18;
 var ENEMY_FILES = {
   klaed: {
     scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
@@ -433,11 +435,11 @@ var ENEMY_FILES = {
   },
   nairan: {
     scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
-    fighter: { size: 64, engine: 8, weapons: 28, destruction: 18 }
+    fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, weaponsFps: 84 }
   },
   nautolan: {
-    scout: { size: 64, engine: 8, weapons: 7, destruction: 9 },
-    fighter: { size: 64, engine: 8, weapons: 9, destruction: 9 }
+    scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
+    fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 }
   }
 };
 var BULLET_VARIANT = "blue";
@@ -586,7 +588,7 @@ function sheets() {
         return [
           still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size),
           strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
-          strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, 18, false),
+          strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false),
           strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
           ...f.shield === void 0 ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.size, f.shield, 20)]
         ];
@@ -1354,8 +1356,8 @@ function missionArrow(ship, target, width, height, margin) {
 }
 var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 function sectorFaction(name) {
-  const ring2 = sectorRing(name) ?? 1;
-  return ENEMY_FACTIONS[Math.min(Math.max(ring2, 1), ENEMY_FACTIONS.length) - 1] ?? "klaed";
+  const ring2 = sectorRing(name);
+  return (ring2 === void 0 ? void 0 : RING_FACTIONS[ring2]) ?? "klaed";
 }
 function missionBanner(sector) {
   return [
