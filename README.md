@@ -125,14 +125,14 @@ A Kla'ed Frigate with three Fighters patrols three of the six sectors around
 home (D3, E4 and C4), holding still once you're in range, and a boss sector
 is cleared only once its Frigate is down too. It fires slow
 rings of big bullets behind a shield bubble that recharges when left alone,
-and it's tougher for every player who comes near, a companion counting half.
+and it's tougher for every player online, a companion counting half.
 Its health bar shows at the top while you're close. If everyone near it goes
 down it heals, and once destroyed it always drops a part. It's back five
 minutes later, unless its sector has been cleared.
 
 Once four of the six sectors around home are cleared, the Kla'ed Dreadnought
 wakes in one of the ring-2 sectors, which opens for it. Its health is 10,000
-plus 10,000 for every player near it, sized for an evening's fight; the share
+plus 10,000 for every player online, sized for an evening's fight; the share
 left is kept between sessions and regenerates 1% an hour. It fires rings of big
 bullets, sweeping Ray beams and spreads of Waves from behind its shield.
 Destroying it opens rings 2 and 3, gives every player near it a part, and

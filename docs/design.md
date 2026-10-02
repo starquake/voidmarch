@@ -197,16 +197,16 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 ### Encounter bosses (Frigate, Battlecruiser)
 
 - Normal fights, a few minutes long.
-- **Health scales with the number of players nearby** when the fight starts (and optionally as players join).
+- **Health scales with the number of players** online (#132; it was the players nearby until then).
 - Reset if everyone leaves or goes down.
 
 **The Frigate, as built (#89).** One patrols each Frigate sector of the game map (`internal/world`, chosen with `MAP`), with three Fighters that keep station around it while it's there. It spawns at a random spot at least 200 px in from its sector's sides and drifts at 20 px/s from one random point in the sector to the next, holding still while any ship is within 380 px (#121). Bumps don't move it. It turns to the nearest ship and fires a ring of 12 big bullets every 3 s at anyone within 380 px.
 
-- **Health**: 40, plus 30 for every player who comes within 800 px, a companion counting half. Each ship counts once, joiners add their share, and leavers take nothing away.
+- **Health**: 40, plus 30 for every player online, downed or not, a companion counting half (#132). When someone logs in or off it keeps its share of health left, so it doesn't jump when ships fly in, fly home or go down. A group that splits up meets a Frigate sized for everyone.
 - **Shield**: a bubble that takes 20 damage before the hull, and recharges all at once after 8 s without a hit.
-- **Reset**: once nobody within 800 px is up, it heals fully, for nobody, and its shield comes back.
+- **Reset**: once nobody within 800 px is up, it heals fully and its shield comes back.
 - **Destroyed**: it always drops a part for the players near it, and is back at its spot 5 minutes later.
-- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, its shield as a thin blue line, and the players its health was scaled for. The HUD's text lines sit at the bottom left.
+- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, its shield as a thin blue line, and the players online its health was scaled for. The HUD's text lines sit at the bottom left.
 
 ### Siege bosses (Dreadnought)
 
@@ -217,7 +217,7 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - Defeating it **unlocks the next ring permanently** for everyone.
 
 **The Kla'ed Dreadnought, as built (#124).** It wakes once 4 of ring 1's 6 sectors are cleared, in a ring-2 sector drawn at random, which opens on its own while it's awake. It's the pack's 128 px sprite, twice a Frigate, and it holds still.
-- **Health, sized for one evening (#132):** its maximum is 10,000 plus 10,000 for every player within 800 px of it, a companion counting half, so 3–6 friends beat it in about 30–45 minutes and a player alone in about an hour. What's saved is the share of its health left, with the time of the save, every minute while it's awake and when it falls. Its maximum follows whoever is near now: a friend arriving raises its health in proportion, and everyone leaving leaves the share as it was. It regenerates 1% of its health an hour, the hours nobody was on included, up to full.
+- **Health, sized for one evening (#132):** its maximum is 10,000 plus 10,000 for every player online, downed or not, a companion counting half, so 3–6 friends beat it in about 30–45 minutes and a player alone in about an hour. What's saved is the share of its health left, with the time of the save, every minute while it's awake and when it falls. Its maximum follows whoever is online now: a friend logging in raises its health in proportion, a friend logging off lowers it, and the share stays as it was. It regenerates 1% of its health an hour, the hours nobody was on included, up to full.
 - **Fight:** it fires at the nearest ship within 520 px, taking its volleys in turn: a ring of 12 big bullets; a Ray sweep of 6 beams across 1.2 radians, each beam 6 Ray segments, 0.3 s apart; then a spread of 5 Waves across 0.9 radians, 2 s between them. The Ray and Wave are the pack's, recolored blue like all enemy fire. A shield bubble takes 120 damage first and comes back after 8 s without a hit. Each volley's seed says which it is, so every client expands it the same way.
 - **On screen:** the boss bar names it, and the maps mark its sector with a bigger triangle than a Frigate's.
 - **Its fall** opens rings 2 and 3 (#8 decision 12) and saves a fresh Dreadnought's health for the next time one wakes. Every player who is up within 800 px of it gets a part, and 3 derelicts wait free around the wreck (#125). Everyone sees a banner, with the part they won.
