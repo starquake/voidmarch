@@ -26,3 +26,7 @@ shading.
   these, so enemy fire stands apart from the players' orange shots (#36).
 - `klaed/bullet-purple.png` and `klaed/big-bullet-purple.png`: turned 260
   degrees, to purple; kept for later.
+- `klaed/ray-blue.png`: the Dreadnought's `Ray.png` turned 240 degrees, from
+  pink to the same blue (#124, #133).
+- `klaed/wave-blue.png`: the Dreadnought's `Wave.png` turned 190 degrees,
+  from orange to blue, like the bullets (#124, #133).
