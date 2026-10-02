@@ -40,6 +40,8 @@ enum EnemyKind {
   ENEMY_KIND_SCOUT = 1;
   ENEMY_KIND_FIGHTER = 2;
   ENEMY_KIND_FRIGATE = 3;
+  // The Kla'ed Dreadnought, the siege boss (#124).
+  ENEMY_KIND_DREADNOUGHT = 4;
 }
 
 // Loadout is the part fitted in each slot, each at its tier: 0 plain, then

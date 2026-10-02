@@ -581,6 +581,8 @@ func ProjectileKinds() []sim.ProjectileKind {
 		out,
 		sim.ProjectileKind(sim.KlaedBullet),
 		sim.ProjectileKind(sim.KlaedBigBullet),
+		sim.ProjectileKind(sim.KlaedRay),
+		sim.ProjectileKind(sim.KlaedWave),
 		sim.ProjectileShard,
 	)
 }

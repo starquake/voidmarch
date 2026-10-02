@@ -74,6 +74,8 @@ export interface DebugState {
   mapLayout: { x: number; y: number; scale: number };
   /** How many rings around home are open, as the server says (#123); 0 for all, offline. */
   openRings: number;
+  /** The sectors open on their own, like the Dreadnought's (#124). */
+  openedSectors: string[];
   /** The derelicts waiting to be rescued, and how many this player rescued (#52). */
   derelicts: DerelictDebug[];
   rescues: number;

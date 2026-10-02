@@ -216,6 +216,12 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **Slow regeneration** (tunable) so it's not purely a grind, and concentrated group effort matters.
 - Defeating it **unlocks the next ring permanently** for everyone.
 
+**The Kla'ed Dreadnought, as built (#124).** It wakes once 4 of ring 1's 6 sectors are cleared, in a ring-2 sector drawn at random, which opens on its own while it's awake. It's the pack's 128 px sprite, twice a Frigate, and it holds still.
+- **Health:** 200,000, saved in the database with the time of the save, every minute while it's awake and when it falls. It regenerates 2,000 an hour, the hours nobody was on included, up to full.
+- **Fight:** it fires at the nearest ship within 520 px, taking its volleys in turn: a ring of 12 big bullets; a Ray sweep of 6 beams across 1.2 radians, each beam 6 Ray segments, 0.3 s apart; then a spread of 5 Waves across 0.9 radians, 2 s between them. The Ray and Wave are the pack's, recolored blue like all enemy fire. A shield bubble takes 120 damage first and comes back after 8 s without a hit. Each volley's seed says which it is, so every client expands it the same way.
+- **On screen:** the boss bar names it, and the maps mark its sector with a bigger triangle than a Frigate's.
+- **Its fall** opens rings 2 and 3 (#8 decision 12) and saves a fresh Dreadnought's health for the next time one wakes. What else it gives, and closing the rings again, is #125.
+
 ## 8. World structure: the frontier
 
 - **37 hexagonal sectors**: home and three rings around it, flat-top hexagons 990 px from center to corner, about the area of the 1,600 px squares they replaced (#117, built after #99's 7 × 7 grid).

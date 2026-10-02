@@ -1,5 +1,5 @@
 import type { EnemyKind } from '../sim/enemies.ts';
-import { FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
+import { DREADNOUGHT_SHIELD, FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
 
 /** A boss's health as the server sends it (#89). */
 export interface BossHealth {
@@ -26,7 +26,11 @@ export interface BossBar {
   text: string;
 }
 
-const BOSS_NAMES: Partial<Record<EnemyKind, string>> = { frigate: "KLA'ED FRIGATE" };
+/** The bosses with a bar: their names, and the most their shields hold. */
+const BOSSES: Partial<Record<EnemyKind, { name: string; shield: number }>> = {
+  frigate: { name: "KLA'ED FRIGATE", shield: FRIGATE_SHIELD },
+  dreadnought: { name: "KLA'ED DREADNOUGHT", shield: DREADNOUGHT_SHIELD },
+};
 
 /** The bar for the nearest boss within reach of (x, y), or undefined when none is. */
 export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): BossBar | undefined {
@@ -34,12 +38,13 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   let distance = FRIGATE_REACH;
   for (const boss of bosses) {
     const d = Math.hypot(boss.x - x, boss.y - y);
-    if (d <= distance && BOSS_NAMES[boss.kind] !== undefined) {
+    if (d <= distance && BOSSES[boss.kind] !== undefined) {
       nearest = boss;
       distance = d;
     }
   }
-  if (nearest === undefined || nearest.maxHp <= 0) {
+  const boss = nearest === undefined ? undefined : BOSSES[nearest.kind];
+  if (nearest === undefined || boss === undefined || nearest.maxHp <= 0) {
     return undefined;
   }
   const hp = Math.max(0, Math.ceil(nearest.hp));
@@ -47,9 +52,9 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} nearby` : '';
 
   return {
-    name: BOSS_NAMES[nearest.kind] ?? '',
+    name: boss.name,
     health: Math.min(hp / max, 1),
-    shield: Math.min(Math.max(nearest.shield / FRIGATE_SHIELD, 0), 1),
+    shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
     text: `${String(hp)} / ${String(max)}${scaled}`,
   };
 }

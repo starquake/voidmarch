@@ -59,6 +59,8 @@ export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => {
       return 'fighter';
     case WireEnemyKind.FRIGATE:
       return 'frigate';
+    case WireEnemyKind.DREADNOUGHT:
+      return 'dreadnought';
     default:
       return 'scout';
   }

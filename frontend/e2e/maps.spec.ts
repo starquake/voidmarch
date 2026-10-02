@@ -12,8 +12,8 @@ const state = (page: Page): Promise<DebugState> =>
     return structuredClone(window.voidmarch);
   });
 
-/** B3's center in the world: ring 2, closed (#123). */
-const B3 = { x: -2970, y: -Math.sqrt(3) * 990 };
+/** D1's center in the world: ring 3, closed until the Dreadnought falls (#123). */
+const D1 = { x: 0, y: -3 * Math.sqrt(3) * 990 };
 /** E3's center: ring 1, up and right of home, which no spec clears. */
 const E3 = { x: 1485, y: -(Math.sqrt(3) / 2) * 990 };
 
@@ -37,9 +37,9 @@ test('Tab opens the full map, the ship holds still under it, and a click sends t
   const dpr = await page.evaluate(() => window.devicePixelRatio);
   const click = (p: { x: number; y: number }): Promise<void> =>
     page.mouse.click((mapLayout.x + p.x * mapLayout.scale) / dpr, (mapLayout.y + p.y * mapLayout.scale) / dpr);
-  await click(B3);
+  await click(D1);
   await page.waitForTimeout(500);
-  expect((await state(page)).mission, 'a closed sector can\'t be picked').not.toBe('B3');
+  expect((await state(page)).mission, 'a closed sector can\'t be picked').not.toBe('D1');
   await click(E3);
   await expect.poll(async () => (await state(page)).mission).toBe('E3');
 

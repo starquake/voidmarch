@@ -130,6 +130,12 @@ Its health bar shows at the top while you're close. If everyone near it goes
 down it heals, and once destroyed it always drops a part. It's back five
 minutes later, unless its sector has been cleared.
 
+Once four of the six sectors around home are cleared, the Kla'ed Dreadnought
+wakes in one of the ring-2 sectors, which opens for it. It has 200,000 health,
+kept between sessions and regenerating 2,000 an hour, and fires rings of big
+bullets, sweeping Ray beams and spreads of Waves from behind its shield.
+Destroying it opens rings 2 and 3.
+
 ## Parts
 
 Shot-down enemies drop parts: the Scout sometimes, the Fighter more often,

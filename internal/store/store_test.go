@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 4; got != want {
+	if got, want := version, 5; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -34,7 +34,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := mode, "wal"; got != want {
 		t.Errorf("journal_mode = %q, want %q", got, want)
 	}
-	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier"} {
+	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnought"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)
 		if err = row.Scan(&n); err != nil {
@@ -81,8 +81,11 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	if err = ClearSector(t.Context(), db, "G7", time.Unix(1, 0)); err != nil {
 		t.Fatalf("ClearSector() error = %v", err)
 	}
-	// A version-2 file, from before the later migrations' tables.
-	_, err = db.ExecContext(t.Context(), "DROP TABLE frontier; PRAGMA user_version = 2")
+	// A version-2 file: without the tables migrations 004 onward add.
+	_, err = db.ExecContext(
+		t.Context(),
+		"DROP TABLE frontier; DROP TABLE dreadnought; PRAGMA user_version = 2",
+	)
 	if err != nil {
 		t.Fatalf("rolling the file back to version 2: %v", err)
 	}
@@ -189,6 +192,29 @@ func TestOpenRings(t *testing.T) {
 		if err != nil || !ok || rings != want {
 			t.Errorf("OpenRings() = %d, %t, %v; want %d", rings, ok, err, want)
 		}
+	}
+}
+
+func TestDreadnoughtHealth(t *testing.T) {
+	t.Parallel()
+
+	db, err := Open(t.Context(), filepath.Join(t.TempDir(), "voidmarch.db"))
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	_, ok, err := DreadnoughtHealth(t.Context(), db)
+	if err != nil || ok {
+		t.Errorf("DreadnoughtHealth() on a fresh file = %t, %v; want none saved", ok, err)
+	}
+	at := time.Unix(1_700_000_000, 0)
+	if err = SaveDreadnoughtHealth(t.Context(), db, 150_000, at); err != nil {
+		t.Fatalf("SaveDreadnoughtHealth() error = %v", err)
+	}
+	d, ok, err := DreadnoughtHealth(t.Context(), db)
+	if err != nil || !ok || d.HP != 150_000 || !d.At.Equal(at) {
+		t.Errorf("DreadnoughtHealth() = %+v, %t, %v; want 150000 at %v", d, ok, err, at)
 	}
 }
 

@@ -44,6 +44,9 @@ type Map struct {
 	// Derelicts are where a derelict ship always waits to be rescued: a new
 	// one comes as soon as the last is rescued or gone (#52).
 	Derelicts []Spot `json:"derelicts,omitempty"`
+	// DreadnoughtAwake wakes the Kla'ed Dreadnought at once, without ring 1
+	// cleared first (#124), for a map whose browser tests look at it.
+	DreadnoughtAwake bool `json:"dreadnoughtAwake,omitempty"`
 }
 
 // Spot is a place on the map.

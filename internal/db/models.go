@@ -13,6 +13,12 @@ type ClearedSector struct {
 	ClearedAt int64
 }
 
+type Dreadnought struct {
+	ID        int64
+	Hp        int64
+	UpdatedAt int64
+}
+
 type Frontier struct {
 	ID        int64
 	OpenRings int64

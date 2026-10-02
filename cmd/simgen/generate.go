@@ -140,6 +140,8 @@ func writeEnemies(w writer) {
 	w(endObject)
 	w("export const FRIGATE_REACH = %d;\n", sim.FrigateReach)
 	w("export const FRIGATE_SHIELD = %d;\n", sim.FrigateShield)
+	w("export const DREADNOUGHT_SHIELD = %d;\n", sim.DreadnoughtShield)
+	w("export const DREADNOUGHT_HP = %d;\n", sim.DreadnoughtHP)
 }
 
 // writeShieldStats writes each shield's arc, charges and recharge time.
