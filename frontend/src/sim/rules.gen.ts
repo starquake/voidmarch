@@ -32,6 +32,7 @@ export const GRID_RINGS = 3;
 export const WORLD_APOTHEM = 5445;
 export const WORLD_EDGE_BAND = 200;
 export const SAFE_ZONE_RADIUS = 300;
+export const DERELICT_HOLD_RADIUS = 600;
 export const SHIP_RADIUS = 12;
 export const MAX_DAMAGE = 3;
 export const RESPAWN_DELAY = 3;

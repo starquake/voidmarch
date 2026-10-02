@@ -73,13 +73,18 @@ func (h *Hub) stepEvents() {
 			h.endEvent(false)
 		}
 	}
+	if e := h.event; e != nil && e.kind == pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS &&
+		h.tick >= e.endsTick {
+		delete(h.derelicts, e.derelict)
+		h.endEvent(false)
+	}
 	if h.event != nil {
 		return
 	}
 	if online && h.tick >= h.nextEvent {
 		h.nextEvent = later(h.tick, h.eventTimes.every)
 		if !h.startAttack(h.eventTimes.attack) {
-			h.startDistress()
+			h.startDistress(h.eventTimes.attack)
 		}
 	} else if !online && h.tick >= h.nextOffline {
 		h.nextOffline = later(h.tick, h.eventTimes.offlineEvery)
@@ -145,9 +150,9 @@ func (h *Hub) attackSpot(spot frigateSpot) int {
 	return len(h.frigates) - 1
 }
 
-// startDistress puts a derelict with a small guard in a sector next to
-// cleared ground or home.
-func (h *Hub) startDistress() {
+// startDistress puts a held derelict with a small guard in a sector next to
+// cleared ground or home, to last at most ticks (#114).
+func (h *Hub) startDistress(ticks uint32) {
 	var spots []sim.Sector
 	for _, s := range sim.Sectors() {
 		if s != sim.HomeSector() && h.bordersReached(s) {
@@ -159,7 +164,7 @@ func (h *Hub) startDistress() {
 	}
 	s := spots[h.rng.IntN(len(spots))]
 	c := s.Center()
-	id := h.releaseDerelict(c.X, c.Y, 0)
+	id := h.holdDerelict(c.X, c.Y)
 	for n := range distressGuards {
 		angle := fullTurnFloat * float64(n) / distressGuards
 		h.addEnemyOf(
@@ -171,10 +176,26 @@ func (h *Hub) startDistress() {
 	h.event = &worldEvent{
 		kind:     pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS,
 		sector:   s,
-		endsTick: h.derelicts[id].goneTick,
+		endsTick: later(h.tick, ticks),
 		derelict: id,
 	}
 	h.broadcastEvent()
+}
+
+// derelictFreed ends a distress call with its freed derelict's time, and
+// tells everyone the new end.
+func (h *Hub) derelictFreed(id, goneTick uint32) {
+	if !h.isDistress(id) {
+		return
+	}
+	h.event.endsTick = goneTick
+	h.broadcast(
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EventStarted{EventStarted: &pb.EventStarted{
+			Event:   eventMessage(h.event),
+			Ongoing: true,
+		}}},
+		"",
+	)
 }
 
 // derelictRescued wins a distress call whose derelict was rescued, with a

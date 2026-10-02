@@ -59,7 +59,7 @@ import { WeaponAnimator } from '../weaponframes.ts';
 import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
-import { derelictLabel, rescueNotice } from '../net/derelict.ts';
+import { derelictLabel, heldLabel, holders, rescueNotice } from '../net/derelict.ts';
 import { missionCompleteBanner, sectorName } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
@@ -160,15 +160,17 @@ export interface NetFrame {
   ownBursts: WeaponId[];
 }
 
-/** An enemy as the E2E tests see it. */
 /** A derelict waiting to be rescued, for the E2E tests (#52). */
 export interface DerelictDebug {
   id: number;
   x: number;
   y: number;
   rescue: number;
+  /** Whether enemies near it hold it (#114). */
+  held: boolean;
 }
 
+/** An enemy as the E2E tests see it. */
 export interface EnemyDebug {
   id: number;
   kind: EnemyKind;
@@ -351,7 +353,7 @@ export class NetPlay {
         },
         eventStarted: (started) => {
           this.worldEvent = started.event;
-          if (started.event !== undefined) {
+          if (started.event !== undefined && !started.ongoing) {
             this.banners.push(eventStartBanner(started.event));
           }
         },
@@ -499,10 +501,15 @@ export class NetPlay {
     }
   }
 
-  /** Enemies as drawn, for the E2E tests. */
   /** The derelicts waiting to be rescued, for the E2E tests (#52). */
   get derelictList(): DerelictDebug[] {
-    return [...this.derelicts.entries()].map(([id, d]) => ({ id, x: d.state.x, y: d.state.y, rescue: d.state.rescue }));
+    return [...this.derelicts.entries()].map(([id, d]) => ({
+      id,
+      x: d.state.x,
+      y: d.state.y,
+      rescue: d.state.rescue,
+      held: d.state.held,
+    }));
   }
 
   /**
@@ -523,7 +530,10 @@ export class NetPlay {
         }
       }
       drawn.state = state;
-      drawn.view.update(derelictLabel(state.goneTick, tick, this.tickRate), state.rescue);
+      const label = state.held
+        ? heldLabel(holders(state.x, state.y, [...this.enemies.values()].map((e) => e.view)))
+        : derelictLabel(state.goneTick, tick, this.tickRate);
+      drawn.view.update(label, state.held, state.rescue);
     }
     for (const [id, drawn] of this.derelicts) {
       if (!seen.has(id)) {
@@ -542,6 +552,7 @@ export class NetPlay {
     );
   }
 
+  /** Enemies as drawn, for the E2E tests. */
   get enemyList(): EnemyDebug[] {
     return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
   }

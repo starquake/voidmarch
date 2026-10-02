@@ -5,6 +5,8 @@ import { DOWN_COLOR, DOWN_OFFSET, REVIVE_BAR_BELOW, REVIVE_BAR_WIDTH, SPRITE_FAC
 
 /** A derelict's hull is the Main Ship's most damaged, grayed out (#52's mockup). */
 const DERELICT_TINT = 0x8a8f99;
+/** Darker while enemies hold it (#114). */
+const DERELICT_HELD_TINT = 0x4a4e5c;
 
 /**
  * A derelict ship waiting to be rescued (#52): the hull alone, no engine,
@@ -30,8 +32,9 @@ export class DerelictView {
     layer.add([this.hull, this.label, this.bar]);
   }
 
-  /** Shows the label and the rescue's progress (0 to 1); the bar shows once there is some. */
-  update(label: string, rescue: number): void {
+  /** Shows the label, whether it's held, and the rescue's progress (0 to 1); the bar shows once there is some. */
+  update(label: string, held: boolean, rescue: number): void {
+    this.hull.setTint(held ? DERELICT_HELD_TINT : DERELICT_TINT);
     if (this.label.text !== label) {
       this.label.setText(label);
     }

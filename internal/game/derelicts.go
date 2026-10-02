@@ -16,12 +16,16 @@ const derelictTicks = sim.DerelictLifetime * TickRate
 
 // derelict is a ship to rescue into the hangar (#52): it drifts where it
 // was released until a ship hovers beside it long enough, or its time is up.
+// A held one waits, with no time running, until no enemy is near (#114).
 type derelict struct {
 	x, y, angle float64
 	rescue      float64
 	goneTick    uint32
-	// spot is the map spot it waits at, from 1; 0 for one a Frigate released.
+	held        bool
+	// spot is the map spot it waits at, from 1; 0 for none.
 	spot int
+	// frigateSpot is the Frigate spot it waits beside, from 1; 0 for none.
+	frigateSpot int
 }
 
 // releaseDerelict puts a derelict at (x, y) and returns its id. It comes
@@ -37,6 +41,16 @@ func (h *Hub) releaseDerelict(x, y float64, spot int) uint32 {
 	}
 
 	return h.nextDerelict
+}
+
+// holdDerelict puts a held derelict at (x, y) and returns its id: its time
+// starts once no enemy is near.
+func (h *Hub) holdDerelict(x, y float64) uint32 {
+	id := h.releaseDerelict(x, y, 0)
+	d := h.derelicts[id]
+	d.held, d.goneTick = true, math.MaxUint32
+
+	return id
 }
 
 // fillDerelictSpots puts a derelict at every map spot without one.
@@ -81,6 +95,9 @@ func (h *Hub) stepDerelicts() {
 
 			continue
 		}
+		if d.held && !h.free(id, d) {
+			continue
+		}
 		helper, distance := nearestShip(point{d.x, d.y}, ships)
 		var done bool
 		d.rescue, done = sim.RescueStep(d.rescue, tickDuration, distance)
@@ -89,6 +106,20 @@ func (h *Hub) stepDerelicts() {
 			h.derelictRescued(id, point{d.x, d.y})
 		}
 	}
+}
+
+// free frees a held derelict once no enemy is within sim.DerelictHoldRadius,
+// starting its time, and reports whether it's free.
+func (h *Hub) free(id uint32, d *derelict) bool {
+	for _, e := range h.enemies {
+		if math.Hypot(e.x-d.x, e.y-d.y) < sim.DerelictHoldRadius {
+			return false
+		}
+	}
+	d.held, d.goneTick = false, h.tick+derelictTicks
+	h.derelictFreed(id, d.goneTick)
+
+	return true
 }
 
 // dockDerelict docks a rescued derelict in the hangar, if the fleet has
@@ -126,11 +157,15 @@ func nearestShip(p point, ships []upShip) (string, float64) {
 	return key, best
 }
 
-// derelictPoints are where the derelicts are, for the companions' brains.
+// derelictPoints are where the derelicts free to rescue are, for the
+// companions' brains.
 func (h *Hub) derelictPoints() []sim.Vec {
 	out := make([]sim.Vec, 0, len(h.derelicts))
 	for _, id := range slices.Sorted(maps.Keys(h.derelicts)) {
 		d := h.derelicts[id]
+		if d.held {
+			continue
+		}
 		out = append(out, sim.Vec{X: d.x, Y: d.y})
 	}
 
@@ -148,6 +183,7 @@ func (h *Hub) derelictSnapshot() []*pb.DerelictState {
 			Angle:      float32(d.angle),
 			Rescue:     float32(d.rescue),
 			GoneTick:   d.goneTick,
+			Held:       d.held,
 		})
 	}
 

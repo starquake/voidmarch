@@ -350,6 +350,9 @@ message DerelictState {
   // The rescue's progress, from 0 to 1.
   float rescue = 5;
   uint32 gone_tick = 6;
+  // Held while enemies are near it (#114): no timer and no rescue until
+  // they're gone; gone_tick counts only once it's freed.
+  bool held = 7;
 }
 
 // EnemyFired is an enemy firing its pattern; every client expands the pattern
@@ -490,6 +493,9 @@ message WorldEvent {
 // EventStarted is a world event beginning; everyone is told.
 message EventStarted {
   WorldEvent event = 1;
+  // Set when the event already running changed, like a distress call whose
+  // derelict was freed and now ends sooner or later (#114): no new banner.
+  bool ongoing = 2;
 }
 
 // EventEnded is a world event over, won or lost.

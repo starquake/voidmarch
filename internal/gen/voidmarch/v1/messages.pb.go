@@ -2523,8 +2523,11 @@ type DerelictState struct {
 	Y          float32                `protobuf:"fixed32,3,opt,name=y,proto3" json:"y,omitempty"`
 	Angle      float32                `protobuf:"fixed32,4,opt,name=angle,proto3" json:"angle,omitempty"`
 	// The rescue's progress, from 0 to 1.
-	Rescue        float32 `protobuf:"fixed32,5,opt,name=rescue,proto3" json:"rescue,omitempty"`
-	GoneTick      uint32  `protobuf:"varint,6,opt,name=gone_tick,json=goneTick,proto3" json:"gone_tick,omitempty"`
+	Rescue   float32 `protobuf:"fixed32,5,opt,name=rescue,proto3" json:"rescue,omitempty"`
+	GoneTick uint32  `protobuf:"varint,6,opt,name=gone_tick,json=goneTick,proto3" json:"gone_tick,omitempty"`
+	// Held while enemies are near it (#114): no timer and no rescue until
+	// they're gone; gone_tick counts only once it's freed.
+	Held          bool `protobuf:"varint,7,opt,name=held,proto3" json:"held,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2599,6 +2602,13 @@ func (x *DerelictState) GetGoneTick() uint32 {
 		return x.GoneTick
 	}
 	return 0
+}
+
+func (x *DerelictState) GetHeld() bool {
+	if x != nil {
+		return x.Held
+	}
+	return false
 }
 
 // EnemyFired is an enemy firing its pattern; every client expands the pattern
@@ -3766,8 +3776,11 @@ func (x *WorldEvent) GetEndsTick() uint32 {
 
 // EventStarted is a world event beginning; everyone is told.
 type EventStarted struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Event         *WorldEvent            `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Event *WorldEvent            `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	// Set when the event already running changed, like a distress call whose
+	// derelict was freed and now ends sooner or later (#114): no new banner.
+	Ongoing       bool `protobuf:"varint,2,opt,name=ongoing,proto3" json:"ongoing,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3807,6 +3820,13 @@ func (x *EventStarted) GetEvent() *WorldEvent {
 		return x.Event
 	}
 	return nil
+}
+
+func (x *EventStarted) GetOngoing() bool {
+	if x != nil {
+		return x.Ongoing
+	}
+	return false
 }
 
 // EventEnded is a world event over, won or lost.
@@ -4222,7 +4242,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
 	"\aenemies\x18\x03 \x03(\v2\x18.voidmarch.v1.EnemyStateR\aenemies\x129\n" +
-	"\tderelicts\x18\x04 \x03(\v2\x1b.voidmarch.v1.DerelictStateR\tderelicts\"\x97\x01\n" +
+	"\tderelicts\x18\x04 \x03(\v2\x1b.voidmarch.v1.DerelictStateR\tderelicts\"\xab\x01\n" +
 	"\rDerelictState\x12\x1f\n" +
 	"\vderelict_id\x18\x01 \x01(\rR\n" +
 	"derelictId\x12\f\n" +
@@ -4230,7 +4250,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01y\x18\x03 \x01(\x02R\x01y\x12\x14\n" +
 	"\x05angle\x18\x04 \x01(\x02R\x05angle\x12\x16\n" +
 	"\x06rescue\x18\x05 \x01(\x02R\x06rescue\x12\x1b\n" +
-	"\tgone_tick\x18\x06 \x01(\rR\bgoneTick\"\xcd\x01\n" +
+	"\tgone_tick\x18\x06 \x01(\rR\bgoneTick\x12\x12\n" +
+	"\x04held\x18\a \x01(\bR\x04held\"\xcd\x01\n" +
 	"\n" +
 	"EnemyFired\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -4316,9 +4337,10 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"WorldEvent\x120\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x1c.voidmarch.v1.WorldEventKindR\x04kind\x12\x16\n" +
 	"\x06sector\x18\x02 \x01(\tR\x06sector\x12\x1b\n" +
-	"\tends_tick\x18\x03 \x01(\rR\bendsTick\">\n" +
+	"\tends_tick\x18\x03 \x01(\rR\bendsTick\"X\n" +
 	"\fEventStarted\x12.\n" +
-	"\x05event\x18\x01 \x01(\v2\x18.voidmarch.v1.WorldEventR\x05event\"N\n" +
+	"\x05event\x18\x01 \x01(\v2\x18.voidmarch.v1.WorldEventR\x05event\x12\x18\n" +
+	"\aongoing\x18\x02 \x01(\bR\aongoing\"N\n" +
 	"\n" +
 	"EventEnded\x12.\n" +
 	"\x05event\x18\x01 \x01(\v2\x18.voidmarch.v1.WorldEventR\x05event\x12\x10\n" +

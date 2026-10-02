@@ -19,12 +19,12 @@ test('the HUD line names the event and counts down', () => {
 
 test('a starting event says what to do and to follow the red arrow', () => {
   assert.match(eventStartBanner(attack).join('\n'), /^Sector D3 is under attack!\n.*Frigate.*\n.*red arrow/);
-  assert.match(eventStartBanner(distress).join('\n'), /^Distress call from sector C4\n.*derelict.*\n.*red arrow/);
+  assert.match(eventStartBanner(distress).join('\n'), /^Distress call from sector C4\nDestroy its guard.*derelict.*\n.*red arrow/);
 });
 
 test('an ending event says how it went', () => {
   assert.deepEqual(eventEndBanner(attack, true), ['Sector D3 held!', 'A ship joins the hangar.']);
   assert.deepEqual(eventEndBanner(attack, false), ['Sector D3 has fallen']);
   assert.deepEqual(eventEndBanner(distress, true), ['Derelict rescued in sector C4']);
-  assert.deepEqual(eventEndBanner(distress, false), ['The derelict in sector C4 drifted off']);
+  assert.deepEqual(eventEndBanner(distress, false), ['The derelict in sector C4 was lost']);
 });

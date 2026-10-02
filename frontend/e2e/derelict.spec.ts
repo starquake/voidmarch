@@ -5,8 +5,12 @@ import { TRIES, aimAt, state } from './hunt.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
+/** The e2e map's derelict spot, rescuable at once; the Frigate's waits held beside it (#114). */
+const SPOT = { x: -420, y: -120 };
+
 /** The e2e map's derelict, as drawn. */
-const derelict = (s: DebugState): DebugState['derelicts'][number] | undefined => s.derelicts[0];
+const derelict = (s: DebugState): DebugState['derelicts'][number] | undefined =>
+  s.derelicts.find((d) => Math.hypot(d.x - SPOT.x, d.y - SPOT.y) < 1);
 
 /** The most of a rescue's bar seen filled. */
 let filled = 0;
@@ -59,4 +63,16 @@ test('hovering beside a derelict fills its rescue bar and docks it in the hangar
   }
   expect((await state(page)).rescues).toBe(1);
   expect(filled, 'the rescue bar filled on the way').toBeGreaterThan(0.5);
+});
+
+test("the Frigate's derelict waits beside it, held by its fleet", async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  // The e2e map's Frigate sits in the middle of D3; its derelict 160 px below it.
+  const beside = { x: 0, y: -Math.sqrt(3) * 990 + 160 };
+  await expect
+    .poll(async () => (await state(page)).derelicts.find((d) => Math.hypot(d.x - beside.x, d.y - beside.y) < 1)?.held, {
+      message: "the Frigate's derelict is there, held",
+    })
+    .toBe(true);
 });

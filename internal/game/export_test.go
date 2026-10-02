@@ -56,6 +56,9 @@ func WithDerelictAt(x, y float64) HubOption {
 	}
 }
 
+// FrigateDerelictOffset is how far below its Frigate a held derelict waits.
+const FrigateDerelictOffset = frigateDerelictOffset
+
 // DerelictTicks exposes derelictTicks for tests.
 const DerelictTicks = derelictTicks
 
