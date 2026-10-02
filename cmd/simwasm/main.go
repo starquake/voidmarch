@@ -156,8 +156,8 @@ func bump(n int32) int32 {
 }
 
 //go:wasmexport enemyPattern
-func enemyPattern(kind int32, x, y, angle, seed float64) int32 {
-	return int32(bridge.EnemyPattern(int(kind), x, y, angle, uint32(seed)))
+func enemyPattern(kind, faction int32, x, y, angle, seed float64) int32 {
+	return int32(bridge.EnemyPattern(int(kind), int(faction), x, y, angle, uint32(seed)))
 }
 
 // main blocks, so the exports stay callable once it has run.

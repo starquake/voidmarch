@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
+import { ENEMY_FACTIONS } from './sim/enemies.ts';
 import { WEAPONS } from './sim/loadout.ts';
-import { sheets, weaponTiming } from './sprites.ts';
+import { PROJECTILE_KINDS } from './sim/rules.gen.ts';
+import { keys, sheets, weaponTiming } from './sprites.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
@@ -21,6 +23,23 @@ test('every sheet matches its PNG: frames laid out in one row', () => {
     const { width, height } = pngSize(file);
     assert.equal(width, sheet.frameWidth * sheet.frames, `${sheet.key}: width ${width}`);
     assert.equal(height, sheet.frameHeight, `${sheet.key}: height ${height}`);
+  }
+});
+
+test("every faction's Scouts and Fighters, and every enemy bullet, have their sheets", () => {
+  const loaded = new Set(sheets().map((s) => s.key));
+  for (const faction of ENEMY_FACTIONS) {
+    for (const kind of ['scout', 'fighter'] as const) {
+      for (const key of [keys.enemyBase, keys.enemyEngine, keys.enemyWeapons, keys.enemyDestruction]) {
+        assert.ok(loaded.has(key(faction, kind)), key(faction, kind));
+      }
+    }
+  }
+  const weapons: readonly string[] = WEAPONS;
+  for (const id of PROJECTILE_KINDS) {
+    if (!weapons.includes(id) && id !== 'shard') {
+      assert.ok(loaded.has(keys.enemyBullet(id as Parameters<typeof keys.enemyBullet>[0])), id);
+    }
   }
 });
 

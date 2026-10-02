@@ -1,6 +1,9 @@
 package game
 
-import pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+import (
+	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
+)
 
 // Damaged exposes damaged for tests.
 var Damaged = damaged
@@ -85,7 +88,7 @@ func (h *Hub) addEnemy(x, y float64) {
 	if h.rng.Float64() < fighterShare {
 		kind = pb.EnemyKind_ENEMY_KIND_FIGHTER
 	}
-	h.addEnemyOf(kind, x, y)
+	h.addEnemyOf(kind, sim.Klaed, x, y)
 }
 
 // WithEventTimes sets the world events' timings in hub ticks (#102).
@@ -105,3 +108,10 @@ var NoEvents = WithEventTimes(1<<30, 1<<30, 1<<30, 1<<30)
 
 // EventEvery exposes eventEvery for tests.
 const EventEvery = eventEvery
+
+// EnemyStatsFor exposes a kind's hit points and fire interval in its faction.
+func EnemyStatsFor(kind pb.EnemyKind, faction sim.EnemyFaction) (hp, fireEvery int) {
+	s := statsFor(kind, faction)
+
+	return s.hp, s.fireEvery
+}

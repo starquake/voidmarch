@@ -5,6 +5,7 @@
  * read, and turns their changes into calls.
  */
 import {
+  ENEMY_FACTIONS,
   ENEMY_KINDS,
   ENGINES,
   FACTIONS,
@@ -14,6 +15,7 @@ import {
   RESPAWN_DELAY,
   SHIELDS,
   WEAPONS,
+  type EnemyFaction,
   type EnemyKind,
   type EngineId,
   type Faction,
@@ -189,7 +191,7 @@ interface Exports {
   burstSeed(n: number, shotId: number): number;
   burst(weapon: number, faction: number, x: number, y: number, shotId: number, seed: number, from: number): number;
   bump(n: number): number;
-  enemyPattern(kind: number, x: number, y: number, angle: number, seed: number): number;
+  enemyPattern(kind: number, faction: number, x: number, y: number, angle: number, seed: number): number;
 }
 
 /** The Go runtime's JavaScript side, from wasm_exec.js (TinyGo's or standard Go's). */
@@ -480,8 +482,8 @@ export class Sandbox {
   }
 
   /** The bullets of an enemy's volley: pure and seeded, the same on every client. */
-  enemyPattern(kind: EnemyKind, x: number, y: number, angle: number, seed: number): ProjectileSpawn[] {
-    const n = this.exports.enemyPattern(ENEMY_KINDS.indexOf(kind), x, y, angle, seed >>> 0);
+  enemyPattern(kind: EnemyKind, faction: EnemyFaction, x: number, y: number, angle: number, seed: number): ProjectileSpawn[] {
+    const n = this.exports.enemyPattern(ENEMY_KINDS.indexOf(kind), ENEMY_FACTIONS.indexOf(faction), x, y, angle, seed >>> 0);
     const scratch = this.scratch();
     const out: ProjectileSpawn[] = [];
     for (let i = 0; i < n; i++) {

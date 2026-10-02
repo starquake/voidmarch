@@ -136,7 +136,8 @@ var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
 var SHIELDS = ["front", "frontAndSide", "round", "invincibility"];
 var ENEMY_KINDS = ["scout", "fighter", "frigate", "dreadnought"];
-var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "klaedRay", "klaedWave", "shard"];
+var ENEMY_FACTIONS = ["klaed", "nairan", "nautolan"];
+var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "klaedRay", "klaedWave", "nairanBolt", "nairanRay", "nautolanBullet", "nautolanSpinningBullet", "shard"];
 var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", weaponTier: 0, engineTier: 0, shieldTier: 0 };
 var TICK_RATE = 60;
@@ -212,10 +213,24 @@ var WEAPON_STATS = {
   }
 };
 var ENEMY_RADIUS = {
-  scout: 11,
-  fighter: 12,
-  frigate: 19,
-  dreadnought: 44
+  klaed: {
+    scout: 11,
+    fighter: 12,
+    frigate: 19,
+    dreadnought: 44
+  },
+  nairan: {
+    scout: 11,
+    fighter: 14,
+    frigate: 19,
+    dreadnought: 44
+  },
+  nautolan: {
+    scout: 15,
+    fighter: 15,
+    frigate: 19,
+    dreadnought: 44
+  }
 };
 var FRIGATE_REACH = 800;
 var FRIGATE_SHIELD = 20;
@@ -407,19 +422,33 @@ var still = (key, url, size) => ({
   fps: 0,
   loop: false
 });
-var KLAED_FILES = {
-  scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
-  fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
-  frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
-  dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 }
+var ENEMY_FILES = {
+  klaed: {
+    scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
+    fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
+    frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
+    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 }
+  },
+  nairan: {
+    scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
+    fighter: { size: 64, engine: 8, weapons: 28, destruction: 18 }
+  },
+  nautolan: {
+    scout: { size: 64, engine: 8, weapons: 7, destruction: 9 },
+    fighter: { size: 64, engine: 8, weapons: 9, destruction: 9 }
+  }
 };
 var BULLET_VARIANT = "blue";
 var BULLET_FRAMES = {
-  klaedBullet: { file: "bullet", width: 4, height: 16, frames: 4 },
-  klaedBigBullet: { file: "big-bullet", width: 8, height: 16, frames: 4 },
+  klaedBullet: { faction: "klaed", file: "bullet", width: 4, height: 16, frames: 4 },
+  klaedBigBullet: { faction: "klaed", file: "big-bullet", width: 8, height: 16, frames: 4 },
   // The Dreadnought's (#124): a beam segment, and a wave arc.
-  klaedRay: { file: "ray", width: 18, height: 38, frames: 4 },
-  klaedWave: { file: "wave", width: 64, height: 64, frames: 6 }
+  klaedRay: { faction: "klaed", file: "ray", width: 18, height: 38, frames: 4 },
+  klaedWave: { faction: "klaed", file: "wave", width: 64, height: 64, frames: 6 },
+  nairanBolt: { faction: "nairan", file: "bolt", width: 9, height: 9, frames: 5 },
+  nairanRay: { faction: "nairan", file: "ray", width: 18, height: 38, frames: 4 },
+  nautolanBullet: { faction: "nautolan", file: "bullet", width: 12, height: 12, frames: 6 },
+  nautolanSpinningBullet: { faction: "nautolan", file: "spinning-bullet", width: 8, height: 8, frames: 8 }
 };
 var strip = (key, url, size, frames, fps, loop = true) => ({
   key,
@@ -501,12 +530,12 @@ var keys = {
   background: ["background-void", "background-stars", "background-big-stars"],
   planet: "planet",
   asteroid: "asteroid",
-  enemyBase: (kind) => `klaed-${kind}-base`,
-  enemyEngine: (kind) => `klaed-${kind}-engine`,
-  enemyWeapons: (kind) => `klaed-${kind}-weapons`,
-  enemyDestruction: (kind) => `klaed-${kind}-destruction`,
-  enemyShield: (kind) => `klaed-${kind}-shield`,
-  enemyBullet: (id) => `klaed-${BULLET_FRAMES[id].file}`,
+  enemyBase: (faction, kind) => `${faction}-${kind}-base`,
+  enemyEngine: (faction, kind) => `${faction}-${kind}-engine`,
+  enemyWeapons: (faction, kind) => `${faction}-${kind}-weapons`,
+  enemyDestruction: (faction, kind) => `${faction}-${kind}-destruction`,
+  enemyShield: (faction, kind) => `${faction}-${kind}-shield`,
+  enemyBullet: (id) => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}`,
   pickup: (part) => `pickup-${part}`
 };
 var pickupFile = (part) => `${WEAPONS.includes(part) ? "weapon" : ENGINES.includes(part) ? "engine" : "shield"}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
@@ -514,7 +543,6 @@ var PICKUP_FRAMES = 15;
 function sheets() {
   const ship = `${ASSETS}/mainship`;
   const env = `${ASSETS}/environment`;
-  const klaed = `${ASSETS}/klaed`;
   return [
     ...DAMAGE_STATES.map((s) => still(keys.hull(s), `${ship}/${HULL_FILES[s]}.png`, 48)),
     ...ENGINES.flatMap((id) => {
@@ -546,19 +574,25 @@ function sheets() {
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
-    ...ENEMY_KINDS.flatMap((kind) => {
-      const f = KLAED_FILES[kind];
-      return [
-        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, f.size),
-        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, f.size, f.engine, 12),
-        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, f.size, f.weapons, 18, false),
-        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
-        ...f.shield === void 0 ? [] : [strip(keys.enemyShield(kind), `${klaed}/${kind}-shield.png`, f.size, f.shield, 20)]
-      ];
-    }),
+    ...ENEMY_FACTIONS.flatMap(
+      (faction) => ENEMY_KINDS.flatMap((kind) => {
+        const f = ENEMY_FILES[faction][kind];
+        if (f === void 0) {
+          return [];
+        }
+        const dir = `${ASSETS}/${faction}`;
+        return [
+          still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size),
+          strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
+          strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, 18, false),
+          strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
+          ...f.shield === void 0 ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.size, f.shield, 20)]
+        ];
+      })
+    ),
     ...Object.values(BULLET_FRAMES).map((f) => ({
-      key: `klaed-${f.file}`,
-      url: `${klaed}/${f.file}-${BULLET_VARIANT}.png`,
+      key: `${f.faction}-${f.file}`,
+      url: `${ASSETS}/${f.faction}/${f.file}-${BULLET_VARIANT}.png`,
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,
@@ -688,7 +722,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSLCBAoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIAEIGCgRraW5kIiAKDkRldlN0YXJ0QXR0YWNrEg4KBnNlY3RvchgBIAEoCSIdCgtQaWNrTWlzc2lvbhIOCgZzZWN0b3IYASABKAkiFQoHQ29sbGVjdBIKCgJpZBgBIAEoDSKUBAoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCRIlCgd1bmxvY2tzGA0gAygLMhQudm9pZG1hcmNoLnYxLlVubG9jaxIsCgdwaWNrdXBzGA4gAygLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWQSJgoHbG9hZG91dBgPIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0EhMKC2RldmVsb3BtZW50GBAgASgIEhcKD2NsZWFyZWRfc2VjdG9ycxgRIAMoCRItCgt3b3JsZF9ldmVudBgSIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EhAKCG1hcF9uYW1lGBMgASgJEigKCGZyb250aWVyGBQgASgLMhYudm9pZG1hcmNoLnYxLkZyb250aWVySgQICBAJUg9zdW1tb25fYW55d2hlcmUijAEKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvbG9yGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNIocBCgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIPCgdtaXNzaW9uGAQgASgJIl0KCVNxdWFkcm9ucxItCglzcXVhZHJvbnMYASADKAsyGi52b2lkbWFyY2gudjEuU3F1YWRyb25JbmZvEhEKCW5leHRfbmFtZRgCIAEoCRIOCgZoYW5nYXIYAyABKA0icgoOU3F1YWRyb25Kb2luZWQSDAoEbmFtZRgBIAEoCRIpCgRtb2RlGAIgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAiIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIl4KD1NxdWFkcm9uT3JkZXJlZBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIqCgVvcmRlchgDIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyIsIBCgpFbmVteVN0YXRlEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgkKAXgYAyABKAISCQoBeRgEIAEoAhINCgVhbmdsZRgFIAEoAhIKCgJ2eBgGIAEoAhIKCgJ2eRgHIAEoAhIKCgJocBgIIAEoAhIOCgZtYXhfaHAYCSABKAISDgoGc2hpZWxkGAogASgCEhIKCnNjYWxlZF9mb3IYCyABKAIiogEKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUSLgoJZGVyZWxpY3RzGAQgAygLMhsudm9pZG1hcmNoLnYxLkRlcmVsaWN0U3RhdGUiegoNRGVyZWxpY3RTdGF0ZRITCgtkZXJlbGljdF9pZBgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAISDQoFYW5nbGUYBCABKAISDgoGcmVzY3VlGAUgASgCEhEKCWdvbmVfdGljaxgGIAEoDRIMCgRoZWxkGAcgASgIIpoBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDSKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCKxCQoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI5ChBzcXVhZHJvbl9vcmRlcmVkGA8gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJlZEgAEjUKDnBpY2t1cF9kcm9wcGVkGBAgASgLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWRIABIxCgxwaWNrdXBfdGFrZW4YESABKAsyGS52b2lkbWFyY2gudjEuUGlja3VwVGFrZW5IABI5ChBkZXJlbGljdF9yZXNjdWVkGBIgASgLMh0udm9pZG1hcmNoLnYxLkRlcmVsaWN0UmVzY3VlZEgAEjUKDnNlY3Rvcl9jbGVhcmVkGBMgASgLMhsudm9pZG1hcmNoLnYxLlNlY3RvckNsZWFyZWRIABIzCg1ldmVudF9zdGFydGVkGBQgASgLMhoudm9pZG1hcmNoLnYxLkV2ZW50U3RhcnRlZEgAEi8KC2V2ZW50X2VuZGVkGBUgASgLMhgudm9pZG1hcmNoLnYxLkV2ZW50RW5kZWRIABIqCghmcm9udGllchgWIAEoCzIWLnZvaWRtYXJjaC52MS5Gcm9udGllckgAEisKCWJvc3NfZmVsbBgXIAEoCzIWLnZvaWRtYXJjaC52MS5Cb3NzRmVsbEgAQgYKBGtpbmQiaAoIQm9zc0ZlbGwSJQoEa2luZBgBIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSJwoFZ2FpbnMYAiADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIMCgR0aWNrGAMgASgNIi4KCEZyb250aWVyEhIKCm9wZW5fcmluZ3MYASABKA0SDgoGb3BlbmVkGAIgAygJInQKDVBpY2t1cERyb3BwZWQSCgoCaWQYASABKA0SIAoEcGFydBgCIAEoCzISLnZvaWRtYXJjaC52MS5QYXJ0EgkKAXgYAyABKAISCQoBeRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCWdvbmVfdGljaxgGIAEoDSJVCgtQaWNrdXBUYWtlbhIKCgJpZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbiJbCgpXb3JsZEV2ZW50EioKBGtpbmQYASABKA4yHC52b2lkbWFyY2gudjEuV29ybGRFdmVudEtpbmQSDgoGc2VjdG9yGAIgASgJEhEKCWVuZHNfdGljaxgDIAEoDSJICgxFdmVudFN0YXJ0ZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIPCgdvbmdvaW5nGAIgASgIIkIKCkV2ZW50RW5kZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBILCgN3b24YAiABKAgiVgoNU2VjdG9yQ2xlYXJlZBIOCgZzZWN0b3IYASABKAkSDAoEdGljaxgCIAEoDRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluImcKD0RlcmVsaWN0UmVzY3VlZBITCgtkZXJlbGljdF9pZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSDAoEdGljaxgDIAEoDRIOCgZoYW5nYXIYBCABKA0SDgoGZG9ja2VkGAUgASgIIkUKClBpY2t1cEdhaW4SEQoJcGxheWVyX2lkGAEgASgJEiQKBnVubG9jaxgCIAEoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCqJAQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAISFgoSRU5FTVlfS0lORF9GUklHQVRFEAMSGgoWRU5FTVlfS0lORF9EUkVBRE5PVUdIVBAEKrQBCg1Db21wYW5pb25Nb2RlEh4KGkNPTVBBTklPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGQoVQ09NUEFOSU9OX01PREVfRVNDT1JUEAESGQoVQ09NUEFOSU9OX01PREVfQVRUQUNLEAISGAoUQ09NUEFOSU9OX01PREVfR1VBUkQQAxIXChNDT01QQU5JT05fTU9ERV9IT0xEEAQSGgoWQ09NUEFOSU9OX01PREVfU1RFQUxUSBAFKpQBChBDb21wYW5pb25PbmVTaG90EiIKHkNPTVBBTklPTl9PTkVfU0hPVF9VTlNQRUNJRklFRBAAEhwKGENPTVBBTklPTl9PTkVfU0hPVF9GT0NVUxABEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9SRUdST1VQEAISHgoaQ09NUEFOSU9OX09ORV9TSE9UX0dPX0hPTUUQAypuCg5Xb3JsZEV2ZW50S2luZBIgChxXT1JMRF9FVkVOVF9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXV09STERfRVZFTlRfS0lORF9BVFRBQ0sQARIdChlXT1JMRF9FVkVOVF9LSU5EX0RJU1RSRVNTEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSLCBAoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIAEIGCgRraW5kIiAKDkRldlN0YXJ0QXR0YWNrEg4KBnNlY3RvchgBIAEoCSIdCgtQaWNrTWlzc2lvbhIOCgZzZWN0b3IYASABKAkiFQoHQ29sbGVjdBIKCgJpZBgBIAEoDSKUBAoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCRIlCgd1bmxvY2tzGA0gAygLMhQudm9pZG1hcmNoLnYxLlVubG9jaxIsCgdwaWNrdXBzGA4gAygLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWQSJgoHbG9hZG91dBgPIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0EhMKC2RldmVsb3BtZW50GBAgASgIEhcKD2NsZWFyZWRfc2VjdG9ycxgRIAMoCRItCgt3b3JsZF9ldmVudBgSIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EhAKCG1hcF9uYW1lGBMgASgJEigKCGZyb250aWVyGBQgASgLMhYudm9pZG1hcmNoLnYxLkZyb250aWVySgQICBAJUg9zdW1tb25fYW55d2hlcmUijAEKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvbG9yGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNIocBCgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIPCgdtaXNzaW9uGAQgASgJIl0KCVNxdWFkcm9ucxItCglzcXVhZHJvbnMYASADKAsyGi52b2lkbWFyY2gudjEuU3F1YWRyb25JbmZvEhEKCW5leHRfbmFtZRgCIAEoCRIOCgZoYW5nYXIYAyABKA0icgoOU3F1YWRyb25Kb2luZWQSDAoEbmFtZRgBIAEoCRIpCgRtb2RlGAIgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAiIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIl4KD1NxdWFkcm9uT3JkZXJlZBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIqCgVvcmRlchgDIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyIu8BCgpFbmVteVN0YXRlEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgkKAXgYAyABKAISCQoBeRgEIAEoAhINCgVhbmdsZRgFIAEoAhIKCgJ2eBgGIAEoAhIKCgJ2eRgHIAEoAhIKCgJocBgIIAEoAhIOCgZtYXhfaHAYCSABKAISDgoGc2hpZWxkGAogASgCEhIKCnNjYWxlZF9mb3IYCyABKAISKwoHZmFjdGlvbhgMIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24iogEKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUSLgoJZGVyZWxpY3RzGAQgAygLMhsudm9pZG1hcmNoLnYxLkRlcmVsaWN0U3RhdGUiegoNRGVyZWxpY3RTdGF0ZRITCgtkZXJlbGljdF9pZBgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAISDQoFYW5nbGUYBCABKAISDgoGcmVzY3VlGAUgASgCEhEKCWdvbmVfdGljaxgGIAEoDRIMCgRoZWxkGAcgASgIIscBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDRIrCgdmYWN0aW9uGAkgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbiKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCKxCQoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI5ChBzcXVhZHJvbl9vcmRlcmVkGA8gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJlZEgAEjUKDnBpY2t1cF9kcm9wcGVkGBAgASgLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWRIABIxCgxwaWNrdXBfdGFrZW4YESABKAsyGS52b2lkbWFyY2gudjEuUGlja3VwVGFrZW5IABI5ChBkZXJlbGljdF9yZXNjdWVkGBIgASgLMh0udm9pZG1hcmNoLnYxLkRlcmVsaWN0UmVzY3VlZEgAEjUKDnNlY3Rvcl9jbGVhcmVkGBMgASgLMhsudm9pZG1hcmNoLnYxLlNlY3RvckNsZWFyZWRIABIzCg1ldmVudF9zdGFydGVkGBQgASgLMhoudm9pZG1hcmNoLnYxLkV2ZW50U3RhcnRlZEgAEi8KC2V2ZW50X2VuZGVkGBUgASgLMhgudm9pZG1hcmNoLnYxLkV2ZW50RW5kZWRIABIqCghmcm9udGllchgWIAEoCzIWLnZvaWRtYXJjaC52MS5Gcm9udGllckgAEisKCWJvc3NfZmVsbBgXIAEoCzIWLnZvaWRtYXJjaC52MS5Cb3NzRmVsbEgAQgYKBGtpbmQiaAoIQm9zc0ZlbGwSJQoEa2luZBgBIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSJwoFZ2FpbnMYAiADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIMCgR0aWNrGAMgASgNIi4KCEZyb250aWVyEhIKCm9wZW5fcmluZ3MYASABKA0SDgoGb3BlbmVkGAIgAygJInQKDVBpY2t1cERyb3BwZWQSCgoCaWQYASABKA0SIAoEcGFydBgCIAEoCzISLnZvaWRtYXJjaC52MS5QYXJ0EgkKAXgYAyABKAISCQoBeRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCWdvbmVfdGljaxgGIAEoDSJVCgtQaWNrdXBUYWtlbhIKCgJpZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbiJbCgpXb3JsZEV2ZW50EioKBGtpbmQYASABKA4yHC52b2lkbWFyY2gudjEuV29ybGRFdmVudEtpbmQSDgoGc2VjdG9yGAIgASgJEhEKCWVuZHNfdGljaxgDIAEoDSJICgxFdmVudFN0YXJ0ZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIPCgdvbmdvaW5nGAIgASgIIkIKCkV2ZW50RW5kZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBILCgN3b24YAiABKAgiVgoNU2VjdG9yQ2xlYXJlZBIOCgZzZWN0b3IYASABKAkSDAoEdGljaxgCIAEoDRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluImcKD0RlcmVsaWN0UmVzY3VlZBITCgtkZXJlbGljdF9pZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSDAoEdGljaxgDIAEoDRIOCgZoYW5nYXIYBCABKA0SDgoGZG9ja2VkGAUgASgIIkUKClBpY2t1cEdhaW4SEQoJcGxheWVyX2lkGAEgASgJEiQKBnVubG9jaxgCIAEoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCqJAQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAISFgoSRU5FTVlfS0lORF9GUklHQVRFEAMSGgoWRU5FTVlfS0lORF9EUkVBRE5PVUdIVBAEKnwKDEVuZW15RmFjdGlvbhIdChlFTkVNWV9GQUNUSU9OX1VOU1BFQ0lGSUVEEAASFwoTRU5FTVlfRkFDVElPTl9LTEFFRBABEhgKFEVORU1ZX0ZBQ1RJT05fTkFJUkFOEAISGgoWRU5FTVlfRkFDVElPTl9OQVVUT0xBThADKrQBCg1Db21wYW5pb25Nb2RlEh4KGkNPTVBBTklPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGQoVQ09NUEFOSU9OX01PREVfRVNDT1JUEAESGQoVQ09NUEFOSU9OX01PREVfQVRUQUNLEAISGAoUQ09NUEFOSU9OX01PREVfR1VBUkQQAxIXChNDT01QQU5JT05fTU9ERV9IT0xEEAQSGgoWQ09NUEFOSU9OX01PREVfU1RFQUxUSBAFKpQBChBDb21wYW5pb25PbmVTaG90EiIKHkNPTVBBTklPTl9PTkVfU0hPVF9VTlNQRUNJRklFRBAAEhwKGENPTVBBTklPTl9PTkVfU0hPVF9GT0NVUxABEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9SRUdST1VQEAISHgoaQ09NUEFOSU9OX09ORV9TSE9UX0dPX0hPTUUQAypuCg5Xb3JsZEV2ZW50S2luZBIgChxXT1JMRF9FVkVOVF9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXV09STERfRVZFTlRfS0lORF9BVFRBQ0sQARIdChlXT1JMRF9FVkVOVF9LSU5EX0RJU1RSRVNTEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 3);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 12);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 36);
@@ -700,11 +734,13 @@ var ShieldSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 2);
 var Shield = /* @__PURE__ */ tsEnum(ShieldSchema);
 var EnemyKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 3);
 var EnemyKind = /* @__PURE__ */ tsEnum(EnemyKindSchema);
-var CompanionModeSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 4);
+var EnemyFactionSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 4);
+var EnemyFaction = /* @__PURE__ */ tsEnum(EnemyFactionSchema);
+var CompanionModeSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 5);
 var CompanionMode = /* @__PURE__ */ tsEnum(CompanionModeSchema);
-var CompanionOneShotSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 5);
+var CompanionOneShotSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 6);
 var CompanionOneShot = /* @__PURE__ */ tsEnum(CompanionOneShotSchema);
-var WorldEventKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 6);
+var WorldEventKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 7);
 var WorldEventKind = /* @__PURE__ */ tsEnum(WorldEventKindSchema);
 
 // src/net/codec.ts
@@ -758,6 +794,16 @@ var fromEnemyKind = (kind) => {
       return "dreadnought";
     default:
       return "scout";
+  }
+};
+var fromEnemyFaction = (faction) => {
+  switch (faction) {
+    case EnemyFaction.NAIRAN:
+      return "nairan";
+    case EnemyFaction.NAUTOLAN:
+      return "nautolan";
+    default:
+      return "klaed";
   }
 };
 var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
@@ -1810,8 +1856,8 @@ var Sandbox = class {
     return rams;
   }
   /** The bullets of an enemy's volley: pure and seeded, the same on every client. */
-  enemyPattern(kind, x, y, angle, seed) {
-    const n = this.exports.enemyPattern(ENEMY_KINDS.indexOf(kind), x, y, angle, seed >>> 0);
+  enemyPattern(kind, faction, x, y, angle, seed) {
+    const n = this.exports.enemyPattern(ENEMY_KINDS.indexOf(kind), ENEMY_FACTIONS.indexOf(faction), x, y, angle, seed >>> 0);
     const scratch = this.scratch();
     const out = [];
     for (let i = 0; i < n; i++) {
@@ -3092,24 +3138,26 @@ function drawReviveBar(bar, fill) {
 var FLASH_MS = 70;
 var EnemyView = class {
   kind;
+  faction;
   root;
   base;
   weapon;
   /** The shield bubble, for the kinds that have one (#89). */
   shield;
   scene;
-  constructor(scene, parent, kind) {
+  constructor(scene, parent, kind, faction) {
     this.scene = scene;
     this.kind = kind;
-    const engine = scene.add.sprite(0, 0, keys.enemyEngine(kind)).play(keys.enemyEngine(kind));
-    this.base = scene.add.image(0, 0, keys.enemyBase(kind));
-    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(kind), 0);
+    this.faction = faction;
+    const engine = scene.add.sprite(0, 0, keys.enemyEngine(faction, kind)).play(keys.enemyEngine(faction, kind));
+    this.base = scene.add.image(0, 0, keys.enemyBase(faction, kind));
+    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
     this.weapon.on(Phaser6.Animations.Events.ANIMATION_COMPLETE, () => {
       this.weapon.setFrame(0);
     });
     const parts = [engine, this.base, this.weapon];
-    if (scene.textures.exists(keys.enemyShield(kind))) {
-      this.shield = scene.add.sprite(0, 0, keys.enemyShield(kind)).play(keys.enemyShield(kind)).setVisible(false);
+    if (scene.textures.exists(keys.enemyShield(faction, kind))) {
+      this.shield = scene.add.sprite(0, 0, keys.enemyShield(faction, kind)).play(keys.enemyShield(faction, kind)).setVisible(false);
       parts.push(this.shield);
     }
     this.root = scene.add.container(0, 0, parts);
@@ -3134,7 +3182,7 @@ var EnemyView = class {
   }
   /** Plays the weapon animation: the telegraph before a volley leaves. */
   warn() {
-    this.weapon.play(keys.enemyWeapons(this.kind));
+    this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
   }
   /** A short white flash where a shot landed. */
   flash() {
@@ -3149,13 +3197,13 @@ var EnemyView = class {
       this.root.destroy();
       return;
     }
-    const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.kind)).setRotation(this.root.rotation);
+    const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.faction, this.kind)).setRotation(this.root.rotation);
     this.root.parentContainer.add(boom);
     this.root.destroy();
     boom.once(Phaser6.Animations.Events.ANIMATION_COMPLETE, () => {
       boom.destroy();
     });
-    boom.play(keys.enemyDestruction(this.kind));
+    boom.play(keys.enemyDestruction(this.faction, this.kind));
   }
 };
 
@@ -3626,7 +3674,7 @@ var NetPlay = class {
   }
   /** Enemies as drawn, for the E2E tests. */
   get enemyList() {
-    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, faction: e.view.faction, x: e.view.x, y: e.view.y }));
   }
   /**
    * Once a frame: send the local ship, draw the others and the enemies, spawn
@@ -3782,7 +3830,7 @@ var NetPlay = class {
   }
   /** The enemies as drawn, as targets for hits and seeking shots. */
   enemyTargets() {
-    return [...this.enemies.entries()].map(([id, e]) => ({ id, x: e.view.x, y: e.view.y, radius: ENEMY_RADIUS[e.view.kind] }));
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, x: e.view.x, y: e.view.y, radius: ENEMY_RADIUS[e.view.faction][e.view.kind] }));
   }
   /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
   get squadmateDistance() {
@@ -3886,7 +3934,7 @@ var NetPlay = class {
     for (const [id, enemy] of this.enemies) {
       const e = enemy.drawn;
       if (e !== void 0) {
-        const radius = ENEMY_RADIUS[enemy.view.kind];
+        const radius = ENEMY_RADIUS[enemy.view.faction][enemy.view.kind];
         bodies.push({ x: e.x, y: e.y, vx: e.vx, vy: e.vy, radius, key: -id, side: 1 });
         rammed.push(id);
       }
@@ -3929,7 +3977,7 @@ var NetPlay = class {
     if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
     }
-    for (const bullet of this.options.sim.enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+    for (const bullet of this.options.sim.enemyPattern(volley.kind, volley.faction, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: "enemy", owner: String(volley.enemyId) });
     }
     const ship = this.options.sim.ship;
@@ -3942,6 +3990,7 @@ var NetPlay = class {
     this.enemyVolleys.add(fired.tick, {
       enemyId: fired.enemyId,
       kind: fromEnemyKind(fired.kind),
+      faction: fromEnemyFaction(fired.faction),
       tick: fired.tick,
       seed: fired.seed,
       angle: fired.angle,
@@ -4112,7 +4161,7 @@ var NetPlay = class {
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === void 0) {
         enemy = {
-          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
+          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
           buffer: new StateBuffer(),
           drawn: void 0,
           lastSeen: snapshot.tick,

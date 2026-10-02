@@ -288,17 +288,25 @@ test('a scan ends the shots that hit, and says what they hit', async () => {
 
 test('an enemy volley is the same for the same seed, and leaves in front of the enemy', async () => {
   const s = await sim();
-  const a = s.enemyPattern('fighter', 100, 50, 0, 4_000_000_000);
-  assert.deepEqual(a, s.enemyPattern('fighter', 100, 50, 0, 4_000_000_000));
+  const a = s.enemyPattern('fighter', 'klaed', 100, 50, 0, 4_000_000_000);
+  assert.deepEqual(a, s.enemyPattern('fighter', 'klaed', 100, 50, 0, 4_000_000_000));
   const [bullet] = a;
   assert.ok(bullet !== undefined);
   assert.equal(bullet.kind, 'klaedBigBullet');
   assert.ok(bullet.x > 100);
 });
 
+test("each faction's Scouts and Fighters fire their own pack's bullets", async () => {
+  const s = await sim();
+  assert.equal(s.enemyPattern('scout', 'nairan', 0, 0, 0, 1)[0]?.kind, 'nairanBolt');
+  assert.equal(s.enemyPattern('fighter', 'nairan', 0, 0, 0, 1)[0]?.kind, 'nairanRay');
+  assert.equal(s.enemyPattern('scout', 'nautolan', 0, 0, 0, 1)[0]?.kind, 'nautolanBullet');
+  assert.equal(s.enemyPattern('fighter', 'nautolan', 0, 0, 0, 1)[0]?.kind, 'nautolanSpinningBullet');
+});
+
 test('a Frigate fires a whole ring of big bullets', async () => {
   const s = await sim();
-  const ring = s.enemyPattern('frigate', 0, 0, 0, 7);
+  const ring = s.enemyPattern('frigate', 'klaed', 0, 0, 0, 7);
   assert.equal(ring.length, 12);
   assert.ok(ring.every((b) => b.kind === 'klaedBigBullet'));
 });

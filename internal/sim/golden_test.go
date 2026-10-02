@@ -329,7 +329,8 @@ func TestGolden_Patterns(t *testing.T) {
 	t.Parallel()
 
 	for _, c := range loadGolden(t).Patterns {
-		bullets := EnemyPattern(c.Kind, c.X, c.Y, c.Angle, c.Seed)
+		bullets := EnemyPattern(
+			c.Kind, Klaed, c.X, c.Y, c.Angle, c.Seed)
 		if len(bullets) != len(c.Bullets) {
 			t.Fatalf("EnemyPattern(%s) = %d bullets, want %d", c.Kind, len(bullets), len(c.Bullets))
 		}

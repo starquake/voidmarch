@@ -12,8 +12,10 @@ import (
 func TestEnemyPattern_SameSeedSameBullets(t *testing.T) {
 	t.Parallel()
 
-	a := EnemyPattern(EnemyScout, 10, 20, 1, 42)
-	b := EnemyPattern(EnemyScout, 10, 20, 1, 42)
+	a := EnemyPattern(
+		EnemyScout, Klaed, 10, 20, 1, 42)
+	b := EnemyPattern(
+		EnemyScout, Klaed, 10, 20, 1, 42)
 	if !reflect.DeepEqual(a, b) {
 		t.Errorf("same seed: %+v != %+v", a, b)
 	}
@@ -23,15 +25,22 @@ func TestEnemyPattern_EachEnemyItsOwnBullet(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		kind EnemyKind
-		want ProjectileKind
+		kind    EnemyKind
+		faction EnemyFaction
+		want    EnemyBulletID
 	}{
-		{EnemyScout, ProjectileKind(KlaedBullet)},
-		{EnemyFighter, ProjectileKind(KlaedBigBullet)},
+		{EnemyScout, Klaed, KlaedBullet},
+		{EnemyFighter, Klaed, KlaedBigBullet},
+		{EnemyScout, Nairan, NairanBolt},
+		{EnemyFighter, Nairan, NairanRay},
+		{EnemyScout, Nautolan, NautolanBullet},
+		{EnemyFighter, Nautolan, NautolanSpinningBullet},
 	}
 	for _, tc := range tests {
-		if got := EnemyPattern(tc.kind, 0, 0, 0, 1)[0].Kind; got != tc.want {
-			t.Errorf("%s fires %q, want %q", tc.kind, got, tc.want)
+		if got := EnemyPattern(tc.kind, tc.faction, 0, 0, 0, 1)[0].Kind; got != ProjectileKind(
+			tc.want,
+		) {
+			t.Errorf("%s %s fires %q, want %q", tc.faction, tc.kind, got, tc.want)
 		}
 	}
 }
@@ -41,7 +50,8 @@ func TestEnemyPattern_AimWobblesALittle(t *testing.T) {
 
 	angles := map[float64]bool{}
 	for seed := range uint32(50) {
-		bullet := EnemyPattern(EnemyFighter, 0, 0, 1, seed)[0]
+		bullet := EnemyPattern(
+			EnemyFighter, Klaed, 0, 0, 1, seed)[0]
 		if math.Abs(bullet.Angle-1) > EnemyAimJitter {
 			t.Errorf("seed %d: angle %v, want within %v of 1", seed, bullet.Angle, EnemyAimJitter)
 		}
@@ -55,7 +65,8 @@ func TestEnemyPattern_AimWobblesALittle(t *testing.T) {
 func TestEnemyPattern_BulletsLeaveInFront(t *testing.T) {
 	t.Parallel()
 
-	bullet := EnemyPattern(EnemyScout, 100, 50, 0, 7)[0]
+	bullet := EnemyPattern(
+		EnemyScout, Klaed, 100, 50, 0, 7)[0]
 	if d := math.Hypot(bullet.X-100, bullet.Y-50); !closeTo(d, EnemyMuzzle) || bullet.X <= 100 {
 		t.Errorf("bullet at (%v, %v), want %d ahead of (100, 50)", bullet.X, bullet.Y, EnemyMuzzle)
 	}
@@ -64,7 +75,8 @@ func TestEnemyPattern_BulletsLeaveInFront(t *testing.T) {
 func TestEnemyPattern_FrigateFiresAnEvenRing(t *testing.T) {
 	t.Parallel()
 
-	ring := EnemyPattern(EnemyFrigate, 100, 50, 0, 9)
+	ring := EnemyPattern(
+		EnemyFrigate, Klaed, 100, 50, 0, 9)
 	if got, want := len(ring), FrigateRingBullets; got != want {
 		t.Fatalf("len(ring) = %d, want %d", got, want)
 	}
@@ -87,7 +99,8 @@ func TestEnemyPattern_FrigateRingTurnsWithTheSeed(t *testing.T) {
 
 	turns := map[float64]bool{}
 	for seed := range uint32(20) {
-		first := EnemyPattern(EnemyFrigate, 0, 0, 1, seed)[0].Angle
+		first := EnemyPattern(
+			EnemyFrigate, Klaed, 0, 0, 1, seed)[0].Angle
 		if first < 1 || first >= 1+Tau/FrigateRingBullets {
 			t.Errorf("seed %d: first bullet at %v, want within one gap after 1", seed, first)
 		}
@@ -102,7 +115,8 @@ func TestEnemyPattern_TheDreadnoughtTakesItsVolleysInTurn(t *testing.T) {
 	t.Parallel()
 
 	for seed := range uint32(30) {
-		ring := EnemyPattern(EnemyDreadnought, 0, 0, 0, DreadnoughtSeed(seed, DreadnoughtRing))
+		ring := EnemyPattern(
+			EnemyDreadnought, Klaed, 0, 0, 0, DreadnoughtSeed(seed, DreadnoughtRing))
 		if len(ring) != FrigateRingBullets || ring[0].Kind != ProjectileKind(KlaedBigBullet) {
 			t.Fatalf(
 				"seed %d: ring volley = %d of %q, want %d big bullets",
@@ -118,6 +132,7 @@ func TestEnemyPattern_TheDreadnoughtTakesItsVolleysInTurn(t *testing.T) {
 
 		beam := EnemyPattern(
 			EnemyDreadnought,
+			Klaed,
 			0,
 			0,
 			math.Pi/2,
@@ -145,7 +160,8 @@ func TestEnemyPattern_TheDreadnoughtTakesItsVolleysInTurn(t *testing.T) {
 			}
 		}
 
-		waves := EnemyPattern(EnemyDreadnought, 0, 0, 0, DreadnoughtSeed(seed, DreadnoughtWave))
+		waves := EnemyPattern(
+			EnemyDreadnought, Klaed, 0, 0, 0, DreadnoughtSeed(seed, DreadnoughtWave))
 		if len(waves) != DreadnoughtWaves || waves[0].Kind != ProjectileKind(KlaedWave) {
 			t.Fatalf(
 				"seed %d: wave volley = %d of %q, want %d Waves",
@@ -190,11 +206,11 @@ func TestEnemyKinds_TheDreadnoughtIsTheBiggest(t *testing.T) {
 	if !slices.Contains(EnemyKinds(), EnemyDreadnought) {
 		t.Fatal("EnemyKinds() leaves out the Dreadnought")
 	}
-	if EnemyRadius(EnemyDreadnought) <= EnemyRadius(EnemyFrigate) ||
+	if EnemyRadius(EnemyDreadnought, Klaed) <= EnemyRadius(EnemyFrigate, Klaed) ||
 		EnemyHP(EnemyDreadnought) != DreadnoughtMaxHP(1) {
 		t.Errorf(
 			"Dreadnought radius %v, hp %v; want bigger than a Frigate, %v",
-			EnemyRadius(EnemyDreadnought),
+			EnemyRadius(EnemyDreadnought, Klaed),
 			EnemyHP(EnemyDreadnought),
 			DreadnoughtMaxHP(1),
 		)

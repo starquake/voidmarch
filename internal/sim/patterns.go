@@ -5,7 +5,12 @@ import "math"
 // EnemyPattern expands "enemy fired at angle with seed" into its bullets.
 // Pure and seeded, so every client makes the same bullets from the server's
 // one message.
-func EnemyPattern(kind EnemyKind, x, y, angle float64, seed uint32) []ProjectileSpawn {
+func EnemyPattern(
+	kind EnemyKind,
+	faction EnemyFaction,
+	x, y, angle float64,
+	seed uint32,
+) []ProjectileSpawn {
 	random := NewRandom(seed)
 	if kind == EnemyFrigate {
 		return frigateRing(x, y, angle+random.Next()*Tau/FrigateRingBullets)
@@ -17,7 +22,12 @@ func EnemyPattern(kind EnemyKind, x, y, angle float64, seed uint32) []Projectile
 	muzzle := RotateOffset(EnemyMuzzle, 0, aim)
 
 	return []ProjectileSpawn{
-		{Kind: ProjectileKind(EnemyBullet(kind)), X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim},
+		{
+			Kind:  ProjectileKind(EnemyBullet(kind, faction)),
+			X:     x + muzzle.X,
+			Y:     y + muzzle.Y,
+			Angle: aim,
+		},
 	}
 }
 

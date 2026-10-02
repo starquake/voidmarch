@@ -107,7 +107,7 @@ func (h *Hub) bumpers() []bumper {
 				Y:      e.y,
 				VX:     e.vx,
 				VY:     e.vy,
-				Radius: sim.EnemyRadius(simEnemyKind(e.kind)),
+				Radius: sim.EnemyRadius(simEnemyKind(e.kind), e.faction),
 			},
 			enemy: e,
 		})

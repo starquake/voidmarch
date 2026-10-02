@@ -14,7 +14,37 @@ const (
 	EnemyDreadnought EnemyKind = "dreadnought"
 )
 
-// EnemyBulletID names an enemy bullet from the Kla'ed projectiles.
+// EnemyFaction is the alien fleet an enemy belongs to, one per ring (#9):
+// the class says how it fights, the faction how hard.
+type EnemyFaction string
+
+// The factions, matching the protocol's EnemyFaction.
+const (
+	Klaed    EnemyFaction = "klaed"
+	Nairan   EnemyFaction = "nairan"
+	Nautolan EnemyFaction = "nautolan"
+)
+
+// EnemyFactions lists every faction, from home outward.
+func EnemyFactions() []EnemyFaction {
+	return []EnemyFaction{Klaed, Nairan, Nautolan}
+}
+
+// FactionOfRing is the faction holding ring: the Kla'ed in ring 1, the
+// Nairan in ring 2 and the Nautolan in ring 3 (#9).
+func FactionOfRing(ring int) EnemyFaction {
+	const nairanRing, nautolanRing = 2, 3
+	switch ring {
+	case nairanRing:
+		return Nairan
+	case nautolanRing:
+		return Nautolan
+	default:
+		return Klaed
+	}
+}
+
+// EnemyBulletID names an enemy bullet from the fleet packs' projectiles.
 type EnemyBulletID string
 
 // The enemy bullets.
@@ -24,6 +54,12 @@ const (
 	// KlaedRay and KlaedWave are the Dreadnought's (#124).
 	KlaedRay  EnemyBulletID = "klaedRay"
 	KlaedWave EnemyBulletID = "klaedWave"
+	// NairanBolt, NairanRay, NautolanBullet and NautolanSpinningBullet are
+	// the Nairan and Nautolan Scouts' and Fighters' (#136).
+	NairanBolt             EnemyBulletID = "nairanBolt"
+	NairanRay              EnemyBulletID = "nairanRay"
+	NautolanBullet         EnemyBulletID = "nautolanBullet"
+	NautolanSpinningBullet EnemyBulletID = "nautolanSpinningBullet"
 )
 
 // EnemyKinds lists every enemy class.
@@ -31,29 +67,44 @@ func EnemyKinds() []EnemyKind {
 	return []EnemyKind{EnemyScout, EnemyFighter, EnemyFrigate, EnemyDreadnought}
 }
 
-// EnemyBullet is each enemy's bullet: the Scout's small one, the big one
-// for the rest.
-func EnemyBullet(kind EnemyKind) EnemyBulletID {
-	if kind != EnemyScout {
+// EnemyBullet is each enemy's bullet: its faction's small one for a Scout,
+// its big one for the rest.
+func EnemyBullet(kind EnemyKind, faction EnemyFaction) EnemyBulletID {
+	scout := kind == EnemyScout
+	switch {
+	case faction == Nairan && scout:
+		return NairanBolt
+	case faction == Nairan:
+		return NairanRay
+	case faction == Nautolan && scout:
+		return NautolanBullet
+	case faction == Nautolan:
+		return NautolanSpinningBullet
+	case scout:
+		return KlaedBullet
+	default:
 		return KlaedBigBullet
 	}
-
-	return KlaedBullet
 }
 
 // EnemyRadius is an enemy's hit circle in art pixels, from the sprite's
 // opaque extent.
-func EnemyRadius(kind EnemyKind) float64 {
-	const scout, fighter, frigate, dreadnought = 11, 12, 19, 44
-	switch kind {
-	case EnemyFighter:
-		return fighter
-	case EnemyFrigate:
+func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
+	const (
+		scout, fighter, frigate, dreadnought = 11, 12, 19, 44
+		nairanFighter, nautolanShip          = 14, 15
+	)
+	switch {
+	case kind == EnemyFrigate:
 		return frigate
-	case EnemyDreadnought:
+	case kind == EnemyDreadnought:
 		return dreadnought
-	case EnemyScout:
-		fallthrough
+	case faction == Nautolan:
+		return nautolanShip
+	case kind == EnemyFighter && faction == Nairan:
+		return nairanFighter
+	case kind == EnemyFighter:
+		return fighter
 	default:
 		return scout
 	}

@@ -8,8 +8,10 @@ export const ENGINES = ['base', 'bigPulse', 'burst', 'supercharged'] as const;
 export const SHIELDS = ['front', 'frontAndSide', 'round', 'invincibility'] as const;
 /** Enemy classes in index order, matching the server's EnemyKind. */
 export const ENEMY_KINDS = ['scout', 'fighter', 'frigate', 'dreadnought'] as const;
+/** Enemy factions in index order, from home outward, matching the server's EnemyFaction. */
+export const ENEMY_FACTIONS = ['klaed', 'nairan', 'nautolan'] as const;
 /** Projectile kinds in index order: the weapons, then the enemy bullets. */
-export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet', 'klaedRay', 'klaedWave', 'shard'] as const;
+export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet', 'klaedRay', 'klaedWave', 'nairanBolt', 'nairanRay', 'nautolanBullet', 'nautolanSpinningBullet', 'shard'] as const;
 /** Factions in index order: this player's, another player's, an enemy's. */
 export const FACTIONS = ['own', 'remote', 'enemy'] as const;
 
@@ -17,6 +19,7 @@ export type WeaponId = (typeof WEAPONS)[number];
 export type EngineId = (typeof ENGINES)[number];
 export type ShieldId = (typeof SHIELDS)[number];
 export type EnemyKind = (typeof ENEMY_KINDS)[number];
+export type EnemyFaction = (typeof ENEMY_FACTIONS)[number];
 export type ProjectileKind = (typeof PROJECTILE_KINDS)[number];
 export type EnemyBulletId = Exclude<ProjectileKind, WeaponId>;
 export type Faction = (typeof FACTIONS)[number];
@@ -106,10 +109,24 @@ export const WEAPON_STATS = {
 
 /** Hit circles in art pixels, from the sprites' opaque extent. */
 export const ENEMY_RADIUS = {
-  scout: 11,
-  fighter: 12,
-  frigate: 19,
-  dreadnought: 44,
+  klaed: {
+    scout: 11,
+    fighter: 12,
+    frigate: 19,
+    dreadnought: 44,
+  },
+  nairan: {
+    scout: 11,
+    fighter: 14,
+    frigate: 19,
+    dreadnought: 44,
+  },
+  nautolan: {
+    scout: 15,
+    fighter: 15,
+    frigate: 19,
+    dreadnought: 44,
+  },
 } as const;
 
 export const FRIGATE_REACH = 800;

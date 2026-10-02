@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
 
 import { keys } from '../sprites.ts';
-import type { EnemyKind } from '../sim/enemies.ts';
+import type { EnemyFaction, EnemyKind } from '../sim/enemies.ts';
 import { SPRITE_FACING, type ShipParent } from './shipview.ts';
 
 /** How long a hit flashes an enemy white. */
 const FLASH_MS = 70;
 
-/** A Kla'ed enemy drawn from its pack parts: engine, base, weapon; then its destruction. */
+/** An enemy drawn from its faction's pack parts: engine, base, weapon; then its destruction. */
 export class EnemyView {
   readonly kind: EnemyKind;
+  readonly faction: EnemyFaction;
   private readonly root: Phaser.GameObjects.Container;
   private readonly base: Phaser.GameObjects.Image;
   private readonly weapon: Phaser.GameObjects.Sprite;
@@ -17,18 +18,19 @@ export class EnemyView {
   private readonly shield: Phaser.GameObjects.Sprite | undefined;
   private readonly scene: Phaser.Scene;
 
-  constructor(scene: Phaser.Scene, parent: ShipParent, kind: EnemyKind) {
+  constructor(scene: Phaser.Scene, parent: ShipParent, kind: EnemyKind, faction: EnemyFaction) {
     this.scene = scene;
     this.kind = kind;
-    const engine = scene.add.sprite(0, 0, keys.enemyEngine(kind)).play(keys.enemyEngine(kind));
-    this.base = scene.add.image(0, 0, keys.enemyBase(kind));
-    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(kind), 0);
+    this.faction = faction;
+    const engine = scene.add.sprite(0, 0, keys.enemyEngine(faction, kind)).play(keys.enemyEngine(faction, kind));
+    this.base = scene.add.image(0, 0, keys.enemyBase(faction, kind));
+    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
     this.weapon.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       this.weapon.setFrame(0);
     });
     const parts: Phaser.GameObjects.GameObject[] = [engine, this.base, this.weapon];
-    if (scene.textures.exists(keys.enemyShield(kind))) {
-      this.shield = scene.add.sprite(0, 0, keys.enemyShield(kind)).play(keys.enemyShield(kind)).setVisible(false);
+    if (scene.textures.exists(keys.enemyShield(faction, kind))) {
+      this.shield = scene.add.sprite(0, 0, keys.enemyShield(faction, kind)).play(keys.enemyShield(faction, kind)).setVisible(false);
       parts.push(this.shield);
     }
     this.root = scene.add.container(0, 0, parts);
@@ -59,7 +61,7 @@ export class EnemyView {
 
   /** Plays the weapon animation: the telegraph before a volley leaves. */
   warn(): void {
-    this.weapon.play(keys.enemyWeapons(this.kind));
+    this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
   }
 
   /** A short white flash where a shot landed. */
@@ -78,13 +80,13 @@ export class EnemyView {
       return;
     }
     const boom = this.scene.add
-      .sprite(this.root.x, this.root.y, keys.enemyDestruction(this.kind))
+      .sprite(this.root.x, this.root.y, keys.enemyDestruction(this.faction, this.kind))
       .setRotation(this.root.rotation);
     this.root.parentContainer.add(boom);
     this.root.destroy();
     boom.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       boom.destroy();
     });
-    boom.play(keys.enemyDestruction(this.kind));
+    boom.play(keys.enemyDestruction(this.faction, this.kind));
   }
 }

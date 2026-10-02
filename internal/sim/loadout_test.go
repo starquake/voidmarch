@@ -34,11 +34,11 @@ func TestEnemies(t *testing.T) {
 	t.Parallel()
 
 	for _, kind := range EnemyKinds() {
-		if EnemyRadius(kind) <= 0 || EnemyHP(kind) <= 0 || IsSupport(kind) {
+		if EnemyRadius(kind, Klaed) <= 0 || EnemyHP(kind) <= 0 || IsSupport(kind) {
 			t.Errorf(
 				"%s: radius %v, hp %v, support %t",
 				kind,
-				EnemyRadius(kind),
+				EnemyRadius(kind, Klaed),
 				EnemyHP(kind),
 				IsSupport(kind),
 			)
@@ -47,7 +47,7 @@ func TestEnemies(t *testing.T) {
 	if EnemyHP(EnemyFighter) <= EnemyHP(EnemyScout) {
 		t.Error("the Fighter is no tougher than the Scout")
 	}
-	if EnemyRadius(EnemyFrigate) <= EnemyRadius(EnemyFighter) {
+	if EnemyRadius(EnemyFrigate, Klaed) <= EnemyRadius(EnemyFighter, Klaed) {
 		t.Error("the Frigate is no bigger than the Fighter")
 	}
 }

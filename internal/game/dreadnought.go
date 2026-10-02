@@ -120,6 +120,7 @@ func (h *Hub) wakeDreadnought() {
 	e := &enemy{
 		id:       h.nextEnemy,
 		kind:     pb.EnemyKind_ENEMY_KIND_DREADNOUGHT,
+		faction:  sim.Klaed,
 		x:        c.X,
 		y:        c.Y,
 		angle:    quarterTurn,

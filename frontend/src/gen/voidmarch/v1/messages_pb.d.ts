@@ -1016,6 +1016,11 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
    * @generated from field: float scaled_for = 11;
    */
   scaledFor: number;
+
+  /**
+   * @generated from field: voidmarch.v1.EnemyFaction faction = 12;
+   */
+  faction: EnemyFaction;
 };
 
 /**
@@ -1161,6 +1166,13 @@ export declare type EnemyFired = Message<"voidmarch.v1.EnemyFired"> & {
    * @generated from field: uint32 warn_ticks = 8;
    */
   warnTicks: number;
+
+  /**
+   * The firing enemy's faction, which picks its bullets (#136).
+   *
+   * @generated from field: voidmarch.v1.EnemyFaction faction = 9;
+   */
+  faction: EnemyFaction;
 };
 
 /**
@@ -1995,6 +2007,39 @@ export enum EnemyKind {
  * Describes the enum voidmarch.v1.EnemyKind.
  */
 export declare const EnemyKindSchema: GenEnum<EnemyKind>;
+
+/**
+ * The alien fleet an enemy belongs to, one per ring (#9): the kind says how
+ * it fights, the faction how hard. Unset reads as the Kla'ed.
+ *
+ * @generated from enum voidmarch.v1.EnemyFaction
+ */
+export enum EnemyFaction {
+  /**
+   * @generated from enum value: ENEMY_FACTION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: ENEMY_FACTION_KLAED = 1;
+   */
+  KLAED = 1,
+
+  /**
+   * @generated from enum value: ENEMY_FACTION_NAIRAN = 2;
+   */
+  NAIRAN = 2,
+
+  /**
+   * @generated from enum value: ENEMY_FACTION_NAUTOLAN = 3;
+   */
+  NAUTOLAN = 3,
+}
+
+/**
+ * Describes the enum voidmarch.v1.EnemyFaction.
+ */
+export declare const EnemyFactionSchema: GenEnum<EnemyFaction>;
 
 /**
  * CompanionMode is a squadron's standing orders for its companions.

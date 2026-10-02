@@ -24,6 +24,7 @@ import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interp
 import {
   fromCompanionMode,
   fromCompanionOneShot,
+  fromEnemyFaction,
   fromEnemyKind,
   fromLoadout,
   fromPart,
@@ -40,7 +41,7 @@ import { loadLastSquadron, saveLastSquadron } from '../settings.ts';
 import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
-import { ENEMY_RADIUS, type EnemyKind } from '../sim/enemies.ts';
+import { ENEMY_RADIUS, type EnemyFaction, type EnemyKind } from '../sim/enemies.ts';
 import type { WeaponId } from '../sim/loadout.ts';
 import { defaultUnlocks, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { PICKUP_REACH } from '../sim/rules.gen.ts';
@@ -146,6 +147,7 @@ interface ShotEnd {
 interface EnemyVolley {
   enemyId: number;
   kind: EnemyKind;
+  faction: EnemyFaction;
   tick: number;
   seed: number;
   angle: number;
@@ -176,6 +178,7 @@ export interface DerelictDebug {
 export interface EnemyDebug {
   id: number;
   kind: EnemyKind;
+  faction: EnemyFaction;
   x: number;
   y: number;
 }
@@ -594,7 +597,7 @@ export class NetPlay {
 
   /** Enemies as drawn, for the E2E tests. */
   get enemyList(): EnemyDebug[] {
-    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, faction: e.view.faction, x: e.view.x, y: e.view.y }));
   }
 
   /**
@@ -770,7 +773,7 @@ export class NetPlay {
 
   /** The enemies as drawn, as targets for hits and seeking shots. */
   private enemyTargets(): Target<number>[] {
-    return [...this.enemies.entries()].map(([id, e]) => ({ id, x: e.view.x, y: e.view.y, radius: ENEMY_RADIUS[e.view.kind] }));
+    return [...this.enemies.entries()].map(([id, e]) => ({ id, x: e.view.x, y: e.view.y, radius: ENEMY_RADIUS[e.view.faction][e.view.kind] }));
   }
 
   /** How far the nearest squadmate, a player or companion of the same squadron, is; Infinity for none. */
@@ -886,7 +889,7 @@ export class NetPlay {
     for (const [id, enemy] of this.enemies) {
       const e = enemy.drawn;
       if (e !== undefined) {
-        const radius = ENEMY_RADIUS[enemy.view.kind];
+        const radius = ENEMY_RADIUS[enemy.view.faction][enemy.view.kind];
         // Enemy ids count up from 1, so negative keys never meet a player's.
         bodies.push({ x: e.x, y: e.y, vx: e.vx, vy: e.vy, radius, key: -id, side: 1 });
         rammed.push(id);
@@ -936,7 +939,7 @@ export class NetPlay {
     if (!this.nearWing(origin.x, origin.y, ENEMY_VOLLEY_RANGE)) {
       return;
     }
-    for (const bullet of this.options.sim.enemyPattern(volley.kind, origin.x, origin.y, volley.angle, volley.seed)) {
+    for (const bullet of this.options.sim.enemyPattern(volley.kind, volley.faction, origin.x, origin.y, volley.angle, volley.seed)) {
       this.options.sim.projectiles.spawn(bullet, { ageSeconds, faction: 'enemy', owner: String(volley.enemyId) });
     }
     const ship = this.options.sim.ship;
@@ -950,6 +953,7 @@ export class NetPlay {
     this.enemyVolleys.add(fired.tick, {
       enemyId: fired.enemyId,
       kind: fromEnemyKind(fired.kind),
+      faction: fromEnemyFaction(fired.faction),
       tick: fired.tick,
       seed: fired.seed,
       angle: fired.angle,
@@ -1134,7 +1138,7 @@ export class NetPlay {
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === undefined) {
         enemy = {
-          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind)),
+          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
           buffer: new StateBuffer<EnemyPose>(),
           drawn: undefined,
           lastSeen: snapshot.tick,

@@ -3,6 +3,7 @@ import { create } from '@bufbuild/protobuf';
 import {
   CompanionMode,
   CompanionOneShot,
+  EnemyFaction as WireEnemyFaction,
   EnemyKind as WireEnemyKind,
   Engine,
   Shield,
@@ -15,7 +16,7 @@ import {
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Mode } from '../ordermenu.ts';
 import type { OneShotOrder } from '../ordermenu.ts';
-import type { EnemyKind } from '../sim/enemies.ts';
+import type { EnemyFaction, EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
 import type { PartId } from '../sim/parts.ts';
 import { MAX_TIER } from '../sim/rules.gen.ts';
@@ -63,6 +64,18 @@ export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => {
       return 'dreadnought';
     default:
       return 'scout';
+  }
+};
+
+/** The sim's faction for a wire faction; unset or unknown is the Kla'ed. */
+export const fromEnemyFaction = (faction: WireEnemyFaction): EnemyFaction => {
+  switch (faction) {
+    case WireEnemyFaction.NAIRAN:
+      return 'nairan';
+    case WireEnemyFaction.NAUTOLAN:
+      return 'nautolan';
+    default:
+      return 'klaed';
   }
 };
 

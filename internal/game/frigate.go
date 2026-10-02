@@ -103,6 +103,7 @@ func (h *Hub) spawnFrigates() {
 		f := &enemy{
 			id:       h.nextEnemy,
 			kind:     pb.EnemyKind_ENEMY_KIND_FRIGATE,
+			faction:  sim.Klaed,
 			x:        at.x,
 			y:        at.y,
 			angle:    quarterTurn,
@@ -119,7 +120,12 @@ func (h *Hub) spawnFrigates() {
 				frigateEscortRadius * math.Cos(angle),
 				frigateEscortRadius * math.Sin(angle),
 			}
-			escort := h.addEnemyOf(pb.EnemyKind_ENEMY_KIND_FIGHTER, at.x+slot.x, at.y+slot.y)
+			escort := h.addEnemyOf(
+				pb.EnemyKind_ENEMY_KIND_FIGHTER,
+				f.faction,
+				at.x+slot.x,
+				at.y+slot.y,
+			)
 			escort.escortOf, escort.post = f.id, slot
 		}
 		h.holdDerelictBeside(i, at)

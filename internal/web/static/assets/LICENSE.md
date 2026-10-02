@@ -12,6 +12,10 @@ required; it is given here anyway.
 
 - `klaed/`: [Void - Fleet Pack 1 (Kla'ed)](https://foozlecc.itch.io/void-fleet-pack-1),
   distributed by Foozle.
+- `nairan/`: [Void - Fleet Pack 2 (Nairan)](https://foozlecc.itch.io/void-fleet-pack-2),
+  distributed by Foozle.
+- `nautolan/`: [Void - Fleet Pack 3 (Nautolan)](https://foozlecc.itch.io/void-fleet-pack-3),
+  distributed by Foozle.
 - `pickups/`: [Void - Pickups Pack](https://foozlecc.itch.io/void-pickups-pack),
   commissioned from Baldur, distributed by Foozle. Named by slot and part
   (`weapon-zapper.png`); the pack's "All around shield" is `shield-round.png`.
@@ -30,3 +34,11 @@ shading.
   pink to the same blue (#124, #133).
 - `klaed/wave-blue.png`: the Dreadnought's `Wave.png` turned 190 degrees,
   from orange to blue, like the bullets (#124, #133).
+- `nairan/bolt-blue.png`: `Nairan - Bolt.png` turned 245 degrees, from pink
+  to the same blue (#136). The pack's original isn't kept.
+- `nairan/ray-blue.png`: `Nairan - Ray.png` turned 190 degrees, from orange
+  to blue (#136).
+- `nautolan/bullet-blue.png`: `Nautolan - Bullet.png` turned 90 degrees, from
+  green to blue (#136).
+- `nautolan/spinning-bullet-blue.png`: `Nautolan - Spinning Bullet.png`
+  turned 85 degrees, from green to blue (#136).
