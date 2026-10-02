@@ -147,6 +147,12 @@ func writeEnemies(w writer) {
 		w("  },\n")
 	}
 	w(endObject)
+	rings := make([]sim.EnemyFaction, 0, sim.GridRings+1)
+	for ring := range sim.GridRings + 1 {
+		rings = append(rings, sim.FactionOfRing(ring))
+	}
+	w("/** The faction holding each ring, home first, as FactionOfRing has it. */\n")
+	w("export const RING_FACTIONS: readonly EnemyFaction[] = %s;\n", list(rings))
 	w("export const FRIGATE_REACH = %d;\n", sim.FrigateReach)
 	w("export const FRIGATE_SHIELD = %d;\n", sim.FrigateShield)
 	w("export const DREADNOUGHT_SHIELD = %d;\n", sim.DreadnoughtShield)

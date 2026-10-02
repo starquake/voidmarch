@@ -1,4 +1,4 @@
-import { ENEMY_FACTIONS, GRID_RINGS, SECTOR_RADIUS, type EnemyFaction } from './rules.gen.ts';
+import { GRID_RINGS, RING_FACTIONS, SECTOR_RADIUS, type EnemyFaction } from './rules.gen.ts';
 import { RING_TINTS } from './tuning.ts';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -203,11 +203,11 @@ export function missionArrow(
 /** Each faction's name as the HUD writes it. */
 const FACTION_NAMES: Record<EnemyFaction, string> = { klaed: "Kla'ed", nairan: 'Nairan', nautolan: 'Nautolan' };
 
-/** The faction holding a sector, like the Go sim's FactionOfRing: the factions are listed from home outward, ring 1's first. */
+/** The faction holding a sector, by its ring (#136); the Kla'ed off the grid. */
 export function sectorFaction(name: string): EnemyFaction {
-  const ring = sectorRing(name) ?? 1;
+  const ring = sectorRing(name);
 
-  return ENEMY_FACTIONS[Math.min(Math.max(ring, 1), ENEMY_FACTIONS.length) - 1] ?? 'klaed';
+  return (ring === undefined ? undefined : RING_FACTIONS[ring]) ?? 'klaed';
 }
 
 /** The lines that announce a new mission in the middle of the screen (#101, decision 8). */

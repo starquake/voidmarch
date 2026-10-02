@@ -129,6 +129,8 @@ export const ENEMY_RADIUS = {
   },
 } as const;
 
+/** The faction holding each ring, home first, as FactionOfRing has it. */
+export const RING_FACTIONS: readonly EnemyFaction[] = ['klaed', 'klaed', 'nairan', 'nautolan'];
 export const FRIGATE_REACH = 800;
 export const FRIGATE_SHIELD = 20;
 export const DREADNOUGHT_SHIELD = 120;
