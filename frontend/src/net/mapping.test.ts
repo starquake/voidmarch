@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { create } from '@bufbuild/protobuf';
 
-import { CompanionMode, CompanionOneShot, EnemyKind, Engine, Shield, ShipStateSchema, UnlockSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
+import { CompanionMode, CompanionOneShot, EnemyFaction, EnemyKind, Engine, Shield, ShipStateSchema, UnlockSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
 import { MODES } from '../ordermenu.ts';
 import { ENGINES, SHIELDS, WEAPONS } from '../sim/loadout.ts';
 import { MAX_TIER } from '../sim/rules.gen.ts';
@@ -11,6 +11,7 @@ import type { Ship } from '../simwasm.ts';
 import {
   fromCompanionMode,
   fromCompanionOneShot,
+  fromEnemyFaction,
   fromEnemyKind,
   fromLoadout,
   fromPart,
@@ -75,6 +76,13 @@ test('enemy kinds map from the wire', () => {
   assert.equal(fromEnemyKind(EnemyKind.DREADNOUGHT), 'dreadnought');
   assert.equal(fromEnemyKind(EnemyKind.FRIGATE), 'frigate');
   assert.equal(fromEnemyKind(EnemyKind.UNSPECIFIED), 'scout');
+});
+
+test('enemy factions map from the wire, unset as the Kla\'ed', () => {
+  assert.equal(fromEnemyFaction(EnemyFaction.KLAED), 'klaed');
+  assert.equal(fromEnemyFaction(EnemyFaction.NAIRAN), 'nairan');
+  assert.equal(fromEnemyFaction(EnemyFaction.NAUTOLAN), 'nautolan');
+  assert.equal(fromEnemyFaction(EnemyFaction.UNSPECIFIED), 'klaed');
 });
 
 test('modes and one-shots round-trip through the wire', () => {

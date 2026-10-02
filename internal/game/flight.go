@@ -152,7 +152,7 @@ func (h *Hub) fireVolleys() {
 		if !ok || !withinReach(point{e.x, e.y}, companions) {
 			continue
 		}
-		for _, bullet := range sim.EnemyPattern(simEnemyKind(e.kind), e.x, e.y, v.angle, v.seed) {
+		for _, bullet := range sim.EnemyPattern(simEnemyKind(e.kind), e.faction, e.x, e.y, v.angle, v.seed) {
 			h.shots.Spawn(bullet, sim.SpawnOptions{Faction: sim.FactionEnemy})
 		}
 	}
@@ -246,7 +246,7 @@ func (h *Hub) enemyTargets() []sim.Target[uint32] {
 				ID:     id,
 				X:      e.x,
 				Y:      e.y,
-				Radius: sim.EnemyRadius(simEnemyKind(e.kind)),
+				Radius: sim.EnemyRadius(simEnemyKind(e.kind), e.faction),
 			},
 		)
 	}
@@ -385,6 +385,20 @@ func simEnemyKind(kind pb.EnemyKind) sim.EnemyKind {
 		fallthrough
 	default:
 		return sim.EnemyScout
+	}
+}
+
+// pbEnemyFaction is faction on the wire.
+func pbEnemyFaction(faction sim.EnemyFaction) pb.EnemyFaction {
+	switch faction {
+	case sim.Nairan:
+		return pb.EnemyFaction_ENEMY_FACTION_NAIRAN
+	case sim.Nautolan:
+		return pb.EnemyFaction_ENEMY_FACTION_NAUTOLAN
+	case sim.Klaed:
+		fallthrough
+	default:
+		return pb.EnemyFaction_ENEMY_FACTION_KLAED
 	}
 }
 

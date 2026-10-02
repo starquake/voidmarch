@@ -1,7 +1,25 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ALL_OPEN, closedEdges, HOME_SECTOR, missionArrow, sectorOpen, missionBanner, missionCompleteBanner, SECTOR_NAMES, sectorCenter, sectorCorners, sectorLine, sectorName, sectorState } from './sectors.ts';
+import {
+  ALL_OPEN,
+  closedEdges,
+  fadeColor,
+  HOME_SECTOR,
+  missionArrow,
+  sectorOpen,
+  missionBanner,
+  missionCompleteBanner,
+  ringTint,
+  sectorFaction,
+  SECTOR_NAMES,
+  sectorCenter,
+  sectorCorners,
+  sectorLine,
+  sectorName,
+  sectorState,
+} from './sectors.ts';
+import { RING_TINTS } from './tuning.ts';
 import { SECTOR_RADIUS, WORLD_APOTHEM } from './rules.gen.ts';
 
 /** Ring 1's centers, a sector's width apart from home's. */
@@ -116,7 +134,36 @@ test('a new mission is announced with what to do and how to find it', () => {
   assert.match(lines[2] ?? '', /gold arrow/);
 });
 
+test("a sector's faction is its ring's, and the mission banner names it", () => {
+  assert.equal(sectorFaction('E4'), 'klaed');
+  assert.equal(sectorFaction('D2'), 'nairan');
+  assert.equal(sectorFaction('D1'), 'nautolan');
+  assert.match(missionBanner('E4')[1] ?? '', /every Kla'ed ship/);
+  assert.match(missionBanner('D2')[1] ?? '', /every Nairan ship/);
+  assert.match(missionBanner('D1')[1] ?? '', /every Nautolan ship/);
+});
+
 test('a finished mission is announced with the part it gave', () => {
   assert.deepEqual(missionCompleteBanner('D3', 'Mega Zapper'), ['Mission complete: sector D3 cleared', 'Your reward: Mega Zapper']);
   assert.deepEqual(missionCompleteBanner('D3', undefined), ['Mission complete: sector D3 cleared']);
+});
+
+test("the background takes each ring's tint, and white off the grid", () => {
+  for (const [name, ring] of [[HOME_SECTOR, 0], ['E4', 1], ['D2', 2], ['D1', 3]] as const) {
+    const c = sectorCenter(name);
+    assert.ok(c !== undefined, name);
+    assert.equal(ringTint(c.x, c.y), RING_TINTS[ring], name);
+  }
+  assert.equal(ringTint(1e6, 1e6), 0xffffff);
+});
+
+test('a fade moves each channel toward the target and always arrives', () => {
+  assert.equal(fadeColor(0xffffff, 0x8fe0b0, 0), 0xffffff);
+  assert.equal(fadeColor(0xffffff, 0x8fe0b0, 1), 0x8fe0b0);
+  assert.equal(fadeColor(0x000000, 0xff8000, 0.5), 0x804000);
+  let tint = 0xffffff;
+  for (let frame = 0; frame < 500 && tint !== 0x8fb4ff; frame++) {
+    tint = fadeColor(tint, 0x8fb4ff, 16 / 1500);
+  }
+  assert.equal(tint, 0x8fb4ff);
 });

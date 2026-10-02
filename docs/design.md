@@ -178,10 +178,10 @@ Each faction uses its 8 ship classes in these roles:
 - Enemies use their pack's destruction animation when killed.
 - Killed enemies may drop part pickups (drop rate tunable; favor parts the nearby players don't own yet).
 
-As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
+As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 and by faction since #136:
 
 - **Garrisons** (#99) replace the old spawning around players. Each sector but home holds one.
-  - **Size:** 8 Kla'ed in ring 1, 12 in ring 2 and 16 in ring 3, with more Fighters outward (3, 6 and 10). That's for one player: each other player who enters adds half again, and each companion a quarter, counted once. Joiners add, and leavers take nothing away.
+  - **Size:** 8 ships in ring 1, 12 in ring 2 and 16 in ring 3, with more Fighters outward (3, 6 and 10). That's for one player: each other player who enters adds half again, and each companion a quarter, counted once. Joiners add, and leavers take nothing away.
   - **Taking the field:** a garrison waits as a count until a ship comes within 400 px of its sector. Then it takes the field anywhere in the sector, at least 80 px in from its sides, up to 24 at once (a map can cap it lower), with reinforcements only where no ship can see them.
   - **Holding the sector:** it engages anyone inside and chases only within the sector. While nobody is in it, each ship roams from one random point in the sector to the next at 40% of its top speed (#121). After 30 s with nobody near it goes back to a count.
   - **Losses stay** until the sector is cleared, held in memory.
@@ -189,7 +189,8 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **Scout**: 2 HP, fast (150 px/s), wanders erratically and closes to about 90 px; fires one small bullet.
 - **Fighter**: 6 HP, slower (95 px/s), strafes around its target at about 170 px; fires one big bullet.
 - **Firing**: a garrison comes for the nearest player inside its sector, and stragglers for anyone within 500 px. They fire once within 340 px, where their bullets still reach, every so many ticks with jitter; every volley is telegraphed by the weapon animating for 300 ms before the bullets leave; bullets are slow enough to dodge (110–130 px/s), aimed with a small seeded spread. Enemy shots have their own soft laser (Kenney `laserSmall_004`).
-- **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they fly on a layer with one blue glow. Players' shots stay orange. The glow follows the F effects toggle.
+- **Factions** (#136): each ring's garrisons and stragglers are its faction's: the Kla'ed in ring 1, the Nairan in ring 2 and the Nautolan in ring 3 (`sim.FactionOfRing`). An enemy carries its faction beside its class, on the wire too (`EnemyFaction`), and draws from its faction's pack. The faction makes it tougher (#9 decision 14, `sim.FactionStats`): Nairan Scouts and Fighters have 1.5x the Kla'ed hit points and fire 1.5x as often, the Nautolan 2x. A hit still takes one hull step, so their shots also fly faster and keep about the Kla'ed reach: the Nairan fire Bolts (Scout, 140 px/s) and Rays (Fighter, 165 px/s), the Nautolan Bullets (Scout, 165 px/s) and Spinning Bullets (Fighter, 195 px/s). The Nairan Fighter and both Nautolan ships are wider, so their hit circles are too (14 and 15 px). Bosses stay Kla'ed until #139 and #140.
+- **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they fly on a layer with one blue glow. Every faction's shots get the same blue (#136). Players' shots stay orange. The glow follows the F effects toggle.
 - **Death**: the pack's destruction animation, and an explosion sound when it happens in view. No drops yet (pickups are milestone 5).
 
 ## 7. Bosses and scaling for 1–16 players
@@ -256,7 +257,7 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
   1. Kla'ed space: the 6 sectors around home
   2. Nairan space: the next 12
   3. Nautolan space (the third pack): the outer 18
-- Each ring gets its own **tinted background** so it feels distinct (recoloring allowed).
+- Each ring gets its own **tinted background** so it feels distinct (recoloring allowed). As built (#136): ring 2 green (`0x8fe0b0`) and ring 3 blue (`0x8fb4ff`), the background layers fading to the ring the ship is in over 1.5 s.
 - **Closed rings** (#123): only home and ring 1 are open until the Kla'ed Dreadnought falls, which opens rings 2 and 3 together until #9 gives ring 3 its own (#8 decision 12). The server keeps the open rings in its database and sends them, with any sector opened on its own (the Dreadnought's while it's awake), as the `Frontier`.
   - A closed sector pushes a ship back like the world's edge, in a 200 px band, and stops it at its side. The browser's sim and the server's companions both apply it (`sim.ApplyFrontier`).
   - Nothing happens in one: no garrison wakes, no straggler, attack or distress call comes, and no mission goes there; a pick of one is refused.

@@ -482,12 +482,12 @@ func (b *Bridge) ShipScan(stepSeconds float64, n int) int {
 
 // EnemyPattern writes the bullets of an enemy's volley into Scratch (kind
 // index, x, y, angle each) and returns how many there are.
-func (b *Bridge) EnemyPattern(kind int, x, y, angle float64, seed uint32) int {
-	enemies := sim.EnemyKinds()
-	if kind < 0 || kind >= len(enemies) {
+func (b *Bridge) EnemyPattern(kind, faction int, x, y, angle float64, seed uint32) int {
+	enemies, factions := sim.EnemyKinds(), sim.EnemyFactions()
+	if kind < 0 || kind >= len(enemies) || faction < 0 || faction >= len(factions) {
 		return 0
 	}
-	bullets := sim.EnemyPattern(enemies[kind], x, y, angle, seed)
+	bullets := sim.EnemyPattern(enemies[kind], factions[faction], x, y, angle, seed)
 	n := min(len(bullets), maxPatterns)
 	for i, bullet := range bullets[:n] {
 		at := b.Scratch[i*patternSize:]
@@ -583,6 +583,10 @@ func ProjectileKinds() []sim.ProjectileKind {
 		sim.ProjectileKind(sim.KlaedBigBullet),
 		sim.ProjectileKind(sim.KlaedRay),
 		sim.ProjectileKind(sim.KlaedWave),
+		sim.ProjectileKind(sim.NairanBolt),
+		sim.ProjectileKind(sim.NairanRay),
+		sim.ProjectileKind(sim.NautolanBullet),
+		sim.ProjectileKind(sim.NautolanSpinningBullet),
 		sim.ProjectileShard,
 	)
 }

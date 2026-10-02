@@ -51,7 +51,7 @@ const (
 	EnemyMuzzle = 14
 )
 
-// Garrisons (#99): the Kla'ed holding each sector until it's cleared.
+// Garrisons (#99): each ring's faction holding its sectors until they're cleared.
 const (
 	// GarrisonPlayerShare and GarrisonCompanionShare are how much of a
 	// garrison's base size each ship that enters adds, counted once.
@@ -414,10 +414,43 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 	}
 }
 
+// FactionStat is how much tougher a faction's Scouts and Fighters are than
+// the Kla'ed (#9 decision 14): Health multiplies their hit points and Shots
+// how often they fire. A hit still takes one hull step, so the later
+// factions hit harder with more shots, which also fly faster.
+type FactionStat struct {
+	Health float64
+	Shots  float64
+}
+
+// FactionStats is faction's FactionStat.
+func FactionStats(faction EnemyFaction) FactionStat {
+	switch faction {
+	case Nairan:
+		return FactionStat{Health: 1.5, Shots: 1.5}
+	case Nautolan:
+		return FactionStat{Health: 2, Shots: 2}
+	case Klaed:
+		fallthrough
+	default:
+		return FactionStat{Health: 1, Shots: 1}
+	}
+}
+
 // EnemyBulletStatsOf is how an enemy bullet flies: slow and readable, so it
 // can be dodged (docs/design.md, section 3).
 func EnemyBulletStatsOf(id EnemyBulletID) ProjectileStats {
 	switch id {
+	// The later factions' shots fly faster (#9 decision 14) and keep about
+	// the Kla'ed shots' reach.
+	case NairanBolt:
+		return ProjectileStats{Speed: 140, MaxSpeed: 140, Lifetime: 2.5}
+	case NairanRay:
+		return ProjectileStats{Speed: 165, MaxSpeed: 165, Lifetime: 2.4}
+	case NautolanBullet:
+		return ProjectileStats{Speed: 165, MaxSpeed: 165, Lifetime: 2.1}
+	case NautolanSpinningBullet:
+		return ProjectileStats{Speed: 195, MaxSpeed: 195, Lifetime: 2}
 	case KlaedBigBullet:
 		return ProjectileStats{Speed: 130, MaxSpeed: 130, Lifetime: 3}
 	case KlaedRay:

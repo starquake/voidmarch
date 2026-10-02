@@ -113,7 +113,7 @@ const (
 	stragglerTicks = sim.StragglerSeconds * TickRate
 )
 
-// garrison is the Kla'ed holding a sector until it's cleared. Its size
+// garrison is its ring's faction holding a sector until it's cleared. Its size
 // grows with the ships that enter, and its losses stay until it's cleared.
 type garrison struct {
 	sector sim.Sector
@@ -211,7 +211,7 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 		if h.rng.Float64() < sim.GarrisonFighterShare(g.sector.Ring()) {
 			kind = pb.EnemyKind_ENEMY_KIND_FIGHTER
 		}
-		e := h.addEnemyOf(kind, post.x, post.y)
+		e := h.addEnemyOf(kind, sim.FactionOfRing(g.sector.Ring()), post.x, post.y)
 		e.garrison, e.post = g, post
 		g.field++
 	}
@@ -330,7 +330,8 @@ func (h *Hub) spawnNear(p point, kind pb.EnemyKind) {
 		y := p.y + distance*math.Sin(angle)
 		if math.Hypot(x, y) > safeRadius && sim.WorldReach(x, y) < sim.WorldApothem &&
 			h.openAt(x, y) {
-			h.addEnemyOf(kind, x, y)
+			s, _ := sim.SectorAt(x, y)
+			h.addEnemyOf(kind, sim.FactionOfRing(s.Ring()), x, y)
 
 			return
 		}

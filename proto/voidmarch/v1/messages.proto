@@ -44,6 +44,15 @@ enum EnemyKind {
   ENEMY_KIND_DREADNOUGHT = 4;
 }
 
+// The alien fleet an enemy belongs to, one per ring (#9): the kind says how
+// it fights, the faction how hard. Unset reads as the Kla'ed.
+enum EnemyFaction {
+  ENEMY_FACTION_UNSPECIFIED = 0;
+  ENEMY_FACTION_KLAED = 1;
+  ENEMY_FACTION_NAIRAN = 2;
+  ENEMY_FACTION_NAUTOLAN = 3;
+}
+
 // Loadout is the part fitted in each slot, each at its tier: 0 plain, then
 // Super, Mega and Hyper (#77).
 message Loadout {
@@ -333,6 +342,7 @@ message EnemyState {
   float shield = 10;
   // The players online its health was scaled for, a companion counting half.
   float scaled_for = 11;
+  EnemyFaction faction = 12;
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.
@@ -372,6 +382,8 @@ message EnemyFired {
   float y = 6;
   float angle = 7;
   uint32 warn_ticks = 8;
+  // The firing enemy's faction, which picks its bullets (#136).
+  EnemyFaction faction = 9;
 }
 
 // EnemyDestroyed is an enemy shot down, at the tick and place it died.

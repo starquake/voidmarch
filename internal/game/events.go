@@ -168,6 +168,7 @@ func (h *Hub) startDistress(ticks uint32) {
 		angle := fullTurnFloat * float64(n) / distressGuards
 		h.addEnemyOf(
 			pb.EnemyKind_ENEMY_KIND_FIGHTER,
+			sim.FactionOfRing(s.Ring()),
 			c.X+distressGuardRing*math.Cos(angle),
 			c.Y+distressGuardRing*math.Sin(angle),
 		)

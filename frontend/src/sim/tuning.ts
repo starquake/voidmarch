@@ -108,3 +108,8 @@ export const MAP_OTHER_MISSION_COLOR = 0xb07cff;
 export const MAP_YOU_COLOR = 0xffffff;
 /** How often a sector under attack flashes, per half cycle (#100, decision 3). */
 export const MAP_FLASH_MS = 300;
+
+/** The background's tint in each ring, home outward (#9 decisions 7 and 9): ring 2 green for the Nairan, ring 3 blue for the Nautolan. */
+export const RING_TINTS: readonly number[] = [0xffffff, 0xffffff, 0x8fe0b0, 0x8fb4ff];
+/** How long the background takes to fade to a new ring's tint. */
+export const RING_TINT_FADE_MS = 1500;

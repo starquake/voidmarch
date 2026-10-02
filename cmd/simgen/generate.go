@@ -39,6 +39,10 @@ func writeLists(w writer) {
 	w("export const SHIELDS = %s as const;\n", list(sim.Shields()))
 	w("/** Enemy classes in index order, matching the server's EnemyKind. */\n")
 	w("export const ENEMY_KINDS = %s as const;\n", list(sim.EnemyKinds()))
+	w(
+		"/** Enemy factions in index order, from home outward, matching the server's EnemyFaction. */\n",
+	)
+	w("export const ENEMY_FACTIONS = %s as const;\n", list(sim.EnemyFactions()))
 	w("/** Projectile kinds in index order: the weapons, then the enemy bullets. */\n")
 	w("export const PROJECTILE_KINDS = %s as const;\n", list(simbridge.ProjectileKinds()))
 	w("/** Factions in index order: this player's, another player's, an enemy's. */\n")
@@ -48,6 +52,7 @@ func writeLists(w writer) {
 	w("export type EngineId = (typeof ENGINES)[number];\n")
 	w("export type ShieldId = (typeof SHIELDS)[number];\n")
 	w("export type EnemyKind = (typeof ENEMY_KINDS)[number];\n")
+	w("export type EnemyFaction = (typeof ENEMY_FACTIONS)[number];\n")
 	w("export type ProjectileKind = (typeof PROJECTILE_KINDS)[number];\n")
 	w("export type EnemyBulletId = Exclude<ProjectileKind, WeaponId>;\n")
 	w("export type Faction = (typeof FACTIONS)[number];\n\n")
@@ -134,10 +139,20 @@ func writeTunables(w writer) {
 func writeEnemies(w writer) {
 	w("/** Hit circles in art pixels, from the sprites' opaque extent. */\n")
 	w("export const ENEMY_RADIUS = {\n")
-	for _, k := range sim.EnemyKinds() {
-		w("  %s: %s,\n", k, num(sim.EnemyRadius(k)))
+	for _, f := range sim.EnemyFactions() {
+		w("  %s: {\n", f)
+		for _, k := range sim.EnemyKinds() {
+			w("    %s: %s,\n", k, num(sim.EnemyRadius(k, f)))
+		}
+		w("  },\n")
 	}
 	w(endObject)
+	rings := make([]sim.EnemyFaction, 0, sim.GridRings+1)
+	for ring := range sim.GridRings + 1 {
+		rings = append(rings, sim.FactionOfRing(ring))
+	}
+	w("/** The faction holding each ring, home first, as FactionOfRing has it. */\n")
+	w("export const RING_FACTIONS: readonly EnemyFaction[] = %s;\n", list(rings))
 	w("export const FRIGATE_REACH = %d;\n", sim.FrigateReach)
 	w("export const FRIGATE_SHIELD = %d;\n", sim.FrigateShield)
 	w("export const DREADNOUGHT_SHIELD = %d;\n", sim.DreadnoughtShield)

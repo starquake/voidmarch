@@ -250,6 +250,60 @@ func (EnemyKind) EnumDescriptor() ([]byte, []int) {
 	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{3}
 }
 
+// The alien fleet an enemy belongs to, one per ring (#9): the kind says how
+// it fights, the faction how hard. Unset reads as the Kla'ed.
+type EnemyFaction int32
+
+const (
+	EnemyFaction_ENEMY_FACTION_UNSPECIFIED EnemyFaction = 0
+	EnemyFaction_ENEMY_FACTION_KLAED       EnemyFaction = 1
+	EnemyFaction_ENEMY_FACTION_NAIRAN      EnemyFaction = 2
+	EnemyFaction_ENEMY_FACTION_NAUTOLAN    EnemyFaction = 3
+)
+
+// Enum value maps for EnemyFaction.
+var (
+	EnemyFaction_name = map[int32]string{
+		0: "ENEMY_FACTION_UNSPECIFIED",
+		1: "ENEMY_FACTION_KLAED",
+		2: "ENEMY_FACTION_NAIRAN",
+		3: "ENEMY_FACTION_NAUTOLAN",
+	}
+	EnemyFaction_value = map[string]int32{
+		"ENEMY_FACTION_UNSPECIFIED": 0,
+		"ENEMY_FACTION_KLAED":       1,
+		"ENEMY_FACTION_NAIRAN":      2,
+		"ENEMY_FACTION_NAUTOLAN":    3,
+	}
+)
+
+func (x EnemyFaction) Enum() *EnemyFaction {
+	p := new(EnemyFaction)
+	*p = x
+	return p
+}
+
+func (x EnemyFaction) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EnemyFaction) Descriptor() protoreflect.EnumDescriptor {
+	return file_voidmarch_v1_messages_proto_enumTypes[4].Descriptor()
+}
+
+func (EnemyFaction) Type() protoreflect.EnumType {
+	return &file_voidmarch_v1_messages_proto_enumTypes[4]
+}
+
+func (x EnemyFaction) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EnemyFaction.Descriptor instead.
+func (EnemyFaction) EnumDescriptor() ([]byte, []int) {
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{4}
+}
+
 // CompanionMode is a squadron's standing orders for its companions.
 type CompanionMode int32
 
@@ -293,11 +347,11 @@ func (x CompanionMode) String() string {
 }
 
 func (CompanionMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_voidmarch_v1_messages_proto_enumTypes[4].Descriptor()
+	return file_voidmarch_v1_messages_proto_enumTypes[5].Descriptor()
 }
 
 func (CompanionMode) Type() protoreflect.EnumType {
-	return &file_voidmarch_v1_messages_proto_enumTypes[4]
+	return &file_voidmarch_v1_messages_proto_enumTypes[5]
 }
 
 func (x CompanionMode) Number() protoreflect.EnumNumber {
@@ -306,7 +360,7 @@ func (x CompanionMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CompanionMode.Descriptor instead.
 func (CompanionMode) EnumDescriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{4}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{5}
 }
 
 // CompanionOneShot is an order that runs until done, then returns to the mode.
@@ -346,11 +400,11 @@ func (x CompanionOneShot) String() string {
 }
 
 func (CompanionOneShot) Descriptor() protoreflect.EnumDescriptor {
-	return file_voidmarch_v1_messages_proto_enumTypes[5].Descriptor()
+	return file_voidmarch_v1_messages_proto_enumTypes[6].Descriptor()
 }
 
 func (CompanionOneShot) Type() protoreflect.EnumType {
-	return &file_voidmarch_v1_messages_proto_enumTypes[5]
+	return &file_voidmarch_v1_messages_proto_enumTypes[6]
 }
 
 func (x CompanionOneShot) Number() protoreflect.EnumNumber {
@@ -359,7 +413,7 @@ func (x CompanionOneShot) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CompanionOneShot.Descriptor instead.
 func (CompanionOneShot) EnumDescriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{5}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{6}
 }
 
 // WorldEventKind is what a world event is (#102).
@@ -398,11 +452,11 @@ func (x WorldEventKind) String() string {
 }
 
 func (WorldEventKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_voidmarch_v1_messages_proto_enumTypes[6].Descriptor()
+	return file_voidmarch_v1_messages_proto_enumTypes[7].Descriptor()
 }
 
 func (WorldEventKind) Type() protoreflect.EnumType {
-	return &file_voidmarch_v1_messages_proto_enumTypes[6]
+	return &file_voidmarch_v1_messages_proto_enumTypes[7]
 }
 
 func (x WorldEventKind) Number() protoreflect.EnumNumber {
@@ -411,7 +465,7 @@ func (x WorldEventKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use WorldEventKind.Descriptor instead.
 func (WorldEventKind) EnumDescriptor() ([]byte, []int) {
-	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{6}
+	return file_voidmarch_v1_messages_proto_rawDescGZIP(), []int{7}
 }
 
 // Loadout is the part fitted in each slot, each at its tier: 0 plain, then
@@ -2345,7 +2399,8 @@ type EnemyState struct {
 	// The shield's charge left, as damage it can still take.
 	Shield float32 `protobuf:"fixed32,10,opt,name=shield,proto3" json:"shield,omitempty"`
 	// The players online its health was scaled for, a companion counting half.
-	ScaledFor     float32 `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
+	ScaledFor     float32      `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
+	Faction       EnemyFaction `protobuf:"varint,12,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2455,6 +2510,13 @@ func (x *EnemyState) GetScaledFor() float32 {
 		return x.ScaledFor
 	}
 	return 0
+}
+
+func (x *EnemyState) GetFaction() EnemyFaction {
+	if x != nil {
+		return x.Faction
+	}
+	return EnemyFaction_ENEMY_FACTION_UNSPECIFIED
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.
@@ -2629,15 +2691,17 @@ func (x *DerelictState) GetHeld() bool {
 // weapon animates from tick - warn_ticks, and the bullets leave at tick from
 // where the enemy is then. x and y are where it was when announced.
 type EnemyFired struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EnemyId       uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
-	Kind          EnemyKind              `protobuf:"varint,2,opt,name=kind,proto3,enum=voidmarch.v1.EnemyKind" json:"kind,omitempty"`
-	Tick          uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
-	Seed          uint32                 `protobuf:"varint,4,opt,name=seed,proto3" json:"seed,omitempty"`
-	X             float32                `protobuf:"fixed32,5,opt,name=x,proto3" json:"x,omitempty"`
-	Y             float32                `protobuf:"fixed32,6,opt,name=y,proto3" json:"y,omitempty"`
-	Angle         float32                `protobuf:"fixed32,7,opt,name=angle,proto3" json:"angle,omitempty"`
-	WarnTicks     uint32                 `protobuf:"varint,8,opt,name=warn_ticks,json=warnTicks,proto3" json:"warn_ticks,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	EnemyId   uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
+	Kind      EnemyKind              `protobuf:"varint,2,opt,name=kind,proto3,enum=voidmarch.v1.EnemyKind" json:"kind,omitempty"`
+	Tick      uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	Seed      uint32                 `protobuf:"varint,4,opt,name=seed,proto3" json:"seed,omitempty"`
+	X         float32                `protobuf:"fixed32,5,opt,name=x,proto3" json:"x,omitempty"`
+	Y         float32                `protobuf:"fixed32,6,opt,name=y,proto3" json:"y,omitempty"`
+	Angle     float32                `protobuf:"fixed32,7,opt,name=angle,proto3" json:"angle,omitempty"`
+	WarnTicks uint32                 `protobuf:"varint,8,opt,name=warn_ticks,json=warnTicks,proto3" json:"warn_ticks,omitempty"`
+	// The firing enemy's faction, which picks its bullets (#136).
+	Faction       EnemyFaction `protobuf:"varint,9,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2726,6 +2790,13 @@ func (x *EnemyFired) GetWarnTicks() uint32 {
 		return x.WarnTicks
 	}
 	return 0
+}
+
+func (x *EnemyFired) GetFaction() EnemyFaction {
+	if x != nil {
+		return x.Faction
+	}
+	return EnemyFaction_ENEMY_FACTION_UNSPECIFIED
 }
 
 // EnemyDestroyed is an enemy shot down, at the tick and place it died.
@@ -4386,7 +4457,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x0fSquadronOrdered\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\x84\x02\n" +
+	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xba\x02\n" +
 	"\n" +
 	"EnemyState\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -4401,7 +4472,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x06shield\x18\n" +
 	" \x01(\x02R\x06shield\x12\x1d\n" +
 	"\n" +
-	"scaled_for\x18\v \x01(\x02R\tscaledFor\"\xc5\x01\n" +
+	"scaled_for\x18\v \x01(\x02R\tscaledFor\x124\n" +
+	"\afaction\x18\f \x01(\x0e2\x1a.voidmarch.v1.EnemyFactionR\afaction\"\xc5\x01\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
@@ -4415,7 +4487,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x05angle\x18\x04 \x01(\x02R\x05angle\x12\x16\n" +
 	"\x06rescue\x18\x05 \x01(\x02R\x06rescue\x12\x1b\n" +
 	"\tgone_tick\x18\x06 \x01(\rR\bgoneTick\x12\x12\n" +
-	"\x04held\x18\a \x01(\bR\x04held\"\xcd\x01\n" +
+	"\x04held\x18\a \x01(\bR\x04held\"\x83\x02\n" +
 	"\n" +
 	"EnemyFired\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -4426,7 +4498,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x01y\x18\x06 \x01(\x02R\x01y\x12\x14\n" +
 	"\x05angle\x18\a \x01(\x02R\x05angle\x12\x1d\n" +
 	"\n" +
-	"warn_ticks\x18\b \x01(\rR\twarnTicks\"\xaa\x01\n" +
+	"warn_ticks\x18\b \x01(\rR\twarnTicks\x124\n" +
+	"\afaction\x18\t \x01(\x0e2\x1a.voidmarch.v1.EnemyFactionR\afaction\"\xaa\x01\n" +
 	"\x0eEnemyDestroyed\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x17.voidmarch.v1.EnemyKindR\x04kind\x12 \n" +
@@ -4556,7 +4629,12 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x10ENEMY_KIND_SCOUT\x10\x01\x12\x16\n" +
 	"\x12ENEMY_KIND_FIGHTER\x10\x02\x12\x16\n" +
 	"\x12ENEMY_KIND_FRIGATE\x10\x03\x12\x1a\n" +
-	"\x16ENEMY_KIND_DREADNOUGHT\x10\x04*\xb4\x01\n" +
+	"\x16ENEMY_KIND_DREADNOUGHT\x10\x04*|\n" +
+	"\fEnemyFaction\x12\x1d\n" +
+	"\x19ENEMY_FACTION_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13ENEMY_FACTION_KLAED\x10\x01\x12\x18\n" +
+	"\x14ENEMY_FACTION_NAIRAN\x10\x02\x12\x1a\n" +
+	"\x16ENEMY_FACTION_NAUTOLAN\x10\x03*\xb4\x01\n" +
 	"\rCompanionMode\x12\x1e\n" +
 	"\x1aCOMPANION_MODE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15COMPANION_MODE_ESCORT\x10\x01\x12\x19\n" +
@@ -4586,63 +4664,64 @@ func file_voidmarch_v1_messages_proto_rawDescGZIP() []byte {
 	return file_voidmarch_v1_messages_proto_rawDescData
 }
 
-var file_voidmarch_v1_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
+var file_voidmarch_v1_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 8)
 var file_voidmarch_v1_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 47)
 var file_voidmarch_v1_messages_proto_goTypes = []any{
 	(Weapon)(0),                // 0: voidmarch.v1.Weapon
 	(Engine)(0),                // 1: voidmarch.v1.Engine
 	(Shield)(0),                // 2: voidmarch.v1.Shield
 	(EnemyKind)(0),             // 3: voidmarch.v1.EnemyKind
-	(CompanionMode)(0),         // 4: voidmarch.v1.CompanionMode
-	(CompanionOneShot)(0),      // 5: voidmarch.v1.CompanionOneShot
-	(WorldEventKind)(0),        // 6: voidmarch.v1.WorldEventKind
-	(*Loadout)(nil),            // 7: voidmarch.v1.Loadout
-	(*Part)(nil),               // 8: voidmarch.v1.Part
-	(*Unlock)(nil),             // 9: voidmarch.v1.Unlock
-	(*ShipState)(nil),          // 10: voidmarch.v1.ShipState
-	(*Hello)(nil),              // 11: voidmarch.v1.Hello
-	(*ShotFired)(nil),          // 12: voidmarch.v1.ShotFired
-	(*Hit)(nil),                // 13: voidmarch.v1.Hit
-	(*Summon)(nil),             // 14: voidmarch.v1.Summon
-	(*CompanionState)(nil),     // 15: voidmarch.v1.CompanionState
-	(*ChooseSquadron)(nil),     // 16: voidmarch.v1.ChooseSquadron
-	(*SquadronOrder)(nil),      // 17: voidmarch.v1.SquadronOrder
-	(*Dismiss)(nil),            // 18: voidmarch.v1.Dismiss
-	(*ClientMessage)(nil),      // 19: voidmarch.v1.ClientMessage
-	(*DevStartAttack)(nil),     // 20: voidmarch.v1.DevStartAttack
-	(*PickMission)(nil),        // 21: voidmarch.v1.PickMission
-	(*Collect)(nil),            // 22: voidmarch.v1.Collect
-	(*Welcome)(nil),            // 23: voidmarch.v1.Welcome
-	(*PlayerSnapshot)(nil),     // 24: voidmarch.v1.PlayerSnapshot
-	(*SquadronMember)(nil),     // 25: voidmarch.v1.SquadronMember
-	(*SquadronInfo)(nil),       // 26: voidmarch.v1.SquadronInfo
-	(*Squadrons)(nil),          // 27: voidmarch.v1.Squadrons
-	(*SquadronJoined)(nil),     // 28: voidmarch.v1.SquadronJoined
-	(*SquadronRefused)(nil),    // 29: voidmarch.v1.SquadronRefused
-	(*SquadronOrdered)(nil),    // 30: voidmarch.v1.SquadronOrdered
-	(*EnemyState)(nil),         // 31: voidmarch.v1.EnemyState
-	(*Snapshot)(nil),           // 32: voidmarch.v1.Snapshot
-	(*DerelictState)(nil),      // 33: voidmarch.v1.DerelictState
-	(*EnemyFired)(nil),         // 34: voidmarch.v1.EnemyFired
-	(*EnemyDestroyed)(nil),     // 35: voidmarch.v1.EnemyDestroyed
-	(*ShotEnded)(nil),          // 36: voidmarch.v1.ShotEnded
-	(*RemoteShot)(nil),         // 37: voidmarch.v1.RemoteShot
-	(*PlayerLeft)(nil),         // 38: voidmarch.v1.PlayerLeft
-	(*CompanionGranted)(nil),   // 39: voidmarch.v1.CompanionGranted
-	(*CompanionRefused)(nil),   // 40: voidmarch.v1.CompanionRefused
-	(*CompanionDismissed)(nil), // 41: voidmarch.v1.CompanionDismissed
-	(*Full)(nil),               // 42: voidmarch.v1.Full
-	(*ServerMessage)(nil),      // 43: voidmarch.v1.ServerMessage
-	(*BossFell)(nil),           // 44: voidmarch.v1.BossFell
-	(*Frontier)(nil),           // 45: voidmarch.v1.Frontier
-	(*PickupDropped)(nil),      // 46: voidmarch.v1.PickupDropped
-	(*PickupTaken)(nil),        // 47: voidmarch.v1.PickupTaken
-	(*WorldEvent)(nil),         // 48: voidmarch.v1.WorldEvent
-	(*EventStarted)(nil),       // 49: voidmarch.v1.EventStarted
-	(*EventEnded)(nil),         // 50: voidmarch.v1.EventEnded
-	(*SectorCleared)(nil),      // 51: voidmarch.v1.SectorCleared
-	(*DerelictRescued)(nil),    // 52: voidmarch.v1.DerelictRescued
-	(*PickupGain)(nil),         // 53: voidmarch.v1.PickupGain
+	(EnemyFaction)(0),          // 4: voidmarch.v1.EnemyFaction
+	(CompanionMode)(0),         // 5: voidmarch.v1.CompanionMode
+	(CompanionOneShot)(0),      // 6: voidmarch.v1.CompanionOneShot
+	(WorldEventKind)(0),        // 7: voidmarch.v1.WorldEventKind
+	(*Loadout)(nil),            // 8: voidmarch.v1.Loadout
+	(*Part)(nil),               // 9: voidmarch.v1.Part
+	(*Unlock)(nil),             // 10: voidmarch.v1.Unlock
+	(*ShipState)(nil),          // 11: voidmarch.v1.ShipState
+	(*Hello)(nil),              // 12: voidmarch.v1.Hello
+	(*ShotFired)(nil),          // 13: voidmarch.v1.ShotFired
+	(*Hit)(nil),                // 14: voidmarch.v1.Hit
+	(*Summon)(nil),             // 15: voidmarch.v1.Summon
+	(*CompanionState)(nil),     // 16: voidmarch.v1.CompanionState
+	(*ChooseSquadron)(nil),     // 17: voidmarch.v1.ChooseSquadron
+	(*SquadronOrder)(nil),      // 18: voidmarch.v1.SquadronOrder
+	(*Dismiss)(nil),            // 19: voidmarch.v1.Dismiss
+	(*ClientMessage)(nil),      // 20: voidmarch.v1.ClientMessage
+	(*DevStartAttack)(nil),     // 21: voidmarch.v1.DevStartAttack
+	(*PickMission)(nil),        // 22: voidmarch.v1.PickMission
+	(*Collect)(nil),            // 23: voidmarch.v1.Collect
+	(*Welcome)(nil),            // 24: voidmarch.v1.Welcome
+	(*PlayerSnapshot)(nil),     // 25: voidmarch.v1.PlayerSnapshot
+	(*SquadronMember)(nil),     // 26: voidmarch.v1.SquadronMember
+	(*SquadronInfo)(nil),       // 27: voidmarch.v1.SquadronInfo
+	(*Squadrons)(nil),          // 28: voidmarch.v1.Squadrons
+	(*SquadronJoined)(nil),     // 29: voidmarch.v1.SquadronJoined
+	(*SquadronRefused)(nil),    // 30: voidmarch.v1.SquadronRefused
+	(*SquadronOrdered)(nil),    // 31: voidmarch.v1.SquadronOrdered
+	(*EnemyState)(nil),         // 32: voidmarch.v1.EnemyState
+	(*Snapshot)(nil),           // 33: voidmarch.v1.Snapshot
+	(*DerelictState)(nil),      // 34: voidmarch.v1.DerelictState
+	(*EnemyFired)(nil),         // 35: voidmarch.v1.EnemyFired
+	(*EnemyDestroyed)(nil),     // 36: voidmarch.v1.EnemyDestroyed
+	(*ShotEnded)(nil),          // 37: voidmarch.v1.ShotEnded
+	(*RemoteShot)(nil),         // 38: voidmarch.v1.RemoteShot
+	(*PlayerLeft)(nil),         // 39: voidmarch.v1.PlayerLeft
+	(*CompanionGranted)(nil),   // 40: voidmarch.v1.CompanionGranted
+	(*CompanionRefused)(nil),   // 41: voidmarch.v1.CompanionRefused
+	(*CompanionDismissed)(nil), // 42: voidmarch.v1.CompanionDismissed
+	(*Full)(nil),               // 43: voidmarch.v1.Full
+	(*ServerMessage)(nil),      // 44: voidmarch.v1.ServerMessage
+	(*BossFell)(nil),           // 45: voidmarch.v1.BossFell
+	(*Frontier)(nil),           // 46: voidmarch.v1.Frontier
+	(*PickupDropped)(nil),      // 47: voidmarch.v1.PickupDropped
+	(*PickupTaken)(nil),        // 48: voidmarch.v1.PickupTaken
+	(*WorldEvent)(nil),         // 49: voidmarch.v1.WorldEvent
+	(*EventStarted)(nil),       // 50: voidmarch.v1.EventStarted
+	(*EventEnded)(nil),         // 51: voidmarch.v1.EventEnded
+	(*SectorCleared)(nil),      // 52: voidmarch.v1.SectorCleared
+	(*DerelictRescued)(nil),    // 53: voidmarch.v1.DerelictRescued
+	(*PickupGain)(nil),         // 54: voidmarch.v1.PickupGain
 }
 var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	0,  // 0: voidmarch.v1.Loadout.weapon:type_name -> voidmarch.v1.Weapon
@@ -4651,80 +4730,82 @@ var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	0,  // 3: voidmarch.v1.Part.weapon:type_name -> voidmarch.v1.Weapon
 	1,  // 4: voidmarch.v1.Part.engine:type_name -> voidmarch.v1.Engine
 	2,  // 5: voidmarch.v1.Part.shield:type_name -> voidmarch.v1.Shield
-	8,  // 6: voidmarch.v1.Unlock.part:type_name -> voidmarch.v1.Part
-	7,  // 7: voidmarch.v1.ShipState.loadout:type_name -> voidmarch.v1.Loadout
+	9,  // 6: voidmarch.v1.Unlock.part:type_name -> voidmarch.v1.Part
+	8,  // 7: voidmarch.v1.ShipState.loadout:type_name -> voidmarch.v1.Loadout
 	0,  // 8: voidmarch.v1.ShotFired.weapon:type_name -> voidmarch.v1.Weapon
-	10, // 9: voidmarch.v1.CompanionState.state:type_name -> voidmarch.v1.ShipState
-	4,  // 10: voidmarch.v1.SquadronOrder.mode:type_name -> voidmarch.v1.CompanionMode
-	5,  // 11: voidmarch.v1.SquadronOrder.one_shot:type_name -> voidmarch.v1.CompanionOneShot
-	11, // 12: voidmarch.v1.ClientMessage.hello:type_name -> voidmarch.v1.Hello
-	10, // 13: voidmarch.v1.ClientMessage.state:type_name -> voidmarch.v1.ShipState
-	12, // 14: voidmarch.v1.ClientMessage.shot:type_name -> voidmarch.v1.ShotFired
-	13, // 15: voidmarch.v1.ClientMessage.hit:type_name -> voidmarch.v1.Hit
-	14, // 16: voidmarch.v1.ClientMessage.summon:type_name -> voidmarch.v1.Summon
-	15, // 17: voidmarch.v1.ClientMessage.companion:type_name -> voidmarch.v1.CompanionState
-	18, // 18: voidmarch.v1.ClientMessage.dismiss:type_name -> voidmarch.v1.Dismiss
-	16, // 19: voidmarch.v1.ClientMessage.choose_squadron:type_name -> voidmarch.v1.ChooseSquadron
-	17, // 20: voidmarch.v1.ClientMessage.squadron_order:type_name -> voidmarch.v1.SquadronOrder
-	22, // 21: voidmarch.v1.ClientMessage.collect:type_name -> voidmarch.v1.Collect
-	21, // 22: voidmarch.v1.ClientMessage.pick_mission:type_name -> voidmarch.v1.PickMission
-	20, // 23: voidmarch.v1.ClientMessage.dev_start_attack:type_name -> voidmarch.v1.DevStartAttack
-	27, // 24: voidmarch.v1.Welcome.squadrons:type_name -> voidmarch.v1.Squadrons
-	9,  // 25: voidmarch.v1.Welcome.unlocks:type_name -> voidmarch.v1.Unlock
-	46, // 26: voidmarch.v1.Welcome.pickups:type_name -> voidmarch.v1.PickupDropped
-	7,  // 27: voidmarch.v1.Welcome.loadout:type_name -> voidmarch.v1.Loadout
-	48, // 28: voidmarch.v1.Welcome.world_event:type_name -> voidmarch.v1.WorldEvent
-	45, // 29: voidmarch.v1.Welcome.frontier:type_name -> voidmarch.v1.Frontier
-	10, // 30: voidmarch.v1.PlayerSnapshot.state:type_name -> voidmarch.v1.ShipState
-	25, // 31: voidmarch.v1.SquadronInfo.members:type_name -> voidmarch.v1.SquadronMember
-	4,  // 32: voidmarch.v1.SquadronInfo.mode:type_name -> voidmarch.v1.CompanionMode
-	26, // 33: voidmarch.v1.Squadrons.squadrons:type_name -> voidmarch.v1.SquadronInfo
-	4,  // 34: voidmarch.v1.SquadronJoined.mode:type_name -> voidmarch.v1.CompanionMode
-	17, // 35: voidmarch.v1.SquadronOrdered.order:type_name -> voidmarch.v1.SquadronOrder
+	11, // 9: voidmarch.v1.CompanionState.state:type_name -> voidmarch.v1.ShipState
+	5,  // 10: voidmarch.v1.SquadronOrder.mode:type_name -> voidmarch.v1.CompanionMode
+	6,  // 11: voidmarch.v1.SquadronOrder.one_shot:type_name -> voidmarch.v1.CompanionOneShot
+	12, // 12: voidmarch.v1.ClientMessage.hello:type_name -> voidmarch.v1.Hello
+	11, // 13: voidmarch.v1.ClientMessage.state:type_name -> voidmarch.v1.ShipState
+	13, // 14: voidmarch.v1.ClientMessage.shot:type_name -> voidmarch.v1.ShotFired
+	14, // 15: voidmarch.v1.ClientMessage.hit:type_name -> voidmarch.v1.Hit
+	15, // 16: voidmarch.v1.ClientMessage.summon:type_name -> voidmarch.v1.Summon
+	16, // 17: voidmarch.v1.ClientMessage.companion:type_name -> voidmarch.v1.CompanionState
+	19, // 18: voidmarch.v1.ClientMessage.dismiss:type_name -> voidmarch.v1.Dismiss
+	17, // 19: voidmarch.v1.ClientMessage.choose_squadron:type_name -> voidmarch.v1.ChooseSquadron
+	18, // 20: voidmarch.v1.ClientMessage.squadron_order:type_name -> voidmarch.v1.SquadronOrder
+	23, // 21: voidmarch.v1.ClientMessage.collect:type_name -> voidmarch.v1.Collect
+	22, // 22: voidmarch.v1.ClientMessage.pick_mission:type_name -> voidmarch.v1.PickMission
+	21, // 23: voidmarch.v1.ClientMessage.dev_start_attack:type_name -> voidmarch.v1.DevStartAttack
+	28, // 24: voidmarch.v1.Welcome.squadrons:type_name -> voidmarch.v1.Squadrons
+	10, // 25: voidmarch.v1.Welcome.unlocks:type_name -> voidmarch.v1.Unlock
+	47, // 26: voidmarch.v1.Welcome.pickups:type_name -> voidmarch.v1.PickupDropped
+	8,  // 27: voidmarch.v1.Welcome.loadout:type_name -> voidmarch.v1.Loadout
+	49, // 28: voidmarch.v1.Welcome.world_event:type_name -> voidmarch.v1.WorldEvent
+	46, // 29: voidmarch.v1.Welcome.frontier:type_name -> voidmarch.v1.Frontier
+	11, // 30: voidmarch.v1.PlayerSnapshot.state:type_name -> voidmarch.v1.ShipState
+	26, // 31: voidmarch.v1.SquadronInfo.members:type_name -> voidmarch.v1.SquadronMember
+	5,  // 32: voidmarch.v1.SquadronInfo.mode:type_name -> voidmarch.v1.CompanionMode
+	27, // 33: voidmarch.v1.Squadrons.squadrons:type_name -> voidmarch.v1.SquadronInfo
+	5,  // 34: voidmarch.v1.SquadronJoined.mode:type_name -> voidmarch.v1.CompanionMode
+	18, // 35: voidmarch.v1.SquadronOrdered.order:type_name -> voidmarch.v1.SquadronOrder
 	3,  // 36: voidmarch.v1.EnemyState.kind:type_name -> voidmarch.v1.EnemyKind
-	24, // 37: voidmarch.v1.Snapshot.players:type_name -> voidmarch.v1.PlayerSnapshot
-	31, // 38: voidmarch.v1.Snapshot.enemies:type_name -> voidmarch.v1.EnemyState
-	33, // 39: voidmarch.v1.Snapshot.derelicts:type_name -> voidmarch.v1.DerelictState
-	3,  // 40: voidmarch.v1.EnemyFired.kind:type_name -> voidmarch.v1.EnemyKind
-	3,  // 41: voidmarch.v1.EnemyDestroyed.kind:type_name -> voidmarch.v1.EnemyKind
-	12, // 42: voidmarch.v1.RemoteShot.shot:type_name -> voidmarch.v1.ShotFired
-	23, // 43: voidmarch.v1.ServerMessage.welcome:type_name -> voidmarch.v1.Welcome
-	32, // 44: voidmarch.v1.ServerMessage.snapshot:type_name -> voidmarch.v1.Snapshot
-	37, // 45: voidmarch.v1.ServerMessage.shot:type_name -> voidmarch.v1.RemoteShot
-	38, // 46: voidmarch.v1.ServerMessage.left:type_name -> voidmarch.v1.PlayerLeft
-	42, // 47: voidmarch.v1.ServerMessage.full:type_name -> voidmarch.v1.Full
-	34, // 48: voidmarch.v1.ServerMessage.enemy_fired:type_name -> voidmarch.v1.EnemyFired
-	35, // 49: voidmarch.v1.ServerMessage.enemy_destroyed:type_name -> voidmarch.v1.EnemyDestroyed
-	36, // 50: voidmarch.v1.ServerMessage.shot_ended:type_name -> voidmarch.v1.ShotEnded
-	39, // 51: voidmarch.v1.ServerMessage.companion_granted:type_name -> voidmarch.v1.CompanionGranted
-	40, // 52: voidmarch.v1.ServerMessage.companion_refused:type_name -> voidmarch.v1.CompanionRefused
-	41, // 53: voidmarch.v1.ServerMessage.companion_dismissed:type_name -> voidmarch.v1.CompanionDismissed
-	27, // 54: voidmarch.v1.ServerMessage.squadrons:type_name -> voidmarch.v1.Squadrons
-	28, // 55: voidmarch.v1.ServerMessage.squadron_joined:type_name -> voidmarch.v1.SquadronJoined
-	29, // 56: voidmarch.v1.ServerMessage.squadron_refused:type_name -> voidmarch.v1.SquadronRefused
-	30, // 57: voidmarch.v1.ServerMessage.squadron_ordered:type_name -> voidmarch.v1.SquadronOrdered
-	46, // 58: voidmarch.v1.ServerMessage.pickup_dropped:type_name -> voidmarch.v1.PickupDropped
-	47, // 59: voidmarch.v1.ServerMessage.pickup_taken:type_name -> voidmarch.v1.PickupTaken
-	52, // 60: voidmarch.v1.ServerMessage.derelict_rescued:type_name -> voidmarch.v1.DerelictRescued
-	51, // 61: voidmarch.v1.ServerMessage.sector_cleared:type_name -> voidmarch.v1.SectorCleared
-	49, // 62: voidmarch.v1.ServerMessage.event_started:type_name -> voidmarch.v1.EventStarted
-	50, // 63: voidmarch.v1.ServerMessage.event_ended:type_name -> voidmarch.v1.EventEnded
-	45, // 64: voidmarch.v1.ServerMessage.frontier:type_name -> voidmarch.v1.Frontier
-	44, // 65: voidmarch.v1.ServerMessage.boss_fell:type_name -> voidmarch.v1.BossFell
-	3,  // 66: voidmarch.v1.BossFell.kind:type_name -> voidmarch.v1.EnemyKind
-	53, // 67: voidmarch.v1.BossFell.gains:type_name -> voidmarch.v1.PickupGain
-	8,  // 68: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
-	53, // 69: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
-	6,  // 70: voidmarch.v1.WorldEvent.kind:type_name -> voidmarch.v1.WorldEventKind
-	48, // 71: voidmarch.v1.EventStarted.event:type_name -> voidmarch.v1.WorldEvent
-	48, // 72: voidmarch.v1.EventEnded.event:type_name -> voidmarch.v1.WorldEvent
-	53, // 73: voidmarch.v1.SectorCleared.gains:type_name -> voidmarch.v1.PickupGain
-	9,  // 74: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
-	75, // [75:75] is the sub-list for method output_type
-	75, // [75:75] is the sub-list for method input_type
-	75, // [75:75] is the sub-list for extension type_name
-	75, // [75:75] is the sub-list for extension extendee
-	0,  // [0:75] is the sub-list for field type_name
+	4,  // 37: voidmarch.v1.EnemyState.faction:type_name -> voidmarch.v1.EnemyFaction
+	25, // 38: voidmarch.v1.Snapshot.players:type_name -> voidmarch.v1.PlayerSnapshot
+	32, // 39: voidmarch.v1.Snapshot.enemies:type_name -> voidmarch.v1.EnemyState
+	34, // 40: voidmarch.v1.Snapshot.derelicts:type_name -> voidmarch.v1.DerelictState
+	3,  // 41: voidmarch.v1.EnemyFired.kind:type_name -> voidmarch.v1.EnemyKind
+	4,  // 42: voidmarch.v1.EnemyFired.faction:type_name -> voidmarch.v1.EnemyFaction
+	3,  // 43: voidmarch.v1.EnemyDestroyed.kind:type_name -> voidmarch.v1.EnemyKind
+	13, // 44: voidmarch.v1.RemoteShot.shot:type_name -> voidmarch.v1.ShotFired
+	24, // 45: voidmarch.v1.ServerMessage.welcome:type_name -> voidmarch.v1.Welcome
+	33, // 46: voidmarch.v1.ServerMessage.snapshot:type_name -> voidmarch.v1.Snapshot
+	38, // 47: voidmarch.v1.ServerMessage.shot:type_name -> voidmarch.v1.RemoteShot
+	39, // 48: voidmarch.v1.ServerMessage.left:type_name -> voidmarch.v1.PlayerLeft
+	43, // 49: voidmarch.v1.ServerMessage.full:type_name -> voidmarch.v1.Full
+	35, // 50: voidmarch.v1.ServerMessage.enemy_fired:type_name -> voidmarch.v1.EnemyFired
+	36, // 51: voidmarch.v1.ServerMessage.enemy_destroyed:type_name -> voidmarch.v1.EnemyDestroyed
+	37, // 52: voidmarch.v1.ServerMessage.shot_ended:type_name -> voidmarch.v1.ShotEnded
+	40, // 53: voidmarch.v1.ServerMessage.companion_granted:type_name -> voidmarch.v1.CompanionGranted
+	41, // 54: voidmarch.v1.ServerMessage.companion_refused:type_name -> voidmarch.v1.CompanionRefused
+	42, // 55: voidmarch.v1.ServerMessage.companion_dismissed:type_name -> voidmarch.v1.CompanionDismissed
+	28, // 56: voidmarch.v1.ServerMessage.squadrons:type_name -> voidmarch.v1.Squadrons
+	29, // 57: voidmarch.v1.ServerMessage.squadron_joined:type_name -> voidmarch.v1.SquadronJoined
+	30, // 58: voidmarch.v1.ServerMessage.squadron_refused:type_name -> voidmarch.v1.SquadronRefused
+	31, // 59: voidmarch.v1.ServerMessage.squadron_ordered:type_name -> voidmarch.v1.SquadronOrdered
+	47, // 60: voidmarch.v1.ServerMessage.pickup_dropped:type_name -> voidmarch.v1.PickupDropped
+	48, // 61: voidmarch.v1.ServerMessage.pickup_taken:type_name -> voidmarch.v1.PickupTaken
+	53, // 62: voidmarch.v1.ServerMessage.derelict_rescued:type_name -> voidmarch.v1.DerelictRescued
+	52, // 63: voidmarch.v1.ServerMessage.sector_cleared:type_name -> voidmarch.v1.SectorCleared
+	50, // 64: voidmarch.v1.ServerMessage.event_started:type_name -> voidmarch.v1.EventStarted
+	51, // 65: voidmarch.v1.ServerMessage.event_ended:type_name -> voidmarch.v1.EventEnded
+	46, // 66: voidmarch.v1.ServerMessage.frontier:type_name -> voidmarch.v1.Frontier
+	45, // 67: voidmarch.v1.ServerMessage.boss_fell:type_name -> voidmarch.v1.BossFell
+	3,  // 68: voidmarch.v1.BossFell.kind:type_name -> voidmarch.v1.EnemyKind
+	54, // 69: voidmarch.v1.BossFell.gains:type_name -> voidmarch.v1.PickupGain
+	9,  // 70: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
+	54, // 71: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
+	7,  // 72: voidmarch.v1.WorldEvent.kind:type_name -> voidmarch.v1.WorldEventKind
+	49, // 73: voidmarch.v1.EventStarted.event:type_name -> voidmarch.v1.WorldEvent
+	49, // 74: voidmarch.v1.EventEnded.event:type_name -> voidmarch.v1.WorldEvent
+	54, // 75: voidmarch.v1.SectorCleared.gains:type_name -> voidmarch.v1.PickupGain
+	10, // 76: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
+	77, // [77:77] is the sub-list for method output_type
+	77, // [77:77] is the sub-list for method input_type
+	77, // [77:77] is the sub-list for extension type_name
+	77, // [77:77] is the sub-list for extension extendee
+	0,  // [0:77] is the sub-list for field type_name
 }
 
 func init() { file_voidmarch_v1_messages_proto_init() }
@@ -4781,7 +4862,7 @@ func file_voidmarch_v1_messages_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_voidmarch_v1_messages_proto_rawDesc), len(file_voidmarch_v1_messages_proto_rawDesc)),
-			NumEnums:      7,
+			NumEnums:      8,
 			NumMessages:   47,
 			NumExtensions: 0,
 			NumServices:   0,

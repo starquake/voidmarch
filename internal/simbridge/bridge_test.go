@@ -180,19 +180,29 @@ func TestEnemyPattern(t *testing.T) {
 
 	b := New()
 	fighter := slices.Index(sim.EnemyKinds(), sim.EnemyFighter)
-	want := sim.EnemyPattern(sim.EnemyFighter, 100, 50, 1, 42)
-	if n := b.EnemyPattern(fighter, 100, 50, 1, 42); n != len(want) {
+	want := sim.EnemyPattern(sim.EnemyFighter, sim.Klaed, 100, 50, 1, 42)
+	if n := b.EnemyPattern(fighter, 0, 100, 50, 1, 42); n != len(want) {
 		t.Fatalf("EnemyPattern() = %d bullets, want %d", n, len(want))
 	}
 	if b.Scratch[0] != index(ProjectileKinds(), want[0].Kind) || b.Scratch[1] != want[0].X ||
 		b.Scratch[3] != want[0].Angle {
 		t.Errorf("bullet = %v, want %+v", b.Scratch[:4], want[0])
 	}
-	if b.EnemyPattern(9, 0, 0, 0, 1) != 0 {
-		t.Error("an unknown enemy kind fired")
+	if b.EnemyPattern(9, 0, 0, 0, 0, 1) != 0 || b.EnemyPattern(fighter, 9, 0, 0, 0, 1) != 0 {
+		t.Error("an unknown enemy kind or faction fired")
+	}
+	nautolan := slices.Index(sim.EnemyFactions(), sim.Nautolan)
+	b.EnemyPattern(fighter, nautolan, 0, 0, 0, 1)
+	spinning := index(ProjectileKinds(), sim.ProjectileKind(sim.NautolanSpinningBullet))
+	if got := b.Scratch[0]; got != spinning {
+		t.Errorf(
+			"a Nautolan Fighter's bullet kind = %v, want the Spinning Bullet's %v",
+			got,
+			spinning,
+		)
 	}
 	frigate := slices.Index(sim.EnemyKinds(), sim.EnemyFrigate)
-	if got, want := b.EnemyPattern(frigate, 0, 0, 0, 1), sim.FrigateRingBullets; got != want {
+	if got, want := b.EnemyPattern(frigate, 0, 0, 0, 0, 1), sim.FrigateRingBullets; got != want {
 		t.Errorf("EnemyPattern(frigate) = %d bullets, want the whole ring of %d", got, want)
 	}
 }

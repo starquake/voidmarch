@@ -1,4 +1,5 @@
-import { GRID_RINGS, SECTOR_RADIUS } from './rules.gen.ts';
+import { GRID_RINGS, RING_FACTIONS, SECTOR_RADIUS, type EnemyFaction } from './rules.gen.ts';
+import { RING_TINTS } from './tuning.ts';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const SQRT3 = Math.sqrt(3);
@@ -199,11 +200,21 @@ export function missionArrow(
   return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
 
+/** Each faction's name as the HUD writes it. */
+const FACTION_NAMES: Record<EnemyFaction, string> = { klaed: "Kla'ed", nairan: 'Nairan', nautolan: 'Nautolan' };
+
+/** The faction holding a sector, by its ring (#136); the Kla'ed off the grid. */
+export function sectorFaction(name: string): EnemyFaction {
+  const ring = sectorRing(name);
+
+  return (ring === undefined ? undefined : RING_FACTIONS[ring]) ?? 'klaed';
+}
+
 /** The lines that announce a new mission in the middle of the screen (#101, decision 8). */
 export function missionBanner(sector: string): string[] {
   return [
     `New mission: sector ${sector}`,
-    `Destroy every Kla'ed ship in ${sector} to clear it.`,
+    `Destroy every ${FACTION_NAMES[sectorFaction(sector)]} ship in ${sector} to clear it.`,
     'Follow the gold arrow at the edge of the screen.',
   ];
 }
@@ -216,4 +227,31 @@ export function missionCompleteBanner(sector: string, part: string | undefined):
   }
 
   return lines;
+}
+
+const WHITE = 0xffffff;
+const CHANNELS = [16, 8, 0] as const;
+const CHANNEL_MAX = 0xff;
+
+/** The background's tint at (x, y): its ring's, white off the grid. */
+export function ringTint(x: number, y: number): number {
+  const name = sectorName(x, y);
+  const ring = name === undefined ? undefined : sectorRing(name);
+
+  return (ring === undefined ? undefined : RING_TINTS[ring]) ?? WHITE;
+}
+
+/** Color a faded toward b by t of the way, channel by channel; any t above 0 moves a channel at least one step, so a slow fade still arrives. */
+export function fadeColor(a: number, b: number, t: number): number {
+  const share = Math.min(1, Math.max(0, t));
+  let out = 0;
+  for (const shift of CHANNELS) {
+    const from = (a >> shift) & CHANNEL_MAX;
+    const to = (b >> shift) & CHANNEL_MAX;
+    const step = (to - from) * share;
+    const moved = share > 0 && Math.abs(step) < 1 ? from + Math.sign(to - from) : Math.round(from + step);
+    out |= moved << shift;
+  }
+
+  return out;
 }

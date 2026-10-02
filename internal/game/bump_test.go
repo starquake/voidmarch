@@ -89,9 +89,9 @@ func TestBump_EnemiesLeavePlayersShips(t *testing.T) {
 		if e.GetEnemyId() != 1 {
 			continue
 		}
-		reach := sim.ShipRadius + sim.EnemyRadius(sim.EnemyScout)
+		reach := sim.ShipRadius + sim.EnemyRadius(sim.EnemyScout, sim.Klaed)
 		if e.GetKind() == pb.EnemyKind_ENEMY_KIND_FIGHTER {
-			reach = sim.ShipRadius + sim.EnemyRadius(sim.EnemyFighter)
+			reach = sim.ShipRadius + sim.EnemyRadius(sim.EnemyFighter, sim.Klaed)
 		}
 		if d := math.Hypot(float64(e.GetX()), float64(e.GetY())-700); d < reach-1e-3 {
 			t.Errorf("enemy 1 %v from a, want at least %v: out of a's ship", d, reach)

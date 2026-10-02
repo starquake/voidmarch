@@ -1,6 +1,6 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
 import { PARTS, type PartId } from './sim/parts.ts';
-import { ENEMY_KINDS, type EnemyBulletId, type EnemyKind } from './sim/enemies.ts';
+import { ENEMY_FACTIONS, ENEMY_KINDS, type EnemyBulletId, type EnemyFaction, type EnemyKind } from './sim/enemies.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
 
@@ -29,26 +29,54 @@ const still = (key: string, url: string, size: number): Sheet => ({
 });
 
 
-const KLAED_FILES: Record<EnemyKind, { size: number; engine: number; weapons: number; destruction: number; shield?: number }> = {
-  scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
-  fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
-  frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
-  dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
+interface EnemyFiles {
+  size: number;
+  engine: number;
+  weapons: number;
+  destruction: number;
+  shield?: number;
+  /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps. */
+  weaponsFps?: number;
+}
+
+/** The weapon strips' speed unless a ship's files say otherwise. */
+const WEAPONS_FPS = 18;
+
+/** Each faction's ships, by the frame counts of their pack's strips; a faction has only the classes it fields so far. */
+const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> = {
+  klaed: {
+    scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
+    fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
+    frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
+    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
+  },
+  nairan: {
+    scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
+    fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, weaponsFps: 84 },
+  },
+  nautolan: {
+    scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
+    fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 },
+  },
 };
 
-/** Enemy bullet strips: frames are narrower than they are tall. */
 /** Enemy bullets are drawn in the blue recolor, apart from the players' orange shots (#36). */
 const BULLET_VARIANT = 'blue';
 
-/** The Kla'ed bullets: every enemy bullet but a burst's shard, drawn from the player's own shot. */
-type KlaedBulletId = Exclude<EnemyBulletId, 'shard'>;
+/** The fleets' bullets: every enemy bullet but a burst's shard, drawn from the player's own shot. */
+type FleetBulletId = Exclude<EnemyBulletId, 'shard'>;
 
-const BULLET_FRAMES: Record<KlaedBulletId, { file: string; width: number; height: number; frames: number }> = {
-  klaedBullet: { file: 'bullet', width: 4, height: 16, frames: 4 },
-  klaedBigBullet: { file: 'big-bullet', width: 8, height: 16, frames: 4 },
+/** Enemy bullet strips, each in its faction's folder. */
+const BULLET_FRAMES: Record<FleetBulletId, { faction: EnemyFaction; file: string; width: number; height: number; frames: number }> = {
+  klaedBullet: { faction: 'klaed', file: 'bullet', width: 4, height: 16, frames: 4 },
+  klaedBigBullet: { faction: 'klaed', file: 'big-bullet', width: 8, height: 16, frames: 4 },
   // The Dreadnought's (#124): a beam segment, and a wave arc.
-  klaedRay: { file: 'ray', width: 18, height: 38, frames: 4 },
-  klaedWave: { file: 'wave', width: 64, height: 64, frames: 6 },
+  klaedRay: { faction: 'klaed', file: 'ray', width: 18, height: 38, frames: 4 },
+  klaedWave: { faction: 'klaed', file: 'wave', width: 64, height: 64, frames: 6 },
+  nairanBolt: { faction: 'nairan', file: 'bolt', width: 9, height: 9, frames: 5 },
+  nairanRay: { faction: 'nairan', file: 'ray', width: 18, height: 38, frames: 4 },
+  nautolanBullet: { faction: 'nautolan', file: 'bullet', width: 12, height: 12, frames: 6 },
+  nautolanSpinningBullet: { faction: 'nautolan', file: 'spinning-bullet', width: 8, height: 8, frames: 8 },
 };
 
 const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true): Sheet => ({
@@ -149,12 +177,12 @@ export const keys = {
   background: ['background-void', 'background-stars', 'background-big-stars'] as const,
   planet: 'planet',
   asteroid: 'asteroid',
-  enemyBase: (kind: EnemyKind): string => `klaed-${kind}-base`,
-  enemyEngine: (kind: EnemyKind): string => `klaed-${kind}-engine`,
-  enemyWeapons: (kind: EnemyKind): string => `klaed-${kind}-weapons`,
-  enemyDestruction: (kind: EnemyKind): string => `klaed-${kind}-destruction`,
-  enemyShield: (kind: EnemyKind): string => `klaed-${kind}-shield`,
-  enemyBullet: (id: KlaedBulletId): string => `klaed-${BULLET_FRAMES[id].file}`,
+  enemyBase: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-base`,
+  enemyEngine: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-engine`,
+  enemyWeapons: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-weapons`,
+  enemyDestruction: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-destruction`,
+  enemyShield: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-shield`,
+  enemyBullet: (id: FleetBulletId): string => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}`,
   pickup: (part: PartId): string => `pickup-${part}`,
 };
 
@@ -169,7 +197,6 @@ const PICKUP_FRAMES = 15;
 export function sheets(): Sheet[] {
   const ship = `${ASSETS}/mainship`;
   const env = `${ASSETS}/environment`;
-  const klaed = `${ASSETS}/klaed`;
 
   return [
     ...DAMAGE_STATES.map((s) => still(keys.hull(s), `${ship}/${HULL_FILES[s]}.png`, 48)),
@@ -204,20 +231,26 @@ export function sheets(): Sheet[] {
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
-    ...ENEMY_KINDS.flatMap((kind) => {
-      const f = KLAED_FILES[kind];
+    ...ENEMY_FACTIONS.flatMap((faction) =>
+      ENEMY_KINDS.flatMap((kind) => {
+        const f = ENEMY_FILES[faction][kind];
+        if (f === undefined) {
+          return [];
+        }
+        const dir = `${ASSETS}/${faction}`;
 
-      return [
-        still(keys.enemyBase(kind), `${klaed}/${kind}-base.png`, f.size),
-        strip(keys.enemyEngine(kind), `${klaed}/${kind}-engine.png`, f.size, f.engine, 12),
-        strip(keys.enemyWeapons(kind), `${klaed}/${kind}-weapons.png`, f.size, f.weapons, 18, false),
-        strip(keys.enemyDestruction(kind), `${klaed}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
-        ...(f.shield === undefined ? [] : [strip(keys.enemyShield(kind), `${klaed}/${kind}-shield.png`, f.size, f.shield, 20)]),
-      ];
-    }),
+        return [
+          still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size),
+          strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
+          strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false),
+          strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
+          ...(f.shield === undefined ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.size, f.shield, 20)]),
+        ];
+      }),
+    ),
     ...Object.values(BULLET_FRAMES).map((f) => ({
-      key: `klaed-${f.file}`,
-      url: `${klaed}/${f.file}-${BULLET_VARIANT}.png`,
+      key: `${f.faction}-${f.file}`,
+      url: `${ASSETS}/${f.faction}/${f.file}-${BULLET_VARIANT}.png`,
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,

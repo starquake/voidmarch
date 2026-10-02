@@ -72,9 +72,18 @@ type enemyStats struct {
 	keepDistance float64
 }
 
-func statsFor(kind pb.EnemyKind) enemyStats {
+// statsFor is a kind's stats, made tougher by its faction (#9 decision 14).
+func statsFor(kind pb.EnemyKind, faction sim.EnemyFaction) enemyStats {
+	stats := enemyStats{
+		hp:           scoutHP,
+		maxSpeed:     scoutMaxSpeed,
+		acceleration: scoutAcceleration,
+		fireEvery:    scoutFireEvery,
+		aggroRange:   aggroRange,
+		keepDistance: scoutKeepDistance,
+	}
 	if kind == pb.EnemyKind_ENEMY_KIND_FIGHTER {
-		return enemyStats{
+		stats = enemyStats{
 			hp:           fighterHP,
 			maxSpeed:     fighterMaxSpeed,
 			acceleration: fighterAcceleration,
@@ -83,20 +92,17 @@ func statsFor(kind pb.EnemyKind) enemyStats {
 			keepDistance: fighterKeepDistance,
 		}
 	}
+	tougher := sim.FactionStats(faction)
+	stats.hp = int(math.Round(float64(stats.hp) * tougher.Health))
+	stats.fireEvery = int(math.Round(float64(stats.fireEvery) / tougher.Shots))
 
-	return enemyStats{
-		hp:           scoutHP,
-		maxSpeed:     scoutMaxSpeed,
-		acceleration: scoutAcceleration,
-		fireEvery:    scoutFireEvery,
-		aggroRange:   aggroRange,
-		keepDistance: scoutKeepDistance,
-	}
+	return stats
 }
 
 type enemy struct {
 	id       uint32
 	kind     pb.EnemyKind
+	faction  sim.EnemyFaction
 	x, y     float64
 	vx, vy   float64
 	angle    float64
@@ -181,9 +187,9 @@ func (h *Hub) playersOutsideSafeZone() []point {
 	return out
 }
 
-// addEnemyOf adds an enemy of kind at (x, y).
-func (h *Hub) addEnemyOf(kind pb.EnemyKind, x, y float64) *enemy {
-	stats := statsFor(kind)
+// addEnemyOf adds an enemy of kind and faction at (x, y).
+func (h *Hub) addEnemyOf(kind pb.EnemyKind, faction sim.EnemyFaction, x, y float64) *enemy {
+	stats := statsFor(kind, faction)
 	h.nextEnemy++
 	strafe := strafeRight
 	if h.rng.Uint32()&1 == 0 {
@@ -192,6 +198,7 @@ func (h *Hub) addEnemyOf(kind pb.EnemyKind, x, y float64) *enemy {
 	e := &enemy{
 		id:       h.nextEnemy,
 		kind:     kind,
+		faction:  faction,
 		x:        x,
 		y:        y,
 		hp:       stats.hp,
@@ -207,7 +214,7 @@ func (h *Hub) addEnemyOf(kind pb.EnemyKind, x, y float64) *enemy {
 // steer moves one enemy toward its role's goal around the nearest player,
 // and fires when its cooldown and range allow.
 func (h *Hub) steer(e *enemy, players []point) {
-	stats := statsFor(e.kind)
+	stats := statsFor(e.kind, e.faction)
 	if e.garrison != nil {
 		players = inSector(players, e.garrison.sector)
 	}
@@ -374,6 +381,7 @@ func (h *Hub) fireAt(e *enemy, angle float64, seed uint32) {
 		Kind:      e.kind,
 		Tick:      h.tick + fireWarning,
 		WarnTicks: fireWarning,
+		Faction:   pbEnemyFaction(e.faction),
 		Seed:      seed,
 		X:         float32(e.x),
 		Y:         float32(e.y),
@@ -456,6 +464,7 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 		state := &pb.EnemyState{
 			EnemyId: e.id,
 			Kind:    e.kind,
+			Faction: pbEnemyFaction(e.faction),
 			X:       float32(e.x),
 			Y:       float32(e.y),
 			Angle:   float32(e.angle),
