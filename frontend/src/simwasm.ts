@@ -23,6 +23,7 @@ import {
 } from './sim/rules.gen.ts';
 import { toCommand, type ControlMode, type InputSnapshot } from './sim/input.ts';
 import type { Vec } from './sim/math.ts';
+import { sectorAxial } from './sim/sectors.ts';
 
 /** One part per slot, each at its tier (0 plain to MAX_TIER); see docs/design.md, "Loadout". */
 export interface Loadout {
@@ -177,6 +178,8 @@ interface Exports {
   setLoadout(weapon: number, engine: number, shield: number, weaponTier: number, engineTier: number, shieldTier: number): void;
   setDamage(damage: number): void;
   setRotationSnap(steps: number): void;
+  setFrontier(openRings: number): void;
+  openSector(q: number, r: number): void;
   spawn(kind: number, faction: number, x: number, y: number, angle: number, age: number, shotId: number): number;
   deactivate(slot: number): void;
   clear(faction: number): void;
@@ -327,6 +330,17 @@ export class Sandbox {
   setRotationSnap(steps: number): void {
     this.exports.setRotationSnap(steps);
     this.read();
+  }
+
+  /** Opens home and the rings up to openRings, and the sectors in opened on their own (#123). */
+  setFrontier(openRings: number, opened: readonly string[]): void {
+    this.exports.setFrontier(openRings);
+    for (const name of opened) {
+      const hex = sectorAxial(name);
+      if (hex !== undefined) {
+        this.exports.openSector(hex.q, hex.r);
+      }
+    }
   }
 
   /**

@@ -50,6 +50,8 @@ type Sandbox struct {
 	// drawing between ticks.
 	Previous    Vec
 	ControlMode ControlMode
+	// Frontier is which sectors the ship may fly in (#123).
+	Frontier Frontier
 	// SquadmateDistance is how far the nearest squadmate is, for the
 	// shield's formation bonus and revives; NoSquadmate when there's none.
 	SquadmateDistance float64
@@ -138,6 +140,7 @@ func (s *Sandbox) tick(screenCmd Command, enemies []BrainEnemy, events *FrameEve
 		StepShip(s.Ship, cmd, TickSeconds)
 	}
 	ApplyWorldEdge(s.Ship, TickSeconds)
+	ApplyFrontier(s.Ship, s.Frontier, TickSeconds)
 	Recover(s.Ship, TickSeconds, s.SquadmateDistance)
 	ReviveStep(s.Ship, TickSeconds, s.FriendDistance, s.SquadmateDistance)
 

@@ -97,6 +97,23 @@ test('the ship can be placed, damaged and snapped', async () => {
   assert.deepEqual([s.ship.damage, s.ship.rotationSnap], [2, 16]);
 });
 
+test('a closed ring stops the ship at its side, and an opened sector lets it through', async () => {
+  const s = await sim();
+  const d3Top = -3 * (Math.sqrt(3) / 2) * 990;
+  const fly = (): number => {
+    s.placeShip(0, d3Top + 50);
+    for (let i = 0; i < 60; i++) {
+      s.advance(TICK_SECONDS, input({ up: true, pointerX: 0, pointerY: s.ship.y - 1000 }));
+    }
+
+    return s.ship.y;
+  };
+  s.setFrontier(1, []);
+  assert.ok(fly() >= d3Top, 'kept out of closed D2');
+  s.setFrontier(1, ['D2', 'Z9']);
+  assert.ok(fly() < d3Top, 'through into D2, opened on its own');
+});
+
 test('an enemy bullet meets the front shield ahead, and only the hull behind', async () => {
   const s = await sim();
   s.advance(TICK_SECONDS, input());

@@ -590,3 +590,32 @@ func TestBurst_ShardsPassTheEnemyTheBallHit(t *testing.T) {
 		t.Errorf("%d shards hit the enemy the ball struck, want none: they fly out past it", hits)
 	}
 }
+
+func TestFrontier_StopsTheShipAtAClosedRing(t *testing.T) {
+	t.Parallel()
+
+	d3Top := -3 * sim.SectorApothem
+	fly := func(b *Bridge) float64 {
+		b.PlaceShip(0, d3Top+50)
+		for range 60 {
+			cmd := sim.Command{MoveY: -1, AimY: b.State[HeaderShipY] - 1000}
+			b.Advance(sim.TickSeconds, cmd, sim.NoSquadmate, sim.NoSquadmate)
+		}
+
+		return b.State[HeaderShipY]
+	}
+
+	b := New()
+	b.SetFrontier(1)
+	if y := fly(b); y < d3Top {
+		t.Errorf("with ring 2 closed: ship at y %v, want it kept below D3's top at %v", y, d3Top)
+	}
+	b.OpenSector(0, -2)
+	if y := fly(b); y > d3Top {
+		t.Errorf("with D2 opened on its own: ship at y %v, want it through into D2", y)
+	}
+	b.SetFrontier(0)
+	if y := fly(b); y > d3Top {
+		t.Errorf("with every ring open: ship at y %v, want it through into D2", y)
+	}
+}

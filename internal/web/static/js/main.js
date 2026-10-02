@@ -1170,6 +1170,9 @@ function hexName({ q, r }) {
   const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
   return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
 }
+function sectorAxial(name) {
+  return parseHex(name);
+}
 function parseHex(name) {
   const col = LETTERS.indexOf(name.charAt(0));
   const row = Number(name.slice(1)) - 1;
@@ -1626,6 +1629,16 @@ var Sandbox = class {
   setRotationSnap(steps) {
     this.exports.setRotationSnap(steps);
     this.read();
+  }
+  /** Opens home and the rings up to openRings, and the sectors in opened on their own (#123). */
+  setFrontier(openRings, opened) {
+    this.exports.setFrontier(openRings);
+    for (const name of opened) {
+      const hex2 = sectorAxial(name);
+      if (hex2 !== void 0) {
+        this.exports.openSector(hex2.q, hex2.r);
+      }
+    }
   }
   /**
    * Tests every active projectile of the faction along the path it flew in

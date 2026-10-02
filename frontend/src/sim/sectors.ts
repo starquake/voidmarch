@@ -19,6 +19,11 @@ function hexName({ q, r }: Hex): string {
   return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
 }
 
+/** A sector's axial coordinates, as the Go sim keeps them; undefined off the grid. */
+export function sectorAxial(name: string): Hex | undefined {
+  return parseHex(name);
+}
+
 function parseHex(name: string): Hex | undefined {
   const col = LETTERS.indexOf(name.charAt(0));
   const row = Number(name.slice(1)) - 1;

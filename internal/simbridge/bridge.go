@@ -232,6 +232,22 @@ func (b *Bridge) SetControlMode(mode sim.ControlMode) {
 	b.sandbox.ControlMode = mode
 }
 
+// SetFrontier opens home and the rings up to openRings, closing every
+// sector opened on its own (#123).
+func (b *Bridge) SetFrontier(openRings int) {
+	b.sandbox.Frontier = sim.Frontier{OpenRings: openRings}
+}
+
+// OpenSector opens the sector at axial (q, r) on its own, like the
+// Dreadnought's (#8).
+func (b *Bridge) OpenSector(q, r int) {
+	f := &b.sandbox.Frontier
+	if f.Opened == nil {
+		f.Opened = map[sim.Sector]bool{}
+	}
+	f.Opened[sim.Sector{Q: q, R: r}] = true
+}
+
 // PlaceShip puts the ship at (x, y) at rest, as a spawn or a takeover does.
 func (b *Bridge) PlaceShip(x, y float64) {
 	s := b.sandbox.Ship
