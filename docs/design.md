@@ -250,7 +250,10 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
   2. Nairan space: the next 12
   3. Nautolan space (the third pack): the outer 18
 - Each ring gets its own **tinted background** so it feels distinct (recoloring allowed).
-- Ring N+1 is inaccessible until ring N's Dreadnought is destroyed (barrier/boundary; no special art needed — e.g. a hard edge or tinted zone).
+- **Closed rings** (#123): only home and ring 1 are open until the Kla'ed Dreadnought falls, which opens rings 2 and 3 together until #9 gives ring 3 its own (#8 decision 12). The server keeps the open rings in its database and sends them, with any sector opened on its own (the Dreadnought's while it's awake), as the `Frontier`.
+  - A closed sector pushes a ship back like the world's edge, in a 200 px band, and stops it at its side. The browser's sim and the server's companions both apply it (`sim.ApplyFrontier`).
+  - Nothing happens in one: no garrison wakes, no straggler, attack or distress call comes, and no mission goes there; a pick of one is refused.
+  - In the world a closed sector is shaded, with a red line on its sides with open ones; on the maps it's gray, and the HUD line says "closed".
 - Asteroids (Environment pack) as obstacles/cover.
 
 ### Season

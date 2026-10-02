@@ -91,8 +91,9 @@ squadmates see "you: Attack", and every companion in the squadron follows.
 
 ## Enemies
 
-The world is 37 hexagonal sectors, home in D4 and three rings around it. The HUD
-names the sector you're in. Every other sector is held by a Kla'ed
+The world is 37 hexagonal sectors, home in D4 and three rings around it. Only
+home and ring 1 are open at first: a red line marks where the closed rings
+begin, and they push you back. The HUD names the sector you're in. Every other sector is held by a Kla'ed
 garrison: 8 ships next to home, more farther out, and more again for every
 ship that comes in. Its ships roam the whole sector and come for anyone in
 it, and destroying all
