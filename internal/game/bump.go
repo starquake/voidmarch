@@ -28,7 +28,11 @@ func gentle(a, b *bumper) bool {
 	return a.enemy == nil && b.enemy == nil
 }
 
-func (b *bumper) movable() bool { return b.ship != nil || b.enemy != nil }
+// movable reports whether the hub moves the body when it's bumped; a Frigate
+// is too heavy to shove, even by its own escort (#121).
+func (b *bumper) movable() bool {
+	return b.ship != nil || (b.enemy != nil && b.enemy.frigate == nil)
+}
 
 // place writes the body back into the companion or enemy it came from.
 func (b *bumper) place() {

@@ -113,6 +113,14 @@ func (s Sector) Beyond(x, y float64) float64 {
 	return math.Max(0, hexReach(sectorNormals(), x-c.X, y-c.Y)-SectorApothem)
 }
 
+// Inside reports whether (x, y) is inside the sector by at least margin from
+// each of its sides.
+func (s Sector) Inside(x, y, margin float64) bool {
+	c := s.Center()
+
+	return hexReach(sectorNormals(), x-c.X, y-c.Y) <= SectorApothem-margin
+}
+
 // Clamp is (x, y) moved inside the sector, margin in from its sides.
 func (s Sector) Clamp(x, y, margin float64) (cx, cy float64) {
 	c := s.Center()

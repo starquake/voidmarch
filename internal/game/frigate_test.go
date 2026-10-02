@@ -29,10 +29,7 @@ func TestSimEnemyKind(t *testing.T) {
 	}
 }
 
-// d3Y is D3's center, straight up from home's.
-var d3Y = float32(-2 * sim.SectorApothem)
-
-// frigateMap puts one Frigate in D3, at (0, d3Y).
+// frigateMap puts one Frigate in D3, straight up from home.
 var frigateMap = &world.Map{Name: "test", Bosses: []world.Boss{{Kind: "frigate", Sector: "D3"}}}
 
 // frigateIn is the snapshot's Frigate, or nil.
@@ -46,6 +43,21 @@ func frigateIn(snap *pb.Snapshot) *pb.EnemyState {
 	return nil
 }
 
+// inFrigateRange is a point 300 px below the frigateMap's Frigate as s sees
+// it now: in the fight and in its fire range, so a ship there holds it still.
+func inFrigateRange(t *testing.T, s *Session, tick func(int)) (x, y float32) {
+	t.Helper()
+
+	f := frigateIn(must(latest(t, s, tick, 1, 0, 0)))
+	if f == nil {
+		t.Fatal("no Frigate in the snapshot")
+	}
+
+	const below = 300
+
+	return f.GetX(), f.GetY() + below
+}
+
 // hitFrigate has s report a hit of the most damage a shot does on the Frigate.
 func hitFrigate(s *Session, id, shot uint32) {
 	s.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_Hit{Hit: &pb.Hit{
@@ -53,7 +65,7 @@ func hitFrigate(s *Session, id, shot uint32) {
 	}}})
 }
 
-func TestFrigate_WaitsAtItsSpotWithEscorts(t *testing.T) {
+func TestFrigate_TakesASpotInItsSectorWithEscorts(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t, WithMap(frigateMap))
@@ -64,8 +76,14 @@ func TestFrigate_WaitsAtItsSpotWithEscorts(t *testing.T) {
 	if f == nil {
 		t.Fatal("no Frigate in the snapshot")
 	}
-	if f.GetX() != 0 || f.GetY() != d3Y {
-		t.Errorf("Frigate at (%v, %v), want (0, %v)", f.GetX(), f.GetY(), d3Y)
+	d3, _ := sim.ParseSector("D3")
+	if !d3.Inside(float64(f.GetX()), float64(f.GetY()), FrigateMargin-1) {
+		t.Errorf(
+			"Frigate at (%v, %v), want it in D3, %d px in from its sides",
+			f.GetX(),
+			f.GetY(),
+			FrigateMargin,
+		)
 	}
 	if f.GetHp() != sim.FrigateBaseHP || f.GetMaxHp() != sim.FrigateBaseHP ||
 		f.GetShield() != sim.FrigateShield || f.GetScaledFor() != 0 {
@@ -74,7 +92,7 @@ func TestFrigate_WaitsAtItsSpotWithEscorts(t *testing.T) {
 	escorts := 0
 	for _, e := range snap.GetEnemies() {
 		if e.GetKind() == pb.EnemyKind_ENEMY_KIND_FIGHTER &&
-			math.Hypot(float64(e.GetX()), float64(e.GetY()-d3Y)) < 200 {
+			math.Hypot(float64(e.GetX()-f.GetX()), float64(e.GetY()-f.GetY())) < 200 {
 			escorts++
 		}
 	}
@@ -105,16 +123,17 @@ func TestFrigate_HealthScalesWithShipsNear(t *testing.T) {
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
 	c, _ := join(t, hub, "c")
+	x, y := inFrigateRange(t, a, tick)
 	step := func(bAt, cAt [2]float32) *pb.EnemyState {
 		b.Send(state(bAt[0], bAt[1]))
 		c.Send(state(cAt[0], cAt[1]))
-		snap, _ := latest(t, a, tick, 1, 0, -1000)
+		snap, _ := latest(t, a, tick, 1, x, y)
 		drain(b)
 		drain(c)
 
 		return frigateIn(snap)
 	}
-	near, far := [2]float32{50, -1000}, [2]float32{0, 0}
+	near, far := [2]float32{x + 50, y}, [2]float32{0, 0}
 
 	f := step(near, far)
 	if got, want := f.GetMaxHp(), float32(sim.FrigateHP(2)); got != want {
@@ -143,9 +162,10 @@ func TestFrigate_ACompanionCountsHalf(t *testing.T) {
 	a, _ := pilot(t, hub, "a")
 	must(latest(t, a, tick, 1, 0, 0))
 	grant(t, a)
+	x, y := inFrigateRange(t, a, tick)
 	want := float32(1 + sim.FrigateCompanionWeight)
 	for range 20 * TickRate {
-		snap, _ := latest(t, a, tick, 1, 0, -1000)
+		snap, _ := latest(t, a, tick, 1, x, y)
 		if frigateIn(snap).GetScaledFor() == want {
 			return
 		}
@@ -158,11 +178,12 @@ func TestFrigate_ShieldTakesHitsFirstAndRecharges(t *testing.T) {
 
 	hub, tick := testHub(t, WithMap(frigateMap))
 	a, _ := join(t, hub, "a")
-	f := frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
+	x, y := inFrigateRange(t, a, tick)
+	f := frigateIn(must(latest(t, a, tick, 1, x, y)))
 	full := f.GetHp()
 
 	hitFrigate(a, f.GetEnemyId(), 1)
-	f = frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
+	f = frigateIn(must(latest(t, a, tick, 1, x, y)))
 	shield := float32(sim.FrigateShield - MaxHitDamage)
 	if f.GetShield() != shield || f.GetHp() != full {
 		t.Errorf(
@@ -174,13 +195,13 @@ func TestFrigate_ShieldTakesHitsFirstAndRecharges(t *testing.T) {
 		)
 	}
 	hitFrigate(a, f.GetEnemyId(), 2)
-	f = frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
+	f = frigateIn(must(latest(t, a, tick, 1, x, y)))
 	left := full - (2*MaxHitDamage - sim.FrigateShield)
 	if f.GetShield() != 0 || f.GetHp() != left {
 		t.Errorf("after two hits: shield %v, hp %v; want 0, %v", f.GetShield(), f.GetHp(), left)
 	}
 
-	f = frigateIn(must(latest(t, a, tick, FrigateShieldTicks, 0, -1000)))
+	f = frigateIn(must(latest(t, a, tick, FrigateShieldTicks, x, y)))
 	if got, want := f.GetShield(), float32(sim.FrigateShield); got != want {
 		t.Errorf("shield after a while without a hit = %v, want %v", got, want)
 	}
@@ -191,13 +212,14 @@ func TestFrigate_ResetsWhenNobodyNearIsUp(t *testing.T) {
 
 	hub, tick := testHub(t, WithMap(frigateMap))
 	a, _ := join(t, hub, "a")
-	f := frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
+	x, y := inFrigateRange(t, a, tick)
+	f := frigateIn(must(latest(t, a, tick, 1, x, y)))
 	hitFrigate(a, f.GetEnemyId(), 1)
 	hitFrigate(a, f.GetEnemyId(), 2)
-	must(latest(t, a, tick, 1, 0, -1000))
+	must(latest(t, a, tick, 1, x, y))
 
 	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_State{State: &pb.ShipState{
-		X: 0, Y: -1000, Damage: sim.MaxDamage,
+		X: x, Y: y, Damage: sim.MaxDamage,
 	}}})
 	tick(1)
 	var snap *pb.Snapshot
@@ -216,8 +238,9 @@ func TestFrigate_FiresRingsAtShipsInRange(t *testing.T) {
 
 	hub, tick := testHub(t, WithMap(frigateMap))
 	a, _ := join(t, hub, "a")
+	x, y := inFrigateRange(t, a, tick)
 	for range 2 * FrigateRingEvery {
-		_, others := latest(t, a, tick, 1, 0, d3Y+300)
+		_, others := latest(t, a, tick, 1, x, y)
 		for _, msg := range others {
 			if f := msg.GetEnemyFired(); f != nil &&
 				f.GetKind() == pb.EnemyKind_ENEMY_KIND_FRIGATE {
@@ -237,7 +260,8 @@ func TestFrigate_AlwaysDropsAndComesBack(t *testing.T) {
 
 	hub, tick := testHub(t, WithMap(frigateMap))
 	a, _ := join(t, hub, "a")
-	f := frigateIn(must(latest(t, a, tick, 1, 0, -1000)))
+	x, y := inFrigateRange(t, a, tick)
+	f := frigateIn(must(latest(t, a, tick, 1, x, y)))
 	for shot := range uint32(10) {
 		hitFrigate(a, f.GetEnemyId(), shot+1)
 	}
@@ -264,4 +288,96 @@ func TestFrigate_AlwaysDropsAndComesBack(t *testing.T) {
 // must is the snapshot from latest, without its other messages.
 func must(snap *pb.Snapshot, _ []*pb.ServerMessage) *pb.Snapshot {
 	return snap
+}
+
+func TestFrigate_PatrolsItsSectorWhileNoShipIsInRange(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithMap(frigateMap), NoEvents)
+	a, _ := join(t, hub, "a")
+	d3, _ := sim.ParseSector("D3")
+	start := frigateIn(must(latest(t, a, tick, 1, 0, 0)))
+	f, facing, samples := start, 0, 0
+	for range 30 {
+		prev := f
+		f = frigateIn(must(latest(t, a, tick, TickRate, 0, 0)))
+		if !d3.Inside(float64(f.GetX()), float64(f.GetY()), FrigateMargin-1) {
+			t.Fatalf("Frigate at (%v, %v), out of its patrol in D3", f.GetX(), f.GetY())
+		}
+		dx, dy := float64(f.GetX()-prev.GetX()), float64(f.GetY()-prev.GetY())
+		if math.Hypot(dx, dy) > FrigatePatrolSpeed/2 {
+			samples++
+			if math.Abs(sim.WrapAngle(float64(f.GetAngle())-math.Atan2(dy, dx))) < 0.35 {
+				facing++
+			}
+		}
+	}
+	if facing*10 < samples*7 {
+		t.Errorf(
+			"the Frigate faced where it was going in %d of %d seconds, want most",
+			facing,
+			samples,
+		)
+	}
+	moved := math.Hypot(float64(f.GetX()-start.GetX()), float64(f.GetY()-start.GetY()))
+	if moved < FrigatePatrolSpeed {
+		t.Errorf("the Frigate moved %.0f px in 30 s with nobody near, want it patrolling", moved)
+	}
+	snap := must(latest(t, a, tick, 1, 0, 0))
+	f = frigateIn(snap)
+	if d := snap.GetDerelicts(); len(d) != 1 || !d[0].GetHeld() ||
+		d[0].GetX() != f.GetX() || d[0].GetY() != f.GetY()+FrigateDerelictOffset {
+		t.Errorf("derelicts %+v, want the held one towed %d px below the Frigate at (%v, %v)",
+			d, FrigateDerelictOffset, f.GetX(), f.GetY())
+	}
+	escorts := 0
+	for _, e := range snap.GetEnemies() {
+		if e.GetKind() == pb.EnemyKind_ENEMY_KIND_FIGHTER &&
+			math.Hypot(float64(e.GetX()-f.GetX()), float64(e.GetY()-f.GetY())) < 250 {
+			escorts++
+		}
+	}
+	if escorts != FrigateEscorts {
+		t.Errorf("%d escorts kept up with the patrolling Frigate, want %d", escorts, FrigateEscorts)
+	}
+}
+
+func TestFrigate_HoldsStillWhileAShipIsInRange(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithMap(frigateMap), NoEvents)
+	a, _ := join(t, hub, "a")
+	x, y := inFrigateRange(t, a, tick)
+	before := frigateIn(must(latest(t, a, tick, 1, x, y)))
+	after := frigateIn(must(latest(t, a, tick, 5*TickRate, x, y)))
+	if after.GetX() != before.GetX() || after.GetY() != before.GetY() {
+		t.Errorf("the Frigate moved from (%v, %v) to (%v, %v) with a ship in range",
+			before.GetX(), before.GetY(), after.GetX(), after.GetY())
+	}
+}
+
+func TestTurnToward(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		angle, want, limit, got float64
+	}{
+		{0, 1, 0.25, 0.25},
+		{0, 0.1, 0.25, 0.1},
+		{0, -1, 0.25, -0.25},
+		{3, -3, 0.25, 3 + 0.25},
+	}
+	for _, tc := range tests {
+		got := TurnToward(tc.angle, tc.want, tc.limit)
+		if math.Abs(sim.WrapAngle(got-tc.got)) > 1e-9 {
+			t.Errorf(
+				"TurnToward(%v, %v, %v) = %v, want %v",
+				tc.angle,
+				tc.want,
+				tc.limit,
+				got,
+				tc.got,
+			)
+		}
+	}
 }

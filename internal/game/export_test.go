@@ -56,6 +56,15 @@ func WithDerelictAt(x, y float64) HubOption {
 	}
 }
 
+// TurnToward exposes turnToward for tests.
+var TurnToward = turnToward
+
+// The Frigate's patrol (#121), exposed for tests.
+const (
+	FrigateMargin      = frigateMargin
+	FrigatePatrolSpeed = frigatePatrolSpeed
+)
+
 // FrigateDerelictOffset is how far below its Frigate a held derelict waits.
 const FrigateDerelictOffset = frigateDerelictOffset
 
@@ -64,7 +73,7 @@ const DerelictTicks = derelictTicks
 
 // Garrison distances and timings, exposed for tests.
 const (
-	GarrisonPosts  = garrisonPosts
+	RoamMargin     = roamMargin
 	GarrisonIdle   = garrisonIdle
 	StragglerTicks = stragglerTicks
 )

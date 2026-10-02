@@ -109,8 +109,9 @@ type enemy struct {
 	wanderX, wanderY float64
 	// frigate is a Frigate's fight; nil for the rest.
 	frigate *frigateFight
-	// garrison is the garrison it belongs to, which keeps it in its sector,
-	// and post where it waits there; nil for stragglers and escorts (#99).
+	// garrison is the garrison it belongs to, which keeps it in its sector;
+	// nil for stragglers and escorts (#99). post is the point a garrison
+	// ship roams toward, or an escort's place around its Frigate (#121).
 	garrison *garrison
 	post     point
 	// escortOf is the Frigate a Fighter guards, which keeps it from
@@ -206,13 +207,19 @@ func (h *Hub) steer(e *enemy, players []point) {
 		e.lastNear = h.tick
 	}
 
-	// A garrison engages anyone in its sector, and waits at its post otherwise.
+	// A garrison engages anyone in its sector, and roams it otherwise (#121).
 	engaged := found && (distance < stats.aggroRange || e.garrison != nil)
 	switch {
 	case engaged:
 		accelerate(e, h.goal(e, target, stats), stats)
-	case e.garrison != nil && math.Hypot(e.post.x-e.x, e.post.y-e.y) > postReach:
-		accelerate(e, e.post, stats)
+	case e.garrison != nil:
+		if math.Hypot(e.post.x-e.x, e.post.y-e.y) <= postReach {
+			e.post = h.roamPoint(e.garrison.sector, roamMargin)
+		}
+		accelerate(e, e.post, roaming(stats))
+	case h.enemies[e.escortOf] != nil:
+		f := h.enemies[e.escortOf]
+		accelerate(e, point{f.x + e.post.x, f.y + e.post.y}, roaming(stats))
 	default:
 		e.vx *= idleDamping
 		e.vy *= idleDamping
@@ -227,6 +234,8 @@ func (h *Hub) steer(e *enemy, players []point) {
 	}
 
 	if !engaged {
+		faceTravel(e)
+
 		return
 	}
 	// Aim and fire from where this tick's snapshot shows the enemy.
@@ -279,6 +288,30 @@ func accelerate(e *enemy, goal point, stats enemyStats) {
 		e.vx *= stats.maxSpeed / speed
 		e.vy *= stats.maxSpeed / speed
 	}
+}
+
+// faceTravel turns an enemy that isn't aiming to where it's going (#121):
+// roaming, following its Frigate, or drifting to a stop.
+func faceTravel(e *enemy) {
+	if math.Hypot(e.vx, e.vy) > minFacingSpeed {
+		e.angle = math.Atan2(e.vy, e.vx)
+	}
+}
+
+// turnToward is angle turned toward want by at most limit radians, the short
+// way round.
+func turnToward(angle, want, limit float64) float64 {
+	d := sim.WrapAngle(want - angle)
+
+	return sim.WrapAngle(angle + math.Max(-limit, math.Min(limit, d)))
+}
+
+// roaming is stats at the easy pace of a garrison ship roaming its sector.
+func roaming(stats enemyStats) enemyStats {
+	stats.maxSpeed *= roamSpeedShare
+	stats.acceleration *= roamSpeedShare
+
+	return stats
 }
 
 func keepOutOfSafeZone(e *enemy) {
