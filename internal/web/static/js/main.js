@@ -335,6 +335,11 @@ var MAP_HOME_COLOR = 3108764;
 var MAP_CLEARED_COLOR = 2910780;
 var MAP_HOSTILE_COLORS = [9056304, 9056304, 7218726, 5643549];
 var MAP_FILL_ALPHA = 0.9;
+var MAP_CLOSED_COLOR = 2763315;
+var CLOSED_SHADE_ALPHA = 0.45;
+var CLOSED_EDGE_COLOR = 16734794;
+var CLOSED_EDGE_ALPHA = 0.85;
+var CLOSED_EDGE_WIDTH = 3;
 var MAP_EDGE_COLOR = 1181712;
 var MAP_PANEL_COLOR = 328458;
 var MAP_PANEL_ALPHA = 0.82;
@@ -677,7 +682,7 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSLCBAoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIAEIGCgRraW5kIiAKDkRldlN0YXJ0QXR0YWNrEg4KBnNlY3RvchgBIAEoCSIdCgtQaWNrTWlzc2lvbhIOCgZzZWN0b3IYASABKAkiFQoHQ29sbGVjdBIKCgJpZBgBIAEoDSLqAwoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCRIlCgd1bmxvY2tzGA0gAygLMhQudm9pZG1hcmNoLnYxLlVubG9jaxIsCgdwaWNrdXBzGA4gAygLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWQSJgoHbG9hZG91dBgPIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0EhMKC2RldmVsb3BtZW50GBAgASgIEhcKD2NsZWFyZWRfc2VjdG9ycxgRIAMoCRItCgt3b3JsZF9ldmVudBgSIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EhAKCG1hcF9uYW1lGBMgASgJSgQICBAJUg9zdW1tb25fYW55d2hlcmUijAEKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvbG9yGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNIocBCgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIPCgdtaXNzaW9uGAQgASgJIl0KCVNxdWFkcm9ucxItCglzcXVhZHJvbnMYASADKAsyGi52b2lkbWFyY2gudjEuU3F1YWRyb25JbmZvEhEKCW5leHRfbmFtZRgCIAEoCRIOCgZoYW5nYXIYAyABKA0icgoOU3F1YWRyb25Kb2luZWQSDAoEbmFtZRgBIAEoCRIpCgRtb2RlGAIgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAiIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIl4KD1NxdWFkcm9uT3JkZXJlZBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIqCgVvcmRlchgDIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyIsIBCgpFbmVteVN0YXRlEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgkKAXgYAyABKAISCQoBeRgEIAEoAhINCgVhbmdsZRgFIAEoAhIKCgJ2eBgGIAEoAhIKCgJ2eRgHIAEoAhIKCgJocBgIIAEoAhIOCgZtYXhfaHAYCSABKAISDgoGc2hpZWxkGAogASgCEhIKCnNjYWxlZF9mb3IYCyABKAIiogEKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUSLgoJZGVyZWxpY3RzGAQgAygLMhsudm9pZG1hcmNoLnYxLkRlcmVsaWN0U3RhdGUiegoNRGVyZWxpY3RTdGF0ZRITCgtkZXJlbGljdF9pZBgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAISDQoFYW5nbGUYBCABKAISDgoGcmVzY3VlGAUgASgCEhEKCWdvbmVfdGljaxgGIAEoDRIMCgRoZWxkGAcgASgIIpoBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDSKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCLYCAoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI5ChBzcXVhZHJvbl9vcmRlcmVkGA8gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJlZEgAEjUKDnBpY2t1cF9kcm9wcGVkGBAgASgLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWRIABIxCgxwaWNrdXBfdGFrZW4YESABKAsyGS52b2lkbWFyY2gudjEuUGlja3VwVGFrZW5IABI5ChBkZXJlbGljdF9yZXNjdWVkGBIgASgLMh0udm9pZG1hcmNoLnYxLkRlcmVsaWN0UmVzY3VlZEgAEjUKDnNlY3Rvcl9jbGVhcmVkGBMgASgLMhsudm9pZG1hcmNoLnYxLlNlY3RvckNsZWFyZWRIABIzCg1ldmVudF9zdGFydGVkGBQgASgLMhoudm9pZG1hcmNoLnYxLkV2ZW50U3RhcnRlZEgAEi8KC2V2ZW50X2VuZGVkGBUgASgLMhgudm9pZG1hcmNoLnYxLkV2ZW50RW5kZWRIAEIGCgRraW5kInQKDVBpY2t1cERyb3BwZWQSCgoCaWQYASABKA0SIAoEcGFydBgCIAEoCzISLnZvaWRtYXJjaC52MS5QYXJ0EgkKAXgYAyABKAISCQoBeRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCWdvbmVfdGljaxgGIAEoDSJVCgtQaWNrdXBUYWtlbhIKCgJpZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbiJbCgpXb3JsZEV2ZW50EioKBGtpbmQYASABKA4yHC52b2lkbWFyY2gudjEuV29ybGRFdmVudEtpbmQSDgoGc2VjdG9yGAIgASgJEhEKCWVuZHNfdGljaxgDIAEoDSJICgxFdmVudFN0YXJ0ZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIPCgdvbmdvaW5nGAIgASgIIkIKCkV2ZW50RW5kZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBILCgN3b24YAiABKAgiVgoNU2VjdG9yQ2xlYXJlZBIOCgZzZWN0b3IYASABKAkSDAoEdGljaxgCIAEoDRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluImcKD0RlcmVsaWN0UmVzY3VlZBITCgtkZXJlbGljdF9pZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSDAoEdGljaxgDIAEoDRIOCgZoYW5nYXIYBCABKA0SDgoGZG9ja2VkGAUgASgIIkUKClBpY2t1cEdhaW4SEQoJcGxheWVyX2lkGAEgASgJEiQKBnVubG9jaxgCIAEoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCptCglFbmVteUtpbmQSGgoWRU5FTVlfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVORU1ZX0tJTkRfU0NPVVQQARIWChJFTkVNWV9LSU5EX0ZJR0hURVIQAhIWChJFTkVNWV9LSU5EX0ZSSUdBVEUQAyq0AQoNQ29tcGFuaW9uTW9kZRIeChpDT01QQU5JT05fTU9ERV9VTlNQRUNJRklFRBAAEhkKFUNPTVBBTklPTl9NT0RFX0VTQ09SVBABEhkKFUNPTVBBTklPTl9NT0RFX0FUVEFDSxACEhgKFENPTVBBTklPTl9NT0RFX0dVQVJEEAMSFwoTQ09NUEFOSU9OX01PREVfSE9MRBAEEhoKFkNPTVBBTklPTl9NT0RFX1NURUFMVEgQBSqUAQoQQ29tcGFuaW9uT25lU2hvdBIiCh5DT01QQU5JT05fT05FX1NIT1RfVU5TUEVDSUZJRUQQABIcChhDT01QQU5JT05fT05FX1NIT1RfRk9DVVMQARIeChpDT01QQU5JT05fT05FX1NIT1RfUkVHUk9VUBACEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9HT19IT01FEAMqbgoOV29ybGRFdmVudEtpbmQSIAocV09STERfRVZFTlRfS0lORF9VTlNQRUNJRklFRBAAEhsKF1dPUkxEX0VWRU5UX0tJTkRfQVRUQUNLEAESHQoZV09STERfRVZFTlRfS0lORF9ESVNUUkVTUxACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSLCBAoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIAEIGCgRraW5kIiAKDkRldlN0YXJ0QXR0YWNrEg4KBnNlY3RvchgBIAEoCSIdCgtQaWNrTWlzc2lvbhIOCgZzZWN0b3IYASABKAkiFQoHQ29sbGVjdBIKCgJpZBgBIAEoDSKUBAoHV2VsY29tZRIRCglwbGF5ZXJfaWQYASABKAkSDQoFY29sb3IYAiABKA0SDwoHc3Bhd25feBgDIAEoAhIPCgdzcGF3bl95GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJdGlja19yYXRlGAYgASgNEhcKD2NvbXBhbmlvbl9saW1pdBgHIAEoDRIMCgRuYW1lGAkgASgJEhIKCmNvbXBhbmlvbnMYCiADKA0SKgoJc3F1YWRyb25zGAsgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9ucxIQCghzcXVhZHJvbhgMIAEoCRIlCgd1bmxvY2tzGA0gAygLMhQudm9pZG1hcmNoLnYxLlVubG9jaxIsCgdwaWNrdXBzGA4gAygLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWQSJgoHbG9hZG91dBgPIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0EhMKC2RldmVsb3BtZW50GBAgASgIEhcKD2NsZWFyZWRfc2VjdG9ycxgRIAMoCRItCgt3b3JsZF9ldmVudBgSIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EhAKCG1hcF9uYW1lGBMgASgJEigKCGZyb250aWVyGBQgASgLMhYudm9pZG1hcmNoLnYxLkZyb250aWVySgQICBAJUg9zdW1tb25fYW55d2hlcmUijAEKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvbG9yGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNIocBCgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIPCgdtaXNzaW9uGAQgASgJIl0KCVNxdWFkcm9ucxItCglzcXVhZHJvbnMYASADKAsyGi52b2lkbWFyY2gudjEuU3F1YWRyb25JbmZvEhEKCW5leHRfbmFtZRgCIAEoCRIOCgZoYW5nYXIYAyABKA0icgoOU3F1YWRyb25Kb2luZWQSDAoEbmFtZRgBIAEoCRIpCgRtb2RlGAIgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAiIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIl4KD1NxdWFkcm9uT3JkZXJlZBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIqCgVvcmRlchgDIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyIsIBCgpFbmVteVN0YXRlEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgkKAXgYAyABKAISCQoBeRgEIAEoAhINCgVhbmdsZRgFIAEoAhIKCgJ2eBgGIAEoAhIKCgJ2eRgHIAEoAhIKCgJocBgIIAEoAhIOCgZtYXhfaHAYCSABKAISDgoGc2hpZWxkGAogASgCEhIKCnNjYWxlZF9mb3IYCyABKAIiogEKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUSLgoJZGVyZWxpY3RzGAQgAygLMhsudm9pZG1hcmNoLnYxLkRlcmVsaWN0U3RhdGUiegoNRGVyZWxpY3RTdGF0ZRITCgtkZXJlbGljdF9pZBgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAISDQoFYW5nbGUYBCABKAISDgoGcmVzY3VlGAUgASgCEhEKCWdvbmVfdGljaxgGIAEoDRIMCgRoZWxkGAcgASgIIpoBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDSKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCKECQoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI5ChBzcXVhZHJvbl9vcmRlcmVkGA8gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJlZEgAEjUKDnBpY2t1cF9kcm9wcGVkGBAgASgLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWRIABIxCgxwaWNrdXBfdGFrZW4YESABKAsyGS52b2lkbWFyY2gudjEuUGlja3VwVGFrZW5IABI5ChBkZXJlbGljdF9yZXNjdWVkGBIgASgLMh0udm9pZG1hcmNoLnYxLkRlcmVsaWN0UmVzY3VlZEgAEjUKDnNlY3Rvcl9jbGVhcmVkGBMgASgLMhsudm9pZG1hcmNoLnYxLlNlY3RvckNsZWFyZWRIABIzCg1ldmVudF9zdGFydGVkGBQgASgLMhoudm9pZG1hcmNoLnYxLkV2ZW50U3RhcnRlZEgAEi8KC2V2ZW50X2VuZGVkGBUgASgLMhgudm9pZG1hcmNoLnYxLkV2ZW50RW5kZWRIABIqCghmcm9udGllchgWIAEoCzIWLnZvaWRtYXJjaC52MS5Gcm9udGllckgAQgYKBGtpbmQiLgoIRnJvbnRpZXISEgoKb3Blbl9yaW5ncxgBIAEoDRIOCgZvcGVuZWQYAiADKAkidAoNUGlja3VwRHJvcHBlZBIKCgJpZBgBIAEoDRIgCgRwYXJ0GAIgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJZ29uZV90aWNrGAYgASgNIlUKC1BpY2t1cFRha2VuEgoKAmlkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluIlsKCldvcmxkRXZlbnQSKgoEa2luZBgBIAEoDjIcLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50S2luZBIOCgZzZWN0b3IYAiABKAkSEQoJZW5kc190aWNrGAMgASgNIkgKDEV2ZW50U3RhcnRlZBInCgVldmVudBgBIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50Eg8KB29uZ29pbmcYAiABKAgiQgoKRXZlbnRFbmRlZBInCgVldmVudBgBIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EgsKA3dvbhgCIAEoCCJWCg1TZWN0b3JDbGVhcmVkEg4KBnNlY3RvchgBIAEoCRIMCgR0aWNrGAIgASgNEicKBWdhaW5zGAMgAygLMhgudm9pZG1hcmNoLnYxLlBpY2t1cEdhaW4iZwoPRGVyZWxpY3RSZXNjdWVkEhMKC2RlcmVsaWN0X2lkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRIMCgR0aWNrGAMgASgNEg4KBmhhbmdhchgEIAEoDRIOCgZkb2NrZWQYBSABKAgiRQoKUGlja3VwR2FpbhIRCglwbGF5ZXJfaWQYASABKAkSJAoGdW5sb2NrGAIgASgLMhQudm9pZG1hcmNoLnYxLlVubG9jayp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKm0KCUVuZW15S2luZBIaChZFTkVNWV9LSU5EX1VOU1BFQ0lGSUVEEAASFAoQRU5FTVlfS0lORF9TQ09VVBABEhYKEkVORU1ZX0tJTkRfRklHSFRFUhACEhYKEkVORU1ZX0tJTkRfRlJJR0FURRADKrQBCg1Db21wYW5pb25Nb2RlEh4KGkNPTVBBTklPTl9NT0RFX1VOU1BFQ0lGSUVEEAASGQoVQ09NUEFOSU9OX01PREVfRVNDT1JUEAESGQoVQ09NUEFOSU9OX01PREVfQVRUQUNLEAISGAoUQ09NUEFOSU9OX01PREVfR1VBUkQQAxIXChNDT01QQU5JT05fTU9ERV9IT0xEEAQSGgoWQ09NUEFOSU9OX01PREVfU1RFQUxUSBAFKpQBChBDb21wYW5pb25PbmVTaG90EiIKHkNPTVBBTklPTl9PTkVfU0hPVF9VTlNQRUNJRklFRBAAEhwKGENPTVBBTklPTl9PTkVfU0hPVF9GT0NVUxABEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9SRUdST1VQEAISHgoaQ09NUEFOSU9OX09ORV9TSE9UX0dPX0hPTUUQAypuCg5Xb3JsZEV2ZW50S2luZBIgChxXT1JMRF9FVkVOVF9LSU5EX1VOU1BFQ0lGSUVEEAASGwoXV09STERfRVZFTlRfS0lORF9BVFRBQ0sQARIdChlXT1JMRF9FVkVOVF9LSU5EX0RJU1RSRVNTEAJCRlpEZ2l0aHViLmNvbS9zdGFycXVha2Uvdm9pZG1hcmNoL2ludGVybmFsL2dlbi92b2lkbWFyY2gvdjE7dm9pZG1hcmNodjFiBnByb3RvMw");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 3);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 12);
 var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 36);
@@ -1170,6 +1175,9 @@ function hexName({ q, r }) {
   const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
   return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
 }
+function sectorAxial(name) {
+  return parseHex(name);
+}
 function parseHex(name) {
   const col = LETTERS.indexOf(name.charAt(0));
   const row = Number(name.slice(1)) - 1;
@@ -1218,21 +1226,48 @@ var SECTOR_NAMES = (() => {
   return names;
 })();
 var HOME_SECTOR = sectorName(0, 0) ?? "";
-function sectorState(name, cleared) {
+var ALL_OPEN = { openRings: 0, opened: /* @__PURE__ */ new Set() };
+function sectorOpen(name, frontier) {
+  const ring2 = sectorRing(name);
+  return ring2 !== void 0 && (frontier.openRings === 0 || ring2 <= frontier.openRings || frontier.opened.has(name));
+}
+function closedEdges(frontier) {
+  const edges = [];
+  for (const name of SECTOR_NAMES) {
+    if (sectorOpen(name, frontier)) {
+      continue;
+    }
+    const center = sectorCenter(name) ?? { x: 0, y: 0 };
+    const corners = sectorCorners(name);
+    corners.forEach((a, i) => {
+      const b = corners[(i + 1) % corners.length] ?? a;
+      const side = (2 * i + 1) * Math.PI / 6;
+      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
+      if (across !== void 0 && sectorOpen(across, frontier)) {
+        edges.push({ a, b });
+      }
+    });
+  }
+  return edges;
+}
+function sectorState(name, cleared, frontier = ALL_OPEN) {
   if (name === HOME_SECTOR) {
     return "home";
+  }
+  if (!sectorOpen(name, frontier)) {
+    return "closed";
   }
   if (cleared === void 0) {
     return "unknown";
   }
   return cleared.has(name) ? "cleared" : "hostile";
 }
-function sectorLine(x, y, cleared) {
+function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
   const name = sectorName(x, y);
   if (name === void 0) {
     return "";
   }
-  const state = sectorState(name, cleared);
+  const state = sectorState(name, cleared, frontier);
   return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
 }
 function sectorCorners(name) {
@@ -1297,6 +1332,9 @@ function sectorFill(name, state, flash) {
   if (flash && state.attack === name) {
     return EVENT_COLOR;
   }
+  if (!sectorOpen(name, state.frontier)) {
+    return MAP_CLOSED_COLOR;
+  }
   if (name === HOME_SECTOR) {
     return MAP_HOME_COLOR;
   }
@@ -1332,8 +1370,8 @@ function drawnMap(state, layout, flash) {
 function sectorAtScreen(layout, x, y) {
   return sectorName((x - layout.x) / layout.scale, (y - layout.y) / layout.scale);
 }
-function canPick(name, cleared) {
-  return name !== void 0 && name !== HOME_SECTOR && !cleared.has(name);
+function canPick(name, cleared, frontier) {
+  return name !== void 0 && name !== HOME_SECTOR && !cleared.has(name) && sectorOpen(name, frontier);
 }
 function mapTitle(mapName, cleared) {
   const ringOne = SECTOR_NAMES.filter((name) => sectorRing(name) === 1);
@@ -1452,12 +1490,12 @@ var MapView = class {
     this.legend.setText(mapLegend(state.missions).join("\n")).setPosition(this.fullLayout.x, legendY);
   }
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
-  pick(x, y, cleared) {
+  pick(x, y, cleared, frontier) {
     if (!this.open) {
       return void 0;
     }
     const name = sectorAtScreen(this.fullLayout, x, y);
-    return canPick(name, cleared) ? name : void 0;
+    return canPick(name, cleared, frontier) ? name : void 0;
   }
   drawGrid(g, drawn, layout, edge, outline) {
     const scale = this.dpr;
@@ -1626,6 +1664,16 @@ var Sandbox = class {
   setRotationSnap(steps) {
     this.exports.setRotationSnap(steps);
     this.read();
+  }
+  /** Opens home and the rings up to openRings, and the sectors in opened on their own (#123). */
+  setFrontier(openRings, opened) {
+    this.exports.setFrontier(openRings);
+    for (const name of opened) {
+      const hex2 = sectorAxial(name);
+      if (hex2 !== void 0) {
+        this.exports.openSector(hex2.q, hex2.r);
+      }
+    }
   }
   /**
    * Tests every active projectile of the faction along the path it flew in
@@ -2690,6 +2738,9 @@ var Connection = class {
       case "eventEnded":
         events.eventEnded(message.kind.value);
         break;
+      case "frontier":
+        events.frontier(message.kind.value);
+        break;
       default:
     }
   }
@@ -3196,6 +3247,9 @@ var NetPlay = class {
   clearedSectors = /* @__PURE__ */ new Set();
   /** The game map's name ("frontier"), for the full map's title (#100). */
   mapName = "";
+  /** Which sectors are open (#123), and a count that moves on every change, for redrawing. */
+  frontier = ALL_OPEN;
+  frontierVersion = 0;
   enemyVolleys = new TimedQueue(20);
   enemyWarnings = new TimedQueue(20);
   destructions = new TimedQueue(20);
@@ -3330,6 +3384,9 @@ var NetPlay = class {
             this.banners.push(eventStartBanner(started.event));
           }
         },
+        frontier: (frontier) => {
+          this.setFrontier(frontier);
+        },
         eventEnded: (ended) => {
           this.worldEvent = void 0;
           const event = ended.event;
@@ -3400,10 +3457,17 @@ var NetPlay = class {
     const mission = this.squadronInfo?.mission;
     return mission === void 0 || mission === "" ? void 0 : mission;
   }
+  /** Takes the server's frontier, and hands it to the sim so the ship stays out of closed sectors (#123). */
+  setFrontier(message) {
+    this.frontier = { openRings: message.openRings, opened: new Set(message.opened) };
+    this.frontierVersion++;
+    this.options.sim.setFrontier(message.openRings, message.opened);
+  }
   /** What the maps show (#100), with the local ship at you. */
   mapState(you) {
     return {
       cleared: this.clearedSectors,
+      frontier: this.frontier,
       frigates: this.bosses.filter((b) => b.kind === "frigate"),
       missions: (this.squadrons?.squadrons ?? []).flatMap(
         (s) => s.mission === "" ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }]
@@ -3848,6 +3912,9 @@ var NetPlay = class {
     this.name = welcome.name;
     this.worldEvent = welcome.worldEvent;
     this.mapName = welcome.mapName;
+    if (welcome.frontier !== void 0) {
+      this.setFrontier(welcome.frontier);
+    }
     this.clearedSectors.clear();
     for (const sector of welcome.clearedSectors) {
       this.clearedSectors.add(sector);
@@ -4159,6 +4226,9 @@ var SandboxScene = class extends Phaser9.Scene {
   /** The loadout screen at the home planet (#78). */
   loadoutScreen = new LoadoutScreen();
   maps;
+  /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
+  closedLayer;
+  closedDrawn = -1;
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   enemyFire;
@@ -4262,6 +4332,7 @@ var SandboxScene = class extends Phaser9.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       mapOpen: false,
+      openRings: 0,
       mapLayout: { x: 0, y: 0, scale: 0 },
       boss: void 0,
       sector: "",
@@ -4298,6 +4369,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
     this.drawMissionArrow();
     this.drawMaps();
+    this.drawClosed();
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -4383,6 +4455,8 @@ var SandboxScene = class extends Phaser9.Scene {
       }
     }
     this.world.add(lines);
+    this.closedLayer = this.add.graphics();
+    this.world.add(this.closedLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -4561,7 +4635,7 @@ var SandboxScene = class extends Phaser9.Scene {
       this.closeOrderRing();
     };
     this.input.on(Phaser9.Input.Events.POINTER_DOWN, (pointer) => {
-      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set());
+      const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
         this.net?.pickMission(sector);
       }
@@ -4585,6 +4659,33 @@ var SandboxScene = class extends Phaser9.Scene {
     if (event.code === "Tab" || event.code === "Escape") {
       event.preventDefault();
       this.maps.close();
+    }
+  }
+  /** Shades the closed sectors and draws their edge with the open ones, whenever the frontier changes (#123). */
+  drawClosed() {
+    const version = this.net?.frontierVersion ?? 0;
+    if (version === this.closedDrawn) {
+      return;
+    }
+    this.closedDrawn = version;
+    const frontier = this.net?.frontier ?? ALL_OPEN;
+    const g = this.closedLayer.clear();
+    for (const name of SECTOR_NAMES) {
+      if (sectorOpen(name, frontier)) {
+        continue;
+      }
+      const [first, ...rest] = sectorCorners(name);
+      if (first !== void 0) {
+        g.fillStyle(0, CLOSED_SHADE_ALPHA).beginPath().moveTo(first.x, first.y);
+        for (const corner of rest) {
+          g.lineTo(corner.x, corner.y);
+        }
+        g.closePath().fillPath();
+      }
+    }
+    g.lineStyle(CLOSED_EDGE_WIDTH, CLOSED_EDGE_COLOR, CLOSED_EDGE_ALPHA);
+    for (const { a, b } of closedEdges(frontier)) {
+      g.lineBetween(a.x, a.y, b.x, b.y);
     }
   }
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
@@ -5082,7 +5183,7 @@ ${modeName(info)}`,
       `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
-      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0),
+      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? "",
       this.netStatus(),
@@ -5210,13 +5311,14 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.mapOpen = this.maps.open;
+    this.debug.openRings = this.net?.frontier.openRings ?? 0;
     this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
     this.debug.lastClear = this.net?.lastClear;
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
-    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0);
+    this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
     publishDebugState(this.debug);

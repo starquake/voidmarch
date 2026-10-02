@@ -15,6 +15,7 @@ import {
   type MapLayout,
   type MapState,
 } from '../sim/sectormap.ts';
+import type { Frontier } from '../sim/sectors.ts';
 import { SECTOR_RADIUS } from '../sim/rules.gen.ts';
 import {
   FULL_MAP_HEIGHT_PX,
@@ -147,13 +148,13 @@ export class MapView {
   }
 
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
-  pick(x: number, y: number, cleared: ReadonlySet<string>): string | undefined {
+  pick(x: number, y: number, cleared: ReadonlySet<string>, frontier: Frontier): string | undefined {
     if (!this.open) {
       return undefined;
     }
     const name = sectorAtScreen(this.fullLayout, x, y);
 
-    return canPick(name, cleared) ? name : undefined;
+    return canPick(name, cleared, frontier) ? name : undefined;
   }
 
   private drawGrid(g: Phaser.GameObjects.Graphics, drawn: DrawnMap, layout: MapLayout, edge: number, outline: number): void {

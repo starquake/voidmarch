@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { HOME_SECTOR, missionArrow, missionBanner, missionCompleteBanner, SECTOR_NAMES, sectorCenter, sectorCorners, sectorLine, sectorName, sectorState } from './sectors.ts';
+import { ALL_OPEN, closedEdges, HOME_SECTOR, missionArrow, sectorOpen, missionBanner, missionCompleteBanner, SECTOR_NAMES, sectorCenter, sectorCorners, sectorLine, sectorName, sectorState } from './sectors.ts';
 import { SECTOR_RADIUS, WORLD_APOTHEM } from './rules.gen.ts';
 
 /** Ring 1's centers, a sector's width apart from home's. */
@@ -36,6 +36,28 @@ test('the HUD line names the sector and its state', () => {
   assert.equal(sectorLine(-ACROSS, DOWN / 2, undefined), 'Sector C4');
   assert.equal(sectorLine(WORLD_APOTHEM * 2, 0, cleared), '');
   assert.equal(sectorState('D4', undefined), 'home');
+});
+
+test('a frontier opens rings up to its count, and single sectors on their own', () => {
+  const frontier = { openRings: 1, opened: new Set(['D2']) };
+  assert.ok(sectorOpen('D3', frontier) && sectorOpen('D2', frontier));
+  assert.ok(!sectorOpen('C2', frontier) && !sectorOpen('D1', frontier));
+  assert.ok(sectorOpen('D1', ALL_OPEN));
+  assert.ok(!sectorOpen('Z9', ALL_OPEN));
+  assert.equal(sectorLine(0, -2 * DOWN, new Set(), { openRings: 1, opened: new Set() }), 'Sector D2 · closed');
+  assert.equal(sectorLine(0, 0, undefined, { openRings: 1, opened: new Set() }), 'Sector D4 · home');
+});
+
+test('the closed edge runs where ring 1 meets ring 2: 18 sides with only ring 1 open', () => {
+  assert.equal(closedEdges(ALL_OPEN).length, 0);
+  const edges = closedEdges({ openRings: 1, opened: new Set() });
+  assert.equal(edges.length, 18);
+  // One of them is D3's top side, between D3 and D2.
+  const top = -1.5 * DOWN;
+  assert.ok(edges.some(({ a, b }) => Math.abs(a.y - top) < 1e-6 && Math.abs(b.y - top) < 1e-6));
+  // Opening D2 moves its sides out: D3's top is no longer an edge, and D2 has 5 sides on closed ones.
+  const withD2 = closedEdges({ openRings: 1, opened: new Set(['D2']) });
+  assert.ok(!withD2.some(({ a, b }) => Math.abs(a.y - top) < 1e-6 && Math.abs(b.y - top) < 1e-6));
 });
 
 test('the grid is home and three rings, 37 sectors', () => {

@@ -15,6 +15,7 @@ import {
   type SectorCleared,
   type EventStarted,
   type EventEnded,
+  type Frontier as FrontierMessage,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -83,6 +84,8 @@ export interface ConnectionEvents {
   /** A world event began, or ended won or lost (#102). */
   eventStarted(started: EventStarted): void;
   eventEnded(ended: EventEnded): void;
+  /** Which sectors are open changed (#123). */
+  frontier(frontier: FrontierMessage): void;
 }
 
 export interface Timers {
@@ -328,6 +331,9 @@ export class Connection {
         break;
       case 'eventEnded':
         events.eventEnded(message.kind.value);
+        break;
+      case 'frontier':
+        events.frontier(message.kind.value);
         break;
       default:
     }

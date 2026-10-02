@@ -172,16 +172,17 @@ func abs(n int) int {
 	return n
 }
 
-// MissionFor is the default mission (#101): of the uncleared sectors in the
-// ring nearest home, the one nearest near, so ring 1 comes first; a tie goes
-// to the first by name. It reports false when every sector is cleared.
-func MissionFor(cleared map[Sector]bool, near Vec) (Sector, bool) {
+// MissionFor is the default mission (#101): of the open, uncleared sectors in
+// the ring nearest home, the one nearest near, so ring 1 comes first; a tie
+// goes to the first by name. It reports false when every open sector is
+// cleared.
+func MissionFor(cleared map[Sector]bool, f Frontier, near Vec) (Sector, bool) {
 	const tie = 1e-6
 	var best Sector
 	found := false
 	bestRing, bestDistance := 0, math.Inf(1)
 	for _, s := range Sectors() {
-		if s == HomeSector() || cleared[s] {
+		if s == HomeSector() || cleared[s] || !f.Open(s) {
 			continue
 		}
 		c := s.Center()

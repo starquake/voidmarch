@@ -95,6 +95,16 @@ func setRotationSnap(steps int32) {
 	bridge.SetRotationSnap(int(steps))
 }
 
+//go:wasmexport setFrontier
+func setFrontier(openRings int32) {
+	bridge.SetFrontier(int(openRings))
+}
+
+//go:wasmexport openSector
+func openSector(q, r int32) {
+	bridge.OpenSector(int(q), int(r))
+}
+
 //go:wasmexport spawn
 func spawn(kind, faction int32, x, y, angle, age float64, shotID int32) int32 {
 	return int32(bridge.Spawn(int(kind), int(faction), x, y, angle, age, int(shotID)))

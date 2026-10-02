@@ -42,7 +42,9 @@ type Wing struct {
 	Companions []*Companion
 	// Derelicts are the derelict ships its companions may rescue, set before
 	// each Step (#52).
-	Derelicts  []Vec
+	Derelicts []Vec
+	// Frontier is which sectors its companions may fly in (#123).
+	Frontier   Frontier
 	ownerTrail []Mover
 }
 
@@ -172,6 +174,7 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 			StepShip(c.Ship, step.Command, TickSeconds)
 		}
 		ApplyWorldEdge(c.Ship, TickSeconds)
+		ApplyFrontier(c.Ship, w.Frontier, TickSeconds)
 		// Its owner is a squadmate: flying with them gives the formation bonus.
 		Recover(
 			c.Ship,

@@ -700,6 +700,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: string map_name = 19;
    */
   mapName: string;
+
+  /**
+   * Which sectors are open (#123).
+   *
+   * @generated from field: voidmarch.v1.Frontier frontier = 20;
+   */
+  frontier?: Frontier | undefined;
 };
 
 /**
@@ -1509,6 +1516,12 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: EventEnded;
     case: "eventEnded";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Frontier frontier = 22;
+     */
+    value: Frontier;
+    case: "frontier";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1517,6 +1530,33 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
  * Use `create(ServerMessageSchema)` to create a new message.
  */
 export declare const ServerMessageSchema: GenMessage<ServerMessage>;
+
+/**
+ * Frontier is which sectors are open (#123): home and the rings up to
+ * open_rings, and any sector opened on its own, like the Dreadnought's. The
+ * server sends it in Welcome and again whenever it changes.
+ *
+ * @generated from message voidmarch.v1.Frontier
+ */
+export declare type Frontier = Message<"voidmarch.v1.Frontier"> & {
+  /**
+   * @generated from field: uint32 open_rings = 1;
+   */
+  openRings: number;
+
+  /**
+   * Sectors open on their own, by name ("D2").
+   *
+   * @generated from field: repeated string opened = 2;
+   */
+  opened: string[];
+};
+
+/**
+ * Describes the message voidmarch.v1.Frontier.
+ * Use `create(FrontierSchema)` to create a new message.
+ */
+export declare const FrontierSchema: GenMessage<Frontier>;
 
 /**
  * PickupDropped is a part a kill left behind, collectable until gone_tick

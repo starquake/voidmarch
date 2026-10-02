@@ -246,6 +246,8 @@ message Welcome {
   WorldEvent world_event = 18;
   // The game map's name ("frontier"), for the full map's title (#100).
   string map_name = 19;
+  // Which sectors are open (#123).
+  Frontier frontier = 20;
 }
 
 // PlayerSnapshot is one other player at a tick.
@@ -450,7 +452,17 @@ message ServerMessage {
     SectorCleared sector_cleared = 19;
     EventStarted event_started = 20;
     EventEnded event_ended = 21;
+    Frontier frontier = 22;
   }
+}
+
+// Frontier is which sectors are open (#123): home and the rings up to
+// open_rings, and any sector opened on its own, like the Dreadnought's. The
+// server sends it in Welcome and again whenever it changes.
+message Frontier {
+  uint32 open_rings = 1;
+  // Sectors open on their own, by name ("D2").
+  repeated string opened = 2;
 }
 
 // PickupDropped is a part a kill left behind, collectable until gone_tick

@@ -72,6 +72,8 @@ export interface DebugState {
   /** Whether the full map is open (#100), and where its grid sits in device pixels. */
   mapOpen: boolean;
   mapLayout: { x: number; y: number; scale: number };
+  /** How many rings around home are open, as the server says (#123); 0 for all, offline. */
+  openRings: number;
   /** The derelicts waiting to be rescued, and how many this player rescued (#52). */
   derelicts: DerelictDebug[];
   rescues: number;

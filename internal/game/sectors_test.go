@@ -49,6 +49,47 @@ func TestWelcome_NamesTheMap(t *testing.T) {
 	}
 }
 
+func TestFrontier_OnlyRingOneIsOpenAtFirst(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	if _, w := join(t, hub, "a"); w.GetFrontier().GetOpenRings() != 1 {
+		t.Errorf("Welcome.Frontier = %+v, want ring 1 open", w.GetFrontier())
+	}
+	all, _ := testHub(t, WithOpenRings(3))
+	if _, w := join(t, all, "a"); w.GetFrontier().GetOpenRings() != 3 {
+		t.Errorf("Welcome.Frontier = %+v with every ring saved open, want 3", w.GetFrontier())
+	}
+}
+
+func TestFrontier_AClosedSectorsGarrisonStaysAsleep(t *testing.T) {
+	t.Parallel()
+
+	d2, _ := sim.ParseSector("D2")
+	c := d2.Center()
+	in := func(snap *pb.Snapshot) int {
+		n := 0
+		for _, e := range snap.GetEnemies() {
+			if d2.Contains(float64(e.GetX()), float64(e.GetY())) {
+				n++
+			}
+		}
+
+		return n
+	}
+
+	hub, tick := testHub(t)
+	a, _ := join(t, hub, "a")
+	if n := in(must(latest(t, a, tick, 2, float32(c.X), float32(c.Y)))); n != 0 {
+		t.Errorf("%d enemies in closed D2 with a ship in it, want its garrison asleep", n)
+	}
+	open, tick := testHub(t, WithOpenRings(2))
+	b, _ := join(t, open, "b")
+	if n := in(must(latest(t, b, tick, 2, float32(c.X), float32(c.Y)))); n == 0 {
+		t.Error("no enemies in D2 with ring 2 open and a ship in it, want its garrison awake")
+	}
+}
+
 // towardE4 is the point d along the line from home's center to E4's, the
 // sector down and right of it: home's edge is 857 along, E4's center 1,715.
 func towardE4(d float64) (x, y float32) {

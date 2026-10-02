@@ -45,12 +45,28 @@ func TestMissions_ASquadmatePicksAnUnclearedSector(t *testing.T) {
 	j := chooseAndWait(t, a, "")
 	nextSquadrons(t, a)
 
-	for _, bad := range []string{"C3", "D4", "Z9"} {
+	for _, bad := range []string{"C3", "D4", "Z9", "E5"} {
 		a.Send(pickMission(bad))
 	}
+	a.Send(pickMission("E4"))
+	if got := missionOf(nextSquadrons(t, a), j.GetName()); got != "E4" {
+		t.Errorf(
+			"mission = %q after picks of C3 (cleared), D4 (home), Z9, E5 (closed) and E4; want E4",
+			got,
+		)
+	}
+}
+
+func TestMissions_ASectorInAnOpenRingCanBePicked(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t, WithOpenRings(3))
+	a, _ := join(t, hub, "a")
+	j := chooseAndWait(t, a, "")
+	nextSquadrons(t, a)
 	a.Send(pickMission("E5"))
 	if got := missionOf(nextSquadrons(t, a), j.GetName()); got != "E5" {
-		t.Errorf("mission = %q after picks of C3 (cleared), D4 (home), Z9 and E5; want E5", got)
+		t.Errorf("mission = %q after a pick of E5 with every ring open, want E5", got)
 	}
 }
 

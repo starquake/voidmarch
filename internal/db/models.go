@@ -13,6 +13,11 @@ type ClearedSector struct {
 	ClearedAt int64
 }
 
+type Frontier struct {
+	ID        int64
+	OpenRings int64
+}
+
 type Hangar struct {
 	ID    int64
 	Ships int64

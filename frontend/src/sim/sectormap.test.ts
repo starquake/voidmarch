@@ -15,10 +15,11 @@ import {
   sectorFill,
   type MapState,
 } from './sectormap.ts';
-import { GRID_EXTENT, sectorCenter, sectorRing } from './sectors.ts';
+import { ALL_OPEN, GRID_EXTENT, sectorCenter, sectorRing } from './sectors.ts';
 import {
   EVENT_COLOR,
   MAP_CLEARED_COLOR,
+  MAP_CLOSED_COLOR,
   MAP_HOME_COLOR,
   MAP_HOSTILE_COLORS,
   MAP_OTHER_MISSION_COLOR,
@@ -29,8 +30,11 @@ import {
   MISSION_COLOR,
 } from './tuning.ts';
 
+const ringOne = { openRings: 1, opened: new Set<string>() };
+
 const state = (over: Partial<MapState> = {}): MapState => ({
   cleared: new Set(['D3', 'E3', 'E4']),
+  frontier: ALL_OPEN,
   frigates: [],
   missions: [
     { squadron: 'Alpha', sector: 'C3', own: true },
@@ -71,6 +75,13 @@ test('sectors are home blue, cleared green and hostile red, darker by ring', () 
   assert.equal(sectorFill('C3', s, false), MAP_HOSTILE_COLORS[1]);
   assert.equal(sectorFill('D1', s, false), MAP_HOSTILE_COLORS[3]);
   assert.equal(sectorRing('D1'), 3);
+});
+
+test('a closed sector is gray, whatever its state', () => {
+  const s = state({ frontier: { openRings: 1, opened: new Set(['C2']) } });
+  assert.equal(sectorFill('D2', s, false), MAP_CLOSED_COLOR);
+  assert.equal(sectorFill('C2', s, false), MAP_HOSTILE_COLORS[2]);
+  assert.equal(sectorFill('E4', s, false), MAP_CLEARED_COLOR);
 });
 
 test('a sector under attack flashes, and only on the flash phase', () => {
@@ -129,10 +140,12 @@ test('a click names the sector under it, and only uncleared ones can be picked',
   assert.equal(name, 'C3');
   assert.equal(sectorAtScreen(layout, 0, 0), undefined);
   const cleared = new Set(['E4']);
-  assert.ok(canPick('C3', cleared));
-  assert.ok(!canPick('E4', cleared));
-  assert.ok(!canPick('D4', cleared));
-  assert.ok(!canPick(undefined, cleared));
+  assert.ok(canPick('C3', cleared, ringOne));
+  assert.ok(!canPick('E4', cleared, ringOne));
+  assert.ok(!canPick('D4', cleared, ringOne));
+  assert.ok(!canPick(undefined, cleared, ringOne));
+  assert.ok(!canPick('D2', cleared, ringOne), 'closed');
+  assert.ok(canPick('D2', cleared, ALL_OPEN));
 });
 
 test('the title counts ring 1, and the lines name every squadron\'s mission', () => {

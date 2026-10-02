@@ -190,6 +190,29 @@ func SaveHangar(ctx context.Context, conn *sql.DB, ships int) error {
 	return nil
 }
 
+// OpenRings returns how many rings around home are open (#123), and false
+// before any was saved.
+func OpenRings(ctx context.Context, conn *sql.DB) (int, bool, error) {
+	rings, err := queries.New(conn).OpenRings(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("error reading open rings: %w", err)
+	}
+
+	return int(rings), true, nil
+}
+
+// SaveOpenRings saves how many rings around home are open.
+func SaveOpenRings(ctx context.Context, conn *sql.DB, rings int) error {
+	if err := queries.New(conn).SaveOpenRings(ctx, int64(rings)); err != nil {
+		return fmt.Errorf("error saving open rings: %w", err)
+	}
+
+	return nil
+}
+
 // ClearedSectors returns the names of the cleared sectors (#99).
 func ClearedSectors(ctx context.Context, conn *sql.DB) ([]string, error) {
 	names, err := queries.New(conn).ClearedSectors(ctx)
