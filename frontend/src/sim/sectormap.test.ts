@@ -36,6 +36,7 @@ const state = (over: Partial<MapState> = {}): MapState => ({
   cleared: new Set(['D3', 'E3', 'E4']),
   frontier: ALL_OPEN,
   frigates: [],
+  dreadnoughts: [],
   missions: [
     { squadron: 'Alpha', sector: 'C3', own: true },
     { squadron: 'Beta', sector: 'C4', own: false },
@@ -75,6 +76,15 @@ test('sectors are home blue, cleared green and hostile red, darker by ring', () 
   assert.equal(sectorFill('C3', s, false), MAP_HOSTILE_COLORS[1]);
   assert.equal(sectorFill('D1', s, false), MAP_HOSTILE_COLORS[3]);
   assert.equal(sectorRing('D1'), 3);
+});
+
+test('an awake Dreadnought gets its own marker and a line in the legend', () => {
+  const d2 = sectorCenter('D2') ?? { x: 0, y: 0 };
+  const drawn = drawnMap(state({ dreadnoughts: [{ x: d2.x + 40, y: d2.y }] }), layoutForWidth(0, 0, 170), false);
+  assert.equal(drawn.dreadnoughts.length, 1);
+  assert.equal(drawn.frigates.length, 0);
+  assert.match(mapLegend(state().missions, true)[0] ?? '', /▲ Frigate {5}▲ Dreadnought/);
+  assert.doesNotMatch(mapLegend(state().missions)[0] ?? '', /Dreadnought/);
 });
 
 test('a closed sector is gray, whatever its state', () => {

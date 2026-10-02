@@ -37,6 +37,8 @@ export interface MapState {
   frontier: Frontier;
   /** Where the Frigates still up are. */
   frigates: readonly Point[];
+  /** Where the Dreadnought is while it's awake (#124). */
+  dreadnoughts: readonly Point[];
   missions: readonly MapMission[];
   /** The sector under attack, if any (#102). */
   attack: string | undefined;
@@ -56,6 +58,7 @@ export interface DrawnSector {
 export interface DrawnMap {
   sectors: DrawnSector[];
   frigates: Point[];
+  dreadnoughts: Point[];
   you: Point;
   squadmates: (Point & { color: number })[];
 }
@@ -120,12 +123,15 @@ export function drawnMap(state: MapState, layout: MapLayout, flash: boolean): Dr
     fill: sectorFill(name, state, flash),
     outline: outlines.get(name),
   }));
-  const frigateSectors = new Set(state.frigates.flatMap((f) => sectorName(f.x, f.y) ?? []));
-  const frigates = [...frigateSectors].map((name) => toScreen(layout, sectorCenter(name) ?? { x: 0, y: 0 }));
+  const bySector = (points: readonly Point[]): Point[] =>
+    [...new Set(points.flatMap((p) => sectorName(p.x, p.y) ?? []))].map((name) => toScreen(layout, sectorCenter(name) ?? { x: 0, y: 0 }));
+  const frigates = bySector(state.frigates);
+  const dreadnoughts = bySector(state.dreadnoughts);
 
   return {
     sectors,
     frigates,
+    dreadnoughts,
     you: toScreen(layout, state.you),
     squadmates: state.squadmates.map((s) => ({ ...toScreen(layout, s), color: s.color })),
   };
@@ -156,12 +162,13 @@ export function missionsLine(missions: readonly MapMission[]): string {
 }
 
 /** The full map's legend, then how to pick a mission. */
-export function mapLegend(missions: readonly MapMission[]): string[] {
+export function mapLegend(missions: readonly MapMission[], dreadnought = false): string[] {
   const own = missions.find((m) => m.own);
   const sent = missions.map((m) => `■ ${m.squadron}${m.own ? ' (you)' : ''}: ${m.sector}`);
+  const bosses = dreadnought ? ['▲ Frigate', '▲ Dreadnought'] : ['▲ Frigate'];
 
   return [
-    [...sent, '▲ Frigate', '● you', '● squadmate'].join('     '),
+    [...sent, ...bosses, '● you', '● squadmate'].join('     '),
     own === undefined ? '' : `Click an uncleared sector to send ${own.squadron} there.`,
   ];
 }

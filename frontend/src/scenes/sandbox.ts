@@ -282,6 +282,7 @@ export class SandboxScene extends Phaser.Scene {
       loadoutScreen: false,
       mapOpen: false,
       openRings: 0,
+      openedSectors: [],
       mapLayout: { x: 0, y: 0, scale: 0 },
       boss: undefined,
       sector: '',
@@ -1388,6 +1389,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.mapOpen = this.maps.open;
     this.debug.openRings = this.net?.frontier.openRings ?? 0;
+    this.debug.openedSectors = [...(this.net?.frontier.opened ?? [])];
     this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;

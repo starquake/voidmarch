@@ -5,6 +5,7 @@
   ],
   "field": 3,
   "noEvents": true,
+  "dreadnoughtAwake": true,
   "garrisons": {
     "D5": 500,
     "E4": 2,

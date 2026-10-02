@@ -219,6 +219,7 @@ var ENEMY_RADIUS = {
 };
 var FRIGATE_REACH = 800;
 var FRIGATE_SHIELD = 20;
+var DREADNOUGHT_SHIELD = 120;
 var LAYOUT = {
   ticks: 0,
   alpha: 1,
@@ -1365,11 +1366,13 @@ function drawnMap(state, layout, flash) {
     fill: sectorFill(name, state, flash),
     outline: outlines.get(name)
   }));
-  const frigateSectors = new Set(state.frigates.flatMap((f) => sectorName(f.x, f.y) ?? []));
-  const frigates = [...frigateSectors].map((name) => toScreen(layout, sectorCenter(name) ?? { x: 0, y: 0 }));
+  const bySector = (points) => [...new Set(points.flatMap((p) => sectorName(p.x, p.y) ?? []))].map((name) => toScreen(layout, sectorCenter(name) ?? { x: 0, y: 0 }));
+  const frigates = bySector(state.frigates);
+  const dreadnoughts = bySector(state.dreadnoughts);
   return {
     sectors,
     frigates,
+    dreadnoughts,
     you: toScreen(layout, state.you),
     squadmates: state.squadmates.map((s) => ({ ...toScreen(layout, s), color: s.color }))
   };
@@ -1389,11 +1392,12 @@ function mapTitle(mapName, cleared) {
 function missionsLine(missions) {
   return missions.map((m) => `${m.squadron} \u2192 ${m.sector}`).join(" \xB7 ");
 }
-function mapLegend(missions) {
+function mapLegend(missions, dreadnought = false) {
   const own = missions.find((m) => m.own);
   const sent = missions.map((m) => `\u25A0 ${m.squadron}${m.own ? " (you)" : ""}: ${m.sector}`);
+  const bosses = dreadnought ? ["\u25B2 Frigate", "\u25B2 Dreadnought"] : ["\u25B2 Frigate"];
   return [
-    [...sent, "\u25B2 Frigate", "\u25CF you", "\u25CF squadmate"].join("     "),
+    [...sent, ...bosses, "\u25CF you", "\u25CF squadmate"].join("     "),
     own === void 0 ? "" : `Click an uncleared sector to send ${own.squadron} there.`
   ];
 }
@@ -1412,6 +1416,7 @@ var YOU_SHARE_OF_FRIGATE = 0.45;
 var YOU_MIN_PX = 2;
 var SQUADMATE_SHARE_OF_YOU = 0.8;
 var NAME_LIFT_SHARE = 0.55;
+var DREADNOUGHT_MARKER = 1.7;
 var MAP_DEPTH = 10;
 var MapView = class {
   open = false;
@@ -1494,7 +1499,7 @@ var MapView = class {
     this.drawNames(drawn);
     this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
-    this.legend.setText(mapLegend(state.missions).join("\n")).setPosition(this.fullLayout.x, legendY);
+    this.legend.setText(mapLegend(state.missions, state.dreadnoughts.length > 0).join("\n")).setPosition(this.fullLayout.x, legendY);
   }
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
   pick(x, y, cleared, frontier) {
@@ -1525,6 +1530,10 @@ var MapView = class {
     g.fillStyle(MAP_FRIGATE_COLOR, 1);
     for (const f of drawn.frigates) {
       g.fillTriangle(f.x, f.y - marker, f.x - marker, f.y + marker, f.x + marker, f.y + marker);
+    }
+    const big = marker * DREADNOUGHT_MARKER;
+    for (const d of drawn.dreadnoughts) {
+      g.fillTriangle(d.x, d.y - big, d.x - big, d.y + big, d.x + big, d.y + big);
     }
     const dot = Math.max(YOU_MIN_PX * scale, marker * YOU_SHARE_OF_FRIGATE);
     for (const s of drawn.squadmates) {
@@ -2239,27 +2248,31 @@ var WeaponAnimator = class {
 };
 
 // src/net/boss.ts
-var BOSS_NAMES = { frigate: "KLA'ED FRIGATE" };
+var BOSSES = {
+  frigate: { name: "KLA'ED FRIGATE", shield: FRIGATE_SHIELD },
+  dreadnought: { name: "KLA'ED DREADNOUGHT", shield: DREADNOUGHT_SHIELD }
+};
 function bossBar(bosses, x, y) {
   let nearest;
   let distance = FRIGATE_REACH;
-  for (const boss of bosses) {
-    const d = Math.hypot(boss.x - x, boss.y - y);
-    if (d <= distance && BOSS_NAMES[boss.kind] !== void 0) {
-      nearest = boss;
+  for (const boss2 of bosses) {
+    const d = Math.hypot(boss2.x - x, boss2.y - y);
+    if (d <= distance && BOSSES[boss2.kind] !== void 0) {
+      nearest = boss2;
       distance = d;
     }
   }
-  if (nearest === void 0 || nearest.maxHp <= 0) {
+  const boss = nearest === void 0 ? void 0 : BOSSES[nearest.kind];
+  if (nearest === void 0 || boss === void 0 || nearest.maxHp <= 0) {
     return void 0;
   }
   const hp = Math.max(0, Math.ceil(nearest.hp));
   const max = Math.round(nearest.maxHp);
   const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} nearby` : "";
   return {
-    name: BOSS_NAMES[nearest.kind] ?? "",
+    name: boss.name,
     health: Math.min(hp / max, 1),
-    shield: Math.min(Math.max(nearest.shield / FRIGATE_SHIELD, 0), 1),
+    shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
     text: `${String(hp)} / ${String(max)}${scaled}`
   };
 }
@@ -3476,6 +3489,7 @@ var NetPlay = class {
       cleared: this.clearedSectors,
       frontier: this.frontier,
       frigates: this.bosses.filter((b) => b.kind === "frigate"),
+      dreadnoughts: this.bosses.filter((b) => b.kind === "dreadnought"),
       missions: (this.squadrons?.squadrons ?? []).flatMap(
         (s) => s.mission === "" ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }]
       ),
@@ -4340,6 +4354,7 @@ var SandboxScene = class extends Phaser9.Scene {
       loadoutScreen: false,
       mapOpen: false,
       openRings: 0,
+      openedSectors: [],
       mapLayout: { x: 0, y: 0, scale: 0 },
       boss: void 0,
       sector: "",
@@ -5319,6 +5334,7 @@ ${modeName(info)}`,
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.mapOpen = this.maps.open;
     this.debug.openRings = this.net?.frontier.openRings ?? 0;
+    this.debug.openedSectors = [...this.net?.frontier.opened ?? []];
     this.debug.mapLayout = { ...this.maps.layout };
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;

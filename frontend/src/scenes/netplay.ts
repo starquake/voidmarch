@@ -458,6 +458,7 @@ export class NetPlay {
       cleared: this.clearedSectors,
       frontier: this.frontier,
       frigates: this.bosses.filter((b) => b.kind === 'frigate'),
+      dreadnoughts: this.bosses.filter((b) => b.kind === 'dreadnought'),
       missions: (this.squadrons?.squadrons ?? []).flatMap((s) =>
         s.mission === '' ? [] : [{ squadron: s.name, sector: s.mission, own: s.name === this.squadron }],
       ),

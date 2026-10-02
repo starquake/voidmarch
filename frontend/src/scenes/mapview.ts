@@ -47,6 +47,8 @@ const YOU_MIN_PX = 2;
 const SQUADMATE_SHARE_OF_YOU = 0.8;
 /** How high above a sector's center its name sits, as a share of its radius. */
 const NAME_LIFT_SHARE = 0.55;
+/** The Dreadnought's marker against a Frigate's (#124). */
+const DREADNOUGHT_MARKER = 1.7;
 /** Above the rest of the HUD; the sector names above the full map's grid. */
 const MAP_DEPTH = 10;
 
@@ -144,7 +146,7 @@ export class MapView {
     this.drawNames(drawn);
     this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
-    this.legend.setText(mapLegend(state.missions).join('\n')).setPosition(this.fullLayout.x, legendY);
+    this.legend.setText(mapLegend(state.missions, state.dreadnoughts.length > 0).join('\n')).setPosition(this.fullLayout.x, legendY);
   }
 
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
@@ -178,6 +180,10 @@ export class MapView {
     g.fillStyle(MAP_FRIGATE_COLOR, 1);
     for (const f of drawn.frigates) {
       g.fillTriangle(f.x, f.y - marker, f.x - marker, f.y + marker, f.x + marker, f.y + marker);
+    }
+    const big = marker * DREADNOUGHT_MARKER;
+    for (const d of drawn.dreadnoughts) {
+      g.fillTriangle(d.x, d.y - big, d.x - big, d.y + big, d.x + big, d.y + big);
     }
     const dot = Math.max(YOU_MIN_PX * scale, marker * YOU_SHARE_OF_FRIGATE);
     for (const s of drawn.squadmates) {

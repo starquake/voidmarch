@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { bossBar, type DrawnBoss } from './boss.ts';
-import { FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
+import { DREADNOUGHT_HP, DREADNOUGHT_SHIELD, FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
 
 const frigate = (over: Partial<DrawnBoss> = {}): DrawnBoss => ({
   kind: 'frigate',
@@ -21,6 +21,16 @@ test('the bar names the Frigate and shows its health, shield and the players it 
     health: 96 / 130,
     shield: 0.5,
     text: '96 / 130 · scaled for 3 nearby',
+  });
+});
+
+test('the bar names the Dreadnought and fills its shield against its own size', () => {
+  const dreadnought = frigate({ kind: 'dreadnought', hp: 150_000, maxHp: DREADNOUGHT_HP, shield: DREADNOUGHT_SHIELD / 4, scaledFor: 0 });
+  assert.deepEqual(bossBar([dreadnought], 0, 0), {
+    name: "KLA'ED DREADNOUGHT",
+    health: 150_000 / DREADNOUGHT_HP,
+    shield: 0.25,
+    text: `150000 / ${String(DREADNOUGHT_HP)}`,
   });
 });
 
