@@ -36,6 +36,7 @@ func (h *Hub) flyCompanions() {
 			}
 			m.wing.Observe(owner)
 			m.wing.Derelicts = derelicts
+			m.wing.Frontier = h.frontier
 			for _, shot := range m.wing.Step(h.brainEnemies(m), h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}

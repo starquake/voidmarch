@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 3; got != want {
+	if got, want := version, 4; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -34,7 +34,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := mode, "wal"; got != want {
 		t.Errorf("journal_mode = %q, want %q", got, want)
 	}
-	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors"} {
+	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)
 		if err = row.Scan(&n); err != nil {
@@ -81,8 +81,10 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	if err = ClearSector(t.Context(), db, "G7", time.Unix(1, 0)); err != nil {
 		t.Fatalf("ClearSector() error = %v", err)
 	}
-	if _, err = db.ExecContext(t.Context(), "PRAGMA user_version = 2"); err != nil {
-		t.Fatalf("setting user_version: %v", err)
+	// A version-2 file, from before the later migrations' tables.
+	_, err = db.ExecContext(t.Context(), "DROP TABLE frontier; PRAGMA user_version = 2")
+	if err != nil {
+		t.Fatalf("rolling the file back to version 2: %v", err)
 	}
 	_ = db.Close()
 
@@ -162,6 +164,30 @@ func TestHangar(t *testing.T) {
 		got, ok, err := Hangar(t.Context(), db)
 		if err != nil || !ok || got != ships {
 			t.Errorf("Hangar() = %d, %t, %v, want %d, true, nil", got, ok, err, ships)
+		}
+	}
+}
+
+func TestOpenRings(t *testing.T) {
+	t.Parallel()
+
+	db, err := Open(t.Context(), filepath.Join(t.TempDir(), "voidmarch.db"))
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	rings, ok, err := OpenRings(t.Context(), db)
+	if err != nil || ok {
+		t.Errorf("OpenRings() on a fresh file = %d, %t, %v; want none saved", rings, ok, err)
+	}
+	for _, want := range []int{3, 1} {
+		if err = SaveOpenRings(t.Context(), db, want); err != nil {
+			t.Fatalf("SaveOpenRings(%d) error = %v", want, err)
+		}
+		rings, ok, err = OpenRings(t.Context(), db)
+		if err != nil || !ok || rings != want {
+			t.Errorf("OpenRings() = %d, %t, %v; want %d", rings, ok, err, want)
 		}
 	}
 }

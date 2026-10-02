@@ -234,7 +234,7 @@ func TestMissionFor(t *testing.T) {
 		for _, n := range tc.cleared {
 			cleared[sector(n)] = true
 		}
-		got, ok := MissionFor(cleared, tc.near)
+		got, ok := MissionFor(cleared, Frontier{}, tc.near)
 		if !ok || got.Name() != tc.want {
 			t.Errorf("%s: MissionFor() = %s, %t; want %s", tc.name, got.Name(), ok, tc.want)
 		}
@@ -244,7 +244,23 @@ func TestMissionFor(t *testing.T) {
 	for _, s := range Sectors() {
 		all[s] = true
 	}
-	if s, ok := MissionFor(all, Vec{}); ok {
+	if s, ok := MissionFor(all, Frontier{}, Vec{}); ok {
 		t.Errorf("MissionFor(everything cleared) = %s, want none", s.Name())
+	}
+	ringOne := map[Sector]bool{}
+	for _, s := range Sectors() {
+		if s.Ring() == 1 {
+			ringOne[s] = true
+		}
+	}
+	if s, ok := MissionFor(ringOne, Frontier{OpenRings: 1}, Vec{}); ok {
+		t.Errorf("MissionFor(ring 1 cleared, ring 2 closed) = %s, want none", s.Name())
+	}
+	if s, ok := MissionFor(ringOne, Frontier{}, Vec{}); !ok || s.Ring() != 2 {
+		t.Errorf(
+			"MissionFor(ring 1 cleared, every ring open) = %s, %t; want one in ring 2",
+			s.Name(),
+			ok,
+		)
 	}
 }

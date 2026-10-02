@@ -124,8 +124,18 @@ func newHub(
 
 		return nil, fmt.Errorf("error starting the hub: %w", err)
 	}
+	openRings, saved, err := store.OpenRings(ctx, db)
+	if err != nil {
+		logger.ErrorContext(ctx, "error reading open rings", slog.Any("err", err))
+
+		return nil, fmt.Errorf("error starting the hub: %w", err)
+	}
+	if !saved {
+		openRings = 1
+	}
 	hubOptions := []game.HubOption{
 		game.WithMap(m),
+		game.WithOpenRings(openRings),
 		game.WithPoolStart(poolStart),
 		game.WithSaveFleet(fleetSaver(ctx, logger, db)),
 		game.WithSaveUnlock(unlockSaver(ctx, logger, playerStore)),

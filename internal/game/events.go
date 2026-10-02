@@ -97,7 +97,7 @@ func (h *Hub) stepEvents() {
 func (h *Hub) startAttack(ticks uint32) bool {
 	var targets []sim.Sector
 	for _, s := range sim.Sectors() {
-		if h.cleared[s] && h.bordersHostile(s) {
+		if h.cleared[s] && h.bordersHostile(s) && h.frontier.Open(s) {
 			targets = append(targets, s)
 		}
 	}
@@ -154,7 +154,7 @@ func (h *Hub) attackSpot(spot frigateSpot) int {
 func (h *Hub) startDistress(ticks uint32) {
 	var spots []sim.Sector
 	for _, s := range sim.Sectors() {
-		if s != sim.HomeSector() && h.bordersReached(s) {
+		if s != sim.HomeSector() && h.bordersReached(s) && h.frontier.Open(s) {
 			spots = append(spots, s)
 		}
 	}

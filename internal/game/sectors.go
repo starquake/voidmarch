@@ -49,6 +49,36 @@ func (h *Hub) clearedNames() []string {
 	return out
 }
 
+// openAt reports whether (x, y) is in an open sector, or off the grid.
+func (h *Hub) openAt(x, y float64) bool {
+	s, ok := sim.SectorAt(x, y)
+
+	return !ok || h.frontier.Open(s)
+}
+
+// frontierMessage is the frontier as the client hears it (#123).
+func (h *Hub) frontierMessage() *pb.Frontier {
+	opened := make([]string, 0, len(h.frontier.Opened))
+	for s, open := range h.frontier.Opened {
+		if open {
+			opened = append(opened, s.Name())
+		}
+	}
+	slices.Sort(opened)
+
+	rings := uint32(h.frontier.OpenRings) //nolint:gosec // a few rings.
+
+	return &pb.Frontier{OpenRings: rings, Opened: opened}
+}
+
+// WithOpenRings opens home and the rings up to n, as saved (#123); a hub
+// starts with ring 1 open.
+func WithOpenRings(n int) HubOption {
+	return func(o *hubOptions) {
+		o.openRings = n
+	}
+}
+
 // mapName is the game map's name, empty without one.
 func (h *Hub) mapName() string {
 	if h.worldMap == nil {
@@ -148,7 +178,7 @@ func newGarrisons(m *world.Map, cleared map[sim.Sector]bool) map[sim.Sector]*gar
 func (h *Hub) stepGarrisons(ships []upShip) {
 	for _, s := range sim.Sectors() {
 		g := h.garrisons[s]
-		if g == nil {
+		if g == nil || !h.frontier.Open(s) {
 			continue
 		}
 		near := false
@@ -298,7 +328,8 @@ func (h *Hub) spawnNear(p point, kind pb.EnemyKind) {
 		distance := spawnMinDistance + h.rng.Float64()*(spawnMaxDistance-spawnMinDistance)
 		x := p.x + distance*math.Cos(angle)
 		y := p.y + distance*math.Sin(angle)
-		if math.Hypot(x, y) > safeRadius && sim.WorldReach(x, y) < sim.WorldApothem {
+		if math.Hypot(x, y) > safeRadius && sim.WorldReach(x, y) < sim.WorldApothem &&
+			h.openAt(x, y) {
 			h.addEnemyOf(kind, x, y)
 
 			return

@@ -178,6 +178,7 @@ type Hub struct {
 	lastOnline    uint32
 	forgetSector  func(name string)
 	worldMap      *world.Map
+	frontier      sim.Frontier
 	garrisonField int
 	saveSector    func(name string)
 	dropChance    float64
@@ -212,6 +213,7 @@ type hubOptions struct {
 	saveLoadout   func(player string, l sim.Loadout)
 	development   bool
 	worldMap      *world.Map
+	openRings     int
 	cleared       []string
 	saveSector    func(name string)
 	forgetSector  func(name string)
@@ -247,7 +249,7 @@ func WithSeed(seed uint64) HubOption {
 
 // NewHub returns a hub; start it with [Hub.Run].
 func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
-	o := hubOptions{poolStart: MaxPlayers}
+	o := hubOptions{poolStart: MaxPlayers, openRings: 1}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -285,6 +287,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	h.lastStraggler = make(map[sim.Sector]uint32)
 	h.departed = make(map[string]kept)
 	h.worldMap = o.worldMap
+	h.frontier = sim.Frontier{OpenRings: o.openRings}
 	h.forgetSector = o.forgetSector
 	h.eventTimes = defaultEventTimes()
 	if o.worldMap != nil && o.worldMap.NoEvents {
@@ -478,14 +481,13 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	)
 
 	welcome := &pb.Welcome{
-		PlayerId: player.ID,
-		Name:     player.Name,
-		Color:    color,
-		SpawnX:   spawnX,
-		SpawnY:   spawnY,
-		Tick:     h.tick,
-		TickRate: TickRate,
-
+		PlayerId:       player.ID,
+		Name:           player.Name,
+		Color:          color,
+		SpawnX:         spawnX,
+		SpawnY:         spawnY,
+		Tick:           h.tick,
+		TickRate:       TickRate,
 		CompanionLimit: companionLimit,
 		Companions:     slices.Sorted(maps.Keys(companions)),
 		Squadrons:      h.squadronsMessage(),
@@ -497,6 +499,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		ClearedSectors: h.clearedNames(),
 		WorldEvent:     eventMessage(h.event),
 		MapName:        h.mapName(),
+		Frontier:       h.frontierMessage(),
 	}
 
 	return joinResult{session: s, welcome: welcome}

@@ -18,11 +18,11 @@ func shipAt(m *member) sim.Vec {
 }
 
 // pickMission sends m's squadron to the named sector, if it's on the grid,
-// not home and not cleared (#101).
+// open, not home and not cleared (#101, #123).
 func (h *Hub) pickMission(m *member, name string) {
 	sq := h.squadrons[m.squadron]
 	s, ok := sim.ParseSector(name)
-	if sq == nil || !ok || s == sim.HomeSector() || h.cleared[s] {
+	if sq == nil || !ok || s == sim.HomeSector() || h.cleared[s] || !h.frontier.Open(s) {
 		return
 	}
 	sq.mission, sq.hasMission = s, true
@@ -41,7 +41,7 @@ func (h *Hub) moveMissionsOn(s sim.Sector) {
 		if len(sq.members) > 0 {
 			first = h.members[sq.members[0]]
 		}
-		sq.mission, sq.hasMission = sim.MissionFor(h.cleared, shipAt(first))
+		sq.mission, sq.hasMission = sim.MissionFor(h.cleared, h.frontier, shipAt(first))
 	}
 }
 

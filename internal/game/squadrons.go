@@ -121,7 +121,7 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		}
 		h.leaveSquadron(id, m)
 		sq = &squadron{name: next, mode: pb.CompanionMode_COMPANION_MODE_ESCORT}
-		sq.mission, sq.hasMission = sim.MissionFor(h.cleared, shipAt(m))
+		sq.mission, sq.hasMission = sim.MissionFor(h.cleared, h.frontier, shipAt(m))
 		h.squadrons[next] = sq
 	case m.squadron:
 		sq = h.squadrons[name]
