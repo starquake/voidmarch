@@ -147,6 +147,33 @@ func TestSector_Neighbors(t *testing.T) {
 	}
 }
 
+func TestSector_Inside(t *testing.T) {
+	t.Parallel()
+
+	e4, _ := ParseSector("E4")
+	c := e4.Center()
+	tests := []struct {
+		dy, margin float64
+		want       bool
+	}{
+		{0, 200, true},
+		{SectorApothem - 100, 80, true},
+		{SectorApothem - 50, 80, false},
+		{SectorApothem + 10, 0, false},
+	}
+	for _, tc := range tests {
+		if got := e4.Inside(c.X, c.Y+tc.dy, tc.margin); got != tc.want {
+			t.Errorf(
+				"Inside(%v below center, margin %v) = %t, want %t",
+				tc.dy,
+				tc.margin,
+				got,
+				tc.want,
+			)
+		}
+	}
+}
+
 func TestSector_BeyondAndClamp(t *testing.T) {
 	t.Parallel()
 

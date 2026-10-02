@@ -65,8 +65,11 @@ const (
 	// garrisonActive is the most of a garrison on the field at once, unless
 	// the map says fewer.
 	garrisonActive = 24
-	// garrisonPosts is how far from its sector's center a garrison waits.
-	garrisonPosts = 350
+	// roamMargin keeps a garrison's roam points this far in from its sector's
+	// sides (#121).
+	roamMargin = 80
+	// roamSpeedShare is the share of its top speed a garrison ship roams at.
+	roamSpeedShare = 0.4
 	// postClearance keeps reinforcements out of sight: none takes a post
 	// this close to a ship.
 	postClearance = 400
@@ -166,9 +169,8 @@ func (h *Hub) stepGarrisons(ships []upShip) {
 // fillGarrison brings the garrison's reserve onto the field, up to
 // garrisonField, each at a post out of every ship's sight.
 func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
-	center := g.sector.Center()
 	for g.field < h.garrisonField && g.reserve() > 0 {
-		post, ok := h.freePost(point{center.X, center.Y}, ships)
+		post, ok := h.freePost(g.sector, ships)
 		if !ok {
 			return
 		}
@@ -182,18 +184,32 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 	}
 }
 
-// freePost is a post around center with no ship within postClearance.
-func (h *Hub) freePost(center point, ships []upShip) (point, bool) {
+// freePost is a point anywhere in s with no ship within postClearance.
+func (h *Hub) freePost(s sim.Sector, ships []upShip) (point, bool) {
 	for range spawnAttempts {
-		angle := h.rng.Float64() * fullTurnFloat
-		distance := h.rng.Float64() * garrisonPosts
-		p := point{center.x + distance*math.Cos(angle), center.y + distance*math.Sin(angle)}
+		p := h.roamPoint(s)
 		if _, d := nearestShip(p, ships); d > postClearance {
 			return p, true
 		}
 	}
 
 	return point{}, false
+}
+
+// roamPoint is a random point in s, roamMargin in from its sides.
+func (h *Hub) roamPoint(s sim.Sector) point {
+	c := s.Center()
+	for range spawnAttempts {
+		p := point{
+			c.X + (h.rng.Float64()*2-1)*sim.SectorRadius,
+			c.Y + (h.rng.Float64()*2-1)*sim.SectorApothem,
+		}
+		if s.Inside(p.x, p.y, roamMargin) {
+			return p
+		}
+	}
+
+	return point{c.X, c.Y}
 }
 
 // standDown takes a garrison off the field; its ships wait in its reserve.

@@ -77,7 +77,7 @@ func inE4(snap *pb.Snapshot) int {
 	return n
 }
 
-func TestGarrison_TakesTheFieldAroundItsSectorsCenter(t *testing.T) {
+func TestGarrison_TakesTheFieldAllOverItsSector(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
@@ -87,10 +87,25 @@ func TestGarrison_TakesTheFieldAroundItsSectorsCenter(t *testing.T) {
 	if got, want := len(snap.GetEnemies()), sim.GarrisonSize(1); got != want {
 		t.Fatalf("%d enemies once a player entered E4, want its garrison of %d", got, want)
 	}
+	e4, _ := sim.ParseSector("E4")
+	farthest := 0.0
 	for _, e := range snap.GetEnemies() {
-		if d := math.Hypot(float64(e.GetX()-e4X), float64(e.GetY()-e4Y)); d > GarrisonPosts+10 {
-			t.Errorf("enemy %d took the field %.0f px from E4's center", e.GetEnemyId(), d)
+		x, y := float64(e.GetX()), float64(e.GetY())
+		if !e4.Inside(x, y, RoamMargin-sim.ShipRadius) {
+			t.Errorf(
+				"enemy %d took the field at (%.0f, %.0f), not well inside E4",
+				e.GetEnemyId(),
+				x,
+				y,
+			)
 		}
+		farthest = max(farthest, math.Hypot(x-float64(e4X), y-float64(e4Y)))
+	}
+	if farthest < sim.SectorApothem/2 {
+		t.Errorf(
+			"the farthest enemy is %.0f px from E4's center, want them spread over the sector",
+			farthest,
+		)
 	}
 }
 
@@ -108,7 +123,7 @@ func TestGarrison_GrowsWithTheShipsThatEnter(t *testing.T) {
 	}
 }
 
-func TestGarrison_HoldsItsSectorAndGoesBackToItsPosts(t *testing.T) {
+func TestGarrison_HoldsItsSectorAndRoamsItOnceThePlayerLeaves(t *testing.T) {
 	t.Parallel()
 
 	hub, tick := testHub(t)
@@ -128,15 +143,26 @@ func TestGarrison_HoldsItsSectorAndGoesBackToItsPosts(t *testing.T) {
 			}
 		}
 	}
-	snap, _ = latest(t, a, tick, 10*TickRate, nearX, nearY)
-	for _, e := range snap.GetEnemies() {
-		if d := math.Hypot(float64(e.GetX()-e4X), float64(e.GetY()-e4Y)); d > GarrisonPosts+60 {
-			t.Errorf(
-				"enemy %d is %.0f px from E4's center after the player left",
-				e.GetEnemyId(),
-				d,
-			)
+	before, _ := latest(t, a, tick, 10*TickRate, nearX, nearY)
+	after, _ := latest(t, a, tick, 5*TickRate, nearX, nearY)
+	moved := 0
+	for _, e := range after.GetEnemies() {
+		if d := e4.Beyond(float64(e.GetX()), float64(e.GetY())); d > 0 {
+			t.Errorf("enemy %d is %.0f px out of E4 after the player left", e.GetEnemyId(), d)
 		}
+		for _, b := range before.GetEnemies() {
+			if b.GetEnemyId() == e.GetEnemyId() &&
+				math.Hypot(float64(e.GetX()-b.GetX()), float64(e.GetY()-b.GetY())) > 20 {
+				moved++
+			}
+		}
+	}
+	if moved < len(after.GetEnemies())/2 {
+		t.Errorf(
+			"%d of %d enemies moved over 5 s with nobody near, want them roaming",
+			moved,
+			len(after.GetEnemies()),
+		)
 	}
 }
 

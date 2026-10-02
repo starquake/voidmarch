@@ -110,7 +110,8 @@ type enemy struct {
 	// frigate is a Frigate's fight; nil for the rest.
 	frigate *frigateFight
 	// garrison is the garrison it belongs to, which keeps it in its sector,
-	// and post where it waits there; nil for stragglers and escorts (#99).
+	// and post the point it roams toward there; nil for stragglers and
+	// escorts (#99, #121).
 	garrison *garrison
 	post     point
 	// escortOf is the Frigate a Fighter guards, which keeps it from
@@ -206,13 +207,16 @@ func (h *Hub) steer(e *enemy, players []point) {
 		e.lastNear = h.tick
 	}
 
-	// A garrison engages anyone in its sector, and waits at its post otherwise.
+	// A garrison engages anyone in its sector, and roams it otherwise (#121).
 	engaged := found && (distance < stats.aggroRange || e.garrison != nil)
 	switch {
 	case engaged:
 		accelerate(e, h.goal(e, target, stats), stats)
-	case e.garrison != nil && math.Hypot(e.post.x-e.x, e.post.y-e.y) > postReach:
-		accelerate(e, e.post, stats)
+	case e.garrison != nil:
+		if math.Hypot(e.post.x-e.x, e.post.y-e.y) <= postReach {
+			e.post = h.roamPoint(e.garrison.sector)
+		}
+		accelerate(e, e.post, roaming(stats))
 	default:
 		e.vx *= idleDamping
 		e.vy *= idleDamping
@@ -279,6 +283,14 @@ func accelerate(e *enemy, goal point, stats enemyStats) {
 		e.vx *= stats.maxSpeed / speed
 		e.vy *= stats.maxSpeed / speed
 	}
+}
+
+// roaming is stats at the easy pace of a garrison ship roaming its sector.
+func roaming(stats enemyStats) enemyStats {
+	stats.maxSpeed *= roamSpeedShare
+	stats.acceleration *= roamSpeedShare
+
+	return stats
 }
 
 func keepOutOfSafeZone(e *enemy) {

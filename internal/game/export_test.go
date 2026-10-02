@@ -64,7 +64,7 @@ const DerelictTicks = derelictTicks
 
 // Garrison distances and timings, exposed for tests.
 const (
-	GarrisonPosts  = garrisonPosts
+	RoamMargin     = roamMargin
 	GarrisonIdle   = garrisonIdle
 	StragglerTicks = stragglerTicks
 )
