@@ -66,9 +66,10 @@ three: AI wingmates that fly in formation with you, in your colour. The hangar
 is shared by everyone on the server; the HUD shows its ships while you're at
 the home planet. A companion sent home, or one whose player leaves, docks back
 into it. A new server starts with `POOL_START` ships in it (3 unless set), and
-keeps the count across restarts. A destroyed Frigate leaves a derelict ship
-behind: hover beside it for 5 s, or let a companion do it, to rescue it into
-the hangar before it drifts off after 2 minutes. The fleet tops out at 16
+keeps the count across restarts. A derelict ship waits beside every Frigate,
+held while any enemy is within 600 px of it: destroy the Frigate and its
+escort, then hover beside it for 5 s, or let a companion do it, to rescue it
+into the hangar before it drifts off 2 minutes after it was freed. The fleet tops out at 16
 ships; past that a rescue still counts, but no ship joins. Hold **Q**
 for a ring of orders, point at one and let go; tap Q to repeat the last. Every
 order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
@@ -100,9 +101,11 @@ everyone online a part. Your squadron has a mission, the nearest uncleared
 sector: the HUD names it, and a gold arrow at the screen's edge points the
 way. The minimap in the top right shows every sector's state, the Frigates,
 each squadron's mission and your squadmates; **Tab** opens the full map, where
-a click sends your squadron to another sector. Every few minutes a world event calls everyone somewhere. It might be an
+a click sends your squadron to another sector. Every few minutes a world
+event calls everyone somewhere. It might be an
 attack on a cleared sector, to beat within 10 minutes or lose the sector, or a
-derelict's distress call. A red arrow points to it. While nobody is online,
+derelict's distress call: destroy its guard, then rescue it within the 10
+minutes. A red arrow points to it. While nobody is online,
 the enemy takes a sector back every 4 hours. Scouts, fast and erratic, go down in two hits;
 Fighters strafe around you and take six. Their weapons animate just before they fire at anyone within range, and
 they leave once nobody is near. Your shield takes hits from the side it

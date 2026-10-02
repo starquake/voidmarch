@@ -232,7 +232,7 @@ As built in milestone 3 (#4), Kla'ed fodder only, held in garrisons since #99:
 - **World events** (#102): one at a time, about every 5 minutes while anyone is online. Each is announced in a banner, named on the HUD with its time left ("D3 under attack · 9:12"), and pointed at by a red arrow at the screen's edge.
   - **An attack:** a Frigate and a ring-sized garrison come at a cleared sector next to hostile space. Destroy them all within 10 minutes and the sector holds, adding a ship to the hangar. Otherwise it falls: it's forgotten as cleared and gets a fresh garrison.
   - **Offline attacks:** with nobody online, an attack comes every 4 hours and runs an hour, so given long enough away everything but home goes back.
-  - **A distress call:** when nothing can be attacked, a derelict (#52) waits with a guard of 3 in a sector next to cleared ground or home. Rescuing it wins the call, and the derelict itself is the reward, with a part for whoever is near.
+  - **A distress call:** when nothing can be attacked, a derelict (#52) waits with a guard of 3 in a sector next to cleared ground or home, held until the guard is gone (#114). Rescuing it wins the call, and the derelict itself is the reward, with a part for whoever is near. The call lasts at most 10 minutes; once the derelict is freed, it ends with the derelict's 2 minutes instead.
   - A map can keep events away (`noEvents`); the E2E map does, since its specs share one server.
   - **On a development server**, **K** starts an attack at once on the cleared sector you're in, for trying events and for E2E.
 - **Missions** (#101): each squadron has one, shown to everyone.
@@ -350,9 +350,10 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
 
 - **A companion is a player seat driven by an AI brain instead of a keyboard.** The brain produces the same move, aim and fire command as the keyboard and mouse. The ship is an ordinary player ship: same physics, weapons, shields, health, going down and revive. The server flies every companion (#51), so a companion keeps flying whoever is online, and on the wire they are players with an owner.
 - **Where from** (#49): one hangar pool for the whole server holds the companion ships waiting at home. G at the home planet draws one, first come, first served; a companion that goes home, or whose player drops, docks back into it. Players and companions come from different pools: a joiner who takes a companion's place (a takeover, or displacing one from a full world) holds that ship until they leave, so joining and leaving never add companions. The pool starts at `POOL_START` ships (3 by default) and is kept in the store across restarts (#6).
-- **Rescues grow it** (#52, as built). A destroyed Frigate releases a derelict where it went down: the Main Ship's "very damaged" hull, grayed, labeled "DERELICT" with the time left.
+- **Rescues grow it** (#52, as built). A derelict waits beside every Frigate, 160 px below it, from the moment the Frigate spawns (#114): the Main Ship's "very damaged" hull, grayed, labeled "DERELICT" with the time left.
+  - **Held:** while any enemy is within 600 px it is held: a darker hull, "DERELICT · HELD BY n" counting the enemies near, no timer and no rescue. The first time none is near it is freed, for good, and its 2 minutes start. A Frigate spot has one derelict at a time: a Frigate that comes back brings a new one only once the last is rescued or gone.
   - A player or companion hovering within 100 px for 5 s rescues it into the hangar, the way a revive works. Companions go to one within 400 px, except in Hold and Stealth. A bar under the label shows the progress, which drains when nobody is near.
-  - An unrescued derelict drifts off after 2 minutes.
+  - An unrescued derelict drifts off 2 minutes after it was freed.
   - The fleet (hangar plus companions out) is capped at 16, the server's seats. Derelicts still come while it's full: a rescue then counts (for the stats to come) but adds no ship, and says the hangar is full (@starquake, 2026-10-01).
   - A map can also mark derelict spots that always have one waiting; only the E2E map uses them today.
   - A won fight, a cleared sector or a finished world event, adds ships with #90.
