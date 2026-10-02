@@ -29,7 +29,7 @@ export function eventStartBanner(event: WorldEvent): string[] {
       ]
     : [
         `Distress call from sector ${event.sector}`,
-        'Hover beside the derelict ship to rescue it before it drifts off.',
+        'Destroy its guard, then hover beside the derelict ship to rescue it.',
         'Follow the red arrow at the edge of the screen.',
       ];
 }
@@ -40,5 +40,5 @@ export function eventEndBanner(event: WorldEvent, won: boolean): string[] {
     return won ? [`Sector ${event.sector} held!`, 'A ship joins the hangar.'] : [`Sector ${event.sector} has fallen`];
   }
 
-  return won ? [`Derelict rescued in sector ${event.sector}`] : [`The derelict in sector ${event.sector} drifted off`];
+  return won ? [`Derelict rescued in sector ${event.sector}`] : [`The derelict in sector ${event.sector} was lost`];
 }

@@ -64,3 +64,15 @@ test('hovering beside a derelict fills its rescue bar and docks it in the hangar
   expect((await state(page)).rescues).toBe(1);
   expect(filled, 'the rescue bar filled on the way').toBeGreaterThan(0.5);
 });
+
+test("the Frigate's derelict waits beside it, held by its fleet", async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  // The e2e map's Frigate sits in the middle of D3; its derelict 160 px below it.
+  const beside = { x: 0, y: -Math.sqrt(3) * 990 + 160 };
+  await expect
+    .poll(async () => (await state(page)).derelicts.find((d) => Math.hypot(d.x - beside.x, d.y - beside.y) < 1)?.held, {
+      message: "the Frigate's derelict is there, held",
+    })
+    .toBe(true);
+});

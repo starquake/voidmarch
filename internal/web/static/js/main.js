@@ -146,6 +146,7 @@ var GRID_RINGS = 3;
 var WORLD_APOTHEM = 5445;
 var WORLD_EDGE_BAND = 200;
 var SAFE_ZONE_RADIUS = 300;
+var DERELICT_HOLD_RADIUS = 600;
 var SHIP_RADIUS = 12;
 var MAX_DAMAGE = 3;
 var RESPAWN_DELAY = 3;
@@ -3087,6 +3088,7 @@ var EnemyView = class {
 // src/scenes/derelictview.ts
 import Phaser7 from "./vendor/phaser.js";
 var DERELICT_TINT = 9080729;
+var DERELICT_HELD_TINT = 4869724;
 var DerelictView = class {
   hull;
   label;
@@ -3098,8 +3100,9 @@ var DerelictView = class {
     this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
     layer.add([this.hull, this.label, this.bar]);
   }
-  /** Shows the label and the rescue's progress (0 to 1); the bar shows once there is some. */
-  update(label, rescue) {
+  /** Shows the label, whether it's held, and the rescue's progress (0 to 1); the bar shows once there is some. */
+  update(label, held, rescue) {
+    this.hull.setTint(held ? DERELICT_HELD_TINT : DERELICT_TINT);
     if (this.label.text !== label) {
       this.label.setText(label);
     }
@@ -3127,6 +3130,12 @@ function derelictLabel(goneTick, tick, tickRate) {
   const s = seconds % 60;
   return `DERELICT ${String(m)}:${String(s).padStart(2, "0")}`;
 }
+function heldLabel(holders2) {
+  return holders2 > 0 ? `DERELICT \xB7 HELD BY ${String(holders2)}` : "DERELICT \xB7 HELD";
+}
+function holders(x, y, enemies) {
+  return enemies.filter((e) => Math.hypot(e.x - x, e.y - y) < DERELICT_HOLD_RADIUS).length;
+}
 function rescueNotice(name, hangar, docked) {
   return docked ? `${name} rescued a ship \xB7 hangar ${String(hangar)}` : `${name} rescued a ship \xB7 the hangar is full`;
 }
@@ -3150,7 +3159,7 @@ function eventStartBanner(event) {
     "Follow the red arrow at the edge of the screen."
   ] : [
     `Distress call from sector ${event.sector}`,
-    "Hover beside the derelict ship to rescue it before it drifts off.",
+    "Destroy its guard, then hover beside the derelict ship to rescue it.",
     "Follow the red arrow at the edge of the screen."
   ];
 }
@@ -3158,7 +3167,7 @@ function eventEndBanner(event, won) {
   if (event.kind === WorldEventKind.ATTACK) {
     return won ? [`Sector ${event.sector} held!`, "A ship joins the hangar."] : [`Sector ${event.sector} has fallen`];
   }
-  return won ? [`Derelict rescued in sector ${event.sector}`] : [`The derelict in sector ${event.sector} drifted off`];
+  return won ? [`Derelict rescued in sector ${event.sector}`] : [`The derelict in sector ${event.sector} was lost`];
 }
 
 // src/scenes/netplay.ts
@@ -3317,7 +3326,7 @@ var NetPlay = class {
         },
         eventStarted: (started) => {
           this.worldEvent = started.event;
-          if (started.event !== void 0) {
+          if (started.event !== void 0 && !started.ongoing) {
             this.banners.push(eventStartBanner(started.event));
           }
         },
@@ -3445,10 +3454,15 @@ var NetPlay = class {
       this.connection.sendSummon();
     }
   }
-  /** Enemies as drawn, for the E2E tests. */
   /** The derelicts waiting to be rescued, for the E2E tests (#52). */
   get derelictList() {
-    return [...this.derelicts.entries()].map(([id, d]) => ({ id, x: d.state.x, y: d.state.y, rescue: d.state.rescue }));
+    return [...this.derelicts.entries()].map(([id, d]) => ({
+      id,
+      x: d.state.x,
+      y: d.state.y,
+      rescue: d.state.rescue,
+      held: d.state.held
+    }));
   }
   /**
    * Draws the snapshot's derelicts and drops the ones no longer in it; a new
@@ -3468,7 +3482,8 @@ var NetPlay = class {
         }
       }
       drawn.state = state;
-      drawn.view.update(derelictLabel(state.goneTick, tick, this.tickRate), state.rescue);
+      const label = state.held ? heldLabel(holders(state.x, state.y, [...this.enemies.values()].map((e) => e.view))) : derelictLabel(state.goneTick, tick, this.tickRate);
+      drawn.view.update(label, state.held, state.rescue);
     }
     for (const [id, drawn] of this.derelicts) {
       if (!seen.has(id)) {
@@ -3484,6 +3499,7 @@ var NetPlay = class {
       (e) => e.health === void 0 ? [] : [{ kind: e.view.kind, x: e.view.x, y: e.view.y, ...e.health }]
     );
   }
+  /** Enemies as drawn, for the E2E tests. */
   get enemyList() {
     return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, x: e.view.x, y: e.view.y }));
   }
