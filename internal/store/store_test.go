@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 5; got != want {
+	if got, want := version, 6; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -99,6 +99,42 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	names, err := ClearedSectors(t.Context(), db)
 	if err != nil || len(names) != 0 {
 		t.Errorf("ClearedSectors() after the hex migration = %v, %v, want none", names, err)
+	}
+}
+
+func TestOpen_TheDreadnoughtsHealthBecomesAShare(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "voidmarch.db")
+	db, err := Open(t.Context(), path)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	// A version-5 file, with 150,000 of the old fixed 200,000 saved.
+	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnought;
+		CREATE TABLE dreadnought (
+			id INTEGER PRIMARY KEY CHECK (id = 1), hp INTEGER NOT NULL, updated_at INTEGER NOT NULL
+		) STRICT;
+		INSERT INTO dreadnought (id, hp, updated_at) VALUES (1, 150000, 1700000000);
+		PRAGMA user_version = 5`)
+	if err != nil {
+		t.Fatalf("rolling the file back to version 5: %v", err)
+	}
+	_ = db.Close()
+
+	db, err = Open(t.Context(), path)
+	if err != nil {
+		t.Fatalf("Open() again error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	d, ok, err := DreadnoughtHealth(t.Context(), db)
+	if err != nil || !ok || d.Health != 0.75 || d.At.Unix() != 1_700_000_000 {
+		t.Errorf(
+			"DreadnoughtHealth() after the share migration = %+v, %t, %v; want 0.75",
+			d,
+			ok,
+			err,
+		)
 	}
 }
 
@@ -209,12 +245,12 @@ func TestDreadnoughtHealth(t *testing.T) {
 		t.Errorf("DreadnoughtHealth() on a fresh file = %t, %v; want none saved", ok, err)
 	}
 	at := time.Unix(1_700_000_000, 0)
-	if err = SaveDreadnoughtHealth(t.Context(), db, 150_000, at); err != nil {
+	if err = SaveDreadnoughtHealth(t.Context(), db, 0.75, at); err != nil {
 		t.Fatalf("SaveDreadnoughtHealth() error = %v", err)
 	}
 	d, ok, err := DreadnoughtHealth(t.Context(), db)
-	if err != nil || !ok || d.HP != 150_000 || !d.At.Equal(at) {
-		t.Errorf("DreadnoughtHealth() = %+v, %t, %v; want 150000 at %v", d, ok, err, at)
+	if err != nil || !ok || d.Health != 0.75 || !d.At.Equal(at) {
+		t.Errorf("DreadnoughtHealth() = %+v, %t, %v; want 0.75 at %v", d, ok, err, at)
 	}
 }
 

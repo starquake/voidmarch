@@ -47,9 +47,9 @@ type frigateSpot struct {
 	once bool
 }
 
-// frigateFight is a Frigate's state beyond an enemy's: its health grows by a
-// share for every ship that comes near, counted once, and its shield
-// recharges all at once after a while without a hit.
+// frigateFight is a Frigate's state beyond an enemy's: its health follows
+// the weight of the players online (#132), and its shield recharges all at
+// once after a while without a hit.
 type frigateFight struct {
 	spot int
 	// goal is the point in its sector it patrols toward (#121).
@@ -58,11 +58,12 @@ type frigateFight struct {
 	shield  int
 	lastHit uint32
 	weight  float64
-	counted map[string]bool
+	// engaged is whether a ship has been near since it last healed.
+	engaged bool
 }
 
-// upShip is a ship that's up, as the Frigate counts it: its seat, where it
-// is, and its share of the Frigate's health.
+// upShip is a ship that's up: its seat, where it is, and its weight, a
+// player 1 and a companion sim.FrigateCompanionWeight.
 type upShip struct {
 	key    string
 	at     point
@@ -109,7 +110,7 @@ func (h *Hub) spawnFrigates() {
 			lastNear: h.tick,
 			frigate:  &frigateFight{spot: i, goal: at},
 		}
-		f.frigate.reset(f)
+		f.frigate.reset(f, h.onlineWeight())
 		h.enemies[f.id] = f
 		spot.enemyID = f.id
 		for n := range frigateEscorts {
@@ -137,19 +138,33 @@ func (h *Hub) holdDerelictBeside(i int, at point) {
 	h.derelicts[id].frigateSpot = i + 1
 }
 
-// reset heals the Frigate fully, for nobody, and puts it back on its spot.
-func (f *frigateFight) reset(e *enemy) {
-	f.maxHP = sim.FrigateBaseHP
+// reset heals the Frigate fully, scaled for weight.
+func (f *frigateFight) reset(e *enemy, weight float64) {
+	f.maxHP = int(sim.FrigateHP(weight))
 	f.shield = sim.FrigateShield
-	f.weight = 0
-	f.counted = map[string]bool{}
+	f.weight = weight
+	f.engaged = false
 	e.hp = f.maxHP
 }
 
-// stepFrigate counts the ships that came near, resets once none near is up,
-// recharges the shield, and turns to the nearest ship and fires its ring.
-func (h *Hub) stepFrigate(e *enemy, ships []upShip) {
+// scale rescales the Frigate to weight, keeping its share of health left.
+func (f *frigateFight) scale(e *enemy, weight float64) {
+	if weight == f.weight {
+		return
+	}
+	maxHP := int(sim.FrigateHP(weight))
+	if e.hp > 0 {
+		e.hp = max(1, int(math.Round(float64(e.hp)*float64(maxHP)/float64(f.maxHP))))
+	}
+	f.maxHP, f.weight = maxHP, weight
+}
+
+// stepFrigate scales it to the players online, heals it once no ship near
+// is up, recharges the shield, and turns to the nearest ship and fires its
+// ring.
+func (h *Hub) stepFrigate(e *enemy, ships []upShip, online float64) {
 	f := e.frigate
+	f.scale(e, online)
 	e.lastNear = h.tick
 	at := point{e.x, e.y}
 	var near []upShip
@@ -164,21 +179,13 @@ func (h *Hub) stepFrigate(e *enemy, ships []upShip) {
 		h.patrol(e)
 	}
 	if len(near) == 0 {
-		if len(f.counted) > 0 {
-			f.reset(e)
+		if f.engaged {
+			f.reset(e, online)
 		}
 
 		return
 	}
-	for _, s := range near {
-		if !f.counted[s.key] {
-			f.counted[s.key] = true
-			f.weight += s.weight
-			share := int(sim.FrigateHPPerPlayer * s.weight)
-			f.maxHP += share
-			e.hp += share
-		}
-	}
+	f.engaged = true
 	if f.shield < sim.FrigateShield && h.tick-f.lastHit >= frigateShieldTicks {
 		f.shield = sim.FrigateShield
 	}
@@ -235,8 +242,8 @@ func (h *Hub) frigateDestroyed(e *enemy) {
 	h.clearIfDone(spot.sector)
 }
 
-// upShips are the ships that are up, players and companions alike, with the
-// share each adds to a Frigate's health.
+// upShips are the ships that are up, players and companions alike, with
+// their weights.
 func (h *Hub) upShips() []upShip {
 	var out []upShip
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
@@ -262,6 +269,20 @@ func (h *Hub) upShips() []upShip {
 	}
 
 	return out
+}
+
+// onlineWeight is the weight of everyone online, downed or not, and their
+// companions: what the bosses scale for (#132).
+func (h *Hub) onlineWeight() float64 {
+	var weight float64
+	for _, m := range h.members {
+		if m.gone {
+			continue
+		}
+		weight += 1 + sim.FrigateCompanionWeight*float64(len(m.wing.Companions))
+	}
+
+	return weight
 }
 
 func shipPoints(ships []upShip) []point {

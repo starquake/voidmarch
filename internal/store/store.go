@@ -213,10 +213,11 @@ func SaveOpenRings(ctx context.Context, conn *sql.DB, rings int) error {
 	return nil
 }
 
-// SavedDreadnought is the Kla'ed Dreadnought's health and when it was saved.
+// SavedDreadnought is the share of the Kla'ed Dreadnought's health left,
+// from 0 to 1, and when it was saved (#132).
 type SavedDreadnought struct {
-	HP int
-	At time.Time
+	Health float64
+	At     time.Time
 }
 
 // DreadnoughtHealth returns the Dreadnought's saved health (#124), and false
@@ -230,12 +231,13 @@ func DreadnoughtHealth(ctx context.Context, conn *sql.DB) (SavedDreadnought, boo
 		return SavedDreadnought{}, false, fmt.Errorf("error reading the dreadnought: %w", err)
 	}
 
-	return SavedDreadnought{HP: int(row.Hp), At: time.Unix(row.UpdatedAt, 0)}, true, nil
+	return SavedDreadnought{Health: row.Health, At: time.Unix(row.UpdatedAt, 0)}, true, nil
 }
 
-// SaveDreadnoughtHealth saves the Dreadnought's health as of at.
-func SaveDreadnoughtHealth(ctx context.Context, conn *sql.DB, hp int, at time.Time) error {
-	params := queries.SaveDreadnoughtParams{Hp: int64(hp), UpdatedAt: at.Unix()}
+// SaveDreadnoughtHealth saves the share of the Dreadnought's health left as
+// of at.
+func SaveDreadnoughtHealth(ctx context.Context, conn *sql.DB, health float64, at time.Time) error {
+	params := queries.SaveDreadnoughtParams{Health: health, UpdatedAt: at.Unix()}
 	if err := queries.New(conn).SaveDreadnought(ctx, params); err != nil {
 		return fmt.Errorf("error saving the dreadnought: %w", err)
 	}

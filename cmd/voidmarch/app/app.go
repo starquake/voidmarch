@@ -260,10 +260,6 @@ func frontierOptions(
 	if err != nil {
 		return nil, fmt.Errorf("error reading the dreadnought: %w", err)
 	}
-	hp := sim.DreadnoughtHP
-	if saved {
-		hp = sim.DreadnoughtRegen(d.HP, time.Since(d.At).Hours())
-	}
 	ctx = context.WithoutCancel(ctx)
 	save := func(what string, do func(context.Context) error) {
 		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
@@ -273,21 +269,28 @@ func frontierOptions(
 		}
 	}
 
-	return []game.HubOption{
+	opts := []game.HubOption{
 		game.WithOpenRings(rings),
-		game.WithDreadnought(hp),
 		game.WithSaveOpenRings(func(n int) {
 			save(
 				"open rings",
 				func(c context.Context) error { return store.SaveOpenRings(c, db, n) },
 			)
 		}),
-		game.WithSaveDreadnought(func(n int) {
+		game.WithSaveDreadnought(func(share float64) {
 			save("the dreadnought", func(c context.Context) error {
-				return store.SaveDreadnoughtHealth(c, db, n, time.Now())
+				return store.SaveDreadnoughtHealth(c, db, share, time.Now())
 			})
 		}),
-	}, nil
+	}
+	if saved {
+		opts = append(
+			opts,
+			game.WithDreadnought(sim.DreadnoughtRegen(d.Health, time.Since(d.At).Hours())),
+		)
+	}
+
+	return opts, nil
 }
 
 // sectorForgetter saves a sector the enemy took back, like sectorSaver.

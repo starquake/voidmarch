@@ -69,7 +69,7 @@ func EnemyHP(kind EnemyKind) float64 {
 	case EnemyFrigate:
 		return FrigateHP(1)
 	case EnemyDreadnought:
-		return DreadnoughtHP
+		return DreadnoughtMaxHP(1)
 	case EnemyScout:
 		fallthrough
 	default:
@@ -77,18 +77,24 @@ func EnemyHP(kind EnemyKind) float64 {
 	}
 }
 
-// DreadnoughtRegen is the Dreadnought's health hp after hours of
-// regenerating, never above full (#8 decision 5).
-func DreadnoughtRegen(hp int, hours float64) int {
-	if hours <= 0 {
-		return hp
-	}
-
-	return int(math.Min(DreadnoughtHP, float64(hp)+hours*DreadnoughtRegenPerHour))
+// DreadnoughtMaxHP is the Dreadnought's maximum health for the weight of the
+// players online: each player weighs 1, each companion FrigateCompanionWeight.
+func DreadnoughtMaxHP(weight float64) float64 {
+	return DreadnoughtBaseHP + DreadnoughtHPPerPlayer*weight
 }
 
-// FrigateHP is a Frigate's hit points for the weight of the players near it
-// when the fight starts: each player weighs 1, each companion FrigateCompanionWeight.
+// DreadnoughtRegen is the share of its health left after hours of
+// regenerating, never above all of it.
+func DreadnoughtRegen(share, hours float64) float64 {
+	if hours <= 0 {
+		return share
+	}
+
+	return math.Min(1, share+hours*DreadnoughtRegenPerHour)
+}
+
+// FrigateHP is a Frigate's hit points for the weight of the players online:
+// each player weighs 1, each companion FrigateCompanionWeight.
 func FrigateHP(weight float64) float64 {
 	return FrigateBaseHP + FrigateHPPerPlayer*weight
 }

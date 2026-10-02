@@ -2344,7 +2344,7 @@ type EnemyState struct {
 	MaxHp float32 `protobuf:"fixed32,9,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
 	// The shield's charge left, as damage it can still take.
 	Shield float32 `protobuf:"fixed32,10,opt,name=shield,proto3" json:"shield,omitempty"`
-	// The players its health was scaled for, a companion counting half.
+	// The players online its health was scaled for, a companion counting half.
 	ScaledFor     float32 `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

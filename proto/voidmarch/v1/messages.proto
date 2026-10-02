@@ -331,7 +331,7 @@ message EnemyState {
   float max_hp = 9;
   // The shield's charge left, as damage it can still take.
   float shield = 10;
-  // The players its health was scaled for, a companion counting half.
+  // The players online its health was scaled for, a companion counting half.
   float scaled_for = 11;
 }
 
