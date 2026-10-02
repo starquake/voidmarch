@@ -213,6 +213,36 @@ func SaveOpenRings(ctx context.Context, conn *sql.DB, rings int) error {
 	return nil
 }
 
+// SavedDreadnought is the Kla'ed Dreadnought's health and when it was saved.
+type SavedDreadnought struct {
+	HP int
+	At time.Time
+}
+
+// DreadnoughtHealth returns the Dreadnought's saved health (#124), and false
+// before any was.
+func DreadnoughtHealth(ctx context.Context, conn *sql.DB) (SavedDreadnought, bool, error) {
+	row, err := queries.New(conn).Dreadnought(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return SavedDreadnought{}, false, nil
+	}
+	if err != nil {
+		return SavedDreadnought{}, false, fmt.Errorf("error reading the dreadnought: %w", err)
+	}
+
+	return SavedDreadnought{HP: int(row.Hp), At: time.Unix(row.UpdatedAt, 0)}, true, nil
+}
+
+// SaveDreadnoughtHealth saves the Dreadnought's health as of at.
+func SaveDreadnoughtHealth(ctx context.Context, conn *sql.DB, hp int, at time.Time) error {
+	params := queries.SaveDreadnoughtParams{Hp: int64(hp), UpdatedAt: at.Unix()}
+	if err := queries.New(conn).SaveDreadnought(ctx, params); err != nil {
+		return fmt.Errorf("error saving the dreadnought: %w", err)
+	}
+
+	return nil
+}
+
 // ClearedSectors returns the names of the cleared sectors (#99).
 func ClearedSectors(ctx context.Context, conn *sql.DB) ([]string, error) {
 	names, err := queries.New(conn).ClearedSectors(ctx)

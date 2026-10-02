@@ -1,5 +1,7 @@
 package sim
 
+import "math"
+
 // EnemyKind is an enemy class, matching the protocol's EnemyKind.
 type EnemyKind string
 
@@ -73,6 +75,16 @@ func EnemyHP(kind EnemyKind) float64 {
 	default:
 		return scout
 	}
+}
+
+// DreadnoughtRegen is the Dreadnought's health hp after hours of
+// regenerating, never above full (#8 decision 5).
+func DreadnoughtRegen(hp int, hours float64) int {
+	if hours <= 0 {
+		return hp
+	}
+
+	return int(math.Min(DreadnoughtHP, float64(hp)+hours*DreadnoughtRegenPerHour))
 }
 
 // FrigateHP is a Frigate's hit points for the weight of the players near it

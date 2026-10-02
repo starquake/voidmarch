@@ -107,8 +107,9 @@ type enemy struct {
 	strafe float64
 	// wanderX and wanderY offset the Scout's goal around its target.
 	wanderX, wanderY float64
-	// frigate is a Frigate's fight; nil for the rest.
+	// frigate is a Frigate's fight, dread the Dreadnought's; nil for the rest.
 	frigate *frigateFight
+	dread   *dreadnoughtFight
 	// garrison is the garrison it belongs to, which keeps it in its sector;
 	// nil for stragglers and escorts (#99). post is the point a garrison
 	// ship roams toward, or an escort's place around its Frigate (#121).
@@ -128,12 +129,18 @@ func (h *Hub) stepEnemies() {
 	h.stepGarrisons(ships)
 	h.spawnStragglers(players)
 	h.spawnFrigates()
+	h.wakeDreadnought()
 	// In id order: steering draws from h.rng, so map order would make a
 	// seeded hub differ between runs.
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
 		if e.frigate != nil {
 			h.stepFrigate(e, ships)
+
+			continue
+		}
+		if e.dread != nil {
+			h.stepDreadnought(e, ships)
 
 			continue
 		}
@@ -344,12 +351,21 @@ func nearest(e *enemy, players []point) (target point, distance float64, found b
 }
 
 func (h *Hub) fire(e *enemy) {
+	h.fireAt(e, e.angle, h.rng.Uint32())
+}
+
+// fireVolley fires the Dreadnought's volley along angle (#124).
+func (h *Hub) fireVolley(e *enemy, angle float64, volley sim.DreadnoughtVolley) {
+	h.fireAt(e, angle, sim.DreadnoughtSeed(h.rng.Uint32(), volley))
+}
+
+// fireAt fires e's pattern along angle with seed, after the warning.
+func (h *Hub) fireAt(e *enemy, angle float64, seed uint32) {
 	h.noteAttack(e)
-	seed := h.rng.Uint32()
 	// The hub flies the bullets too, against its companions (#46).
 	h.volleys = append(
 		h.volleys,
-		volley{tick: h.tick + fireWarning, enemyID: e.id, angle: e.angle, seed: seed},
+		volley{tick: h.tick + fireWarning, enemyID: e.id, angle: angle, seed: seed},
 	)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
 		EnemyId:   e.id,
@@ -359,7 +375,7 @@ func (h *Hub) fire(e *enemy) {
 		Seed:      seed,
 		X:         float32(e.x),
 		Y:         float32(e.y),
-		Angle:     float32(e.angle),
+		Angle:     float32(angle),
 	}}}, "")
 }
 
@@ -383,9 +399,12 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		}}}, except)
 	}
 
-	if e.frigate != nil {
+	switch {
+	case e.frigate != nil:
 		e.hp -= e.frigate.takeHit(int(min(damage, maxHitDamage)), h.tick)
-	} else {
+	case e.dread != nil:
+		e.hp -= e.dread.takeHit(int(min(damage, maxHitDamage)), h.tick)
+	default:
 		e.hp = damaged(e.hp, damage)
 	}
 	if e.hp > 0 {
@@ -393,6 +412,9 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 	}
 	if e.frigate != nil {
 		h.frigateDestroyed(e)
+	}
+	if e.dread != nil {
+		h.dreadnoughtFallen()
 	}
 	delete(h.enemies, e.id)
 	if e.garrison != nil {
@@ -443,6 +465,11 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 			state.MaxHp = float32(f.maxHP)
 			state.Shield = float32(f.shield)
 			state.ScaledFor = float32(f.weight)
+		}
+		if d := e.dread; d != nil {
+			state.Hp = float32(e.hp)
+			state.MaxHp = sim.DreadnoughtHP
+			state.Shield = float32(d.shield)
 		}
 		out = append(out, state)
 	}

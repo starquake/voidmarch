@@ -171,22 +171,28 @@ type Hub struct {
 	departed map[string]kept
 	// event is the world event running, nil for none (#102), and the
 	// schedule of the next.
-	event         *worldEvent
-	eventTimes    eventTimes
-	nextEvent     uint32
-	nextOffline   uint32
-	lastOnline    uint32
-	forgetSector  func(name string)
-	worldMap      *world.Map
-	frontier      sim.Frontier
-	garrisonField int
-	saveSector    func(name string)
-	dropChance    float64
-	dropChanceSet bool
-	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
-	saveLoadout   func(player string, l sim.Loadout)
-	saves         chan func()
-	development   bool
+	event        *worldEvent
+	eventTimes   eventTimes
+	nextEvent    uint32
+	nextOffline  uint32
+	lastOnline   uint32
+	forgetSector func(name string)
+	worldMap     *world.Map
+	frontier     sim.Frontier
+	// dreadnoughtID is the Dreadnought while it's awake, 0 while asleep;
+	// dreadnoughtHP its health as saved, for when it wakes (#124).
+	dreadnoughtID   uint32
+	dreadnoughtHP   int
+	saveDreadnought func(hp int)
+	saveOpenRings   func(rings int)
+	garrisonField   int
+	saveSector      func(name string)
+	dropChance      float64
+	dropChanceSet   bool
+	saveUnlock      func(player string, part sim.Part, tier sim.Tier)
+	saveLoadout     func(player string, l sim.Loadout)
+	saves           chan func()
+	development     bool
 	// frigates are the map's Frigate spots and the tick each may next have a
 	// Frigate again (#89).
 	frigates []frigateSpot
@@ -207,17 +213,20 @@ type hubOptions struct {
 	poolStart int
 	saveFleet func(ships int)
 	// dropChance replaces every kind's chance when dropChanceSet.
-	dropChance    float64
-	dropChanceSet bool
-	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
-	saveLoadout   func(player string, l sim.Loadout)
-	development   bool
-	worldMap      *world.Map
-	openRings     int
-	cleared       []string
-	saveSector    func(name string)
-	forgetSector  func(name string)
-	eventTimes    *eventTimes
+	dropChance      float64
+	dropChanceSet   bool
+	saveUnlock      func(player string, part sim.Part, tier sim.Tier)
+	saveLoadout     func(player string, l sim.Loadout)
+	development     bool
+	worldMap        *world.Map
+	openRings       int
+	dreadnoughtHP   int
+	saveDreadnought func(hp int)
+	saveOpenRings   func(rings int)
+	cleared         []string
+	saveSector      func(name string)
+	forgetSector    func(name string)
+	eventTimes      *eventTimes
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -249,7 +258,7 @@ func WithSeed(seed uint64) HubOption {
 
 // NewHub returns a hub; start it with [Hub.Run].
 func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
-	o := hubOptions{poolStart: MaxPlayers, openRings: 1}
+	o := hubOptions{poolStart: MaxPlayers, openRings: 1, dreadnoughtHP: sim.DreadnoughtHP}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -288,6 +297,9 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	h.departed = make(map[string]kept)
 	h.worldMap = o.worldMap
 	h.frontier = sim.Frontier{OpenRings: o.openRings}
+	h.dreadnoughtHP = o.dreadnoughtHP
+	h.saveDreadnought = o.saveDreadnought
+	h.saveOpenRings = o.saveOpenRings
 	h.forgetSector = o.forgetSector
 	h.eventTimes = defaultEventTimes()
 	if o.worldMap != nil && o.worldMap.NoEvents {

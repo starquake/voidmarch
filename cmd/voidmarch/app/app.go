@@ -124,18 +124,14 @@ func newHub(
 
 		return nil, fmt.Errorf("error starting the hub: %w", err)
 	}
-	openRings, saved, err := store.OpenRings(ctx, db)
+	frontier, err := frontierOptions(ctx, logger, db)
 	if err != nil {
-		logger.ErrorContext(ctx, "error reading open rings", slog.Any("err", err))
+		logger.ErrorContext(ctx, "error reading the frontier", slog.Any("err", err))
 
 		return nil, fmt.Errorf("error starting the hub: %w", err)
 	}
-	if !saved {
-		openRings = 1
-	}
 	hubOptions := []game.HubOption{
 		game.WithMap(m),
-		game.WithOpenRings(openRings),
 		game.WithPoolStart(poolStart),
 		game.WithSaveFleet(fleetSaver(ctx, logger, db)),
 		game.WithSaveUnlock(unlockSaver(ctx, logger, playerStore)),
@@ -144,6 +140,7 @@ func newHub(
 		game.WithSaveSector(sectorSaver(ctx, logger, db)),
 		game.WithForgetSector(sectorForgetter(ctx, logger, db)),
 	}
+	hubOptions = append(hubOptions, frontier...)
 	if !cfg.IsProduction() {
 		hubOptions = append(hubOptions, game.WithDevelopment())
 	}
@@ -242,6 +239,55 @@ func sectorSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(stri
 			logger.ErrorContext(saveCtx, "error saving cleared sector", slog.Any("err", err))
 		}
 	}
+}
+
+// frontierOptions are the hub's open rings and the Kla'ed Dreadnought's
+// health as saved, the hours since regenerating it, and their savers
+// (#123, #124).
+func frontierOptions(
+	ctx context.Context,
+	logger *slog.Logger,
+	db *sql.DB,
+) ([]game.HubOption, error) {
+	rings, saved, err := store.OpenRings(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("error reading open rings: %w", err)
+	}
+	if !saved {
+		rings = 1
+	}
+	d, saved, err := store.DreadnoughtHealth(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the dreadnought: %w", err)
+	}
+	hp := sim.DreadnoughtHP
+	if saved {
+		hp = sim.DreadnoughtRegen(d.HP, time.Since(d.At).Hours())
+	}
+	ctx = context.WithoutCancel(ctx)
+	save := func(what string, do func(context.Context) error) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := do(saveCtx); err != nil {
+			logger.ErrorContext(saveCtx, "error saving "+what, slog.Any("err", err))
+		}
+	}
+
+	return []game.HubOption{
+		game.WithOpenRings(rings),
+		game.WithDreadnought(hp),
+		game.WithSaveOpenRings(func(n int) {
+			save(
+				"open rings",
+				func(c context.Context) error { return store.SaveOpenRings(c, db, n) },
+			)
+		}),
+		game.WithSaveDreadnought(func(n int) {
+			save("the dreadnought", func(c context.Context) error {
+				return store.SaveDreadnoughtHealth(c, db, n, time.Now())
+			})
+		}),
+	}, nil
 }
 
 // sectorForgetter saves a sector the enemy took back, like sectorSaver.

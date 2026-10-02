@@ -205,3 +205,24 @@ func TestEnemyKinds_TheDreadnoughtIsTheBiggest(t *testing.T) {
 		}
 	}
 }
+
+func TestDreadnoughtRegen(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		hp    int
+		hours float64
+		want  int
+	}{
+		{100_000, 0, 100_000},
+		{100_000, 1, 100_000 + DreadnoughtRegenPerHour},
+		{100_000, 2.5, 100_000 + 5*DreadnoughtRegenPerHour/2},
+		{DreadnoughtHP - 10, 1, DreadnoughtHP},
+		{100_000, -3, 100_000},
+	}
+	for _, tc := range tests {
+		if got := DreadnoughtRegen(tc.hp, tc.hours); got != tc.want {
+			t.Errorf("DreadnoughtRegen(%d, %v) = %d, want %d", tc.hp, tc.hours, got, tc.want)
+		}
+	}
+}
