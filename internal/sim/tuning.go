@@ -120,8 +120,8 @@ const (
 // The Kla'ed Dreadnought, the siege boss (#8, #124).
 const (
 	// DreadnoughtBaseHP and DreadnoughtHPPerPlayer make its maximum health:
-	// the base plus a share for each ship near it, so 3-6 friends beat it in
-	// an evening (#132).
+	// the base plus the per-player amount for each player near it, so 3-6
+	// friends beat it in an evening (#132).
 	DreadnoughtBaseHP      = 10000
 	DreadnoughtHPPerPlayer = 10000
 	// DreadnoughtRegenPerHour is the share of its health it gets back an

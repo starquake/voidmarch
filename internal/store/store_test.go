@@ -102,6 +102,42 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	}
 }
 
+func TestOpen_TheDreadnoughtsHealthBecomesAShare(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "voidmarch.db")
+	db, err := Open(t.Context(), path)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	// A version-5 file, with 150,000 of the old fixed 200,000 saved.
+	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnought;
+		CREATE TABLE dreadnought (
+			id INTEGER PRIMARY KEY CHECK (id = 1), hp INTEGER NOT NULL, updated_at INTEGER NOT NULL
+		) STRICT;
+		INSERT INTO dreadnought (id, hp, updated_at) VALUES (1, 150000, 1700000000);
+		PRAGMA user_version = 5`)
+	if err != nil {
+		t.Fatalf("rolling the file back to version 5: %v", err)
+	}
+	_ = db.Close()
+
+	db, err = Open(t.Context(), path)
+	if err != nil {
+		t.Fatalf("Open() again error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	d, ok, err := DreadnoughtHealth(t.Context(), db)
+	if err != nil || !ok || d.Health != 0.75 || d.At.Unix() != 1_700_000_000 {
+		t.Errorf(
+			"DreadnoughtHealth() after the share migration = %+v, %t, %v; want 0.75",
+			d,
+			ok,
+			err,
+		)
+	}
+}
+
 func TestOpen_ConcurrentOpensMigrateOnce(t *testing.T) {
 	t.Parallel()
 
