@@ -26,13 +26,11 @@ func hitAll(s *Session, enemies []*pb.EnemyState, first uint32) {
 	}
 }
 
-// heldBeside is the snapshot's derelict waiting beside the frigateMap's
-// Frigate, or nil.
+// heldBeside is the snapshot's one derelict, which on the frigateMap (no
+// derelict spots) is its Frigate's, or nil.
 func heldBeside(snap *pb.Snapshot) *pb.DerelictState {
-	for _, d := range snap.GetDerelicts() {
-		if d.GetX() == 0 && d.GetY() == d3Y+FrigateDerelictOffset {
-			return d
-		}
+	if d := snap.GetDerelicts(); len(d) == 1 {
+		return d[0]
 	}
 
 	return nil
@@ -76,8 +74,12 @@ func TestDerelicts_AHeldOneCantBeRescued(t *testing.T) {
 
 	hub, tick := testHub(t, WithMap(frigateMap), WithPoolStart(3))
 	a, _ := join(t, hub, "a")
-	snap, others := latest(t, a, tick, rescueTicks, 0, d3Y+FrigateDerelictOffset+40)
-	if d := heldBeside(snap); d == nil || d.GetRescue() != 0 {
+	d := heldBeside(must(latest(t, a, tick, 1, 0, 0)))
+	if d == nil {
+		t.Fatal("no derelict beside the Frigate")
+	}
+	snap, others := latest(t, a, tick, rescueTicks, d.GetX(), d.GetY()+40)
+	if d = heldBeside(snap); d == nil || d.GetRescue() != 0 {
 		t.Errorf("held derelict %+v after hovering beside it, want no rescue", d)
 	}
 	for _, msg := range others {

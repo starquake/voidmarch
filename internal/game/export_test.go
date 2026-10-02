@@ -56,6 +56,12 @@ func WithDerelictAt(x, y float64) HubOption {
 	}
 }
 
+// The Frigate's patrol (#121), exposed for tests.
+const (
+	FrigateMargin      = frigateMargin
+	FrigatePatrolSpeed = frigatePatrolSpeed
+)
+
 // FrigateDerelictOffset is how far below its Frigate a held derelict waits.
 const FrigateDerelictOffset = frigateDerelictOffset
 

@@ -15,6 +15,12 @@ import (
 const (
 	frigateEscorts      = 3
 	frigateEscortRadius = 120
+	// frigateMargin keeps a Frigate's patrol this far in from its sector's
+	// sides (#121).
+	frigateMargin = 200
+	// frigatePatrolSpeed is how fast a Frigate drifts around its sector, in
+	// px/s, while no ship is within its fire range.
+	frigatePatrolSpeed = 20
 	// frigateDerelictOffset is how far below its Frigate a held derelict
 	// waits (#114).
 	frigateDerelictOffset = 160
@@ -25,10 +31,9 @@ const (
 	frigateFireRange = 380
 )
 
-// frigateSpot is where the map puts a Frigate (#89): the one there now, or
-// the tick the next one arrives.
+// frigateSpot is the sector the map puts a Frigate in (#89): the one there
+// now, or the tick the next one arrives.
 type frigateSpot struct {
-	at        point
 	sector    sim.Sector
 	enemyID   uint32
 	respawnAt uint32
@@ -41,7 +46,9 @@ type frigateSpot struct {
 // share for every ship that comes near, counted once, and its shield
 // recharges all at once after a while without a hit.
 type frigateFight struct {
-	spot    int
+	spot int
+	// goal is the point in its sector it patrols toward (#121).
+	goal    point
 	maxHP   int
 	shield  int
 	lastHit uint32
@@ -71,8 +78,7 @@ func frigateSpots(m *world.Map) []frigateSpot {
 	}
 	var out []frigateSpot
 	for _, s := range m.BossSectors("frigate") {
-		c := s.Center()
-		out = append(out, frigateSpot{at: point{x: c.X, y: c.Y}, sector: s})
+		out = append(out, frigateSpot{sector: s})
 	}
 
 	return out
@@ -86,42 +92,42 @@ func (h *Hub) spawnFrigates() {
 		if spot.enemyID != 0 || h.tick < spot.respawnAt || (h.cleared[spot.sector] && !spot.once) {
 			continue
 		}
+		at := h.roamPoint(spot.sector, frigateMargin)
 		h.nextEnemy++
 		f := &enemy{
 			id:       h.nextEnemy,
 			kind:     pb.EnemyKind_ENEMY_KIND_FRIGATE,
-			x:        spot.at.x,
-			y:        spot.at.y,
+			x:        at.x,
+			y:        at.y,
 			angle:    quarterTurn,
 			cooldown: frigateRingEvery,
 			lastNear: h.tick,
-			frigate:  &frigateFight{spot: i},
+			frigate:  &frigateFight{spot: i, goal: at},
 		}
 		f.frigate.reset(f)
 		h.enemies[f.id] = f
 		spot.enemyID = f.id
 		for n := range frigateEscorts {
 			angle := fullTurnFloat * float64(n) / frigateEscorts
-			escort := h.addEnemyOf(
-				pb.EnemyKind_ENEMY_KIND_FIGHTER,
-				spot.at.x+frigateEscortRadius*math.Cos(angle),
-				spot.at.y+frigateEscortRadius*math.Sin(angle),
-			)
-			escort.escortOf = f.id
+			slot := point{
+				frigateEscortRadius * math.Cos(angle),
+				frigateEscortRadius * math.Sin(angle),
+			}
+			escort := h.addEnemyOf(pb.EnemyKind_ENEMY_KIND_FIGHTER, at.x+slot.x, at.y+slot.y)
+			escort.escortOf, escort.post = f.id, slot
 		}
-		h.holdDerelictBeside(i)
+		h.holdDerelictBeside(i, at)
 	}
 }
 
-// holdDerelictBeside puts a held derelict beside Frigate spot i, unless
-// its last one is still waiting (#114).
-func (h *Hub) holdDerelictBeside(i int) {
+// holdDerelictBeside puts a held derelict beside Frigate spot i's Frigate
+// at at, unless its last one is still waiting (#114).
+func (h *Hub) holdDerelictBeside(i int, at point) {
 	for _, d := range h.derelicts {
 		if d.frigateSpot == i+1 {
 			return
 		}
 	}
-	at := h.frigates[i].at
 	id := h.holdDerelict(at.x, at.y+frigateDerelictOffset)
 	h.derelicts[id].frigateSpot = i + 1
 }
@@ -147,10 +153,13 @@ func (h *Hub) stepFrigate(e *enemy, ships []upShip) {
 			near = append(near, s)
 		}
 	}
+	if !slices.ContainsFunc(near, func(s upShip) bool {
+		return math.Hypot(s.at.x-e.x, s.at.y-e.y) < frigateFireRange
+	}) {
+		h.patrol(e)
+	}
 	if len(near) == 0 {
 		if len(f.counted) > 0 {
-			spot := h.frigates[f.spot].at
-			e.x, e.y = spot.x, spot.y
 			f.reset(e)
 		}
 
@@ -177,6 +186,26 @@ func (h *Hub) stepFrigate(e *enemy, ships []upShip) {
 	if e.cooldown <= 0 && distance < frigateFireRange {
 		e.cooldown = frigateRingEvery
 		h.fire(e)
+	}
+}
+
+// patrol drifts a Frigate toward its goal, picking the next once there, and
+// tows its held derelict along (#121).
+func (h *Hub) patrol(e *enemy) {
+	f := e.frigate
+	dx, dy := f.goal.x-e.x, f.goal.y-e.y
+	step := frigatePatrolSpeed * tickDuration
+	if d := math.Hypot(dx, dy); d <= step {
+		e.x, e.y = f.goal.x, f.goal.y
+		f.goal = h.roamPoint(h.frigates[f.spot].sector, frigateMargin)
+	} else {
+		e.x += dx / d * step
+		e.y += dy / d * step
+	}
+	for _, d := range h.derelicts {
+		if d.held && d.frigateSpot == f.spot+1 {
+			d.x, d.y = e.x, e.y+frigateDerelictOffset
+		}
 	}
 }
 

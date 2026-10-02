@@ -187,7 +187,7 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 // freePost is a point anywhere in s with no ship within postClearance.
 func (h *Hub) freePost(s sim.Sector, ships []upShip) (point, bool) {
 	for range spawnAttempts {
-		p := h.roamPoint(s)
+		p := h.roamPoint(s, roamMargin)
 		if _, d := nearestShip(p, ships); d > postClearance {
 			return p, true
 		}
@@ -196,15 +196,15 @@ func (h *Hub) freePost(s sim.Sector, ships []upShip) (point, bool) {
 	return point{}, false
 }
 
-// roamPoint is a random point in s, roamMargin in from its sides.
-func (h *Hub) roamPoint(s sim.Sector) point {
+// roamPoint is a random point in s, margin in from its sides.
+func (h *Hub) roamPoint(s sim.Sector, margin float64) point {
 	c := s.Center()
 	for range spawnAttempts {
 		p := point{
 			c.X + (h.rng.Float64()*2-1)*sim.SectorRadius,
 			c.Y + (h.rng.Float64()*2-1)*sim.SectorApothem,
 		}
-		if s.Inside(p.x, p.y, roamMargin) {
+		if s.Inside(p.x, p.y, margin) {
 			return p
 		}
 	}

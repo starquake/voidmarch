@@ -123,13 +123,12 @@ func (h *Hub) devStartAttack(name string) {
 func (h *Hub) attack(s sim.Sector, ticks uint32) {
 	force := &garrison{sector: s, base: sim.GarrisonSize(s.Ring()), counted: map[string]bool{}}
 	h.garrisons[s] = force
-	c := s.Center()
 	h.event = &worldEvent{
 		kind:     pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK,
 		sector:   s,
 		endsTick: h.tick + ticks,
 		force:    force,
-		frigate:  h.attackSpot(frigateSpot{at: point{c.X, c.Y}, sector: s, once: true}),
+		frigate:  h.attackSpot(frigateSpot{sector: s, once: true}),
 	}
 	h.spawnFrigates()
 	h.broadcastEvent()

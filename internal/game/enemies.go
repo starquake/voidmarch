@@ -109,9 +109,9 @@ type enemy struct {
 	wanderX, wanderY float64
 	// frigate is a Frigate's fight; nil for the rest.
 	frigate *frigateFight
-	// garrison is the garrison it belongs to, which keeps it in its sector,
-	// and post the point it roams toward there; nil for stragglers and
-	// escorts (#99, #121).
+	// garrison is the garrison it belongs to, which keeps it in its sector;
+	// nil for stragglers and escorts (#99). post is the point a garrison
+	// ship roams toward, or an escort's place around its Frigate (#121).
 	garrison *garrison
 	post     point
 	// escortOf is the Frigate a Fighter guards, which keeps it from
@@ -214,9 +214,12 @@ func (h *Hub) steer(e *enemy, players []point) {
 		accelerate(e, h.goal(e, target, stats), stats)
 	case e.garrison != nil:
 		if math.Hypot(e.post.x-e.x, e.post.y-e.y) <= postReach {
-			e.post = h.roamPoint(e.garrison.sector)
+			e.post = h.roamPoint(e.garrison.sector, roamMargin)
 		}
 		accelerate(e, e.post, roaming(stats))
+	case h.enemies[e.escortOf] != nil:
+		f := h.enemies[e.escortOf]
+		accelerate(e, point{f.x + e.post.x, f.y + e.post.y}, roaming(stats))
 	default:
 		e.vx *= idleDamping
 		e.vy *= idleDamping
