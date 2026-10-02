@@ -139,7 +139,8 @@ func (h *Hub) takeCompanion(owner string, m *member, number uint32) bool {
 	}
 	delete(m.companions, number)
 	m.wing.Remove(int(number))
-	h.broadcast(left(seatID(owner, number)), owner)
+	// Its owner too: their client draws it like any other ship (#129).
+	h.broadcast(left(seatID(owner, number)), "")
 
 	return true
 }

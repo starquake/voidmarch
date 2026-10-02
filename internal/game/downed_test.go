@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"slices"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/game"
@@ -94,6 +95,13 @@ func TestDowned_ALostCompanionGoesHome(t *testing.T) {
 				}
 				if c := companion(snap); c != nil {
 					t.Error("a/1 is still in snapshots after going home")
+				}
+				// Its owner's client drops its ship on Left, like everyone else's (#129).
+				gone := slices.ContainsFunc(messages, func(m *pb.ServerMessage) bool {
+					return m.GetLeft().GetPlayerId() == "a/1"
+				})
+				if !gone {
+					t.Error("a wasn't told a/1 left, so a's client keeps drawing it")
 				}
 
 				return

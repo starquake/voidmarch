@@ -209,7 +209,7 @@ const (
 	RespawnDelay float64 = 3
 	// CompanionLostSeconds: a companion down this long unrevived goes home
 	// to the hangar.
-	CompanionLostSeconds float64 = 30
+	CompanionLostSeconds float64 = 60
 	// BrainReviveRange: a companion goes to revive a downed squadmate this
 	// close to it.
 	BrainReviveRange = 400
