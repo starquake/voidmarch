@@ -21,6 +21,11 @@ const (
 	// frigatePatrolSpeed is how fast a Frigate drifts around its sector, in
 	// px/s, while no ship is within its fire range.
 	frigatePatrolSpeed = 20
+	// frigateQuarterTurnSeconds is how long a patrolling Frigate takes to
+	// turn a quarter of the way round to where it's going.
+	frigateQuarterTurnSeconds = 2
+	// frigatePatrolTurn is that turn rate in radians per hub tick.
+	frigatePatrolTurn = quarterTurn / (frigateQuarterTurnSeconds * TickRate)
 	// frigateDerelictOffset is how far below its Frigate a held derelict
 	// waits (#114).
 	frigateDerelictOffset = 160
@@ -195,6 +200,7 @@ func (h *Hub) patrol(e *enemy) {
 	f := e.frigate
 	dx, dy := f.goal.x-e.x, f.goal.y-e.y
 	step := frigatePatrolSpeed * tickDuration
+	e.angle = turnToward(e.angle, math.Atan2(dy, dx), frigatePatrolTurn)
 	if d := math.Hypot(dx, dy); d <= step {
 		e.x, e.y = f.goal.x, f.goal.y
 		f.goal = h.roamPoint(h.frigates[f.spot].sector, frigateMargin)

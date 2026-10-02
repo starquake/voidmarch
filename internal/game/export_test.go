@@ -56,6 +56,9 @@ func WithDerelictAt(x, y float64) HubOption {
 	}
 }
 
+// TurnToward exposes turnToward for tests.
+var TurnToward = turnToward
+
 // The Frigate's patrol (#121), exposed for tests.
 const (
 	FrigateMargin      = frigateMargin

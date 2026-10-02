@@ -164,6 +164,21 @@ func TestGarrison_HoldsItsSectorAndRoamsItOnceThePlayerLeaves(t *testing.T) {
 			len(after.GetEnemies()),
 		)
 	}
+
+	// Roaming, each faces where it's going (#121).
+	next, _ := latest(t, a, tick, 1, nearX, nearY)
+	for _, e := range next.GetEnemies() {
+		for _, b := range after.GetEnemies() {
+			dx, dy := float64(e.GetX()-b.GetX()), float64(e.GetY()-b.GetY())
+			if b.GetEnemyId() != e.GetEnemyId() || math.Hypot(dx, dy) < 0.5 {
+				continue
+			}
+			off := math.Abs(sim.WrapAngle(float64(e.GetAngle()) - math.Atan2(dy, dx)))
+			if off > 0.3 {
+				t.Errorf("enemy %d faces %.2f rad off where it's roaming", e.GetEnemyId(), off)
+			}
+		}
+	}
 }
 
 func TestGarrison_StandsDownWithNobodyNearAndKeepsItsLosses(t *testing.T) {

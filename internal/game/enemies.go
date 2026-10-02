@@ -234,6 +234,8 @@ func (h *Hub) steer(e *enemy, players []point) {
 	}
 
 	if !engaged {
+		faceTravel(e)
+
 		return
 	}
 	// Aim and fire from where this tick's snapshot shows the enemy.
@@ -286,6 +288,22 @@ func accelerate(e *enemy, goal point, stats enemyStats) {
 		e.vx *= stats.maxSpeed / speed
 		e.vy *= stats.maxSpeed / speed
 	}
+}
+
+// faceTravel turns an enemy that isn't aiming to where it's going (#121):
+// roaming, following its Frigate, or drifting to a stop.
+func faceTravel(e *enemy) {
+	if math.Hypot(e.vx, e.vy) > minFacingSpeed {
+		e.angle = math.Atan2(e.vy, e.vx)
+	}
+}
+
+// turnToward is angle turned toward want by at most limit radians, the short
+// way round.
+func turnToward(angle, want, limit float64) float64 {
+	d := sim.WrapAngle(want - angle)
+
+	return sim.WrapAngle(angle + math.Max(-limit, math.Min(limit, d)))
 }
 
 // roaming is stats at the easy pace of a garrison ship roaming its sector.

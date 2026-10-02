@@ -297,12 +297,27 @@ func TestFrigate_PatrolsItsSectorWhileNoShipIsInRange(t *testing.T) {
 	a, _ := join(t, hub, "a")
 	d3, _ := sim.ParseSector("D3")
 	start := frigateIn(must(latest(t, a, tick, 1, 0, 0)))
-	var f *pb.EnemyState
+	f, facing, samples := start, 0, 0
 	for range 30 {
+		prev := f
 		f = frigateIn(must(latest(t, a, tick, TickRate, 0, 0)))
 		if !d3.Inside(float64(f.GetX()), float64(f.GetY()), FrigateMargin-1) {
 			t.Fatalf("Frigate at (%v, %v), out of its patrol in D3", f.GetX(), f.GetY())
 		}
+		dx, dy := float64(f.GetX()-prev.GetX()), float64(f.GetY()-prev.GetY())
+		if math.Hypot(dx, dy) > FrigatePatrolSpeed/2 {
+			samples++
+			if math.Abs(sim.WrapAngle(float64(f.GetAngle())-math.Atan2(dy, dx))) < 0.35 {
+				facing++
+			}
+		}
+	}
+	if facing*10 < samples*7 {
+		t.Errorf(
+			"the Frigate faced where it was going in %d of %d seconds, want most",
+			facing,
+			samples,
+		)
 	}
 	moved := math.Hypot(float64(f.GetX()-start.GetX()), float64(f.GetY()-start.GetY()))
 	if moved < FrigatePatrolSpeed {
@@ -338,5 +353,31 @@ func TestFrigate_HoldsStillWhileAShipIsInRange(t *testing.T) {
 	if after.GetX() != before.GetX() || after.GetY() != before.GetY() {
 		t.Errorf("the Frigate moved from (%v, %v) to (%v, %v) with a ship in range",
 			before.GetX(), before.GetY(), after.GetX(), after.GetY())
+	}
+}
+
+func TestTurnToward(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		angle, want, limit, got float64
+	}{
+		{0, 1, 0.25, 0.25},
+		{0, 0.1, 0.25, 0.1},
+		{0, -1, 0.25, -0.25},
+		{3, -3, 0.25, 3 + 0.25},
+	}
+	for _, tc := range tests {
+		got := TurnToward(tc.angle, tc.want, tc.limit)
+		if math.Abs(sim.WrapAngle(got-tc.got)) > 1e-9 {
+			t.Errorf(
+				"TurnToward(%v, %v, %v) = %v, want %v",
+				tc.angle,
+				tc.want,
+				tc.limit,
+				got,
+				tc.got,
+			)
+		}
 	}
 }

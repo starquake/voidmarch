@@ -70,6 +70,9 @@ const (
 	roamMargin = 80
 	// roamSpeedShare is the share of its top speed a garrison ship roams at.
 	roamSpeedShare = 0.4
+	// minFacingSpeed is how fast, in px/s, an enemy that isn't aiming has to
+	// move to turn to where it's going; slower, it keeps its heading.
+	minFacingSpeed = 5
 	// postClearance keeps reinforcements out of sight: none takes a post
 	// this close to a ship.
 	postClearance = 400
