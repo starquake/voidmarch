@@ -447,6 +447,29 @@ func HitSteps(kind ProjectileKind) int {
 	return 1
 }
 
+// Smarts are what a faction's ships do beyond the Kla'ed's straight-on
+// fight (#9 decision 15): Lead aims where the target will be, Flank spreads
+// them around it, Dodge sidesteps incoming shots, and PickWeak goes for the
+// most damaged ship in reach.
+type Smarts struct {
+	Lead, Flank, Dodge, PickWeak bool
+}
+
+// FactionSmarts is faction's Smarts: none for the Kla'ed, leading and
+// flanking for the Nairan, and all four for the Nautolan.
+func FactionSmarts(faction EnemyFaction) Smarts {
+	switch faction {
+	case Nairan:
+		return Smarts{Lead: true, Flank: true}
+	case Nautolan:
+		return Smarts{Lead: true, Flank: true, Dodge: true, PickWeak: true}
+	case Klaed:
+		fallthrough
+	default:
+		return Smarts{}
+	}
+}
+
 // FactionStat is how much tougher a faction's Scouts and Fighters are than
 // the Kla'ed (#9 decision 14): Health multiplies their hit points and Shots
 // how often they fire. A hit still takes one hull step, so the later

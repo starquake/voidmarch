@@ -358,18 +358,6 @@ func (h *Hub) spawnNear(p point, kind pb.EnemyKind) {
 	}
 }
 
-// inSector are the points inside s.
-func inSector(points []point, s sim.Sector) []point {
-	var out []point
-	for _, p := range points {
-		if s.Contains(p.x, p.y) {
-			out = append(out, p)
-		}
-	}
-
-	return out
-}
-
 // keepInSector holds an enemy inside s, stopping it at the edge.
 func keepInSector(e *enemy, s sim.Sector) {
 	if x, y := s.Clamp(e.x, e.y, 1); x != e.x || y != e.y {

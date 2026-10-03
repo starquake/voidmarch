@@ -199,6 +199,9 @@ type Hub struct {
 	frigates []frigateSpot
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
+	// relayed are players' shots in flight, for the enemies that dodge
+	// (#138).
+	relayed []relayedShot
 	// volleys are enemy volleys announced but not yet fired.
 	volleys []volley
 	// rams are the recent rams between bodies, for the cooldown.
@@ -564,6 +567,7 @@ func (h *Hub) handleMessage(in inbound) {
 			Shot:     kind.Shot,
 		}}}
 		h.broadcast(shot, in.session.Player.ID)
+		h.noteShot(kind.Shot)
 	default:
 	}
 }

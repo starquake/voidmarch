@@ -140,6 +140,40 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 	}
 }
 
+// LeadAngle is the angle to fire from (x, y) so a shot at speed, leaving
+// delay seconds from now, meets a target at (tx, ty) moving at (vx, vy)
+// (#9 decision 15). Where no shot can catch the target it aims straight at
+// it.
+func LeadAngle(x, y, tx, ty, vx, vy, speed, delay float64) float64 {
+	// Where the target is when the shot leaves, from the muzzle.
+	qx, qy := tx+vx*delay-x, ty+vy*delay-y
+	// The flight time t solves |q + v*t| = speed*t: a*t*t + 2*h*t + c = 0.
+	a := vx*vx + vy*vy - speed*speed
+	h := qx*vx + qy*vy
+	c := qx*qx + qy*qy
+	var times []float64
+	const still = 1e-9
+	switch d := h*h - a*c; {
+	case math.Abs(a) < still && h < 0:
+		times = append(times, -c/(h+h))
+	case math.Abs(a) >= still && d >= 0:
+		root := math.Sqrt(d)
+		times = append(times, (-h-root)/a, (-h+root)/a)
+	default:
+	}
+	t := math.Inf(1)
+	for _, candidate := range times {
+		if candidate > 0 {
+			t = math.Min(t, candidate)
+		}
+	}
+	if math.IsInf(t, 1) {
+		return math.Atan2(ty-y, tx-x)
+	}
+
+	return math.Atan2(qy+vy*t, qx+vx*t)
+}
+
 // EnemyHP is an enemy's hit points, as the server has them, for picking the
 // weakest target; a Frigate's is its least, for one player.
 func EnemyHP(kind EnemyKind) float64 {
