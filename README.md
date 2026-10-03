@@ -138,7 +138,9 @@ rings of big bullets behind a shield bubble that recharges when left alone,
 and it's tougher for every player online, a companion counting half.
 Its health bar shows at the top while you're close. If everyone near it goes
 down it heals, and once destroyed it always drops a part. It's back five
-minutes later, unless its sector has been cleared.
+minutes later, unless its sector has been cleared. Further out, four Nairan
+Frigates patrol ring 2 and six Nautolan ones ring 3, once those rings are open,
+with a Bomber among their escorts and bigger rings of their own faction's shots.
 
 Once four of the six sectors around home are cleared, the Kla'ed Dreadnought
 wakes in one of the ring-2 sectors, which opens for it. Its health is 10,000

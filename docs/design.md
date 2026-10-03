@@ -211,6 +211,8 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 
 **The Frigate, as built (#89).** One patrols each Frigate sector of the game map (`internal/world`, chosen with `MAP`), with three Fighters that keep station around it while it's there. It spawns at a random spot at least 200 px in from its sector's sides and drifts at 20 px/s from one random point in the sector to the next, holding still while any ship is within 380 px (#121). Bumps don't move it. It turns to the nearest ship and fires a ring of 12 big bullets every 3 s at anyone within 380 px.
 
+**The later factions' Frigates (#139).** The map puts 3 in ring 1 (D3, E4, C4), 4 in ring 2 (E2, F5, C5, B3) and 6 in ring 3 (E1, G3, F6, C6, A4, B2): every other or every third sector, between the ones inside them. A Frigate is its ring's faction (`sim.FactionOfRing`) and comes only once its ring is open. A Nairan or Nautolan one has two Fighters and a Bomber as escorts. Its ring is its faction's big shot, as many more as the faction fires more often (`sim.FrigateRing`): 18 Nairan Rays, 24 Nautolan Spinning Bullets. Its health, shield and fight are a Kla'ed Frigate's (#9 decision 14 leaves the bosses' health as #132 sized it), and the boss bar names its faction.
+
 - **Health**: 40, plus 30 for every player online, downed or not, a companion counting half (#132). When someone logs in or off it keeps its share of health left, so it doesn't jump when ships fly in, fly home or go down. A group that splits up meets a Frigate sized for everyone.
 - **Shield**: a bubble that takes 20 damage before the hull, and recharges all at once after 8 s without a hit.
 - **Reset**: once nobody within 800 px is up, it heals fully and its shield comes back.
