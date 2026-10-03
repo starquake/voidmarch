@@ -7,11 +7,13 @@ import {
   loadControlMode,
   loadDisplaySettings,
   loadLastSquadron,
+  loadSeenSeason,
   loadToken,
   saveAudioSettings,
   saveControlMode,
   saveDisplaySettings,
   saveLastSquadron,
+  saveSeenSeason,
   saveToken,
 } from './settings.ts';
 
@@ -135,4 +137,13 @@ test('the last squadron is kept, and denied storage forgets it quietly', () => {
   assert.doesNotThrow(() => {
     saveLastSquadron('Beta', brokenStore);
   });
+});
+
+test('the season whose victory screen was seen is remembered', () => {
+  const store = memoryStore();
+  assert.equal(loadSeenSeason(store), undefined);
+  saveSeenSeason('1800000000', store);
+  assert.equal(loadSeenSeason(store), '1800000000');
+  saveSeenSeason('1800000000', brokenStore);
+  assert.equal(loadSeenSeason(brokenStore), undefined);
 });

@@ -189,9 +189,15 @@ type Hub struct {
 	dreadnoughtShares map[sim.EnemyFaction]float64
 	saveDreadnought   func(faction sim.EnemyFaction, share float64)
 	saveOpenRings     func(rings int)
-	// seasonWon is set once the finale falls (#153).
+	// seasonWon is set once the finale falls (#153), seasonStarted and
+	// seasonWonAt say when, and names are the players' names, for its
+	// result (#156).
 	seasonWon     bool
-	saveSeasonWon func()
+	seasonStarted time.Time
+	seasonWonAt   time.Time
+	saveSeasonWon func(at time.Time)
+	names         map[string]string
+	now           func() time.Time
 	// stats are every player's season stats who joined since the hub
 	// started, statsChanged those not saved since they changed (#154).
 	stats         map[string]*players.Stats
@@ -238,8 +244,11 @@ type hubOptions struct {
 	dreadnoughtShares map[sim.EnemyFaction]float64
 	saveDreadnought   func(faction sim.EnemyFaction, share float64)
 	saveOpenRings     func(rings int)
-	seasonWon         bool
-	saveSeasonWon     func()
+	seasonStarted     time.Time
+	seasonWonAt       time.Time
+	saveSeasonWon     func(at time.Time)
+	standings         []players.Standing
+	now               func() time.Time
 	saveStats         func(player string, s players.Stats)
 	cleared           []string
 	saveSector        func(name string)
@@ -319,8 +328,18 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	maps.Copy(h.dreadnoughtShares, o.dreadnoughtShares)
 	h.saveDreadnought = o.saveDreadnought
 	h.saveOpenRings = o.saveOpenRings
-	h.seasonWon, h.saveSeasonWon = o.seasonWon, o.saveSeasonWon
+	h.seasonStarted, h.seasonWonAt = o.seasonStarted, o.seasonWonAt
+	h.seasonWon, h.saveSeasonWon = !o.seasonWonAt.IsZero(), o.saveSeasonWon
+	h.now = o.now
+	if h.now == nil {
+		h.now = time.Now
+	}
 	h.stats, h.statsChanged = make(map[string]*players.Stats), make(map[string]bool)
+	h.names = make(map[string]string)
+	for _, st := range o.standings {
+		s := st.Stats
+		h.stats[st.ID], h.names[st.ID] = &s, st.Name
+	}
 	h.saveStats = o.saveStats
 	h.forgetSector = o.forgetSector
 	h.eventTimes = defaultEventTimes()
@@ -397,8 +416,7 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 		case <-ctx.Done():
 			return
 		case req := <-h.join:
-			h.keepStats(req.player)
-			req.reply <- h.handleJoin(req.player)
+			req.reply <- h.admit(req.player)
 		case s := <-h.leave:
 			if m, ok := h.members[s.Player.ID]; ok && m.session == s {
 				h.drop(s.Player.ID, "left")
@@ -584,6 +602,8 @@ func (h *Hub) handleMessage(in inbound) {
 		h.pickMission(m, kind.PickMission.GetSector())
 	case *pb.ClientMessage_DevStartAttack:
 		h.devStartAttack(kind.DevStartAttack.GetSector())
+	case *pb.ClientMessage_DevSeasonWon:
+		h.devSeasonWon(in.session.Player.ID)
 	case *pb.ClientMessage_Shot:
 		if kind.Shot.GetCompanion() != 0 {
 			return

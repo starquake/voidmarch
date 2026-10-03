@@ -86,22 +86,6 @@ func WithSaveOpenRings(save func(rings int)) HubOption {
 	}
 }
 
-// WithSeasonWon starts the hub in a won season, as saved: the finale
-// doesn't wake again until a new season (#153).
-func WithSeasonWon() HubOption {
-	return func(o *hubOptions) {
-		o.seasonWon = true
-	}
-}
-
-// WithSaveSeasonWon saves that the season is won, off the tick goroutine,
-// when the finale falls (#153).
-func WithSaveSeasonWon(save func()) HubOption {
-	return func(o *hubOptions) {
-		o.saveSeasonWon = save
-	}
-}
-
 // ringCleared is how many of ring's sectors are cleared.
 func (h *Hub) ringCleared(ring int) int {
 	n := 0
@@ -326,10 +310,7 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 	h.dreadnoughtShares[e.faction] = 1
 	h.saveDreadnoughtShare(e.faction, 1)
 	if finale(e.faction) {
-		h.seasonWon = true
-		if h.saveSeasonWon != nil {
-			h.saves <- h.saveSeasonWon
-		}
+		h.winSeason()
 	}
 	opened := min(h.frontier.OpenRings+1, sim.GridRings)
 	h.frontier = sim.Frontier{OpenRings: opened}
