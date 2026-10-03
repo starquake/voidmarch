@@ -281,7 +281,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 
 ### Season
 
-- **A season is a weekend** (#10): Friday evening starts a fresh frontier, and the pace is about one ring a day.
+- **A season lasts as long as the host likes** (#10 decision 13): it ends when the finale falls, and the host starts the next, after a weekend or a single day. How long the rings and bosses take is still to be timed in a playtest (#160).
 - **The Nautolan Dreadnought's fall wins the season** (#153). The world stays open afterwards: no ring closes again, even if attacks retake sectors.
 - **A new season is started by hand**, with the server stopped. It resets the frontier, the boss health, the hangar and everyone's part unlocks, so a friend who missed a weekend isn't behind (#10 decisions 5–7).
 
