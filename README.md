@@ -147,9 +147,12 @@ wakes in one of the ring-2 sectors, which opens for it. Its health is 10,000
 plus 10,000 for every player online, sized for an evening's fight; the share
 left is kept between sessions and regenerates 1% an hour. It fires rings of big
 bullets, sweeping Ray beams and spreads of Waves from behind its shield.
-Destroying it opens rings 2 and 3, gives every player near it a part, and
-leaves 3 derelicts by the wreck. If ring 1 later falls back below four cleared
-sectors, rings 2 and 3 close again until a new Dreadnought is beaten.
+Destroying it opens ring 2, gives every player near it a part, and leaves 3
+derelicts by the wreck. Once four of ring 2's sectors are cleared, the Nairan
+Dreadnought wakes in ring 3 the same way, with its own health kept between
+sessions. It fires Ray sweeps, spreads of Rockets and fans of Torpedoes, and
+its fall opens ring 3. If a ring later falls back below four cleared sectors,
+every ring beyond it closes again until its Dreadnought is beaten anew.
 
 ## Parts
 
