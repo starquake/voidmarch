@@ -46,6 +46,17 @@ type Season struct {
 	WonAt     sql.NullInt64
 }
 
+type SeasonStat struct {
+	PlayerID       string
+	Kills          int64
+	CompanionKills int64
+	Shots          int64
+	Hits           int64
+	Deaths         int64
+	Rescues        int64
+	Sectors        int64
+}
+
 type Unlock struct {
 	PlayerID string
 	Part     string

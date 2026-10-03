@@ -263,3 +263,28 @@ func TestStore_SaveLoadout(t *testing.T) {
 		t.Errorf("ByToken().Loadout = %+v, want %+v", got, want)
 	}
 }
+
+func TestStore_SaveStats(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+	player, token, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if found, _, _ := store.ByToken(t.Context(), token); found.Stats != (Stats{}) {
+		t.Errorf("ByToken().Stats before any were saved = %+v, want all zero", found.Stats)
+	}
+	for _, want := range []Stats{
+		{Kills: 1, Shots: 4, Hits: 2},
+		{Kills: 9, CompanionKills: 3, Shots: 40, Hits: 17, Deaths: 2, Rescues: 1, Sectors: 5},
+	} {
+		if err = store.SaveStats(t.Context(), player.ID, want); err != nil {
+			t.Fatalf("SaveStats(%+v) error = %v", want, err)
+		}
+		var found Player
+		if found, _, err = store.ByToken(t.Context(), token); err != nil || found.Stats != want {
+			t.Errorf("ByToken().Stats = %+v, %v; want %+v", found.Stats, err, want)
+		}
+	}
+}
