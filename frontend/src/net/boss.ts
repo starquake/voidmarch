@@ -1,4 +1,4 @@
-import type { EnemyKind } from '../sim/enemies.ts';
+import { FACTION_NAMES, type EnemyFaction, type EnemyKind } from '../sim/enemies.ts';
 import { DREADNOUGHT_SHIELD, FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
 
 /** A boss's health as the server sends it (#89). */
@@ -13,6 +13,7 @@ export interface BossHealth {
 /** A boss as drawn, with its health. */
 export interface DrawnBoss extends BossHealth {
   kind: EnemyKind;
+  faction: EnemyFaction;
   x: number;
   y: number;
 }
@@ -26,10 +27,10 @@ export interface BossBar {
   text: string;
 }
 
-/** The bosses with a bar: their names, and the most their shields hold. */
+/** The bosses with a bar: their class's name after their faction's, and the most their shields hold. */
 const BOSSES: Partial<Record<EnemyKind, { name: string; shield: number }>> = {
-  frigate: { name: "KLA'ED FRIGATE", shield: FRIGATE_SHIELD },
-  dreadnought: { name: "KLA'ED DREADNOUGHT", shield: DREADNOUGHT_SHIELD },
+  frigate: { name: 'FRIGATE', shield: FRIGATE_SHIELD },
+  dreadnought: { name: 'DREADNOUGHT', shield: DREADNOUGHT_SHIELD },
 };
 
 /** The bar for the nearest boss within reach of (x, y), or undefined when none is. */
@@ -52,7 +53,7 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} online` : '';
 
   return {
-    name: boss.name,
+    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
     text: `${String(hp)} / ${String(max)}${scaled}`,

@@ -2,6 +2,7 @@ package world_test
 
 import (
 	"errors"
+	"math"
 	"slices"
 	"testing"
 
@@ -90,6 +91,42 @@ func TestParse(t *testing.T) {
 	} {
 		if _, err = Parse([]byte(bad)); !errors.Is(err, ErrInvalidMap) {
 			t.Errorf("Parse(%s) error = %v, want %v", bad, err, ErrInvalidMap)
+		}
+	}
+}
+
+func TestLoad_TheFrontierHasFrigatesInEveryRingEvenlySpaced(t *testing.T) {
+	t.Parallel()
+
+	m, err := Load("frontier")
+	if err != nil {
+		t.Fatalf("Load(frontier) error = %v", err)
+	}
+	byRing := map[int][]float64{}
+	for _, s := range m.BossSectors("frigate") {
+		c := s.Center()
+		byRing[s.Ring()] = append(byRing[s.Ring()], math.Atan2(c.X, -c.Y))
+	}
+	for ring, want := range map[int]int{1: 3, 2: 4, 3: 6} {
+		angles := byRing[ring]
+		if len(angles) != want {
+			t.Errorf("ring %d has %d Frigates, want %d", ring, len(angles), want)
+
+			continue
+		}
+		// Evenly spaced: every pair of neighbours a whole turn / want apart.
+		slices.Sort(angles)
+		for i := range angles {
+			next := angles[(i+1)%len(angles)]
+			gap := math.Mod(next-angles[i]+2*math.Pi, 2*math.Pi)
+			if math.Abs(gap-2*math.Pi/float64(want)) > 0.2 {
+				t.Errorf(
+					"ring %d: Frigates %.2f rad apart, want about %.2f",
+					ring,
+					gap,
+					2*math.Pi/float64(want),
+				)
+			}
 		}
 	}
 }

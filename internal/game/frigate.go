@@ -98,12 +98,17 @@ func (h *Hub) spawnFrigates() {
 		if spot.enemyID != 0 || h.tick < spot.respawnAt || (h.cleared[spot.sector] && !spot.once) {
 			continue
 		}
+		// Nothing happens in a closed sector (#123): it comes once its ring opens.
+		if !h.frontier.Open(spot.sector) {
+			continue
+		}
+		faction := sim.FactionOfRing(spot.sector.Ring())
 		at := h.roamPoint(spot.sector, frigateMargin)
 		h.nextEnemy++
 		f := &enemy{
 			id:       h.nextEnemy,
 			kind:     pb.EnemyKind_ENEMY_KIND_FRIGATE,
-			faction:  sim.Klaed,
+			faction:  faction,
 			x:        at.x,
 			y:        at.y,
 			angle:    quarterTurn,
@@ -121,7 +126,7 @@ func (h *Hub) spawnFrigates() {
 				frigateEscortRadius * math.Sin(angle),
 			}
 			escort := h.addEnemyOf(
-				pb.EnemyKind_ENEMY_KIND_FIGHTER,
+				escortKind(faction, n),
 				f.faction,
 				at.x+slot.x,
 				at.y+slot.y,
@@ -130,6 +135,16 @@ func (h *Hub) spawnFrigates() {
 		}
 		h.holdDerelictBeside(i, at)
 	}
+}
+
+// escortKind is a Frigate's nth escort: Fighters, and for the later
+// factions a Bomber as the last of them (#139).
+func escortKind(faction sim.EnemyFaction, n int) pb.EnemyKind {
+	if faction != sim.Klaed && n == frigateEscorts-1 {
+		return pb.EnemyKind_ENEMY_KIND_BOMBER
+	}
+
+	return pb.EnemyKind_ENEMY_KIND_FIGHTER
 }
 
 // holdDerelictBeside puts a held derelict beside Frigate spot i's Frigate

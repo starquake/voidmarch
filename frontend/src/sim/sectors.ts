@@ -1,4 +1,5 @@
 import { GRID_RINGS, RING_FACTIONS, SECTOR_RADIUS, type EnemyFaction } from './rules.gen.ts';
+import { FACTION_NAMES } from './enemies.ts';
 import { RING_TINTS } from './tuning.ts';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -200,8 +201,6 @@ export function missionArrow(
   return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
 
-/** Each faction's name as the HUD writes it. */
-const FACTION_NAMES: Record<EnemyFaction, string> = { klaed: "Kla'ed", nairan: 'Nairan', nautolan: 'Nautolan' };
 
 /** The faction holding a sector, by its ring (#136); the Kla'ed off the grid. */
 export function sectorFaction(name: string): EnemyFaction {

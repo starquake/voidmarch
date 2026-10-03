@@ -379,3 +379,38 @@ func TestTurnToward(t *testing.T) {
 		}
 	}
 }
+
+func TestFrigate_TheLaterRingsFieldTheirFactionsOnceOpen(t *testing.T) {
+	t.Parallel()
+
+	ringTwo := &world.Map{
+		Name:     "test",
+		NoEvents: true,
+		Bosses:   []world.Boss{{Kind: "frigate", Sector: "E2"}},
+	}
+	closed, tick := testHub(t, WithMap(ringTwo))
+	a, _ := join(t, closed, "a")
+	if f := frigateIn(must(latest(t, a, tick, 2, 0, 0))); f != nil {
+		t.Errorf("Frigate %+v in E2 with ring 2 closed, want none until it opens", f)
+	}
+
+	open, tick := testHub(t, WithMap(ringTwo), WithOpenRings(3), WithClearedSectors(ringOne(4)))
+	b, _ := join(t, open, "b")
+	snap := must(latest(t, b, tick, 2, 0, 0))
+	f := frigateIn(snap)
+	if f == nil || f.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAIRAN {
+		t.Fatalf("Frigate %+v in E2 with ring 2 open, want a Nairan one", f)
+	}
+	escorts := map[pb.EnemyKind]int{}
+	for _, e := range snap.GetEnemies() {
+		if e.GetEnemyId() != f.GetEnemyId() &&
+			e.GetFaction() == pb.EnemyFaction_ENEMY_FACTION_NAIRAN &&
+			math.Hypot(float64(e.GetX()-f.GetX()), float64(e.GetY()-f.GetY())) < 200 {
+			escorts[e.GetKind()]++
+		}
+	}
+	if escorts[pb.EnemyKind_ENEMY_KIND_FIGHTER] != 2 ||
+		escorts[pb.EnemyKind_ENEMY_KIND_BOMBER] != 1 {
+		t.Errorf("escorts %v, want two Fighters and a Bomber", escorts)
+	}
+}

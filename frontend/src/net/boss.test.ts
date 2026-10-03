@@ -6,6 +6,7 @@ import { DREADNOUGHT_BASE_HP, DREADNOUGHT_SHIELD, FRIGATE_REACH, FRIGATE_SHIELD 
 
 const frigate = (over: Partial<DrawnBoss> = {}): DrawnBoss => ({
   kind: 'frigate',
+  faction: 'klaed',
   x: 0,
   y: 0,
   hp: 96,
@@ -13,6 +14,11 @@ const frigate = (over: Partial<DrawnBoss> = {}): DrawnBoss => ({
   shield: FRIGATE_SHIELD / 2,
   scaledFor: 3,
   ...over,
+});
+
+test("the bar names a boss by its faction", () => {
+  assert.equal(bossBar([frigate({ faction: 'nairan' })], 0, 0)?.name, 'NAIRAN FRIGATE');
+  assert.equal(bossBar([frigate({ faction: 'nautolan' })], 0, 0)?.name, 'NAUTOLAN FRIGATE');
 });
 
 test('the bar names the Frigate and shows its health, shield and the players it was scaled for', () => {

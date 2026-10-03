@@ -85,7 +85,9 @@ func TestEnemyRadius_FollowsEachFactionsHull(t *testing.T) {
 		{EnemyFighter, Nairan, 14},
 		{EnemyScout, Nautolan, 15},
 		{EnemyFighter, Nautolan, 15},
-		{EnemyFrigate, Nautolan, 19},
+		{EnemyFrigate, Klaed, 19},
+		{EnemyFrigate, Nairan, 21},
+		{EnemyFrigate, Nautolan, 20},
 	}
 	for _, tc := range tests {
 		if got := EnemyRadius(tc.kind, tc.faction); got != tc.want {
@@ -147,5 +149,44 @@ func TestFactionSmarts(t *testing.T) {
 	all := Smarts{Lead: true, Flank: true, Dodge: true, PickWeak: true}
 	if got := FactionSmarts(Nautolan); got != all {
 		t.Errorf("the Nautolan have %+v, want all four", got)
+	}
+}
+
+func TestFrigateRing_EachFactionRingsWithItsOwnShotsAndMoreOfThem(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		faction EnemyFaction
+		bullet  EnemyBulletID
+		count   int
+	}{
+		{Klaed, KlaedBigBullet, FrigateRingBullets},
+		{Nairan, NairanRay, 18},
+		{Nautolan, NautolanSpinningBullet, 24},
+	}
+	for _, tc := range tests {
+		bullet, count := FrigateRing(tc.faction)
+		if bullet != tc.bullet || count != tc.count || count > MaxVolleyBullets {
+			t.Errorf(
+				"FrigateRing(%s) = %s x %d, want %s x %d, at most %d",
+				tc.faction,
+				bullet,
+				count,
+				tc.bullet,
+				tc.count,
+				MaxVolleyBullets,
+			)
+		}
+		ring := EnemyPattern(EnemyFrigate, tc.faction, 0, 0, 0, 7)
+		if len(ring) != tc.count || ring[0].Kind != ProjectileKind(tc.bullet) {
+			t.Errorf(
+				"a %s Frigate's ring = %d of %s, want %d of %s",
+				tc.faction,
+				len(ring),
+				ring[0].Kind,
+				tc.count,
+				tc.bullet,
+			)
+		}
 	}
 }

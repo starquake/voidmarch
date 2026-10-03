@@ -115,6 +115,7 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 		nairanFighter, nautolanShip          = 14, 15
 		bomber, nautolanBomber               = 16, 14
 		torpedo, nautolanTorpedo             = 20, 19
+		nairanFrigate, nautolanFrigate       = 21, 20
 	)
 	switch {
 	case kind == EnemyBomber && faction == Nautolan:
@@ -125,6 +126,10 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 		return nautolanTorpedo
 	case kind == EnemyTorpedo:
 		return torpedo
+	case kind == EnemyFrigate && faction == Nairan:
+		return nairanFrigate
+	case kind == EnemyFrigate && faction == Nautolan:
+		return nautolanFrigate
 	case kind == EnemyFrigate:
 		return frigate
 	case kind == EnemyDreadnought:
