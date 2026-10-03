@@ -885,9 +885,9 @@ var FrameTimes = class {
     const first = this.frames.findIndex((f) => f.at > since);
     this.frames = first < 0 ? [] : this.frames.slice(first);
   }
-  /** The average frame time of the last second, 0 before the first frame. */
+  /** The average frame time of the last second, 0 before the first frame; never above the worst, which rounding could otherwise push it past. */
   get average() {
-    return this.frames.length === 0 ? 0 : this.frames.reduce((sum, f) => sum + f.ms, 0) / this.frames.length;
+    return this.frames.length === 0 ? 0 : Math.min(this.worst, this.frames.reduce((sum, f) => sum + f.ms, 0) / this.frames.length);
   }
   /** The longest frame of the last second, 0 before the first frame. */
   get worst() {
