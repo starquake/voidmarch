@@ -40,6 +40,12 @@ type Player struct {
 	LastSeenAt sql.NullInt64
 }
 
+type Season struct {
+	ID        int64
+	StartedAt int64
+	WonAt     sql.NullInt64
+}
+
 type Unlock struct {
 	PlayerID string
 	Part     string

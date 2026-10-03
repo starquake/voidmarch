@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 7; got != want {
+	if got, want := version, 8; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -34,7 +34,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := mode, "wal"; got != want {
 		t.Errorf("journal_mode = %q, want %q", got, want)
 	}
-	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnoughts"} {
+	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnoughts", "season"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)
 		if err = row.Scan(&n); err != nil {
@@ -84,7 +84,7 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	// A version-2 file: without the tables migrations 004 onward add.
 	_, err = db.ExecContext(
 		t.Context(),
-		"DROP TABLE frontier; DROP TABLE dreadnoughts; PRAGMA user_version = 2",
+		"DROP TABLE frontier; DROP TABLE dreadnoughts; DROP TABLE season; PRAGMA user_version = 2",
 	)
 	if err != nil {
 		t.Fatalf("rolling the file back to version 2: %v", err)
@@ -111,7 +111,7 @@ func TestOpen_TheDreadnoughtsHealthBecomesAShare(t *testing.T) {
 		t.Fatalf("Open() error = %v", err)
 	}
 	// A version-5 file, with 150,000 of the old fixed 200,000 saved.
-	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnoughts;
+	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnoughts; DROP TABLE season;
 		CREATE TABLE dreadnought (
 			id INTEGER PRIMARY KEY CHECK (id = 1), hp INTEGER NOT NULL, updated_at INTEGER NOT NULL
 		) STRICT;
@@ -295,5 +295,30 @@ func TestClearedSectors(t *testing.T) {
 	names, err = ClearedSectors(t.Context(), db)
 	if err != nil || !slices.Equal(names, []string{"E3"}) {
 		t.Errorf("ClearedSectors() after unclearing C3 = %v, %v, want [E3]", names, err)
+	}
+}
+
+func TestSeason(t *testing.T) {
+	t.Parallel()
+
+	before := time.Now().Add(-time.Second)
+	db, err := Open(t.Context(), filepath.Join(t.TempDir(), "voidmarch.db"))
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	s, err := CurrentSeason(t.Context(), db)
+	if err != nil || s.Started.Before(before) || !s.Won.IsZero() {
+		t.Errorf("CurrentSeason() on a fresh file = %+v, %v; want started now, not won", s, err)
+	}
+	won := time.Unix(1_700_000_000, 0)
+	for _, at := range []time.Time{won, won.Add(time.Hour)} {
+		if err = SaveSeasonWon(t.Context(), db, at); err != nil {
+			t.Fatalf("SaveSeasonWon(%v) error = %v", at, err)
+		}
+	}
+	if s, err = CurrentSeason(t.Context(), db); err != nil || !s.Won.Equal(won) {
+		t.Errorf("CurrentSeason() = %+v, %v; want won at %v, the first time saved", s, err, won)
 	}
 }

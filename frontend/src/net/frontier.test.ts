@@ -10,6 +10,7 @@ test('the fall is announced with what it opened and the part won', () => {
     'Your reward: Mega Zapper',
   ]);
   assert.deepEqual(bossFellBanner('nairan', undefined), ['The Nairan Dreadnought has fallen', 'Ring 3 is open.']);
+  assert.deepEqual(bossFellBanner('nautolan', undefined), ['The Nautolan Dreadnought has fallen', 'The season is won.']);
 });
 
 test("each faction's Dreadnought opens the ring beyond its own", () => {

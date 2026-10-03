@@ -4,6 +4,7 @@ import (
 	"math"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -474,5 +475,151 @@ func TestDreadnought_ANairanOneAwakeGoesBackToSleepWhenRingOneFallsBack(t *testi
 	kept := func(shares []float64, _ []int) bool { return slices.Contains(shares, 0.6) }
 	if shares, _ := saves.settle(kept); !kept(shares, nil) {
 		t.Errorf("saved shares %v, want the Nairan one's 0.6 kept", shares)
+	}
+}
+
+// finaleCleared is a world with every ring open and 4 of each cleared, so
+// the Nautolan Dreadnought wakes.
+func finaleCleared() []string {
+	return slices.Concat(ringOne(6), ringOf(2, 4), ringOf(3, 4))
+}
+
+func TestDreadnought_TheNautolanOneIsTheFinale(t *testing.T) {
+	t.Parallel()
+
+	var won atomic.Bool
+	hub, tick := testHub(
+		t,
+		WithOpenRings(3),
+		WithClearedSectors(finaleCleared()),
+		WithDreadnought(sim.Nautolan, 0.0005),
+		WithSaveSeasonWon(func() { won.Store(true) }),
+		WithPoolStart(3),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	snap, others := latest(t, a, tick, 2, 0, 0)
+	d := dreadnoughtIn(snap)
+	if d == nil || d.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAUTOLAN {
+		t.Fatalf("Dreadnought %+v with 4 of ring 3 cleared, want the Nautolan one awake", d)
+	}
+	if s, _ := sim.SectorAt(float64(d.GetX()), float64(d.GetY())); s.Ring() != sim.GridRings {
+		t.Errorf("the Nautolan Dreadnought woke in %s (ring %d), want ring 3", s.Name(), s.Ring())
+	}
+	if f := frontierIn(others); len(f.GetOpened()) != 0 {
+		t.Errorf("frontier %+v, want no sector opened on its own: ring 3 is open", f)
+	}
+
+	x, y := d.GetX(), d.GetY()+300
+	must(latest(t, a, tick, 1, x, y))
+	for shot := range uint32(sim.DreadnoughtShield/MaxHitDamage + 2) { //nolint:gosec // a few shots.
+		hitFrigate(a, d.GetEnemyId(), shot+1)
+	}
+	_, others = latest(t, a, tick, 1, x, y)
+	var fell *pb.BossFell
+	for _, msg := range others {
+		if f := msg.GetBossFell(); f != nil {
+			fell = f
+		}
+	}
+	if fell.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAUTOLAN {
+		t.Errorf("BossFell %+v, want the Nautolan one fallen", fell)
+	}
+	deadline := time.Now().Add(time.Second)
+	for !won.Load() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if !won.Load() {
+		t.Error("the season wasn't saved as won when the finale fell")
+	}
+	if d := dreadnoughtIn(must(latest(t, a, tick, 5, x, y))); d != nil {
+		t.Errorf("Dreadnought %+v after the finale fell, want none until a new season", d)
+	}
+}
+
+func TestDreadnought_AWonSeasonKeepsTheFinaleAsleep(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(
+		t,
+		WithOpenRings(3),
+		WithClearedSectors(finaleCleared()),
+		WithSeasonWon(),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	if d := dreadnoughtIn(must(latest(t, a, tick, 3, 0, 0))); d != nil {
+		t.Errorf("Dreadnought %+v in a won season, want none", d)
+	}
+
+	// Ring 1 fallen back to 3 cleared: the world stays open all the same.
+	open, tick := testHub(
+		t,
+		WithOpenRings(3),
+		WithClearedSectors(ringOne(3)),
+		WithSeasonWon(),
+		NoEvents,
+	)
+	b, _ := join(t, open, "b")
+	if f := frontierIn(must2(latest(t, b, tick, 2, 0, 0))); f != nil {
+		t.Errorf(
+			"frontier %+v in a won season with ring 1 fallen back, want every ring left open",
+			f,
+		)
+	}
+}
+
+func TestDreadnought_TheFinaleSleepsWhenRingThreeFallsBack(t *testing.T) {
+	t.Parallel()
+
+	saves := &saved{}
+	hub, tick := testHub(
+		t,
+		WithOpenRings(3),
+		WithClearedSectors(finaleCleared()),
+		WithDreadnought(sim.Nautolan, 0.6),
+		WithSaveDreadnought(saves.share),
+		WithSaveOpenRings(saves.ring),
+		WithWokenThenLost(ringOf(3, 1)[0]),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	snap, others := latest(t, a, tick, 2, 0, 0)
+	if d := dreadnoughtIn(snap); d != nil {
+		t.Errorf("Dreadnought %+v after ring 3 fell back to 3 cleared, want it asleep", d)
+	}
+	if f := frontierIn(others); f != nil && f.GetOpenRings() != sim.GridRings {
+		t.Errorf("frontier %+v, want every ring left open", f)
+	}
+	kept := func(shares []float64, _ []int) bool { return slices.Contains(shares, 0.6) }
+	if shares, rings := saves.settle(kept); !kept(shares, nil) || len(rings) != 0 {
+		t.Errorf(
+			"saved shares %v and rings %v, want the Nautolan one's 0.6 kept and no ring closed",
+			shares,
+			rings,
+		)
+	}
+}
+
+func TestDreadnoughtGap_TheLaterFactionsFireMoreOften(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		faction sim.EnemyFaction
+		want    int
+	}{
+		{sim.Klaed, DreadnoughtVolleyGap},
+		{sim.Nairan, 27},
+		{sim.Nautolan, DreadnoughtVolleyGap / 2},
+	} {
+		if got := DreadnoughtGap(tc.faction, DreadnoughtVolleyGap); got != tc.want {
+			t.Errorf(
+				"DreadnoughtGap(%s, %d) = %d, want %d",
+				tc.faction,
+				DreadnoughtVolleyGap,
+				got,
+				tc.want,
+			)
+		}
 	}
 }

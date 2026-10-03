@@ -1,12 +1,13 @@
 import { FACTION_NAMES } from '../sim/enemies.ts';
-import { RING_FACTIONS, type EnemyFaction } from '../sim/rules.gen.ts';
+import { GRID_RINGS, RING_FACTIONS, type EnemyFaction } from '../sim/rules.gen.ts';
 
 /** The ring a faction's Dreadnought opens: the one beyond the last ring that faction holds (#140). */
 export const ringOpenedBy = (faction: EnemyFaction): number => RING_FACTIONS.lastIndexOf(faction) + 1;
 
-/** The banner when a Dreadnought falls (#125, #140): what it opened, and the part this player won, if any. */
+/** The banner when a Dreadnought falls (#125, #140): what it opened, or the season won for the finale (#153), and the part this player won, if any. */
 export function bossFellBanner(faction: EnemyFaction, part: string | undefined): string[] {
-  const lines = [`The ${FACTION_NAMES[faction]} Dreadnought has fallen`, `Ring ${String(ringOpenedBy(faction))} is open.`];
+  const ring = ringOpenedBy(faction);
+  const lines = [`The ${FACTION_NAMES[faction]} Dreadnought has fallen`, ring > GRID_RINGS ? 'The season is won.' : `Ring ${String(ring)} is open.`];
   if (part !== undefined) {
     lines.push(`Your reward: ${part}`);
   }

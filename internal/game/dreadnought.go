@@ -86,6 +86,22 @@ func WithSaveOpenRings(save func(rings int)) HubOption {
 	}
 }
 
+// WithSeasonWon starts the hub in a won season, as saved: the finale
+// doesn't wake again until a new season (#153).
+func WithSeasonWon() HubOption {
+	return func(o *hubOptions) {
+		o.seasonWon = true
+	}
+}
+
+// WithSaveSeasonWon saves that the season is won, off the tick goroutine,
+// when the finale falls (#153).
+func WithSaveSeasonWon(save func()) HubOption {
+	return func(o *hubOptions) {
+		o.saveSeasonWon = save
+	}
+}
+
 // ringCleared is how many of ring's sectors are cleared.
 func (h *Hub) ringCleared(ring int) int {
 	n := 0
@@ -113,9 +129,11 @@ func (h *Hub) dreadnoughtShare(faction sim.EnemyFaction) float64 {
 // closed ring drawn at random that opens for it (#8 decisions 1, 4 and 11):
 // the Kla'ed one in ring 2 after ring 1, the Nairan one in ring 3 after
 // ring 2 (#140). Its faction is the one holding the ring it wakes beyond.
+// With every ring open, the Nautolan one, the season's finale, wakes in ring
+// 3 itself, until the season is won (#10 decision 2, #153).
 func (h *Hub) wakeDreadnought() {
 	inside := h.frontier.OpenRings
-	if _, awake := h.enemies[h.dreadnoughtID]; awake || inside >= sim.GridRings {
+	if _, awake := h.enemies[h.dreadnoughtID]; awake || h.seasonWon {
 		return
 	}
 	early := inside == 1 && h.worldMap != nil && h.worldMap.DreadnoughtAwake
@@ -123,9 +141,10 @@ func (h *Hub) wakeDreadnought() {
 		return
 	}
 	faction := sim.FactionOfRing(inside)
+	ring := min(inside+1, sim.GridRings)
 	var spots []sim.Sector
 	for _, s := range sim.Sectors() {
-		if s.Ring() == inside+1 {
+		if s.Ring() == ring {
 			spots = append(spots, s)
 		}
 	}
@@ -149,16 +168,29 @@ func (h *Hub) wakeDreadnought() {
 	e.hp = e.dread.hp()
 	h.enemies[e.id] = e
 	h.dreadnoughtID = e.id
-	h.frontier.Opened = map[sim.Sector]bool{s: true}
-	h.broadcastFrontier()
+	if ring > inside {
+		h.frontier.Opened = map[sim.Sector]bool{s: true}
+		h.broadcastFrontier()
+	}
+}
+
+// finale reports whether faction's Dreadnought is the season's last, the
+// one holding the outer ring (#153).
+func finale(faction sim.EnemyFaction) bool {
+	return faction == sim.FactionOfRing(sim.GridRings)
 }
 
 // closeRingsIfFallenBack closes every ring beyond the first open ring that
 // has fewer than sim.DreadnoughtWakesAt cleared sectors (#8 decision 9,
 // #140): ring 1 falling back closes rings 2 and 3, ring 2 falling back ring
 // 3. Reopening a ring takes its Dreadnought again. A Dreadnought awake
-// beyond the new edge goes back to sleep, keeping its share.
+// beyond the new edge goes back to sleep, keeping its share, and so does
+// the finale when ring 3 itself falls back (#153). A won season keeps every
+// ring open (#10 decision 4).
 func (h *Hub) closeRingsIfFallenBack() {
+	if h.seasonWon {
+		return
+	}
 	for ring := 1; ring < h.frontier.OpenRings; ring++ {
 		if h.ringCleared(ring) >= sim.DreadnoughtWakesAt {
 			continue
@@ -167,17 +199,29 @@ func (h *Hub) closeRingsIfFallenBack() {
 		if h.saveOpenRings != nil {
 			h.saves <- func() { h.saveOpenRings(ring) }
 		}
-		if e, awake := h.enemies[h.dreadnoughtID]; awake {
-			h.dreadnoughtShares[e.faction] = e.dread.share
-			h.saveDreadnoughtShare(e.faction, e.dread.share)
-			delete(h.enemies, e.id)
-			h.forgetEnemy(e.id)
-			h.dreadnoughtID = 0
-		}
+		h.sleepDreadnought()
 		h.broadcastFrontier()
 
 		return
 	}
+	if e, awake := h.enemies[h.dreadnoughtID]; awake && finale(e.faction) &&
+		h.ringCleared(sim.GridRings) < sim.DreadnoughtWakesAt {
+		h.sleepDreadnought()
+	}
+}
+
+// sleepDreadnought puts the awake Dreadnought, if any, back to sleep,
+// keeping its share of health for when it wakes again.
+func (h *Hub) sleepDreadnought() {
+	e, awake := h.enemies[h.dreadnoughtID]
+	if !awake {
+		return
+	}
+	h.dreadnoughtShares[e.faction] = e.dread.share
+	h.saveDreadnoughtShare(e.faction, e.dread.share)
+	delete(h.enemies, e.id)
+	h.forgetEnemy(e.id)
+	h.dreadnoughtID = 0
 }
 
 // stepDreadnought scales it to the players online, regenerates it,
@@ -213,19 +257,28 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 		step := sim.DreadnoughtRaySweep / (sim.DreadnoughtRayBeams - 1)
 		h.fireVolley(e, f.from+step*float64(sim.DreadnoughtRayBeams-f.beams), sim.DreadnoughtRay)
 		f.beams--
-		e.cooldown = dreadnoughtBeamGap
+		e.cooldown = dreadnoughtGap(e.faction, dreadnoughtBeamGap)
 		if f.beams == 0 {
-			f.next, e.cooldown = sim.DreadnoughtWave, dreadnoughtVolleyGap
+			f.next, e.cooldown = sim.DreadnoughtWave, dreadnoughtGap(
+				e.faction,
+				dreadnoughtVolleyGap,
+			)
 		}
 	case sim.DreadnoughtWave:
 		h.fireVolley(e, e.angle, sim.DreadnoughtWave)
-		f.next, e.cooldown = sim.DreadnoughtRing, dreadnoughtVolleyGap
+		f.next, e.cooldown = sim.DreadnoughtRing, dreadnoughtGap(e.faction, dreadnoughtVolleyGap)
 	case sim.DreadnoughtRing:
 		fallthrough
 	default:
 		h.fireVolley(e, e.angle, sim.DreadnoughtRing)
-		f.next, e.cooldown = sim.DreadnoughtRay, dreadnoughtVolleyGap
+		f.next, e.cooldown = sim.DreadnoughtRay, dreadnoughtGap(e.faction, dreadnoughtVolleyGap)
 	}
+}
+
+// dreadnoughtGap is ticks shortened by faction's shots multiplier, so the
+// later factions' Dreadnoughts fire more often (#10 decision 8).
+func dreadnoughtGap(faction sim.EnemyFaction, ticks int) int {
+	return int(math.Round(float64(ticks) / sim.FactionStats(faction).Shots))
 }
 
 // takeHit takes damage, the shield first, off its share, and returns its
@@ -242,7 +295,8 @@ func (f *dreadnoughtFight) takeHit(damage int, tick uint32) int {
 // dreadnoughtFallen rewards the players near e, releases its derelicts and
 // tells everyone (#125), opens the ring it guarded (#140, replacing #8
 // decision 12's "rings 2 and 3 together"), and saves a fresh Dreadnought's
-// health for the next time its faction's wakes.
+// health for the next time its faction's wakes. The finale's fall wins the
+// season (#153).
 func (h *Hub) dreadnoughtFallen(e *enemy) {
 	var gains []*pb.PickupGain
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
@@ -271,6 +325,12 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 	h.dreadnoughtID = 0
 	h.dreadnoughtShares[e.faction] = 1
 	h.saveDreadnoughtShare(e.faction, 1)
+	if finale(e.faction) {
+		h.seasonWon = true
+		if h.saveSeasonWon != nil {
+			h.saves <- h.saveSeasonWon
+		}
+	}
 	opened := min(h.frontier.OpenRings+1, sim.GridRings)
 	h.frontier = sim.Frontier{OpenRings: opened}
 	if h.saveOpenRings != nil {

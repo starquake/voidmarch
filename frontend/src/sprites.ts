@@ -38,7 +38,7 @@ interface EnemyFiles {
   shield?: number;
   /** The shield strip's frame size where it isn't the ship's: the Nautolan Frigate's is 63 px. */
   shieldSize?: number;
-  /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps, and a Torpedo Ship's as long as its longer hold. */
+  /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps, a Torpedo Ship's as long as its longer hold, and a Dreadnought's as long as the Kla'ed one's over its faction's fire rate (#153). */
   weaponsFps?: number;
 }
 
@@ -59,7 +59,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
-    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 10 },
+    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 },
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
@@ -67,6 +67,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     bomber: { size: 64, engine: 8, destruction: 10 },
     torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
     frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
+    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 },
   },
 };
 
@@ -94,6 +95,8 @@ const BULLET_FRAMES: Record<FleetBulletId, { faction: EnemyFaction; file: string
   nairanTorpedo: { faction: 'nairan', file: 'torpedo', width: 9, height: 24, frames: 3 },
   nautolanBomb: { faction: 'nautolan', file: 'bomb', width: 16, height: 16, frames: 16 },
   nautolanWave: { faction: 'nautolan', file: 'wave', width: 64, height: 64, frames: 6 },
+  // The Nautolan Dreadnought's beam (#153).
+  nautolanRay: { faction: 'nautolan', file: 'ray', width: 18, height: 38, frames: 4 },
 };
 
 const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true): Sheet => ({

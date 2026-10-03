@@ -241,9 +241,9 @@ func sectorSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(stri
 	}
 }
 
-// frontierOptions are the hub's open rings and each faction's Dreadnought's
-// health as saved, the hours since regenerating it, and their savers
-// (#123, #124, #140).
+// frontierOptions are the hub's open rings, each faction's Dreadnought's
+// health as saved, the hours since regenerating it, whether the season is
+// won, and their savers (#123, #124, #140, #153).
 func frontierOptions(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -259,6 +259,10 @@ func frontierOptions(
 	dreadnoughts, err := store.Dreadnoughts(ctx, db)
 	if err != nil {
 		return nil, fmt.Errorf("error reading the dreadnoughts: %w", err)
+	}
+	season, err := store.CurrentSeason(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the season: %w", err)
 	}
 	ctx = context.WithoutCancel(ctx)
 	save := func(what string, do func(context.Context) error) {
@@ -282,6 +286,14 @@ func frontierOptions(
 				return store.SaveDreadnoughtHealth(c, db, string(faction), share, time.Now())
 			})
 		}),
+		game.WithSaveSeasonWon(func() {
+			save("the season won", func(c context.Context) error {
+				return store.SaveSeasonWon(c, db, time.Now())
+			})
+		}),
+	}
+	if !season.Won.IsZero() {
+		opts = append(opts, game.WithSeasonWon())
 	}
 	for faction, d := range dreadnoughts {
 		share := sim.DreadnoughtRegen(d.Health, time.Since(d.At).Hours())
