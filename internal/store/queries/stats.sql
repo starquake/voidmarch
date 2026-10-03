@@ -14,3 +14,8 @@ ON CONFLICT (player_id) DO UPDATE SET
     deaths = excluded.deaths,
     rescues = excluded.rescues,
     sectors = excluded.sectors;
+
+-- name: AllStats :many
+SELECT p.id, p.name, s.kills, s.companion_kills, s.shots, s.hits, s.deaths, s.rescues, s.sectors
+FROM season_stats s JOIN players p ON p.id = s.player_id
+ORDER BY p.id;

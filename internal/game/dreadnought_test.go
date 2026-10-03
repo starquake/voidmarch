@@ -493,7 +493,7 @@ func TestDreadnought_TheNautolanOneIsTheFinale(t *testing.T) {
 		WithOpenRings(3),
 		WithClearedSectors(finaleCleared()),
 		WithDreadnought(sim.Nautolan, 0.0005),
-		WithSaveSeasonWon(func() { won.Store(true) }),
+		WithSaveSeasonWon(func(time.Time) { won.Store(true) }),
 		WithPoolStart(3),
 		NoEvents,
 	)
@@ -544,7 +544,7 @@ func TestDreadnought_AWonSeasonKeepsTheFinaleAsleep(t *testing.T) {
 		t,
 		WithOpenRings(3),
 		WithClearedSectors(finaleCleared()),
-		WithSeasonWon(),
+		WithSeason(time.Unix(1, 0), time.Unix(2, 0)),
 		NoEvents,
 	)
 	a, _ := join(t, hub, "a")
@@ -557,7 +557,7 @@ func TestDreadnought_AWonSeasonKeepsTheFinaleAsleep(t *testing.T) {
 		t,
 		WithOpenRings(3),
 		WithClearedSectors(ringOne(3)),
-		WithSeasonWon(),
+		WithSeason(time.Unix(1, 0), time.Unix(2, 0)),
 		NoEvents,
 	)
 	b, _ := join(t, open, "b")

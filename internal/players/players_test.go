@@ -288,3 +288,36 @@ func TestStore_SaveStats(t *testing.T) {
 		}
 	}
 }
+
+func TestStore_Standings(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+	var ids []string
+	for i, name := range []string{"Mo", "Ilse", "Teun"} {
+		player, _, err := store.Register(t.Context(), name)
+		if err != nil {
+			t.Fatalf("Register(%s) error = %v", name, err)
+		}
+		if i < 2 {
+			ids = append(ids, player.ID)
+			if err = store.SaveStats(t.Context(), player.ID, Stats{Kills: i + 1}); err != nil {
+				t.Fatalf("SaveStats(%s) error = %v", name, err)
+			}
+		}
+	}
+
+	got, err := store.Standings(t.Context())
+	if err != nil {
+		t.Fatalf("Standings() error = %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("Standings() = %+v, want Mo and Ilse, and not Teun, who has no stats", got)
+	}
+	for _, s := range got {
+		want := map[string]Stats{ids[0]: {Kills: 1}, ids[1]: {Kills: 2}}[s.ID]
+		if s.Stats != want || s.Name == "" {
+			t.Errorf("standing %+v, want named, with %+v", s, want)
+		}
+	}
+}

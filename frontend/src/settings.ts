@@ -155,3 +155,23 @@ export function saveLastSquadron(name: string, store: Store | undefined = browse
     // Private windows can refuse storage; the join screen then picks the first.
   }
 }
+
+const SEEN_SEASON_KEY = 'voidmarch.seasonSeen';
+
+/** The won season whose victory screen this browser showed last (#156), or undefined. */
+export function loadSeenSeason(store: Store | undefined = browserStorage()): string | undefined {
+  try {
+    return store?.getItem(SEEN_SEASON_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Remembers that this browser showed season's victory screen; a denied write is ignored. */
+export function saveSeenSeason(season: string, store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(SEEN_SEASON_KEY, season);
+  } catch {
+    // Private windows can refuse storage; the screen then shows again next visit.
+  }
+}

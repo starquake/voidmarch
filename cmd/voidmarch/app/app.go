@@ -130,6 +130,10 @@ func newHub(
 
 		return nil, fmt.Errorf("error starting the hub: %w", err)
 	}
+	standings, err := playerStore.Standings(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting the hub: %w", err)
+	}
 	hubOptions := []game.HubOption{
 		game.WithMap(m),
 		game.WithPoolStart(poolStart),
@@ -137,6 +141,7 @@ func newHub(
 		game.WithSaveUnlock(unlockSaver(ctx, logger, playerStore)),
 		game.WithSaveLoadout(loadoutSaver(ctx, logger, playerStore)),
 		game.WithSaveStats(statsSaver(ctx, logger, playerStore)),
+		game.WithStandings(standings),
 		game.WithClearedSectors(cleared),
 		game.WithSaveSector(sectorSaver(ctx, logger, db)),
 		game.WithForgetSector(sectorForgetter(ctx, logger, db)),
@@ -287,14 +292,12 @@ func frontierOptions(
 				return store.SaveDreadnoughtHealth(c, db, string(faction), share, time.Now())
 			})
 		}),
-		game.WithSaveSeasonWon(func() {
+		game.WithSeason(season.Started, season.Won),
+		game.WithSaveSeasonWon(func(at time.Time) {
 			save("the season won", func(c context.Context) error {
-				return store.SaveSeasonWon(c, db, time.Now())
+				return store.SaveSeasonWon(c, db, at)
 			})
 		}),
-	}
-	if !season.Won.IsZero() {
-		opts = append(opts, game.WithSeasonWon())
 	}
 	for faction, d := range dreadnoughts {
 		share := sim.DreadnoughtRegen(d.Health, time.Since(d.At).Hours())

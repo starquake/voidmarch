@@ -31,6 +31,7 @@ import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { defaultUnlocks, partLabel, tierCss, withTiers } from '../sim/parts.ts';
 import { LoadoutScreen } from '../loadout.ts';
+import { VictoryScreen } from '../victory.ts';
 import { MapView } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
@@ -203,6 +204,7 @@ export class SandboxScene extends Phaser.Scene {
   private net: NetPlay | undefined;
   /** The loadout screen at the home planet (#78). */
   private readonly loadoutScreen = new LoadoutScreen();
+  private readonly victoryScreen = new VictoryScreen();
   private maps!: MapView;
   /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
   private closedLayer!: Phaser.GameObjects.Graphics;
@@ -322,6 +324,7 @@ export class SandboxScene extends Phaser.Scene {
       squadron: '',
       squadronScreen: false,
       loadoutScreen: false,
+      victoryScreen: false,
       mapOpen: false,
       openRings: 0,
       openedSectors: [],
@@ -349,6 +352,7 @@ export class SandboxScene extends Phaser.Scene {
       this.applyLoadout();
     }
     this.updateLoadoutScreen();
+    this.openVictoryIfDue();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -676,7 +680,9 @@ export class SandboxScene extends Phaser.Scene {
       if (event.repeat) {
         return;
       }
-      if (this.maps.open) {
+      if (this.victoryScreen.open) {
+        this.victoryKey(event);
+      } else if (this.maps.open) {
         this.mapKey(event);
       } else if (this.loadoutScreen.open) {
         this.loadoutKey(event);
@@ -685,6 +691,8 @@ export class SandboxScene extends Phaser.Scene {
         this.maps.toggle();
       } else if (event.code === 'KeyL') {
         this.openLoadout();
+      } else if (event.code === 'KeyO') {
+        this.openVictory();
       } else if (event.code === 'KeyQ') {
         this.pressOrders();
       } else {
@@ -776,6 +784,31 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Opens the victory screen once the season is won (#156), over the map or the loadout screen. */
+  private openVictory(): void {
+    const result = this.net?.seasonResult;
+    if (result === undefined) {
+      return;
+    }
+    this.maps.close();
+    this.loadoutScreen.hide();
+    this.victoryScreen.show(result, this.net?.playerId);
+  }
+
+  /** Opens the victory screen when the season is won, or for a joiner seeing a won season the first time (#156). */
+  private openVictoryIfDue(): void {
+    if (this.net?.takeVictory() === true) {
+      this.openVictory();
+    }
+  }
+
+  /** A key while the victory screen is open: O and Esc close it, and the rest wait. */
+  private victoryKey(event: KeyboardEvent): void {
+    if (event.code === 'KeyO' || event.code === 'Escape') {
+      this.victoryScreen.hide();
+    }
+  }
+
   /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
   private openLoadout(): void {
     const ship = this.sim.ship;
@@ -841,6 +874,9 @@ export class SandboxScene extends Phaser.Scene {
     switch (code) {
       case 'KeyK':
         this.net?.devStartAttack();
+        break;
+      case 'KeyY':
+        this.net?.devSeasonWon();
         break;
       case 'Digit1':
         this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
@@ -1143,7 +1179,7 @@ export class SandboxScene extends Phaser.Scene {
   private readInput(): InputSnapshot {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-    if (this.loadoutScreen.open || this.maps.open) {
+    if (this.loadoutScreen.open || this.maps.open || this.victoryScreen.open) {
       // The ship holds still under the screen or the map, still facing where it was (#78 and #100).
       const { x, y, angle } = this.sim.ship;
 
@@ -1507,6 +1543,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
+    this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.mapOpen = this.maps.open;
     this.debug.openRings = this.net?.frontier.openRings ?? 0;
     this.debug.openedSectors = [...(this.net?.frontier.opened ?? [])];

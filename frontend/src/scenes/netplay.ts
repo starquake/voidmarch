@@ -7,6 +7,7 @@ import type {
   PickupDropped,
   PickupGain,
   PickupTaken,
+  SeasonWon,
   SectorCleared,
   Snapshot,
   WorldEvent,
@@ -28,6 +29,7 @@ import {
   fromEnemyKind,
   fromLoadout,
   fromPart,
+  fromSeasonWon,
   fromShipState,
   fromUnlocks,
   fromWeapon,
@@ -37,7 +39,8 @@ import {
   type RemoteShip,
 } from '../net/mapping.ts';
 import { ORDER_ITEMS, type OrderContext, type OrderItem } from '../ordermenu.ts';
-import { loadLastSquadron, saveLastSquadron } from '../settings.ts';
+import { loadLastSquadron, loadSeenSeason, saveLastSquadron, saveSeenSeason } from '../settings.ts';
+import type { SeasonResult } from '../victory.ts';
 import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
@@ -228,6 +231,9 @@ export class NetPlay {
   /** Which sectors are open (#123), and a count that moves on every change, for redrawing. */
   frontier: Frontier = ALL_OPEN;
   frontierVersion = 0;
+  /** The season's result once it's won (#156), and whether the victory screen should open for it. */
+  seasonResult: SeasonResult | undefined;
+  private victoryPending = false;
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
@@ -371,6 +377,9 @@ export class NetPlay {
         bossFell: (fell) => {
           this.bossFell(fromEnemyFaction(fell.faction), fell.gains);
         },
+        seasonWon: (won) => {
+          this.seasonWon(won, true);
+        },
         eventEnded: (ended) => {
           this.worldEvent = undefined;
           const event = ended.event;
@@ -501,6 +510,35 @@ export class NetPlay {
   /** Sends the squadron to another sector, picked on the full map (#100). */
   pickMission(sector: string): void {
     this.connection.sendPickMission(sector);
+  }
+
+  /**
+   * Keeps the season's result, and opens the victory screen for it: always
+   * at the fall, and for a joiner only the first time this browser sees
+   * that season (#156, decision 10).
+   */
+  private seasonWon(won: SeasonWon, always: boolean): void {
+    const result = fromSeasonWon(won);
+    this.seasonResult = result;
+    if (always || loadSeenSeason() !== result.season) {
+      this.victoryPending = true;
+      saveSeenSeason(result.season);
+    }
+  }
+
+  /** Whether the victory screen should open now; asking clears it. */
+  takeVictory(): boolean {
+    const pending = this.victoryPending;
+    this.victoryPending = false;
+
+    return pending;
+  }
+
+  /** On a development server, asks for the season's result as if it were won now (#156). */
+  devSeasonWon(): void {
+    if (this.development) {
+      this.connection.sendDevSeasonWon();
+    }
   }
 
   /** On a development server, starts an attack on the sector the ship is in, if it's cleared (#102). */
@@ -987,6 +1025,10 @@ export class NetPlay {
     this.name = welcome.name;
     this.worldEvent = welcome.worldEvent;
     this.mapName = welcome.mapName;
+    this.seasonResult = undefined;
+    if (welcome.seasonWon !== undefined) {
+      this.seasonWon(welcome.seasonWon, false);
+    }
     if (welcome.frontier !== undefined) {
       this.setFrontier(welcome.frontier);
     }

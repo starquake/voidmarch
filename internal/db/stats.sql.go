@@ -9,6 +9,57 @@ import (
 	"context"
 )
 
+const allStats = `-- name: AllStats :many
+SELECT p.id, p.name, s.kills, s.companion_kills, s.shots, s.hits, s.deaths, s.rescues, s.sectors
+FROM season_stats s JOIN players p ON p.id = s.player_id
+ORDER BY p.id
+`
+
+type AllStatsRow struct {
+	ID             string
+	Name           string
+	Kills          int64
+	CompanionKills int64
+	Shots          int64
+	Hits           int64
+	Deaths         int64
+	Rescues        int64
+	Sectors        int64
+}
+
+func (q *Queries) AllStats(ctx context.Context) ([]AllStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, allStats)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AllStatsRow
+	for rows.Next() {
+		var i AllStatsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kills,
+			&i.CompanionKills,
+			&i.Shots,
+			&i.Hits,
+			&i.Deaths,
+			&i.Rescues,
+			&i.Sectors,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const saveStats = `-- name: SaveStats :exec
 INSERT INTO season_stats (
     player_id, kills, companion_kills, shots, hits, deaths, rescues, sectors

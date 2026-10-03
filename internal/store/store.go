@@ -244,6 +244,40 @@ func SaveSeasonWon(ctx context.Context, conn *sql.DB, at time.Time) error {
 	return nil
 }
 
+// NewSeason resets the world for a new season starting at, in one
+// transaction (#10 decisions 5-7, #155): the frontier, the cleared sectors,
+// the Dreadnoughts' health, the hangar, and every player's unlocks, loadout
+// and stats. Players stay registered. What it deletes, the server reads as a
+// fresh file's: ring 1 open, the Dreadnoughts whole, POOL_START ships.
+func NewSeason(ctx context.Context, conn *sql.DB, at time.Time) error {
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error starting the new season: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	q := queries.New(conn).WithTx(tx)
+	for _, reset := range []func(context.Context) error{
+		q.ForgetClearedSectors,
+		q.ForgetFrontier,
+		q.ForgetDreadnoughts,
+		q.ForgetHangar,
+		q.ForgetUnlocks,
+		q.ForgetLoadouts,
+		q.ForgetStats,
+		func(c context.Context) error { return q.StartSeason(c, at.Unix()) },
+	} {
+		if err = reset(ctx); err != nil {
+			return fmt.Errorf("error resetting for the new season: %w", err)
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("error committing the new season: %w", err)
+	}
+
+	return nil
+}
+
 // SavedDreadnought is the share of a faction's Dreadnought's health left,
 // from 0 to 1, and when it was saved (#132, #140).
 type SavedDreadnought struct {
