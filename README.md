@@ -43,9 +43,12 @@ make server
 | C | Switch to ship-relative movement (W flies toward the mouse) and back |
 | M | Sound on/off |
 | N | Music on/off |
+| V | Cap the frame rate at 60 fps, for steadier play on slower graphics, and back |
+| P | Render at a lower resolution (CSS pixels), for slower graphics, and back |
 
-The movement, sound and music choices are remembered in the browser. Sound
-starts after the first click or key press.
+The movement, sound, music, frame rate and resolution choices are remembered
+in the browser. Sound starts after the first click or key press. The HUD's
+fps shows the worst frame of the last second too.
 
 On a development server and offline, debug keys **1**, **2** and **3** cycle
 the weapon, engine and shield, locked parts too; **R** switches between free
