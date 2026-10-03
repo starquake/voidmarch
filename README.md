@@ -154,6 +154,13 @@ sessions. It fires Ray sweeps, spreads of Rockets and fans of Torpedoes, and
 its fall opens ring 3. If a ring later falls back below four cleared sectors,
 every ring beyond it closes again until its Dreadnought is beaten anew.
 
+The Nautolan Dreadnought is the season's finale. It wakes in ring 3 once four
+of ring 3's sectors are cleared, and fires Ray sweeps, spreads of Waves and
+rings of Spinning Bullets. Each faction's Dreadnought fires as often as its
+ships do: the Nairan one half again as often as the Kla'ed, the Nautolan one
+twice as often. Its fall wins the season, and it doesn't wake again until a
+new one starts.
+
 ## Parts
 
 Shot-down enemies drop parts: the Scout sometimes, the Fighter more often,
