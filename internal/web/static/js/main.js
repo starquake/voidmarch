@@ -80,6 +80,75 @@ function askName() {
 // src/scenes/boot.ts
 import Phaser from "./vendor/phaser.js";
 
+// src/glow.ts
+var CHANNELS = 4;
+var MAX = 255;
+function double(src) {
+  const width = src.width * 2;
+  const height = src.height * 2;
+  const data = new Uint8ClampedArray(width * height * CHANNELS);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const from = (Math.floor(y / 2) * src.width + Math.floor(x / 2)) * CHANNELS;
+      data.set(src.data.subarray(from, from + CHANNELS), (y * width + x) * CHANNELS);
+    }
+  }
+  return { width, height, data };
+}
+function alphaAt(src, x, y) {
+  const x0 = Math.floor(x - 0.5);
+  const y0 = Math.floor(y - 0.5);
+  const fx = x - 0.5 - x0;
+  const fy = y - 0.5 - y0;
+  const at2 = (px, py) => px < 0 || py < 0 || px >= src.width || py >= src.height ? 0 : (src.data[(py * src.width + px) * CHANNELS + 3] ?? 0) / MAX;
+  return at2(x0, y0) * (1 - fx) * (1 - fy) + at2(x0 + 1, y0) * fx * (1 - fy) + at2(x0, y0 + 1) * (1 - fx) * fy + at2(x0 + 1, y0 + 1) * fx * fy;
+}
+function jitter(ring2, u, v) {
+  const s = Math.sin(ring2 * 12.9898 + (u + v) * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+function bakeGlow(src, glow) {
+  const pad = glow.distance;
+  const width = src.width + 2 * pad;
+  const height = src.height + 2 * pad;
+  const data = new Uint8ClampedArray(width * height * CHANNELS);
+  const maxAlpha = glow.distance * (glow.distance + 1) * glow.quality / 2;
+  const red = (glow.color >> 16 & MAX) / MAX;
+  const green = (glow.color >> 8 & MAX) / MAX;
+  const blue = (glow.color & MAX) / MAX;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const sx = x - pad + 0.5;
+      const sy = y - pad + 0.5;
+      let total = 0;
+      let angle = 0;
+      for (let ring2 = 0; ring2 < glow.distance; ring2++) {
+        angle += jitter(ring2, x / width, y / height);
+        for (let i = 0; i < glow.quality; i++) {
+          angle += Math.PI * 2 / glow.quality;
+          total += (glow.distance - ring2) * alphaAt(src, sx + Math.cos(angle) * (ring2 + 1), sy + Math.sin(angle) * (ring2 + 1));
+        }
+      }
+      const inside = sx > 0 && sy > 0 && sx < src.width && sy < src.height;
+      const from = (Math.floor(sy) * src.width + Math.floor(sx)) * CHANNELS;
+      const r = inside ? (src.data[from] ?? 0) / MAX : 0;
+      const g = inside ? (src.data[from + 1] ?? 0) / MAX : 0;
+      const b = inside ? (src.data[from + 2] ?? 0) / MAX : 0;
+      const a = inside ? (src.data[from + 3] ?? 0) / MAX : 0;
+      const outer = Math.min(1 - a, total / maxAlpha * glow.strength * (1 - a));
+      const alpha = a + outer;
+      const to = (y * width + x) * CHANNELS;
+      if (alpha > 0) {
+        data[to] = Math.round((r * a + outer * red) / alpha * MAX);
+        data[to + 1] = Math.round((g * a + outer * green) / alpha * MAX);
+        data[to + 2] = Math.round((b * a + outer * blue) / alpha * MAX);
+        data[to + 3] = Math.round(alpha * MAX);
+      }
+    }
+  }
+  return { width, height, data };
+}
+
 // src/sounds.ts
 var AUDIO = "/static/audio";
 var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
@@ -454,6 +523,7 @@ var ENEMY_FILES = {
   }
 };
 var BULLET_VARIANT = "blue";
+var BULLET_FPS = 12;
 var BULLET_FRAMES = {
   klaedBullet: { faction: "klaed", file: "bullet", width: 4, height: 16, frames: 4 },
   klaedBigBullet: { faction: "klaed", file: "big-bullet", width: 8, height: 16, frames: 4 },
@@ -556,6 +626,8 @@ var keys = {
   enemyDestruction: (faction, kind) => `${faction}-${kind}-destruction`,
   enemyShield: (faction, kind) => `${faction}-${kind}-shield`,
   enemyBullet: (id) => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}`,
+  /** An enemy bullet with its glow baked in at boot (#143), drawn at half scale. */
+  enemyBulletGlow: (id) => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}-glow`,
   pickup: (part) => `pickup-${part}`
 };
 var pickupFile = (part) => `${WEAPONS.includes(part) ? "weapon" : ENGINES.includes(part) ? "engine" : "shield"}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
@@ -616,13 +688,53 @@ function sheets() {
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,
-      fps: 12,
+      fps: BULLET_FPS,
       loop: true
     }))
   ];
 }
+function glowSheets() {
+  return Object.keys(BULLET_FRAMES).map((id) => ({
+    key: keys.enemyBullet(id),
+    glowKey: keys.enemyBulletGlow(id),
+    frameWidth: BULLET_FRAMES[id].width,
+    frameHeight: BULLET_FRAMES[id].height,
+    frames: BULLET_FRAMES[id].frames,
+    fps: BULLET_FPS
+  }));
+}
 
 // src/scenes/boot.ts
+var ENEMY_FIRE_GLOW = {
+  color: ENEMY_FIRE_GLOW_COLOR,
+  strength: ENEMY_FIRE_GLOW_STRENGTH,
+  quality: ENEMY_FIRE_GLOW_QUALITY,
+  distance: ENEMY_FIRE_GLOW_DISTANCE
+};
+function bakeSheet(source, sheet) {
+  const read = document.createElement("canvas");
+  read.width = sheet.frameWidth * sheet.frames;
+  read.height = sheet.frameHeight;
+  const reader = read.getContext("2d", { willReadFrequently: true });
+  reader?.drawImage(source, 0, 0);
+  const frames = [];
+  for (let i = 0; i < sheet.frames; i++) {
+    const frame = reader?.getImageData(i * sheet.frameWidth, 0, sheet.frameWidth, sheet.frameHeight);
+    if (frame !== void 0) {
+      frames.push(bakeGlow(double({ width: frame.width, height: frame.height, data: frame.data }), ENEMY_FIRE_GLOW));
+    }
+  }
+  const frameWidth = frames[0]?.width ?? 1;
+  const frameHeight = frames[0]?.height ?? 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = frameWidth * frames.length;
+  canvas.height = frameHeight;
+  const writer = canvas.getContext("2d");
+  frames.forEach((f, i) => {
+    writer?.putImageData(new ImageData(new Uint8ClampedArray(f.data), f.width, f.height), i * frameWidth, 0);
+  });
+  return { canvas, frameWidth, frameHeight };
+}
 var BootScene = class extends Phaser.Scene {
   constructor() {
     super("boot");
@@ -638,6 +750,25 @@ var BootScene = class extends Phaser.Scene {
       this.load.audio(sound.key, sound.urls);
     }
   }
+  /** Bakes a glowing copy of every enemy bullet sheet, once, in place of a glow filter every frame (#143). */
+  bakeEnemyFireGlow() {
+    for (const sheet of glowSheets()) {
+      const { canvas, frameWidth, frameHeight } = bakeSheet(this.textures.get(sheet.key).getSourceImage(), sheet);
+      const texture = this.textures.addCanvas(sheet.glowKey, canvas);
+      if (texture === null) {
+        continue;
+      }
+      for (let i = 0; i < sheet.frames; i++) {
+        texture.add(i, 0, i * frameWidth, 0, frameWidth, frameHeight);
+      }
+      this.anims.create({
+        key: sheet.glowKey,
+        frames: this.anims.generateFrameNumbers(sheet.glowKey, { start: 0, end: sheet.frames - 1 }),
+        frameRate: sheet.fps,
+        repeat: -1
+      });
+    }
+  }
   create() {
     for (const sheet of sheets()) {
       if (sheet.fps > 0) {
@@ -649,6 +780,7 @@ var BootScene = class extends Phaser.Scene {
         });
       }
     }
+    this.bakeEnemyFireGlow();
     this.scene.start("sandbox");
   }
 };
@@ -1465,7 +1597,7 @@ function missionCompleteBanner(sector, part) {
   return lines;
 }
 var WHITE = 16777215;
-var CHANNELS = [16, 8, 0];
+var CHANNELS2 = [16, 8, 0];
 var CHANNEL_MAX = 255;
 function ringTint(x, y) {
   const name = sectorName(x, y);
@@ -1475,7 +1607,7 @@ function ringTint(x, y) {
 function fadeColor(a, b, t) {
   const share = Math.min(1, Math.max(0, t));
   let out = 0;
-  for (const shift of CHANNELS) {
+  for (const shift of CHANNELS2) {
     const from = a >> shift & CHANNEL_MAX;
     const to = b >> shift & CHANNEL_MAX;
     const step = (to - from) * share;
@@ -4419,6 +4551,7 @@ var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var BLOOM_BLUR = 3;
 var EFFECT_ZOOM = 2;
+var BAKED_GLOW_SCALE = 0.5;
 var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var SHARD_TINT = 16765562;
@@ -4478,7 +4611,6 @@ var SandboxScene = class extends Phaser9.Scene {
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   enemyFire;
-  enemyFireGlow;
   muzzleFlash;
   puff;
   bloom;
@@ -4774,16 +4906,6 @@ var SandboxScene = class extends Phaser9.Scene {
     });
     this.enemyFire = this.add.layer();
     this.world.add(this.enemyFire);
-    this.enemyFire.enableFilters();
-    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
-      ENEMY_FIRE_GLOW_COLOR,
-      ENEMY_FIRE_GLOW_STRENGTH,
-      0,
-      1,
-      false,
-      ENEMY_FIRE_GLOW_QUALITY,
-      ENEMY_FIRE_GLOW_DISTANCE
-    );
   }
   createParticles() {
     this.muzzleFlash = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -5063,9 +5185,6 @@ var SandboxScene = class extends Phaser9.Scene {
         if (this.vignette !== void 0) {
           this.vignette.active = this.effects;
         }
-        if (this.enemyFireGlow !== void 0) {
-          this.enemyFireGlow.active = this.effects;
-        }
         this.updateHud();
         break;
       default:
@@ -5250,9 +5369,6 @@ ${modeName(info)}`,
       this.bloomBlur.x = BLOOM_BLUR * effectScale;
       this.bloomBlur.y = BLOOM_BLUR * effectScale;
     }
-    if (this.enemyFireGlow !== void 0) {
-      this.enemyFireGlow.scale = effectScale;
-    }
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
@@ -5370,9 +5486,13 @@ ${modeName(info)}`,
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       if (p.kind === "shard") {
-        sprite.play(keys.projectile("autoCannon"), true).setTint(SHARD_TINT);
+        sprite.play(keys.projectile("autoCannon"), true).setTint(SHARD_TINT).setScale(1);
+      } else if (isWeapon(p.kind)) {
+        sprite.play(keys.projectile(p.kind), true).clearTint().setScale(1);
+      } else if (this.effects) {
+        sprite.play(keys.enemyBulletGlow(p.kind), true).clearTint().setScale(BAKED_GLOW_SCALE);
       } else {
-        sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true).clearTint();
+        sprite.play(keys.enemyBullet(p.kind), true).clearTint().setScale(1);
       }
       const layer = p.faction === "enemy" ? this.enemyFire : this.world;
       if (sprite.displayList !== layer) {
@@ -5553,7 +5673,7 @@ ${modeName(info)}`,
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
-    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
+    this.debug.enemyFireGlow = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));

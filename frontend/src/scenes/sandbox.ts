@@ -30,10 +30,6 @@ import { LoadoutScreen } from '../loadout.ts';
 import { MapView } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
-  ENEMY_FIRE_GLOW_COLOR,
-  ENEMY_FIRE_GLOW_DISTANCE,
-  ENEMY_FIRE_GLOW_QUALITY,
-  ENEMY_FIRE_GLOW_STRENGTH,
   BRAIN_SPACING,
   HOME_SPAWN_Y,
   RESPAWN_DELAY,
@@ -97,6 +93,8 @@ const BLOOM_BLUR = 3;
  * a 1280x720 window, where the effects were tuned.
  */
 const EFFECT_ZOOM = 2;
+/** The scale the baked glowing enemy bullets are drawn at, having been baked at twice the art's size. */
+const BAKED_GLOW_SCALE = 0.5;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
 const HIT_SPARKS = 5;
@@ -193,7 +191,6 @@ export class SandboxScene extends Phaser.Scene {
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
   private enemyFire!: Phaser.GameObjects.Layer;
-  private enemyFireGlow: Phaser.Filters.Glow | undefined;
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
@@ -514,16 +511,6 @@ export class SandboxScene extends Phaser.Scene {
     });
     this.enemyFire = this.add.layer();
     this.world.add(this.enemyFire);
-    this.enemyFire.enableFilters();
-    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
-      ENEMY_FIRE_GLOW_COLOR,
-      ENEMY_FIRE_GLOW_STRENGTH,
-      0,
-      1,
-      false,
-      ENEMY_FIRE_GLOW_QUALITY,
-      ENEMY_FIRE_GLOW_DISTANCE,
-    );
   }
 
   private createParticles(): void {
@@ -843,9 +830,6 @@ export class SandboxScene extends Phaser.Scene {
         if (this.vignette !== undefined) {
           this.vignette.active = this.effects;
         }
-        if (this.enemyFireGlow !== undefined) {
-          this.enemyFireGlow.active = this.effects;
-        }
         this.updateHud();
         break;
       default:
@@ -1059,9 +1043,6 @@ export class SandboxScene extends Phaser.Scene {
       this.bloomBlur.x = BLOOM_BLUR * effectScale;
       this.bloomBlur.y = BLOOM_BLUR * effectScale;
     }
-    if (this.enemyFireGlow !== undefined) {
-      this.enemyFireGlow.scale = effectScale;
-    }
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
@@ -1201,9 +1182,14 @@ export class SandboxScene extends Phaser.Scene {
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       if (p.kind === 'shard') {
         // A burst's shard: the auto cannon's shot, recolored gold (#72).
-        sprite.play(keys.projectile('autoCannon'), true).setTint(SHARD_TINT);
+        sprite.play(keys.projectile('autoCannon'), true).setTint(SHARD_TINT).setScale(1);
+      } else if (isWeapon(p.kind)) {
+        sprite.play(keys.projectile(p.kind), true).clearTint().setScale(1);
+      } else if (this.effects) {
+        // Its glow baked in at twice the art's size (#143).
+        sprite.play(keys.enemyBulletGlow(p.kind), true).clearTint().setScale(BAKED_GLOW_SCALE);
       } else {
-        sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true).clearTint();
+        sprite.play(keys.enemyBullet(p.kind), true).clearTint().setScale(1);
       }
       // Pooled sprites carry every faction in turn: move each to its layer.
       const layer = p.faction === 'enemy' ? this.enemyFire : this.world;
@@ -1399,7 +1385,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
-    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
+    this.debug.enemyFireGlow = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
