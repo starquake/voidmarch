@@ -15,9 +15,14 @@ import (
 
 // ringOne names n of ring 1's sectors, for a hub that has cleared them.
 func ringOne(n int) []string {
+	return ringOf(1, n)
+}
+
+// ringOf names n of ring's sectors, for a hub that has cleared them.
+func ringOf(ring, n int) []string {
 	var names []string
 	for _, s := range sim.Sectors() {
-		if s.Ring() == 1 && len(names) < n {
+		if s.Ring() == ring && len(names) < n {
 			names = append(names, s.Name())
 		}
 	}
@@ -43,7 +48,7 @@ type saved struct {
 	rings  []int
 }
 
-func (s *saved) share(share float64) {
+func (s *saved) share(_ sim.EnemyFaction, share float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.shares = append(s.shares, share)
@@ -131,7 +136,7 @@ func TestDreadnought_KeepsItsShareAndScalesToThoseOnline(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithDreadnought(0.75))
+	hub, tick := testHub(t, WithMap(m), WithDreadnought(sim.Klaed, 0.75))
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
 	if got, want := d.GetHp(), float32(0.75*sim.DreadnoughtMaxHP(1)); got != want ||
@@ -203,7 +208,7 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 	hub, tick := testHub(
 		t,
 		WithMap(m),
-		WithDreadnought(0.003),
+		WithDreadnought(sim.Klaed, 0.003),
 		WithSaveDreadnought(saves.share),
 		WithSaveOpenRings(saves.ring),
 		// Ring 1 holds, so the rings stay open once it falls.
@@ -235,15 +240,16 @@ func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 			frontier = f
 		}
 	}
-	if frontier.GetOpenRings() != 3 {
-		t.Errorf("frontier %+v once it fell, want rings 2 and 3 open", frontier)
+	// The Kla'ed Dreadnought opens ring 2 alone; ring 3 is the Nairan one's (#140).
+	if frontier.GetOpenRings() != 2 {
+		t.Errorf("frontier %+v once it fell, want ring 2 open", frontier)
 	}
 	fell := func(shares []float64, rings []int) bool {
-		return slices.Contains(shares, 1) && slices.Equal(rings, []int{3})
+		return slices.Contains(shares, 1) && slices.Equal(rings, []int{2})
 	}
 	if shares, rings := saves.settle(fell); !fell(shares, rings) {
 		t.Errorf(
-			"saved shares %v and rings %v, want a fresh Dreadnought's whole health and 3 rings",
+			"saved shares %v and rings %v, want a fresh Dreadnought's whole health and 2 rings",
 			shares,
 			rings,
 		)
@@ -254,7 +260,7 @@ func TestDreadnought_ItsFallRewardsThoseNearAndReleasesDerelicts(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithDreadnought(0.0005), WithPoolStart(3))
+	hub, tick := testHub(t, WithMap(m), WithDreadnought(sim.Klaed, 0.0005), WithPoolStart(3))
 	near, _ := join(t, hub, "near")
 	far, _ := join(t, hub, "far")
 	d := dreadnoughtIn(must(latest(t, near, tick, 1, 0, 0)))
@@ -332,11 +338,26 @@ func TestDreadnought_TheRingsCloseWhenRingOneFallsBack(t *testing.T) {
 		t.Errorf("saved rings %v, want 1", rings)
 	}
 
-	kept, tick := testHub(t, WithOpenRings(3), WithClearedSectors(ringOne(4)), NoEvents)
+	kept, tick := testHub(t, WithOpenRings(2), WithClearedSectors(ringOne(4)), NoEvents)
 	b, _ := join(t, kept, "b")
 	if _, others := latest(t, b, tick, 2, 0, 0); frontierIn(others) != nil {
 		t.Errorf(
-			"frontier %+v with 4 of ring 1 cleared, want rings 2 and 3 left open",
+			"frontier %+v with 4 of ring 1 cleared, want ring 2 left open",
+			frontierIn(others),
+		)
+	}
+
+	// Ring 2 falling back closes ring 3 alone (#140).
+	outer, tick := testHub(
+		t,
+		WithOpenRings(3),
+		WithClearedSectors(append(ringOne(4), ringOf(2, 3)...)),
+		NoEvents,
+	)
+	c, _ := join(t, outer, "c")
+	if _, others := latest(t, c, tick, 1, 0, 0); frontierIn(others).GetOpenRings() != 2 {
+		t.Errorf(
+			"frontier %+v with 4 of ring 1 and 3 of ring 2 cleared, want ring 3 closed",
 			frontierIn(others),
 		)
 	}
@@ -368,4 +389,90 @@ func TestDreadnought_ReopeningTakesAFreshOne(t *testing.T) {
 // must2 is the messages from latest, without its snapshot.
 func must2(_ *pb.Snapshot, messages []*pb.ServerMessage) []*pb.ServerMessage {
 	return messages
+}
+
+func TestDreadnought_TheNairanOneWakesInRingThreeAndItsFallOpensIt(t *testing.T) {
+	t.Parallel()
+
+	saves := &saved{}
+	hub, tick := testHub(
+		t,
+		WithOpenRings(2),
+		WithClearedSectors(append(ringOne(6), ringOf(2, 4)...)),
+		WithDreadnought(sim.Nairan, 0.0005),
+		WithDreadnought(sim.Klaed, 0.4),
+		WithSaveDreadnought(saves.share),
+		WithSaveOpenRings(saves.ring),
+		WithPoolStart(3),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	snap, others := latest(t, a, tick, 2, 0, 0)
+	d := dreadnoughtIn(snap)
+	if d == nil || d.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAIRAN {
+		t.Fatalf("Dreadnought %+v with 4 of ring 2 cleared, want the Nairan one awake", d)
+	}
+	s, _ := sim.SectorAt(float64(d.GetX()), float64(d.GetY()))
+	if s.Ring() != 3 || !slices.Equal(frontierIn(others).GetOpened(), []string{s.Name()}) {
+		t.Errorf(
+			"the Nairan Dreadnought woke in %s (ring %d), want a ring-3 sector open on its own",
+			s.Name(),
+			s.Ring(),
+		)
+	}
+	if want := float32(0.0005 * sim.DreadnoughtMaxHP(1)); math.Abs(float64(d.GetHp()-want)) > 1 {
+		t.Errorf("its hp = %v, want its own saved share, %v, not the Kla'ed one's", d.GetHp(), want)
+	}
+
+	x, y := d.GetX(), d.GetY()+300
+	must(latest(t, a, tick, 1, x, y))
+	for shot := range uint32(sim.DreadnoughtShield/MaxHitDamage + 2) { //nolint:gosec // a few shots.
+		hitFrigate(a, d.GetEnemyId(), shot+1)
+	}
+	_, others = latest(t, a, tick, 1, x, y)
+	var fell *pb.BossFell
+	for _, msg := range others {
+		if f := msg.GetBossFell(); f != nil {
+			fell = f
+		}
+	}
+	if fell.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAIRAN ||
+		frontierIn(others).GetOpenRings() != 3 {
+		t.Errorf(
+			"BossFell %+v and frontier %+v, want the Nairan one fallen and ring 3 open",
+			fell,
+			frontierIn(others),
+		)
+	}
+	opened := func(_ []float64, rings []int) bool { return slices.Equal(rings, []int{3}) }
+	if _, rings := saves.settle(opened); !slices.Equal(rings, []int{3}) {
+		t.Errorf("saved rings %v, want 3", rings)
+	}
+}
+
+func TestDreadnought_ANairanOneAwakeGoesBackToSleepWhenRingOneFallsBack(t *testing.T) {
+	t.Parallel()
+
+	saves := &saved{}
+	hub, tick := testHub(
+		t,
+		WithOpenRings(2),
+		WithClearedSectors(append(ringOne(4), ringOf(2, 4)...)),
+		WithDreadnought(sim.Nairan, 0.6),
+		WithSaveDreadnought(saves.share),
+		WithWokenThenLost(ringOne(1)[0]),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	snap, others := latest(t, a, tick, 2, 0, 0)
+	if d := dreadnoughtIn(snap); d != nil {
+		t.Errorf("Dreadnought %+v after ring 1 fell back, want it gone", d)
+	}
+	if f := frontierIn(others); f.GetOpenRings() != 1 || len(f.GetOpened()) != 0 {
+		t.Errorf("frontier %+v after ring 1 fell back, want ring 1 alone", f)
+	}
+	kept := func(shares []float64, _ []int) bool { return slices.Contains(shares, 0.6) }
+	if shares, _ := saves.settle(kept); !kept(shares, nil) {
+		t.Errorf("saved shares %v, want the Nairan one's 0.6 kept", shares)
+	}
 }

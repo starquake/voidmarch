@@ -125,3 +125,16 @@ func WithEnemyOf(kind pb.EnemyKind, faction sim.EnemyFaction, x, y float64) HubO
 
 // TorpedoWarning exposes torpedoWarning for tests.
 const TorpedoWarning = torpedoWarning
+
+// WithWokenThenLost wakes the Dreadnought at the start, then loses sector
+// name again, as an attack would.
+func WithWokenThenLost(name string) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if s, ok := sim.ParseSector(name); ok {
+				delete(h.cleared, s)
+			}
+		})
+	}
+}

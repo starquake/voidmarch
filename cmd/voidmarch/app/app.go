@@ -241,9 +241,9 @@ func sectorSaver(ctx context.Context, logger *slog.Logger, db *sql.DB) func(stri
 	}
 }
 
-// frontierOptions are the hub's open rings and the Kla'ed Dreadnought's
+// frontierOptions are the hub's open rings and each faction's Dreadnought's
 // health as saved, the hours since regenerating it, and their savers
-// (#123, #124).
+// (#123, #124, #140).
 func frontierOptions(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -256,9 +256,9 @@ func frontierOptions(
 	if !saved {
 		rings = 1
 	}
-	d, saved, err := store.DreadnoughtHealth(ctx, db)
+	dreadnoughts, err := store.Dreadnoughts(ctx, db)
 	if err != nil {
-		return nil, fmt.Errorf("error reading the dreadnought: %w", err)
+		return nil, fmt.Errorf("error reading the dreadnoughts: %w", err)
 	}
 	ctx = context.WithoutCancel(ctx)
 	save := func(what string, do func(context.Context) error) {
@@ -277,17 +277,15 @@ func frontierOptions(
 				func(c context.Context) error { return store.SaveOpenRings(c, db, n) },
 			)
 		}),
-		game.WithSaveDreadnought(func(share float64) {
-			save("the dreadnought", func(c context.Context) error {
-				return store.SaveDreadnoughtHealth(c, db, share, time.Now())
+		game.WithSaveDreadnought(func(faction sim.EnemyFaction, share float64) {
+			save("a dreadnought", func(c context.Context) error {
+				return store.SaveDreadnoughtHealth(c, db, string(faction), share, time.Now())
 			})
 		}),
 	}
-	if saved {
-		opts = append(
-			opts,
-			game.WithDreadnought(sim.DreadnoughtRegen(d.Health, time.Since(d.At).Hours())),
-		)
+	for faction, d := range dreadnoughts {
+		share := sim.DreadnoughtRegen(d.Health, time.Since(d.At).Hours())
+		opts = append(opts, game.WithDreadnought(sim.EnemyFaction(faction), share))
 	}
 
 	return opts, nil

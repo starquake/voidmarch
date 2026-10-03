@@ -480,6 +480,8 @@ message BossFell {
   EnemyKind kind = 1;
   repeated PickupGain gains = 2;
   uint32 tick = 3;
+  // The fallen boss's faction, which says which ring opened (#140).
+  EnemyFaction faction = 4;
 }
 
 // Frontier is which sectors are open (#123): home and the rings up to

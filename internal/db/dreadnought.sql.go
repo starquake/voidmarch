@@ -9,33 +9,45 @@ import (
 	"context"
 )
 
-const dreadnought = `-- name: Dreadnought :one
-SELECT health, updated_at FROM dreadnought WHERE id = 1
+const dreadnoughts = `-- name: Dreadnoughts :many
+SELECT faction, health, updated_at FROM dreadnoughts ORDER BY faction
 `
 
-type DreadnoughtRow struct {
-	Health    float64
-	UpdatedAt int64
-}
-
-func (q *Queries) Dreadnought(ctx context.Context) (DreadnoughtRow, error) {
-	row := q.db.QueryRowContext(ctx, dreadnought)
-	var i DreadnoughtRow
-	err := row.Scan(&i.Health, &i.UpdatedAt)
-	return i, err
+func (q *Queries) Dreadnoughts(ctx context.Context) ([]Dreadnought, error) {
+	rows, err := q.db.QueryContext(ctx, dreadnoughts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Dreadnought
+	for rows.Next() {
+		var i Dreadnought
+		if err := rows.Scan(&i.Faction, &i.Health, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const saveDreadnought = `-- name: SaveDreadnought :exec
-INSERT INTO dreadnought (id, health, updated_at) VALUES (1, ?, ?)
-ON CONFLICT (id) DO UPDATE SET health = excluded.health, updated_at = excluded.updated_at
+INSERT INTO dreadnoughts (faction, health, updated_at) VALUES (?, ?, ?)
+ON CONFLICT (faction) DO UPDATE SET health = excluded.health, updated_at = excluded.updated_at
 `
 
 type SaveDreadnoughtParams struct {
+	Faction   string
 	Health    float64
 	UpdatedAt int64
 }
 
 func (q *Queries) SaveDreadnought(ctx context.Context, arg SaveDreadnoughtParams) error {
-	_, err := q.db.ExecContext(ctx, saveDreadnought, arg.Health, arg.UpdatedAt)
+	_, err := q.db.ExecContext(ctx, saveDreadnought, arg.Faction, arg.Health, arg.UpdatedAt)
 	return err
 }

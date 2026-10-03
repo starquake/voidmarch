@@ -213,31 +213,38 @@ func SaveOpenRings(ctx context.Context, conn *sql.DB, rings int) error {
 	return nil
 }
 
-// SavedDreadnought is the share of the Kla'ed Dreadnought's health left,
-// from 0 to 1, and when it was saved (#132).
+// SavedDreadnought is the share of a faction's Dreadnought's health left,
+// from 0 to 1, and when it was saved (#132, #140).
 type SavedDreadnought struct {
 	Health float64
 	At     time.Time
 }
 
-// DreadnoughtHealth returns the Dreadnought's saved health (#124), and false
-// before any was.
-func DreadnoughtHealth(ctx context.Context, conn *sql.DB) (SavedDreadnought, bool, error) {
-	row, err := queries.New(conn).Dreadnought(ctx)
-	if errors.Is(err, sql.ErrNoRows) {
-		return SavedDreadnought{}, false, nil
-	}
+// Dreadnoughts returns each faction's Dreadnought's saved health, by
+// faction name (#140); a faction never saved is missing.
+func Dreadnoughts(ctx context.Context, conn *sql.DB) (map[string]SavedDreadnought, error) {
+	rows, err := queries.New(conn).Dreadnoughts(ctx)
 	if err != nil {
-		return SavedDreadnought{}, false, fmt.Errorf("error reading the dreadnought: %w", err)
+		return nil, fmt.Errorf("error reading the dreadnoughts: %w", err)
+	}
+	out := make(map[string]SavedDreadnought, len(rows))
+	for _, row := range rows {
+		out[row.Faction] = SavedDreadnought{Health: row.Health, At: time.Unix(row.UpdatedAt, 0)}
 	}
 
-	return SavedDreadnought{Health: row.Health, At: time.Unix(row.UpdatedAt, 0)}, true, nil
+	return out, nil
 }
 
-// SaveDreadnoughtHealth saves the share of the Dreadnought's health left as
-// of at.
-func SaveDreadnoughtHealth(ctx context.Context, conn *sql.DB, health float64, at time.Time) error {
-	params := queries.SaveDreadnoughtParams{Health: health, UpdatedAt: at.Unix()}
+// SaveDreadnoughtHealth saves the share of a faction's Dreadnought's health
+// left as of at.
+func SaveDreadnoughtHealth(
+	ctx context.Context,
+	conn *sql.DB,
+	faction string,
+	health float64,
+	at time.Time,
+) error {
+	params := queries.SaveDreadnoughtParams{Faction: faction, Health: health, UpdatedAt: at.Unix()}
 	if err := queries.New(conn).SaveDreadnought(ctx, params); err != nil {
 		return fmt.Errorf("error saving the dreadnought: %w", err)
 	}

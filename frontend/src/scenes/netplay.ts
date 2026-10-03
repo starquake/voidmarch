@@ -369,7 +369,7 @@ export class NetPlay {
           this.setFrontier(frontier);
         },
         bossFell: (fell) => {
-          this.bossFell(fell.gains);
+          this.bossFell(fromEnemyFaction(fell.faction), fell.gains);
         },
         eventEnded: (ended) => {
           this.worldEvent = undefined;
@@ -454,7 +454,7 @@ export class NetPlay {
   }
 
   /** Takes the parts the fall gave this player, and announces it (#125). */
-  private bossFell(gains: readonly PickupGain[]): void {
+  private bossFell(faction: EnemyFaction, gains: readonly PickupGain[]): void {
     let reward: string | undefined;
     for (const gain of gains) {
       const part = fromPart(gain.unlock?.part);
@@ -464,7 +464,7 @@ export class NetPlay {
         reward = partLabel(part, tier);
       }
     }
-    this.banners.push(bossFellBanner(reward));
+    this.banners.push(bossFellBanner(faction, reward));
     this.options.pickups.regrade(this.unlocks);
     this.refit();
   }

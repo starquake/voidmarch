@@ -3689,10 +3689,12 @@ func (*ServerMessage_BossFell) isServerMessage_Kind() {}
 // BossFell says a siege boss was destroyed (#125): the parts it gave the
 // players near it.
 type BossFell struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          EnemyKind              `protobuf:"varint,1,opt,name=kind,proto3,enum=voidmarch.v1.EnemyKind" json:"kind,omitempty"`
-	Gains         []*PickupGain          `protobuf:"bytes,2,rep,name=gains,proto3" json:"gains,omitempty"`
-	Tick          uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Kind  EnemyKind              `protobuf:"varint,1,opt,name=kind,proto3,enum=voidmarch.v1.EnemyKind" json:"kind,omitempty"`
+	Gains []*PickupGain          `protobuf:"bytes,2,rep,name=gains,proto3" json:"gains,omitempty"`
+	Tick  uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	// The fallen boss's faction, which says which ring opened (#140).
+	Faction       EnemyFaction `protobuf:"varint,4,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3746,6 +3748,13 @@ func (x *BossFell) GetTick() uint32 {
 		return x.Tick
 	}
 	return 0
+}
+
+func (x *BossFell) GetFaction() EnemyFaction {
+	if x != nil {
+		return x.Faction
+	}
+	return EnemyFaction_ENEMY_FACTION_UNSPECIFIED
 }
 
 // Frontier is which sectors are open (#123): home and the rings up to
@@ -4566,11 +4575,12 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"eventEnded\x124\n" +
 	"\bfrontier\x18\x16 \x01(\v2\x16.voidmarch.v1.FrontierH\x00R\bfrontier\x125\n" +
 	"\tboss_fell\x18\x17 \x01(\v2\x16.voidmarch.v1.BossFellH\x00R\bbossFellB\x06\n" +
-	"\x04kind\"{\n" +
+	"\x04kind\"\xb1\x01\n" +
 	"\bBossFell\x12+\n" +
 	"\x04kind\x18\x01 \x01(\x0e2\x17.voidmarch.v1.EnemyKindR\x04kind\x12.\n" +
 	"\x05gains\x18\x02 \x03(\v2\x18.voidmarch.v1.PickupGainR\x05gains\x12\x12\n" +
-	"\x04tick\x18\x03 \x01(\rR\x04tick\"A\n" +
+	"\x04tick\x18\x03 \x01(\rR\x04tick\x124\n" +
+	"\afaction\x18\x04 \x01(\x0e2\x1a.voidmarch.v1.EnemyFactionR\afaction\"A\n" +
 	"\bFrontier\x12\x1d\n" +
 	"\n" +
 	"open_rings\x18\x01 \x01(\rR\topenRings\x12\x16\n" +
@@ -4803,18 +4813,19 @@ var file_voidmarch_v1_messages_proto_depIdxs = []int32{
 	45, // 67: voidmarch.v1.ServerMessage.boss_fell:type_name -> voidmarch.v1.BossFell
 	3,  // 68: voidmarch.v1.BossFell.kind:type_name -> voidmarch.v1.EnemyKind
 	54, // 69: voidmarch.v1.BossFell.gains:type_name -> voidmarch.v1.PickupGain
-	9,  // 70: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
-	54, // 71: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
-	7,  // 72: voidmarch.v1.WorldEvent.kind:type_name -> voidmarch.v1.WorldEventKind
-	49, // 73: voidmarch.v1.EventStarted.event:type_name -> voidmarch.v1.WorldEvent
-	49, // 74: voidmarch.v1.EventEnded.event:type_name -> voidmarch.v1.WorldEvent
-	54, // 75: voidmarch.v1.SectorCleared.gains:type_name -> voidmarch.v1.PickupGain
-	10, // 76: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
-	77, // [77:77] is the sub-list for method output_type
-	77, // [77:77] is the sub-list for method input_type
-	77, // [77:77] is the sub-list for extension type_name
-	77, // [77:77] is the sub-list for extension extendee
-	0,  // [0:77] is the sub-list for field type_name
+	4,  // 70: voidmarch.v1.BossFell.faction:type_name -> voidmarch.v1.EnemyFaction
+	9,  // 71: voidmarch.v1.PickupDropped.part:type_name -> voidmarch.v1.Part
+	54, // 72: voidmarch.v1.PickupTaken.gains:type_name -> voidmarch.v1.PickupGain
+	7,  // 73: voidmarch.v1.WorldEvent.kind:type_name -> voidmarch.v1.WorldEventKind
+	49, // 74: voidmarch.v1.EventStarted.event:type_name -> voidmarch.v1.WorldEvent
+	49, // 75: voidmarch.v1.EventEnded.event:type_name -> voidmarch.v1.WorldEvent
+	54, // 76: voidmarch.v1.SectorCleared.gains:type_name -> voidmarch.v1.PickupGain
+	10, // 77: voidmarch.v1.PickupGain.unlock:type_name -> voidmarch.v1.Unlock
+	78, // [78:78] is the sub-list for method output_type
+	78, // [78:78] is the sub-list for method input_type
+	78, // [78:78] is the sub-list for extension type_name
+	78, // [78:78] is the sub-list for extension extendee
+	0,  // [0:78] is the sub-list for field type_name
 }
 
 func init() { file_voidmarch_v1_messages_proto_init() }

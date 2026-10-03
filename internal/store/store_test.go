@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 6; got != want {
+	if got, want := version, 7; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -34,7 +34,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := mode, "wal"; got != want {
 		t.Errorf("journal_mode = %q, want %q", got, want)
 	}
-	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnought"} {
+	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnoughts"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)
 		if err = row.Scan(&n); err != nil {
@@ -84,7 +84,7 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	// A version-2 file: without the tables migrations 004 onward add.
 	_, err = db.ExecContext(
 		t.Context(),
-		"DROP TABLE frontier; DROP TABLE dreadnought; PRAGMA user_version = 2",
+		"DROP TABLE frontier; DROP TABLE dreadnoughts; PRAGMA user_version = 2",
 	)
 	if err != nil {
 		t.Fatalf("rolling the file back to version 2: %v", err)
@@ -111,7 +111,7 @@ func TestOpen_TheDreadnoughtsHealthBecomesAShare(t *testing.T) {
 		t.Fatalf("Open() error = %v", err)
 	}
 	// A version-5 file, with 150,000 of the old fixed 200,000 saved.
-	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnought;
+	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnoughts;
 		CREATE TABLE dreadnought (
 			id INTEGER PRIMARY KEY CHECK (id = 1), hp INTEGER NOT NULL, updated_at INTEGER NOT NULL
 		) STRICT;
@@ -127,12 +127,13 @@ func TestOpen_TheDreadnoughtsHealthBecomesAShare(t *testing.T) {
 		t.Fatalf("Open() again error = %v", err)
 	}
 	defer func() { _ = db.Close() }()
-	d, ok, err := DreadnoughtHealth(t.Context(), db)
-	if err != nil || !ok || d.Health != 0.75 || d.At.Unix() != 1_700_000_000 {
+	// Migrations 006 and 007 make it the Kla'ed Dreadnought's share.
+	saved, err := Dreadnoughts(t.Context(), db)
+	d, ok := saved["klaed"]
+	if err != nil || !ok || d.Health != 0.75 || d.At.Unix() != 1_700_000_000 || len(saved) != 1 {
 		t.Errorf(
-			"DreadnoughtHealth() after the share migration = %+v, %t, %v; want 0.75",
-			d,
-			ok,
+			"Dreadnoughts() after the migrations = %+v, %v; want the Kla'ed one at 0.75",
+			saved,
 			err,
 		)
 	}
@@ -231,7 +232,7 @@ func TestOpenRings(t *testing.T) {
 	}
 }
 
-func TestDreadnoughtHealth(t *testing.T) {
+func TestDreadnoughts(t *testing.T) {
 	t.Parallel()
 
 	db, err := Open(t.Context(), filepath.Join(t.TempDir(), "voidmarch.db"))
@@ -240,17 +241,28 @@ func TestDreadnoughtHealth(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	_, ok, err := DreadnoughtHealth(t.Context(), db)
-	if err != nil || ok {
-		t.Errorf("DreadnoughtHealth() on a fresh file = %t, %v; want none saved", ok, err)
+	fresh, err := Dreadnoughts(t.Context(), db)
+	if err != nil || len(fresh) != 0 {
+		t.Errorf("Dreadnoughts() on a fresh file = %v, %v; want none saved", fresh, err)
 	}
 	at := time.Unix(1_700_000_000, 0)
-	if err = SaveDreadnoughtHealth(t.Context(), db, 0.75, at); err != nil {
-		t.Fatalf("SaveDreadnoughtHealth() error = %v", err)
+	for faction, share := range map[string]float64{"klaed": 0.75, "nairan": 0.5} {
+		if err = SaveDreadnoughtHealth(t.Context(), db, faction, share, at); err != nil {
+			t.Fatalf("SaveDreadnoughtHealth(%s) error = %v", faction, err)
+		}
 	}
-	d, ok, err := DreadnoughtHealth(t.Context(), db)
-	if err != nil || !ok || d.Health != 0.75 || !d.At.Equal(at) {
-		t.Errorf("DreadnoughtHealth() = %+v, %t, %v; want 0.75 at %v", d, ok, err, at)
+	if err = SaveDreadnoughtHealth(t.Context(), db, "nairan", 0.25, at); err != nil {
+		t.Fatalf("SaveDreadnoughtHealth(nairan) again error = %v", err)
+	}
+	saved, err := Dreadnoughts(t.Context(), db)
+	if err != nil || len(saved) != 2 || saved["klaed"].Health != 0.75 ||
+		saved["nairan"].Health != 0.25 ||
+		!saved["nairan"].At.Equal(at) {
+		t.Errorf(
+			"Dreadnoughts() = %+v, %v; want the Kla'ed one at 0.75 and the Nairan one at 0.25",
+			saved,
+			err,
+		)
 	}
 }
 
