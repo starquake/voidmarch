@@ -115,8 +115,12 @@ const (
 	FrigateCompanionWeight = 0.5
 	// FrigateReach is how close a ship is to count as in the fight.
 	FrigateReach = 800
-	// FrigateRingBullets is how many bullets a ring has.
+	// FrigateRingBullets is how many bullets a Kla'ed ring has; the later
+	// factions' have more (FrigateRing).
 	FrigateRingBullets = 12
+	// MaxVolleyBullets is the most bullets one volley has: a Nautolan
+	// Frigate's ring (#139).
+	MaxVolleyBullets = 2 * FrigateRingBullets
 	// FrigateRingInterval is the seconds between rings.
 	FrigateRingInterval = 3
 	// FrigateMuzzle is how far from its center a ring's bullets leave.

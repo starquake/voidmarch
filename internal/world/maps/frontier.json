@@ -3,6 +3,16 @@
   "bosses": [
     { "kind": "frigate", "sector": "D3" },
     { "kind": "frigate", "sector": "E4" },
-    { "kind": "frigate", "sector": "C4" }
+    { "kind": "frigate", "sector": "C4" },
+    { "kind": "frigate", "sector": "E2" },
+    { "kind": "frigate", "sector": "F5" },
+    { "kind": "frigate", "sector": "C5" },
+    { "kind": "frigate", "sector": "B3" },
+    { "kind": "frigate", "sector": "E1" },
+    { "kind": "frigate", "sector": "G3" },
+    { "kind": "frigate", "sector": "F6" },
+    { "kind": "frigate", "sector": "C6" },
+    { "kind": "frigate", "sector": "A4" },
+    { "kind": "frigate", "sector": "B2" }
   ]
 }

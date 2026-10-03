@@ -296,7 +296,7 @@ var ENEMY_RADIUS = {
   nairan: {
     scout: 11,
     fighter: 14,
-    frigate: 19,
+    frigate: 21,
     dreadnought: 44,
     bomber: 16,
     torpedo: 20
@@ -304,7 +304,7 @@ var ENEMY_RADIUS = {
   nautolan: {
     scout: 15,
     fighter: 15,
-    frigate: 19,
+    frigate: 20,
     dreadnought: 44,
     bomber: 14,
     torpedo: 19
@@ -495,6 +495,9 @@ var defaultUnlocks = () => /* @__PURE__ */ new Map([
   [DEFAULT_LOADOUT.shield, 0]
 ]);
 
+// src/sim/enemies.ts
+var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
+
 // src/sprites.ts
 var ASSETS = "/static/assets";
 var still = (key, url, size) => ({
@@ -518,13 +521,15 @@ var ENEMY_FILES = {
     scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
     fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, weaponsFps: 84 },
     bomber: { size: 64, engine: 8, destruction: 16 },
-    torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 }
+    torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
+    frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 }
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
     fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 },
     bomber: { size: 64, engine: 8, destruction: 10 },
-    torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 }
+    torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
+    frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 }
   }
 };
 var BULLET_VARIANT = "blue";
@@ -683,7 +688,7 @@ function sheets() {
           strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
           ...f.weapons === void 0 ? [] : [strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false)],
           strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
-          ...f.shield === void 0 ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.size, f.shield, 20)]
+          ...f.shield === void 0 ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.shieldSize ?? f.size, f.shield, 20)]
         ];
       })
     ),
@@ -1605,7 +1610,6 @@ function missionArrow(ship, target, width, height, margin) {
   const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
   return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
 }
-var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 function sectorFaction(name) {
   const ring2 = sectorRing(name);
   return (ring2 === void 0 ? void 0 : RING_FACTIONS[ring2]) ?? "klaed";
@@ -2577,8 +2581,8 @@ var WeaponAnimator = class {
 
 // src/net/boss.ts
 var BOSSES = {
-  frigate: { name: "KLA'ED FRIGATE", shield: FRIGATE_SHIELD },
-  dreadnought: { name: "KLA'ED DREADNOUGHT", shield: DREADNOUGHT_SHIELD }
+  frigate: { name: "FRIGATE", shield: FRIGATE_SHIELD },
+  dreadnought: { name: "DREADNOUGHT", shield: DREADNOUGHT_SHIELD }
 };
 function bossBar(bosses, x, y) {
   let nearest;
@@ -2598,7 +2602,7 @@ function bossBar(bosses, x, y) {
   const max = Math.round(nearest.maxHp);
   const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} online` : "";
   return {
-    name: boss.name,
+    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
     text: `${String(hp)} / ${String(max)}${scaled}`
@@ -3963,7 +3967,7 @@ var NetPlay = class {
   /** The bosses as drawn, with their health (#89). */
   get bosses() {
     return [...this.enemies.values()].flatMap(
-      (e) => e.health === void 0 ? [] : [{ kind: e.view.kind, x: e.view.x, y: e.view.y, ...e.health }]
+      (e) => e.health === void 0 ? [] : [{ kind: e.view.kind, faction: e.view.faction, x: e.view.x, y: e.view.y, ...e.health }]
     );
   }
   /** Enemies as drawn, for the E2E tests. */

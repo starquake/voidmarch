@@ -13,7 +13,9 @@ func EnemyPattern(
 ) []ProjectileSpawn {
 	random := NewRandom(seed)
 	if kind == EnemyFrigate {
-		return frigateRing(x, y, angle+random.Next()*Tau/FrigateRingBullets)
+		bullet, count := FrigateRing(faction)
+
+		return ringOf(x, y, angle+random.Next()*Tau/float64(count), bullet, count)
 	}
 	if kind == EnemyDreadnought {
 		return dreadnoughtPattern(x, y, angle, seed, random)
@@ -106,7 +108,9 @@ func dreadnoughtPattern(x, y, angle float64, seed uint32, random *Random) []Proj
 	case DreadnoughtRing, dreadnoughtVolleys:
 		fallthrough
 	default:
-		ring := frigateRing(x, y, angle+random.Next()*Tau/FrigateRingBullets)
+		ring := ringOf(
+			x, y, angle+random.Next()*Tau/FrigateRingBullets, KlaedBigBullet, FrigateRingBullets,
+		)
 		for i := range ring {
 			ring[i].X += (DreadnoughtMuzzle - FrigateMuzzle) * math.Cos(ring[i].Angle)
 			ring[i].Y += (DreadnoughtMuzzle - FrigateMuzzle) * math.Sin(ring[i].Angle)
@@ -116,15 +120,24 @@ func dreadnoughtPattern(x, y, angle float64, seed uint32, random *Random) []Proj
 	}
 }
 
-// frigateRing is a ring of FrigateRingBullets big bullets evenly spaced
-// around the Frigate, the first at angle.
-func frigateRing(x, y, angle float64) []ProjectileSpawn {
-	ring := make([]ProjectileSpawn, 0, FrigateRingBullets)
-	for i := range FrigateRingBullets {
-		aim := angle + Tau*float64(i)/FrigateRingBullets
+// FrigateRing is the bullet a faction's Frigate rings with, and how many
+// (#139): its faction's big shot, as many more as the faction fires more
+// often (#9 decision 14), so a Nairan ring has 18 and a Nautolan one 24.
+func FrigateRing(faction EnemyFaction) (EnemyBulletID, int) {
+	count := int(math.Round(FrigateRingBullets * FactionStats(faction).Shots))
+
+	return EnemyBullet(EnemyFighter, faction), count
+}
+
+// ringOf is a ring of count bullets evenly spaced around the Frigate,
+// the first at angle.
+func ringOf(x, y, angle float64, bullet EnemyBulletID, count int) []ProjectileSpawn {
+	ring := make([]ProjectileSpawn, 0, count)
+	for i := range count {
+		aim := angle + Tau*float64(i)/float64(count)
 		muzzle := RotateOffset(FrigateMuzzle, 0, aim)
 		ring = append(ring, ProjectileSpawn{
-			Kind: ProjectileKind(KlaedBigBullet), X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim,
+			Kind: ProjectileKind(bullet), X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim,
 		})
 	}
 

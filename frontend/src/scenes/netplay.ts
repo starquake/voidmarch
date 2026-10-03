@@ -591,7 +591,7 @@ export class NetPlay {
   /** The bosses as drawn, with their health (#89). */
   get bosses(): DrawnBoss[] {
     return [...this.enemies.values()].flatMap((e) =>
-      e.health === undefined ? [] : [{ kind: e.view.kind, x: e.view.x, y: e.view.y, ...e.health }],
+      e.health === undefined ? [] : [{ kind: e.view.kind, faction: e.view.faction, x: e.view.x, y: e.view.y, ...e.health }],
     );
   }
 

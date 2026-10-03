@@ -120,7 +120,7 @@ export const ENEMY_RADIUS = {
   nairan: {
     scout: 11,
     fighter: 14,
-    frigate: 19,
+    frigate: 21,
     dreadnought: 44,
     bomber: 16,
     torpedo: 20,
@@ -128,7 +128,7 @@ export const ENEMY_RADIUS = {
   nautolan: {
     scout: 15,
     fighter: 15,
-    frigate: 19,
+    frigate: 20,
     dreadnought: 44,
     bomber: 14,
     torpedo: 19,

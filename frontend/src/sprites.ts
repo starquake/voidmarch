@@ -36,6 +36,8 @@ interface EnemyFiles {
   weapons?: number;
   destruction: number;
   shield?: number;
+  /** The shield strip's frame size where it isn't the ship's: the Nautolan Frigate's is 63 px. */
+  shieldSize?: number;
   /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps, and a Torpedo Ship's as long as its longer hold. */
   weaponsFps?: number;
 }
@@ -56,12 +58,14 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, weaponsFps: 84 },
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
+    frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
     fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 },
     bomber: { size: 64, engine: 8, destruction: 10 },
     torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
+    frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
   },
 };
 
@@ -260,7 +264,7 @@ export function sheets(): Sheet[] {
             ? []
             : [strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false)]),
           strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
-          ...(f.shield === undefined ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.size, f.shield, 20)]),
+          ...(f.shield === undefined ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.shieldSize ?? f.size, f.shield, 20)]),
         ];
       }),
     ),
