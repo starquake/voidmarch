@@ -513,6 +513,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: DevStartAttack;
     case: "devStartAttack";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.DevSeasonWon dev_season_won = 13;
+     */
+    value: DevSeasonWon;
+    case: "devSeasonWon";
   } | { case: undefined; value?: undefined };
 };
 
@@ -540,6 +546,22 @@ export declare type DevStartAttack = Message<"voidmarch.v1.DevStartAttack"> & {
  * Use `create(DevStartAttackSchema)` to create a new message.
  */
 export declare const DevStartAttackSchema: GenMessage<DevStartAttack>;
+
+/**
+ * DevSeasonWon asks for the season's result as if it were won now, sent to
+ * this player alone and winning nothing, on a development server only, for
+ * trying the victory screen and for E2E (#156).
+ *
+ * @generated from message voidmarch.v1.DevSeasonWon
+ */
+export declare type DevSeasonWon = Message<"voidmarch.v1.DevSeasonWon"> & {
+};
+
+/**
+ * Describes the message voidmarch.v1.DevSeasonWon.
+ * Use `create(DevSeasonWonSchema)` to create a new message.
+ */
+export declare const DevSeasonWonSchema: GenMessage<DevSeasonWon>;
 
 /**
  * PickMission sends the player's squadron to another uncleared sector (#101).
@@ -707,6 +729,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: voidmarch.v1.Frontier frontier = 20;
    */
   frontier?: Frontier | undefined;
+
+  /**
+   * The season's result, once it's won (#156).
+   *
+   * @generated from field: voidmarch.v1.SeasonWon season_won = 21;
+   */
+  seasonWon?: SeasonWon | undefined;
 };
 
 /**
@@ -714,6 +743,107 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
  * Use `create(WelcomeSchema)` to create a new message.
  */
 export declare const WelcomeSchema: GenMessage<Welcome>;
+
+/**
+ * SeasonWon is the season's result (#156): sent to everyone when the finale
+ * falls, and in Welcome to a player joining a won season.
+ *
+ * @generated from message voidmarch.v1.SeasonWon
+ */
+export declare type SeasonWon = Message<"voidmarch.v1.SeasonWon"> & {
+  /**
+   * When the season started, in Unix seconds: it names the season, so a
+   * client shows the screen once per season.
+   *
+   * @generated from field: int64 season = 1;
+   */
+  season: bigint;
+
+  /**
+   * How long it took, from its start to the finale's fall, in seconds.
+   *
+   * @generated from field: uint64 seconds = 2;
+   */
+  seconds: bigint;
+
+  /**
+   * Everyone who did anything this season.
+   *
+   * @generated from field: repeated voidmarch.v1.PlayerStats players = 3;
+   */
+  players: PlayerStats[];
+
+  /**
+   * How many sectors were cleared when it was won.
+   *
+   * @generated from field: uint32 sectors = 4;
+   */
+  sectors: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.SeasonWon.
+ * Use `create(SeasonWonSchema)` to create a new message.
+ */
+export declare const SeasonWonSchema: GenMessage<SeasonWon>;
+
+/**
+ * PlayerStats are a player's season stats (#154).
+ *
+ * @generated from message voidmarch.v1.PlayerStats
+ */
+export declare type PlayerStats = Message<"voidmarch.v1.PlayerStats"> & {
+  /**
+   * @generated from field: string player_id = 1;
+   */
+  playerId: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: uint32 kills = 3;
+   */
+  kills: number;
+
+  /**
+   * @generated from field: uint32 companion_kills = 4;
+   */
+  companionKills: number;
+
+  /**
+   * @generated from field: uint32 shots = 5;
+   */
+  shots: number;
+
+  /**
+   * @generated from field: uint32 hits = 6;
+   */
+  hits: number;
+
+  /**
+   * @generated from field: uint32 deaths = 7;
+   */
+  deaths: number;
+
+  /**
+   * @generated from field: uint32 rescues = 8;
+   */
+  rescues: number;
+
+  /**
+   * @generated from field: uint32 sectors = 9;
+   */
+  sectors: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.PlayerStats.
+ * Use `create(PlayerStatsSchema)` to create a new message.
+ */
+export declare const PlayerStatsSchema: GenMessage<PlayerStats>;
 
 /**
  * PlayerSnapshot is one other player at a tick.
@@ -1540,6 +1670,12 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: BossFell;
     case: "bossFell";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.SeasonWon season_won = 24;
+     */
+    value: SeasonWon;
+    case: "seasonWon";
   } | { case: undefined; value?: undefined };
 };
 

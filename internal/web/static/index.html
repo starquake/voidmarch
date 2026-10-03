@@ -35,5 +35,15 @@
       <div class="loadout-hangar"><span id="loadout-hangar"></span><button id="loadout-summon" type="button">Summon (G)</button></div>
       <p class="loadout-keys"><b>L</b> opens and closes this at the home planet · <b>click</b> or <b>1/2/3</b> + <b>&uarr;&darr;</b> to fit · <b>Esc</b> closes</p>
     </form>
+    <form id="victory-form" class="name-screen victory-screen" novalidate hidden>
+      <h2>SEASON WON <span id="victory-took"></span></h2>
+      <p class="squadron-why">The Nautolan Dreadnought has fallen, and all three rings are yours. The world stays open until the next season.</p>
+      <table class="victory-stats">
+        <thead><tr><th>Player</th><th>Kills</th><th>Companions</th><th>Hit rate</th><th>Kills / deaths</th><th>Rescues</th><th>Sectors</th></tr></thead>
+        <tbody id="victory-players"></tbody>
+        <tfoot id="victory-totals"></tfoot>
+      </table>
+      <p class="loadout-keys"><b>O</b> opens and closes this · <b>Esc</b> closes · the world keeps playing behind it</p>
+    </form>
   </body>
 </html>

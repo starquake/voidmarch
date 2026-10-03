@@ -59,6 +59,14 @@ type Stats struct {
 	Sectors        int
 }
 
+// Standing is a player's name and season stats, for the season's result
+// (#156).
+type Standing struct {
+	ID    string
+	Name  string
+	Stats Stats
+}
+
 // Store holds the players in the database. It is safe for concurrent use.
 type Store struct {
 	queries *db.Queries
@@ -135,6 +143,28 @@ func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error)
 	return Player{
 		ID: row.ID, Name: row.Name, Unlocks: unlocks, Loadout: loadout, Stats: stats,
 	}, true, nil
+}
+
+// Standings returns every player with stats saved this season, by id.
+func (s *Store) Standings(ctx context.Context) ([]Standing, error) {
+	rows, err := s.queries.AllStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the season's stats: %w", err)
+	}
+	out := make([]Standing, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, Standing{ID: row.ID, Name: row.Name, Stats: Stats{
+			Kills:          int(row.Kills),
+			CompanionKills: int(row.CompanionKills),
+			Shots:          int(row.Shots),
+			Hits:           int(row.Hits),
+			Deaths:         int(row.Deaths),
+			Rescues:        int(row.Rescues),
+			Sectors:        int(row.Sectors),
+		}})
+	}
+
+	return out, nil
 }
 
 // SaveStats saves the player's stats for the season.

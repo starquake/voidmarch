@@ -17,6 +17,7 @@ import {
   type EventEnded,
   type Frontier as FrontierMessage,
   type BossFell,
+  type SeasonWon,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -89,6 +90,8 @@ export interface ConnectionEvents {
   frontier(frontier: FrontierMessage): void;
   /** A siege boss fell, and what it gave the players near it (#125). */
   bossFell(fell: BossFell): void;
+  /** The season is won, with its result (#156). */
+  seasonWon(won: SeasonWon): void;
 }
 
 export interface Timers {
@@ -241,6 +244,13 @@ export class Connection {
     }
   }
 
+  /** Asks for the season's result as if it were won now; a development server only (#156). */
+  sendDevSeasonWon(): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'devSeasonWon', value: {} } }));
+    }
+  }
+
   /** Says our ship flew over a pickup; the server decides who gets it. */
   sendCollect(id: number): void {
     if (this.welcomed) {
@@ -340,6 +350,9 @@ export class Connection {
         break;
       case 'bossFell':
         events.bossFell(message.kind.value);
+        break;
+      case 'seasonWon':
+        events.seasonWon(message.kind.value);
         break;
       default:
     }
