@@ -24,7 +24,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if err = db.QueryRowContext(t.Context(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("reading user_version: %v", err)
 	}
-	if got, want := version, 8; got != want {
+	if got, want := version, 9; got != want {
 		t.Errorf("user_version = %d, want %d", got, want)
 	}
 	var mode string
@@ -34,7 +34,7 @@ func TestOpen_MigratesAFreshFile(t *testing.T) {
 	if got, want := mode, "wal"; got != want {
 		t.Errorf("journal_mode = %q, want %q", got, want)
 	}
-	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnoughts", "season"} {
+	for _, table := range []string{"players", "unlocks", "hangar", "cleared_sectors", "frontier", "dreadnoughts", "season", "season_stats"} {
 		var n int
 		row := db.QueryRowContext(t.Context(), "SELECT count(*) FROM "+table)
 		if err = row.Scan(&n); err != nil {
@@ -84,7 +84,7 @@ func TestOpen_TheHexGridForgetsTheSquaresClears(t *testing.T) {
 	// A version-2 file: without the tables migrations 004 onward add.
 	_, err = db.ExecContext(
 		t.Context(),
-		"DROP TABLE frontier; DROP TABLE dreadnoughts; DROP TABLE season; PRAGMA user_version = 2",
+		"DROP TABLE frontier; DROP TABLE dreadnoughts; DROP TABLE season; DROP TABLE season_stats; PRAGMA user_version = 2",
 	)
 	if err != nil {
 		t.Fatalf("rolling the file back to version 2: %v", err)
@@ -111,12 +111,15 @@ func TestOpen_TheDreadnoughtsHealthBecomesAShare(t *testing.T) {
 		t.Fatalf("Open() error = %v", err)
 	}
 	// A version-5 file, with 150,000 of the old fixed 200,000 saved.
-	_, err = db.ExecContext(t.Context(), `DROP TABLE dreadnoughts; DROP TABLE season;
+	_, err = db.ExecContext(
+		t.Context(),
+		`DROP TABLE dreadnoughts; DROP TABLE season; DROP TABLE season_stats;
 		CREATE TABLE dreadnought (
 			id INTEGER PRIMARY KEY CHECK (id = 1), hp INTEGER NOT NULL, updated_at INTEGER NOT NULL
 		) STRICT;
 		INSERT INTO dreadnought (id, hp, updated_at) VALUES (1, 150000, 1700000000);
-		PRAGMA user_version = 5`)
+		PRAGMA user_version = 5`,
+	)
 	if err != nil {
 		t.Fatalf("rolling the file back to version 5: %v", err)
 	}
