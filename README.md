@@ -30,9 +30,10 @@ make server
 
 ### A new season
 
-A season is meant for a weekend. To start the next one, stop the server and
-reset its database: the frontier, the bosses, the hangar, and everyone's parts,
-loadouts and stats. Players keep their names.
+A season ends when the Nautolan Dreadnought falls, after a weekend or a single
+day, as the host likes. To start the next one, stop the server and reset its
+database: the frontier, the bosses, the hangar, and everyone's parts, loadouts
+and stats. Players keep their names.
 
 ```bash
 docker run --rm -v voidmarch-data:/data ghcr.io/starquake/voidmarch:edge -new-season
