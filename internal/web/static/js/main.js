@@ -737,6 +737,77 @@ function publishDebugState(state) {
   window.voidmarch = state;
 }
 
+// src/frametimes.ts
+var WINDOW_MS = 1e3;
+var FrameTimes = class {
+  frames = [];
+  /** Notes a frame that took ms and ended at now (ms). */
+  add(ms, now2) {
+    this.frames.push({ at: now2, ms });
+    const since = now2 - WINDOW_MS;
+    const first = this.frames.findIndex((f) => f.at > since);
+    this.frames = first < 0 ? [] : this.frames.slice(first);
+  }
+  /** The average frame time of the last second, 0 before the first frame. */
+  get average() {
+    return this.frames.length === 0 ? 0 : this.frames.reduce((sum, f) => sum + f.ms, 0) / this.frames.length;
+  }
+  /** The longest frame of the last second, 0 before the first frame. */
+  get worst() {
+    return this.frames.reduce((most, f) => Math.max(most, f.ms), 0);
+  }
+};
+var GpuTimer = class {
+  /** The GPU time of the latest frame measured, in ms, if any. */
+  last;
+  gl;
+  ext;
+  active;
+  pending = [];
+  constructor(gl) {
+    this.gl = gl;
+    this.ext = gl.getExtension("EXT_disjoint_timer_query") ?? void 0;
+  }
+  /** Whether the browser offers a GPU timer. */
+  get available() {
+    return this.ext !== void 0;
+  }
+  /** Starts timing a frame's GPU work. */
+  begin() {
+    if (this.ext === void 0 || this.active !== void 0) {
+      return;
+    }
+    const query = this.ext.createQueryEXT();
+    if (query === null) {
+      return;
+    }
+    this.ext.beginQueryEXT(this.ext.TIME_ELAPSED_EXT, query);
+    this.active = query;
+  }
+  /** Stops timing the frame, and reads the frames whose results are in. */
+  end() {
+    const ext = this.ext;
+    if (ext === void 0 || this.active === void 0) {
+      return;
+    }
+    ext.endQueryEXT(ext.TIME_ELAPSED_EXT);
+    this.pending.push(this.active);
+    this.active = void 0;
+    const disjoint = this.gl.getParameter(ext.GPU_DISJOINT_EXT) === true;
+    while (this.pending.length > 0) {
+      const query = this.pending[0];
+      if (query === void 0 || ext.getQueryObjectEXT(query, ext.QUERY_RESULT_AVAILABLE_EXT) !== true) {
+        break;
+      }
+      if (!disjoint) {
+        this.last = Number(ext.getQueryObjectEXT(query, ext.QUERY_RESULT_EXT)) / 1e6;
+      }
+      ext.deleteQueryEXT(query);
+      this.pending.shift();
+    }
+  }
+};
+
 // src/net/codec.ts
 import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/protobuf.js";
 
@@ -4433,6 +4504,8 @@ var SandboxScene = class extends Phaser9.Scene {
   shotsFired = 0;
   hudUpdatedAt = 0;
   debug;
+  frameTimes = new FrameTimes();
+  gpuTimer;
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
   audio;
@@ -4457,6 +4530,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.createProjectiles();
     this.createParticles();
     this.createCameras();
+    this.timeGpu();
     this.createInput();
     this.applyLoadout();
     this.resize();
@@ -4483,6 +4557,8 @@ var SandboxScene = class extends Phaser9.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      frameMs: { average: 0, worst: 0 },
+      gpuMs: void 0,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
       net: { status: "offline", playerId: void 0, others: [] },
@@ -4524,6 +4600,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.publish();
   }
   update(time, deltaMs) {
+    this.frameTimes.add(deltaMs, time);
     const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     const net = this.net?.update(events);
@@ -5358,11 +5435,34 @@ ${modeName(info)}`,
       }
     }
   }
+  /** Times the GPU's work for each frame, where the browser can (#143). */
+  timeGpu() {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser9.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    const timer = new GpuTimer(renderer.gl);
+    if (!timer.available) {
+      return;
+    }
+    this.gpuTimer = timer;
+    renderer.on(Phaser9.Renderer.Events.PRE_RENDER, () => {
+      timer.begin();
+    });
+    renderer.on(Phaser9.Renderer.Events.POST_RENDER, () => {
+      timer.end();
+    });
+  }
+  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
+  fpsLine() {
+    const gpu = this.gpuTimer?.last;
+    return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === void 0 ? "" : `, gpu ${gpu.toFixed(1)} ms`})`;
+  }
   updateHud() {
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${this.fpsLine()}`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
       "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
@@ -5461,6 +5561,8 @@ ${modeName(info)}`,
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
+    this.debug.frameMs = { average: this.frameTimes.average, worst: this.frameTimes.worst };
+    this.debug.gpuMs = this.gpuTimer?.last;
     this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
     this.debug.audio.muted = this.audioSettings.muted;
     this.debug.audio.music = this.audioSettings.music;

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { BackgroundTicker, workerTimer } from '../background.ts';
 import { publishDebugState, type DebugState } from '../debug.ts';
+import { FrameTimes, GpuTimer } from '../frametimes.ts';
 import { wireFormatFrom } from '../net/codec.ts';
 import { fromCompanionMode } from '../net/mapping.ts';
 import {
@@ -218,6 +219,8 @@ export class SandboxScene extends Phaser.Scene {
   private shotsFired = 0;
   private hudUpdatedAt = 0;
   private debug!: DebugState;
+  private readonly frameTimes = new FrameTimes();
+  private gpuTimer: GpuTimer | undefined;
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
   private audioSettings!: AudioSettings;
   private audio!: ShipAudio;
@@ -244,6 +247,7 @@ export class SandboxScene extends Phaser.Scene {
     this.createProjectiles();
     this.createParticles();
     this.createCameras();
+    this.timeGpu();
     this.createInput();
     this.applyLoadout();
     this.resize();
@@ -271,6 +275,8 @@ export class SandboxScene extends Phaser.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      frameMs: { average: 0, worst: 0 },
+      gpuMs: undefined,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
       net: { status: 'offline', playerId: undefined, others: [] },
@@ -313,6 +319,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   override update(time: number, deltaMs: number): void {
+    this.frameTimes.add(deltaMs, time);
     const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     const net = this.net?.update(events);
@@ -1265,11 +1272,37 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Times the GPU's work for each frame, where the browser can (#143). */
+  private timeGpu(): void {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    const timer = new GpuTimer(renderer.gl);
+    if (!timer.available) {
+      return;
+    }
+    this.gpuTimer = timer;
+    renderer.on(Phaser.Renderer.Events.PRE_RENDER, () => {
+      timer.begin();
+    });
+    renderer.on(Phaser.Renderer.Events.POST_RENDER, () => {
+      timer.end();
+    });
+  }
+
+  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
+  private fpsLine(): string {
+    const gpu = this.gpuTimer?.last;
+
+    return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === undefined ? '' : `, gpu ${gpu.toFixed(1)} ms`})`;
+  }
+
   private updateHud(): void {
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
+      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${this.fpsLine()}`,
       'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
       'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),
@@ -1374,6 +1407,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
+    this.debug.frameMs = { average: this.frameTimes.average, worst: this.frameTimes.worst };
+    this.debug.gpuMs = this.gpuTimer?.last;
     this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
     this.debug.audio.muted = this.audioSettings.muted;
     this.debug.audio.music = this.audioSettings.music;

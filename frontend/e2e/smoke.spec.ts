@@ -21,7 +21,15 @@ test('the client boots into the sandbox without errors', async ({ page }) => {
   expect(problems).toEqual([]);
 
   await page.waitForTimeout(1000);
-  const fps = await page.evaluate(() => window.voidmarch?.fps ?? 0);
-  test.info().annotations.push({ type: 'fps', description: fps.toFixed(1) });
-  console.log(`${test.info().project.name}: ${fps.toFixed(1)} fps`);
+  const { fps, frameMs, gpuMs } = await page.evaluate(() => ({
+    fps: window.voidmarch?.fps ?? 0,
+    frameMs: window.voidmarch?.frameMs ?? { average: 0, worst: 0 },
+    gpuMs: window.voidmarch?.gpuMs,
+  }));
+  // The frame times of the last second are published (#143).
+  expect(frameMs.worst).toBeGreaterThan(0);
+  expect(frameMs.worst).toBeGreaterThanOrEqual(frameMs.average);
+  const line = `${fps.toFixed(1)} fps, worst ${frameMs.worst.toFixed(1)} ms${gpuMs === undefined ? '' : `, gpu ${gpuMs.toFixed(1)} ms`}`;
+  test.info().annotations.push({ type: 'fps', description: line });
+  console.log(`${test.info().project.name}: ${line}`);
 });
