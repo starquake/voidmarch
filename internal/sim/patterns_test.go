@@ -221,6 +221,36 @@ func TestEnemyPattern_TheNairanDreadnoughtFiresItsOwnShots(t *testing.T) {
 	}
 }
 
+func TestEnemyPattern_TheNautolanDreadnoughtFiresItsOwnShots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		volley DreadnoughtVolley
+		kind   ProjectileKind
+		count  int
+	}{
+		{DreadnoughtRay, ProjectileKind(NautolanRay), DreadnoughtRaySegments},
+		{DreadnoughtWave, ProjectileKind(NautolanWave), DreadnoughtWaves},
+		{DreadnoughtRing, ProjectileKind(NautolanSpinningBullet), MaxVolleyBullets},
+	} {
+		shots := EnemyPattern(EnemyDreadnought, Nautolan, 0, 0, 0, DreadnoughtSeed(7, tc.volley))
+		if len(shots) != tc.count || shots[0].Kind != tc.kind {
+			t.Fatalf(
+				"volley %d = %d of %q, want %d of %q",
+				tc.volley,
+				len(shots),
+				shots[0].Kind,
+				tc.count,
+				tc.kind,
+			)
+		}
+	}
+	ring := EnemyPattern(EnemyDreadnought, Nautolan, 0, 0, 0, DreadnoughtSeed(7, DreadnoughtRing))
+	if d := math.Hypot(ring[0].X, ring[0].Y); !closeTo(d, DreadnoughtMuzzle) {
+		t.Errorf("the ring leaves %v from the center, want %d", d, DreadnoughtMuzzle)
+	}
+}
+
 func TestDreadnoughtSeed_KeepsMostOfTheSeed(t *testing.T) {
 	t.Parallel()
 

@@ -49,3 +49,5 @@ shading.
   pink to blue (#137).
 - `nautolan/wave-blue.png`: `Nautolan - Wave.png` turned 135 degrees, from
   green to blue (#137).
+- `nautolan/ray-blue.png`: `Nautolan - Ray.png` turned 172 degrees, from
+  yellow to blue (#153).
