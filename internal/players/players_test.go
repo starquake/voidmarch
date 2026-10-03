@@ -263,3 +263,61 @@ func TestStore_SaveLoadout(t *testing.T) {
 		t.Errorf("ByToken().Loadout = %+v, want %+v", got, want)
 	}
 }
+
+func TestStore_SaveStats(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+	player, token, err := store.Register(t.Context(), "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	if found, _, _ := store.ByToken(t.Context(), token); found.Stats != (Stats{}) {
+		t.Errorf("ByToken().Stats before any were saved = %+v, want all zero", found.Stats)
+	}
+	for _, want := range []Stats{
+		{Kills: 1, Shots: 4, Hits: 2},
+		{Kills: 9, CompanionKills: 3, Shots: 40, Hits: 17, Deaths: 2, Rescues: 1, Sectors: 5},
+	} {
+		if err = store.SaveStats(t.Context(), player.ID, want); err != nil {
+			t.Fatalf("SaveStats(%+v) error = %v", want, err)
+		}
+		var found Player
+		if found, _, err = store.ByToken(t.Context(), token); err != nil || found.Stats != want {
+			t.Errorf("ByToken().Stats = %+v, %v; want %+v", found.Stats, err, want)
+		}
+	}
+}
+
+func TestStore_Standings(t *testing.T) {
+	t.Parallel()
+
+	store := newStore(t)
+	var ids []string
+	for i, name := range []string{"Mo", "Ilse", "Teun"} {
+		player, _, err := store.Register(t.Context(), name)
+		if err != nil {
+			t.Fatalf("Register(%s) error = %v", name, err)
+		}
+		if i < 2 {
+			ids = append(ids, player.ID)
+			if err = store.SaveStats(t.Context(), player.ID, Stats{Kills: i + 1}); err != nil {
+				t.Fatalf("SaveStats(%s) error = %v", name, err)
+			}
+		}
+	}
+
+	got, err := store.Standings(t.Context())
+	if err != nil {
+		t.Fatalf("Standings() error = %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("Standings() = %+v, want Mo and Ilse, and not Teun, who has no stats", got)
+	}
+	for _, s := range got {
+		want := map[string]Stats{ids[0]: {Kills: 1}, ids[1]: {Kills: 2}}[s.ID]
+		if s.Stats != want || s.Name == "" {
+			t.Errorf("standing %+v, want named, with %+v", s, want)
+		}
+	}
+}

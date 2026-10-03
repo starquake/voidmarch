@@ -311,6 +311,7 @@ func (h *Hub) clearSector(s sim.Sector) {
 		h.saves <- func() { h.saveSector(name) }
 	}
 	gains := h.rewardClear()
+	h.countClear(s)
 	h.moveMissionsOn(s)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_SectorCleared{
 		SectorCleared: &pb.SectorCleared{Sector: name, Tick: h.tick, Gains: gains},

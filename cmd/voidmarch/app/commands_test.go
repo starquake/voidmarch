@@ -7,10 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	. "github.com/starquake/voidmarch/cmd/voidmarch/app"
+	"github.com/starquake/voidmarch/internal/config"
 )
 
 func discardLogger() *slog.Logger {
@@ -86,5 +88,40 @@ func TestHealthcheck_InvalidConfig(t *testing.T) {
 
 	if got, want := err.Error(), "error parsing config"; !strings.Contains(got, want) {
 		t.Errorf("err.Error() = %q, should contain %q", got, want)
+	}
+}
+
+func TestNewSeason(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "voidmarch.db")
+	getenv := func(key string) string {
+		if key == "DB_PATH" {
+			return path
+		}
+
+		return ""
+	}
+	var out strings.Builder
+	if err := NewSeason(t.Context(), getenv, &out); err != nil {
+		t.Fatalf("NewSeason() error = %v", err)
+	}
+	if got, want := out.String(), "a new season started in "+path; !strings.Contains(got, want) {
+		t.Errorf("NewSeason() printed %q, should contain %q", got, want)
+	}
+
+	missing := func(key string) string {
+		if key == "DB_PATH" {
+			return filepath.Join(t.TempDir(), "nowhere", "voidmarch.db")
+		}
+
+		return ""
+	}
+	if err := NewSeason(t.Context(), missing, &out); !errors.Is(err, config.ErrInvalidDBPath) {
+		t.Errorf(
+			"NewSeason() in a missing directory error = %v, want %v",
+			err,
+			config.ErrInvalidDBPath,
+		)
 	}
 }

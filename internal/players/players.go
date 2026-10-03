@@ -42,6 +42,29 @@ type Player struct {
 	// Loadout is the loadout they last fitted at home (#78); a zero Loadout
 	// for none. Its tiers come from Unlocks.
 	Loadout sim.Loadout
+	// Stats are their stats for the season so far (#154).
+	Stats Stats
+}
+
+// Stats are a player's stats for the season (#10 decision 9): their own
+// ship's kills, shots and hits, their companions' kills, how often they went
+// down, the derelicts they docked, and the sectors cleared with them in it.
+type Stats struct {
+	Kills          int
+	CompanionKills int
+	Shots          int
+	Hits           int
+	Deaths         int
+	Rescues        int
+	Sectors        int
+}
+
+// Standing is a player's name and season stats, for the season's result
+// (#156).
+type Standing struct {
+	ID    string
+	Name  string
+	Stats Stats
 }
 
 // Store holds the players in the database. It is safe for concurrent use.
@@ -112,8 +135,55 @@ func (s *Store) ByToken(ctx context.Context, token string) (Player, bool, error)
 		Engine: sim.EngineID(row.Engine),
 		Shield: sim.ShieldID(row.Shield),
 	}
+	stats, err := s.statsOf(ctx, row.ID)
+	if err != nil {
+		return Player{}, false, err
+	}
 
-	return Player{ID: row.ID, Name: row.Name, Unlocks: unlocks, Loadout: loadout}, true, nil
+	return Player{
+		ID: row.ID, Name: row.Name, Unlocks: unlocks, Loadout: loadout, Stats: stats,
+	}, true, nil
+}
+
+// Standings returns every player with stats saved this season, by id.
+func (s *Store) Standings(ctx context.Context) ([]Standing, error) {
+	rows, err := s.queries.AllStats(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the season's stats: %w", err)
+	}
+	out := make([]Standing, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, Standing{ID: row.ID, Name: row.Name, Stats: Stats{
+			Kills:          int(row.Kills),
+			CompanionKills: int(row.CompanionKills),
+			Shots:          int(row.Shots),
+			Hits:           int(row.Hits),
+			Deaths:         int(row.Deaths),
+			Rescues:        int(row.Rescues),
+			Sectors:        int(row.Sectors),
+		}})
+	}
+
+	return out, nil
+}
+
+// SaveStats saves the player's stats for the season.
+func (s *Store) SaveStats(ctx context.Context, player string, st Stats) error {
+	err := s.queries.SaveStats(ctx, db.SaveStatsParams{
+		PlayerID:       player,
+		Kills:          int64(st.Kills),
+		CompanionKills: int64(st.CompanionKills),
+		Shots:          int64(st.Shots),
+		Hits:           int64(st.Hits),
+		Deaths:         int64(st.Deaths),
+		Rescues:        int64(st.Rescues),
+		Sectors:        int64(st.Sectors),
+	})
+	if err != nil {
+		return fmt.Errorf("error saving stats of %s: %w", player, err)
+	}
+
+	return nil
 }
 
 // Touch records that the player connected now.
@@ -168,6 +238,28 @@ func (s *Store) Expire(ctx context.Context) (int, error) {
 	}
 
 	return int(n), nil
+}
+
+// statsOf is the player's stats for the season, all zero before any are
+// saved.
+func (s *Store) statsOf(ctx context.Context, player string) (Stats, error) {
+	row, err := s.queries.StatsOf(ctx, player)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Stats{}, nil
+	}
+	if err != nil {
+		return Stats{}, fmt.Errorf("error reading stats of %s: %w", player, err)
+	}
+
+	return Stats{
+		Kills:          int(row.Kills),
+		CompanionKills: int(row.CompanionKills),
+		Shots:          int(row.Shots),
+		Hits:           int(row.Hits),
+		Deaths:         int(row.Deaths),
+		Rescues:        int(row.Rescues),
+		Sectors:        int(row.Sectors),
+	}, nil
 }
 
 // unlocksOf are the parts saved for player; empty for none.

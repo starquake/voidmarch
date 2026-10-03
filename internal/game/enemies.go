@@ -480,6 +480,8 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 	if e.hp > 0 {
 		return
 	}
+	// Counted first: the finale's fall reports the season's stats.
+	h.countKill(shooter)
 	if e.frigate != nil {
 		h.frigateDestroyed(e)
 	}

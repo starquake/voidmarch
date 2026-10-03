@@ -28,6 +28,20 @@ From a checkout (needs Go and Node.js 24):
 make server
 ```
 
+### A new season
+
+A season ends when the Nautolan Dreadnought falls, after a weekend or a single
+day, as the host likes. To start the next one, stop the server and reset its
+database: the frontier, the bosses, the hangar, and everyone's parts, loadouts
+and stats. Players keep their names.
+
+```bash
+docker run --rm -v voidmarch-data:/data ghcr.io/starquake/voidmarch:edge -new-season
+```
+
+From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
+`DB_PATH`. Start the server again afterwards.
+
 ## Controls
 
 | Input | Action |
@@ -38,6 +52,7 @@ make server
 | G | Draw a companion from the hangar (at the home planet) |
 | L | Loadout screen: fit your parts (at the home planet); Esc closes it |
 | Tab | Full map: click an uncleared sector to send your squadron there; Tab or Esc closes it |
+| O | Victory screen, once the season is won: everyone's kills, hit rate, deaths, rescues and sectors; O or Esc closes it |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
 | C | Switch to ship-relative movement (W flies toward the mouse) and back |
@@ -159,7 +174,9 @@ of ring 3's sectors are cleared, and fires Ray sweeps, spreads of Waves and
 rings of Spinning Bullets. Each faction's Dreadnought fires as often as its
 ships do: the Nairan one half again as often as the Kla'ed, the Nautolan one
 twice as often. Its fall wins the season, and it doesn't wake again until a
-new one starts.
+new one starts. Everyone online sees the victory screen with how long the
+season took and each player's stats, and anyone joining later sees it once;
+the world stays open behind it.
 
 ## Parts
 
