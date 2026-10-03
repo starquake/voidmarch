@@ -2001,6 +2001,18 @@ export enum EnemyKind {
    * @generated from enum value: ENEMY_KIND_DREADNOUGHT = 4;
    */
   DREADNOUGHT = 4,
+
+  /**
+   * The later factions' slow heavy hitters (#137).
+   *
+   * @generated from enum value: ENEMY_KIND_BOMBER = 5;
+   */
+  BOMBER = 5,
+
+  /**
+   * @generated from enum value: ENEMY_KIND_TORPEDO = 6;
+   */
+  TORPEDO = 6,
 }
 
 /**

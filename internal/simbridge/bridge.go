@@ -96,7 +96,8 @@ const (
 	patternX     = 1
 	patternY     = 2
 	patternAngle = 3
-	patternSize  = 4
+	patternCurve = 4
+	patternSize  = 5
 	maxPatterns  = sim.FrigateRingBullets
 	// TargetSize is the numbers per HitScan target: x, y, radius and its id,
 	// so a piercing shot hits each enemy once (#72).
@@ -218,10 +219,19 @@ func (b *Bridge) Bump(n int) int {
 	return rams
 }
 
-// TakeHit applies a hit on the ship from direction from, as ShipScan
-// reports it, and reports whether the shield absorbed it.
-func (b *Bridge) TakeHit(from float64) bool {
-	absorbed := sim.TakeHit(b.sandbox.Ship, from)
+// TakeHit applies a hit by a projectile of the kind at index kind of
+// [ProjectileKinds] on the ship from direction from, as ShipScan reports it,
+// a step at a time (a Torpedo takes two), and reports whether the shield
+// absorbed any of it.
+func (b *Bridge) TakeHit(from float64, kind int) bool {
+	steps := 1
+	if kinds := ProjectileKinds(); kind >= 0 && kind < len(kinds) {
+		steps = sim.HitSteps(kinds[kind])
+	}
+	absorbed := false
+	for range steps {
+		absorbed = sim.TakeHit(b.sandbox.Ship, from) || absorbed
+	}
 	b.write(sim.FrameEvents{})
 
 	return absorbed
@@ -309,13 +319,13 @@ func (b *Bridge) SetRotationSnap(steps int) {
 // Spawn starts a projectile of the kind at index kind of [ProjectileKinds],
 // for the faction at index faction of [Factions], already age seconds old,
 // and returns its slot, or -1 for an unknown kind or faction.
-func (b *Bridge) Spawn(kind, faction int, x, y, angle, age float64, shotID int) int {
+func (b *Bridge) Spawn(kind, faction int, x, y, angle, curve, age float64, shotID int) int {
 	kinds, factions := ProjectileKinds(), Factions()
 	if kind < 0 || kind >= len(kinds) || faction < 0 || faction >= len(factions) {
 		return -1
 	}
 	p := b.sandbox.Projectiles.Spawn(
-		sim.ProjectileSpawn{Kind: kinds[kind], X: x, Y: y, Angle: angle},
+		sim.ProjectileSpawn{Kind: kinds[kind], X: x, Y: y, Angle: angle, Curve: curve},
 		sim.SpawnOptions{AgeSeconds: age, Faction: factions[faction], ShotID: shotID},
 	)
 	b.write(sim.FrameEvents{})
@@ -481,7 +491,7 @@ func (b *Bridge) ShipScan(stepSeconds float64, n int) int {
 }
 
 // EnemyPattern writes the bullets of an enemy's volley into Scratch (kind
-// index, x, y, angle each) and returns how many there are.
+// index, x, y, angle and curve each) and returns how many there are.
 func (b *Bridge) EnemyPattern(kind, faction int, x, y, angle float64, seed uint32) int {
 	enemies, factions := sim.EnemyKinds(), sim.EnemyFactions()
 	if kind < 0 || kind >= len(enemies) || faction < 0 || faction >= len(factions) {
@@ -493,6 +503,7 @@ func (b *Bridge) EnemyPattern(kind, faction int, x, y, angle float64, seed uint3
 		at := b.Scratch[i*patternSize:]
 		at[patternKind] = float64(slices.Index(ProjectileKinds(), bullet.Kind))
 		at[patternX], at[patternY], at[patternAngle] = bullet.X, bullet.Y, bullet.Angle
+		at[patternCurve] = bullet.Curve
 	}
 
 	return n
@@ -539,7 +550,7 @@ func (b *Bridge) write(events sim.FrameEvents) {
 		at[ProjectileKind] = float64(slices.Index(kinds, p.Kind))
 		at[ProjectileFaction] = float64(slices.Index(factions, p.Faction))
 		at[ProjectileX], at[ProjectileY] = p.X, p.Y
-		at[ProjectileAngle], at[ProjectileAge] = p.Angle, p.Age
+		at[ProjectileAngle], at[ProjectileAge] = sim.HeadingAt(&p, p.Age), p.Age
 		at[ProjectileShotID] = float64(p.ShotID)
 		at[ProjectileShard] = float64(p.Shard)
 	}
@@ -587,6 +598,10 @@ func ProjectileKinds() []sim.ProjectileKind {
 		sim.ProjectileKind(sim.NairanRay),
 		sim.ProjectileKind(sim.NautolanBullet),
 		sim.ProjectileKind(sim.NautolanSpinningBullet),
+		sim.ProjectileKind(sim.NairanRocket),
+		sim.ProjectileKind(sim.NairanTorpedo),
+		sim.ProjectileKind(sim.NautolanBomb),
+		sim.ProjectileKind(sim.NautolanWave),
 		sim.ProjectileShard,
 	)
 }

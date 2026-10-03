@@ -42,3 +42,10 @@ shading.
   green to blue (#136).
 - `nautolan/spinning-bullet-blue.png`: `Nautolan - Spinning Bullet.png`
   turned 85 degrees, from green to blue (#136).
+- `nairan/rocket-blue.png` and `nairan/torpedo-blue.png`: `Nairan - Rocket.png`
+  turned 210 degrees and `Nairan - Torpedo.png` 200, from red and orange to
+  blue (#137).
+- `nautolan/bomb-blue.png`: `Nautolan - Bomb.png` turned 240 degrees, from
+  pink to blue (#137).
+- `nautolan/wave-blue.png`: `Nautolan - Wave.png` turned 135 degrees, from
+  green to blue (#137).

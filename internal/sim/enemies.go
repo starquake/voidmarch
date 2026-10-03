@@ -12,6 +12,10 @@ const (
 	EnemyFrigate EnemyKind = "frigate"
 	// EnemyDreadnought is the siege boss (#8).
 	EnemyDreadnought EnemyKind = "dreadnought"
+	// EnemyBomber and EnemyTorpedo, the Torpedo Ship, are the later
+	// factions' slow heavy hitters (#137).
+	EnemyBomber  EnemyKind = "bomber"
+	EnemyTorpedo EnemyKind = "torpedo"
 )
 
 // EnemyFaction is the alien fleet an enemy belongs to, one per ring (#9):
@@ -60,11 +64,19 @@ const (
 	NairanRay              EnemyBulletID = "nairanRay"
 	NautolanBullet         EnemyBulletID = "nautolanBullet"
 	NautolanSpinningBullet EnemyBulletID = "nautolanSpinningBullet"
+	// NairanRocket and NautolanBomb are the Bombers', NairanTorpedo and
+	// NautolanWave the Torpedo Ships' (#137).
+	NairanRocket  EnemyBulletID = "nairanRocket"
+	NairanTorpedo EnemyBulletID = "nairanTorpedo"
+	NautolanBomb  EnemyBulletID = "nautolanBomb"
+	NautolanWave  EnemyBulletID = "nautolanWave"
 )
 
 // EnemyKinds lists every enemy class.
 func EnemyKinds() []EnemyKind {
-	return []EnemyKind{EnemyScout, EnemyFighter, EnemyFrigate, EnemyDreadnought}
+	return []EnemyKind{
+		EnemyScout, EnemyFighter, EnemyFrigate, EnemyDreadnought, EnemyBomber, EnemyTorpedo,
+	}
 }
 
 // EnemyBullet is each enemy's bullet: its faction's small one for a Scout,
@@ -72,6 +84,14 @@ func EnemyKinds() []EnemyKind {
 func EnemyBullet(kind EnemyKind, faction EnemyFaction) EnemyBulletID {
 	scout := kind == EnemyScout
 	switch {
+	case kind == EnemyBomber && faction == Nautolan:
+		return NautolanBomb
+	case kind == EnemyBomber:
+		return NairanRocket
+	case kind == EnemyTorpedo && faction == Nautolan:
+		return NautolanWave
+	case kind == EnemyTorpedo:
+		return NairanTorpedo
 	case faction == Nairan && scout:
 		return NairanBolt
 	case faction == Nairan:
@@ -93,8 +113,18 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 	const (
 		scout, fighter, frigate, dreadnought = 11, 12, 19, 44
 		nairanFighter, nautolanShip          = 14, 15
+		bomber, nautolanBomber               = 16, 14
+		torpedo, nautolanTorpedo             = 20, 19
 	)
 	switch {
+	case kind == EnemyBomber && faction == Nautolan:
+		return nautolanBomber
+	case kind == EnemyBomber:
+		return bomber
+	case kind == EnemyTorpedo && faction == Nautolan:
+		return nautolanTorpedo
+	case kind == EnemyTorpedo:
+		return torpedo
 	case kind == EnemyFrigate:
 		return frigate
 	case kind == EnemyDreadnought:
@@ -113,10 +143,14 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 // EnemyHP is an enemy's hit points, as the server has them, for picking the
 // weakest target; a Frigate's is its least, for one player.
 func EnemyHP(kind EnemyKind) float64 {
-	const scout, fighter = 2, 6
+	const scout, fighter, bomber, torpedo = 2, 6, 10, 8
 	switch kind {
 	case EnemyFighter:
 		return fighter
+	case EnemyBomber:
+		return bomber
+	case EnemyTorpedo:
+		return torpedo
 	case EnemyFrigate:
 		return FrigateHP(1)
 	case EnemyDreadnought:

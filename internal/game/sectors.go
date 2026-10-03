@@ -207,14 +207,34 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 		if !ok {
 			return
 		}
-		kind := pb.EnemyKind_ENEMY_KIND_SCOUT
-		if h.rng.Float64() < sim.GarrisonFighterShare(g.sector.Ring()) {
-			kind = pb.EnemyKind_ENEMY_KIND_FIGHTER
-		}
-		e := h.addEnemyOf(kind, sim.FactionOfRing(g.sector.Ring()), post.x, post.y)
+		e := h.addEnemyOf(
+			h.garrisonKind(g.sector.Ring()),
+			sim.FactionOfRing(g.sector.Ring()),
+			post.x,
+			post.y,
+		)
 		e.garrison, e.post = g, post
 		g.field++
 	}
+}
+
+// garrisonKind draws a garrison ship's class for ring: its share of
+// Bombers and Torpedo Ships first, then Fighters and Scouts. Ring 1 has no
+// heavy share, so it draws once, as it always did.
+func (h *Hub) garrisonKind(ring int) pb.EnemyKind {
+	if heavy := sim.GarrisonHeavyShare(ring); heavy > 0 {
+		switch draw := h.rng.Float64(); {
+		case draw < heavy/2:
+			return pb.EnemyKind_ENEMY_KIND_BOMBER
+		case draw < heavy:
+			return pb.EnemyKind_ENEMY_KIND_TORPEDO
+		}
+	}
+	if h.rng.Float64() < sim.GarrisonFighterShare(ring) {
+		return pb.EnemyKind_ENEMY_KIND_FIGHTER
+	}
+
+	return pb.EnemyKind_ENEMY_KIND_SCOUT
 }
 
 // freePost is a point anywhere in s with no ship within postClearance.

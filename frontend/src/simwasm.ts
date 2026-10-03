@@ -87,6 +87,8 @@ export interface ProjectileSpawn {
   x: number;
   y: number;
   angle: number;
+  /** How the shot bends sideways along its line (#137); straight when left out. */
+  curve?: number;
 }
 
 export interface SpawnOptions {
@@ -173,7 +175,7 @@ interface Exports {
     friendDistance: number,
   ): void;
   respawn(x: number, y: number): number;
-  takeHit(from: number): number;
+  takeHit(from: number, kind: number): number;
   shipScan(stepSeconds: number, n: number): number;
   setControlMode(screen: number): void;
   placeShip(x: number, y: number): void;
@@ -182,7 +184,7 @@ interface Exports {
   setRotationSnap(steps: number): void;
   setFrontier(openRings: number): void;
   openSector(q: number, r: number): void;
-  spawn(kind: number, faction: number, x: number, y: number, angle: number, age: number, shotId: number): number;
+  spawn(kind: number, faction: number, x: number, y: number, angle: number, curve: number, age: number, shotId: number): number;
   deactivate(slot: number): void;
   clear(faction: number): void;
   hitsPointer(): number;
@@ -201,7 +203,7 @@ export interface GoRuntime {
 }
 
 const SCRATCH_SIZE = LAYOUT.scratchSize;
-const PATTERN_SIZE = 4;
+const PATTERN_SIZE = 5;
 
 const at = <T>(list: readonly T[], i: number, fallback: T): T => list[i] ?? fallback;
 
@@ -280,9 +282,9 @@ export class Sandbox {
     return this.read();
   }
 
-  /** Applies a hit on the ship from direction from, as shipScan reports it; true when the shield took it. */
-  takeHit(from: number): boolean {
-    const absorbed = this.exports.takeHit(from) !== 0;
+  /** Applies a hit by a projectile of kind on the ship from direction from, as shipScan reports it (a Torpedo takes two steps); true when the shield took any. */
+  takeHit(from: number, kind: ProjectileKind): boolean {
+    const absorbed = this.exports.takeHit(from, PROJECTILE_KINDS.indexOf(kind)) !== 0;
     this.read();
 
     return absorbed;
@@ -493,6 +495,7 @@ export class Sandbox {
         x: scratch[b + 1] ?? x,
         y: scratch[b + 2] ?? y,
         angle: scratch[b + 3] ?? angle,
+        curve: scratch[b + 4] ?? 0,
       });
     }
 
@@ -630,6 +633,7 @@ export class Projectiles {
       shot.x,
       shot.y,
       shot.angle,
+      shot.curve ?? 0,
       options.ageSeconds ?? 0,
       options.shotId ?? 0,
     );

@@ -115,3 +115,13 @@ func EnemyStatsFor(kind pb.EnemyKind, faction sim.EnemyFaction) (hp, fireEvery i
 
 	return s.hp, s.fireEvery
 }
+
+// WithEnemyOf starts the hub with an enemy of kind and faction at (x, y).
+func WithEnemyOf(kind pb.EnemyKind, faction sim.EnemyFaction, x, y float64) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) { h.addEnemyOf(kind, faction, x, y) })
+	}
+}
+
+// TorpedoWarning exposes torpedoWarning for tests.
+const TorpedoWarning = torpedoWarning

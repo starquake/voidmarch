@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { keys } from '../sprites.ts';
 import type { EnemyFaction, EnemyKind } from '../sim/enemies.ts';
+import { BOMBER_WARN_TINT } from '../sim/tuning.ts';
 import { SPRITE_FACING, type ShipParent } from './shipview.ts';
 
 /** How long a hit flashes an enemy white. */
@@ -13,7 +14,8 @@ export class EnemyView {
   readonly faction: EnemyFaction;
   private readonly root: Phaser.GameObjects.Container;
   private readonly base: Phaser.GameObjects.Image;
-  private readonly weapon: Phaser.GameObjects.Sprite;
+  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137). */
+  private readonly weapon: Phaser.GameObjects.Sprite | undefined;
   /** The shield bubble, for the kinds that have one (#89). */
   private readonly shield: Phaser.GameObjects.Sprite | undefined;
   private readonly scene: Phaser.Scene;
@@ -24,11 +26,15 @@ export class EnemyView {
     this.faction = faction;
     const engine = scene.add.sprite(0, 0, keys.enemyEngine(faction, kind)).play(keys.enemyEngine(faction, kind));
     this.base = scene.add.image(0, 0, keys.enemyBase(faction, kind));
-    this.weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
-    this.weapon.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      this.weapon.setFrame(0);
-    });
-    const parts: Phaser.GameObjects.GameObject[] = [engine, this.base, this.weapon];
+    const parts: Phaser.GameObjects.GameObject[] = [engine, this.base];
+    if (scene.textures.exists(keys.enemyWeapons(faction, kind))) {
+      const weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
+      weapon.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        weapon.setFrame(0);
+      });
+      this.weapon = weapon;
+      parts.push(weapon);
+    }
     if (scene.textures.exists(keys.enemyShield(faction, kind))) {
       this.shield = scene.add.sprite(0, 0, keys.enemyShield(faction, kind)).play(keys.enemyShield(faction, kind)).setVisible(false);
       parts.push(this.shield);
@@ -59,9 +65,17 @@ export class EnemyView {
     return this.shield?.visible ?? false;
   }
 
-  /** Plays the weapon animation: the telegraph before a volley leaves. */
-  warn(): void {
-    this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
+  /** The telegraph before a volley leaves in ms: the weapon animation, or without weapons a blue glow for that long. */
+  warn(ms: number): void {
+    if (this.weapon !== undefined) {
+      this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
+
+      return;
+    }
+    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser.TintModes.ADD);
+    this.scene.time.delayedCall(ms, () => {
+      this.base.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+    });
   }
 
   /** A short white flash where a shot landed. */
