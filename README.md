@@ -28,6 +28,19 @@ From a checkout (needs Go and Node.js 24):
 make server
 ```
 
+### A new season
+
+A season is meant for a weekend. To start the next one, stop the server and
+reset its database: the frontier, the bosses, the hangar, and everyone's parts,
+loadouts and stats. Players keep their names.
+
+```bash
+docker run --rm -v voidmarch-data:/data ghcr.io/starquake/voidmarch:edge -new-season
+```
+
+From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
+`DB_PATH`. Start the server again afterwards.
+
 ## Controls
 
 | Input | Action |

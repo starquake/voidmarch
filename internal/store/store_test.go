@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/starquake/voidmarch/internal/players"
+	"github.com/starquake/voidmarch/internal/sim"
 	. "github.com/starquake/voidmarch/internal/store"
 )
 
@@ -323,5 +325,72 @@ func TestSeason(t *testing.T) {
 	}
 	if s, err = CurrentSeason(t.Context(), db); err != nil || !s.Won.Equal(won) {
 		t.Errorf("CurrentSeason() = %+v, %v; want won at %v, the first time saved", s, err, won)
+	}
+}
+
+func TestNewSeason_ResetsTheWorldButKeepsThePlayers(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	db, err := Open(ctx, filepath.Join(t.TempDir(), "voidmarch.db"))
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	ps := players.NewStore(db)
+	player, token, err := ps.Register(ctx, "Mo")
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	then := time.Unix(1_700_000_000, 0)
+	for _, fill := range []func() error{
+		func() error { return ClearSector(ctx, db, "E3", then) },
+		func() error { return SaveOpenRings(ctx, db, 3) },
+		func() error { return SaveDreadnoughtHealth(ctx, db, "klaed", 0.5, then) },
+		func() error { return SaveHangar(ctx, db, 9) },
+		func() error { return SaveSeasonWon(ctx, db, then) },
+		func() error { return ps.SaveUnlock(ctx, player.ID, sim.Part(sim.WeaponZapper), sim.TierMega) },
+		func() error {
+			return ps.SaveLoadout(ctx, player.ID, sim.Loadout{Weapon: sim.WeaponZapper})
+		},
+		func() error { return ps.SaveStats(ctx, player.ID, players.Stats{Kills: 4}) },
+	} {
+		if err = fill(); err != nil {
+			t.Fatalf("filling the season: %v", err)
+		}
+	}
+
+	at := time.Unix(1_800_000_000, 0)
+	if err = NewSeason(ctx, db, at); err != nil {
+		t.Fatalf("NewSeason() error = %v", err)
+	}
+
+	names, err := ClearedSectors(ctx, db)
+	if err != nil || len(names) != 0 {
+		t.Errorf("ClearedSectors() = %v, %v; want none", names, err)
+	}
+	rings, saved, err := OpenRings(ctx, db)
+	if err != nil || saved {
+		t.Errorf("OpenRings() = %d, %t, %v; want none saved, so ring 1", rings, saved, err)
+	}
+	dreadnoughts, err := Dreadnoughts(ctx, db)
+	if err != nil || len(dreadnoughts) != 0 {
+		t.Errorf("Dreadnoughts() = %v, %v; want none saved, so whole", dreadnoughts, err)
+	}
+	ships, saved, err := Hangar(ctx, db)
+	if err != nil || saved {
+		t.Errorf("Hangar() = %d, %t, %v; want none saved, so POOL_START", ships, saved, err)
+	}
+	season, err := CurrentSeason(ctx, db)
+	if err != nil || !season.Started.Equal(at) || !season.Won.IsZero() {
+		t.Errorf("CurrentSeason() = %+v, %v; want started at %v, not won", season, err, at)
+	}
+	found, ok, err := ps.ByToken(ctx, token)
+	if err != nil || !ok {
+		t.Fatalf("ByToken() = %t, %v; want the player kept", ok, err)
+	}
+	if len(found.Unlocks) != 0 || found.Loadout != (sim.Loadout{}) ||
+		found.Stats != (players.Stats{}) {
+		t.Errorf("player after a new season = %+v, want no unlocks, loadout or stats", found)
 	}
 }
