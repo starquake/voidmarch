@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/sim"
 	"github.com/starquake/voidmarch/internal/world"
 )
@@ -131,7 +132,10 @@ func (h *Hub) dockDerelict(id uint32, helper string) {
 	if docked {
 		h.hangar++
 	}
-	player, _, _ := strings.Cut(helper, "/")
+	player, _, companion := strings.Cut(helper, "/")
+	if !companion {
+		h.countStat(player, func(s *players.Stats) { s.Rescues++ })
+	}
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_DerelictRescued{
 		DerelictRescued: &pb.DerelictRescued{
 			DerelictId: id,

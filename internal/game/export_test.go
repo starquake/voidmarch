@@ -1,7 +1,10 @@
 package game
 
 import (
+	"log/slog"
+
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/sim"
 )
 
@@ -144,3 +147,18 @@ var DreadnoughtGap = dreadnoughtGap
 
 // DreadnoughtVolleyGap exposes dreadnoughtVolleyGap for tests.
 const DreadnoughtVolleyGap = dreadnoughtVolleyGap
+
+// StatsSaveEvery exposes statsSaveEvery for tests.
+const StatsSaveEvery = statsSaveEvery
+
+// KillsCounted is player a's stats after kills by each of shooters, a
+// player or a companion's seat, on a hub that isn't running.
+func KillsCounted(shooters ...string) players.Stats {
+	h := NewHub(slog.New(slog.DiscardHandler))
+	h.keepStats(players.Player{ID: "a"})
+	for _, shooter := range shooters {
+		h.countKill(shooter)
+	}
+
+	return *h.stats["a"]
+}

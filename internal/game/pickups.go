@@ -45,8 +45,14 @@ func WithSaveUnlock(save func(player string, part sim.Part, tier sim.Tier)) HubO
 func (h *Hub) startSaver() <-chan struct{} {
 	done := make(chan struct{})
 	savers := []bool{
-		h.saveUnlock != nil, h.saveLoadout != nil, h.saveSector != nil, h.forgetSector != nil,
-		h.saveDreadnought != nil, h.saveOpenRings != nil, h.saveSeasonWon != nil,
+		h.saveUnlock != nil,
+		h.saveLoadout != nil,
+		h.saveSector != nil,
+		h.forgetSector != nil,
+		h.saveDreadnought != nil,
+		h.saveOpenRings != nil,
+		h.saveSeasonWon != nil,
+		h.saveStats != nil,
 	}
 	if !slices.Contains(savers, true) {
 		close(done)
