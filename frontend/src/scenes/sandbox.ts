@@ -56,6 +56,7 @@ import {
   CLOSED_EDGE_WIDTH,
   CLOSED_SHADE_ALPHA,
   RING_TINT_FADE_MS,
+  MINIMAP_REDRAW_MS,
 } from '../sim/tuning.ts';
 import {
   ALL_OPEN,
@@ -231,6 +232,7 @@ export class SandboxScene extends Phaser.Scene {
   private hudUpdatedAt = 0;
   private debug!: DebugState;
   private readonly frameTimes = new FrameTimes();
+  private mapsDrawnAt = -Infinity;
   private gpuTimer: GpuTimer | undefined;
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
   private audioSettings!: AudioSettings;
@@ -751,9 +753,14 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
   private drawMaps(): void {
-    const net = this.net;
-    const state = net?.status === 'online' ? net.mapState(this.sim.ship) : undefined;
-    this.maps.draw(state, net?.mapName ?? '', performance.now());
+    const now = performance.now();
+    // The full map answers the mouse, so it draws every frame; the minimap alone needs far less.
+    if (this.maps.open || now - this.mapsDrawnAt >= MINIMAP_REDRAW_MS) {
+      this.mapsDrawnAt = now;
+      const net = this.net;
+      const state = net?.status === 'online' ? net.mapState(this.sim.ship) : undefined;
+      this.maps.draw(state, net?.mapName ?? '', now);
+    }
     const alpha = this.maps.open ? 0 : 1;
     for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);

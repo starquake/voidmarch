@@ -443,6 +443,7 @@ var MAP_YOU_COLOR = 16777215;
 var MAP_FLASH_MS = 300;
 var RING_TINTS = [16777215, 16777215, 9429168, 9417983];
 var RING_TINT_FADE_MS = 1500;
+var MINIMAP_REDRAW_MS = 100;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -4716,6 +4717,7 @@ var SandboxScene = class extends Phaser10.Scene {
   hudUpdatedAt = 0;
   debug;
   frameTimes = new FrameTimes();
+  mapsDrawnAt = -Infinity;
   gpuTimer;
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
@@ -5175,9 +5177,13 @@ var SandboxScene = class extends Phaser10.Scene {
   }
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
   drawMaps() {
-    const net = this.net;
-    const state = net?.status === "online" ? net.mapState(this.sim.ship) : void 0;
-    this.maps.draw(state, net?.mapName ?? "", performance.now());
+    const now2 = performance.now();
+    if (this.maps.open || now2 - this.mapsDrawnAt >= MINIMAP_REDRAW_MS) {
+      this.mapsDrawnAt = now2;
+      const net = this.net;
+      const state = net?.status === "online" ? net.mapState(this.sim.ship) : void 0;
+      this.maps.draw(state, net?.mapName ?? "", now2);
+    }
     const alpha = this.maps.open ? 0 : 1;
     for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
