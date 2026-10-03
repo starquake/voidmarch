@@ -16,6 +16,16 @@ test('frame times keep the last second: its average and its worst frame', () => 
   assert.equal(frames.average, 11);
 });
 
+test('equal frames average to no more than the worst of them', () => {
+  const frames = new FrameTimes();
+  // CI's steady headless frames: 30 of them sum to a hair more than 30 times one.
+  const frame = 16.666666666666664;
+  for (let i = 0; i < 30; i++) {
+    frames.add(frame, i * frame);
+  }
+  assert.ok(frames.average <= frames.worst, `average ${String(frames.average)} above worst ${String(frames.worst)}`);
+});
+
 /** A fake GL whose timer query results arrive when told. */
 function fakeGl(offered: boolean): { gl: TimerGl; finish: (ns: number) => void; disjoint: (on: boolean) => void } {
   const ready = new Map<object, number>();
