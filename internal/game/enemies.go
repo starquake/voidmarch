@@ -69,7 +69,7 @@ const (
 	// torpedoWarning is how long a Torpedo Ship holds still, lined up,
 	// before its Torpedo leaves; holdDamping slows it to a stop meanwhile.
 	torpedoWarning = 3 * TickRate / 4
-	holdDamping    = 0.8
+	holdDamping    = 0.5
 
 	// aggroRange covers a straggler's whole spawn ring, so it comes for the
 	// player it was sent at; a garrison engages anyone in its sector instead.
@@ -156,6 +156,11 @@ type enemy struct {
 	// holdUntil is the tick a Torpedo Ship lined up for its shot holds
 	// still until (#137).
 	holdUntil uint32
+	// flank is the side of its target a flanking faction's ship takes, and
+	// dodgeUntil and dodgeAngle a dodging one's sidestep (#138).
+	flank      float64
+	dodgeUntil uint32
+	dodgeAngle float64
 	// frigate is a Frigate's fight, dread the Dreadnought's; nil for the rest.
 	frigate *frigateFight
 	dread   *dreadnoughtFight
@@ -173,7 +178,9 @@ type point struct{ x, y float64 }
 
 // stepEnemies runs one tick of the enemies: spawn, steer, fire, despawn.
 func (h *Hub) stepEnemies() {
-	players := h.playersOutsideSafeZone()
+	quarries := h.quarries()
+	players := quarryPoints(quarries)
+	threats := h.threats()
 	ships := h.upShips()
 	online := h.onlineWeight()
 	h.stepGarrisons(ships)
@@ -195,7 +202,7 @@ func (h *Hub) stepEnemies() {
 
 			continue
 		}
-		h.steer(e, players)
+		h.steer(e, quarries, threats)
 		if _, guarding := h.enemies[e.escortOf]; guarding || e.garrison != nil {
 			e.lastNear = h.tick
 		}
@@ -204,30 +211,6 @@ func (h *Hub) stepEnemies() {
 			h.forgetEnemy(id)
 		}
 	}
-}
-
-// playersOutsideSafeZone are the ships enemies target and stragglers come at:
-// players and their companions alike, while they're up (#47).
-func (h *Hub) playersOutsideSafeZone() []point {
-	var out []point
-	add := func(x, y float64) {
-		if math.Hypot(x, y) > safeRadius {
-			out = append(out, point{x, y})
-		}
-	}
-	for _, id := range slices.Sorted(maps.Keys(h.members)) {
-		m := h.members[id]
-		if m.state != nil && !downed(m.state) {
-			add(float64(m.state.GetX()), float64(m.state.GetY()))
-		}
-		for _, c := range m.wing.Companions {
-			if !c.Ship.Downed() {
-				add(c.Ship.X, c.Ship.Y)
-			}
-		}
-	}
-
-	return out
 }
 
 // addEnemyOf adds an enemy of kind and faction at (x, y).
@@ -249,19 +232,25 @@ func (h *Hub) addEnemyOf(kind pb.EnemyKind, faction sim.EnemyFaction, x, y float
 		lastNear: h.tick,
 		strafe:   strafe,
 	}
+	if sim.FactionSmarts(faction).Flank {
+		e.flank = h.rng.Float64() * fullTurnFloat
+	}
 	h.enemies[e.id] = e
 
 	return e
 }
 
-// steer moves one enemy toward its role's goal around the nearest player,
-// and fires when its cooldown and range allow.
-func (h *Hub) steer(e *enemy, players []point) {
+// steer moves one enemy toward its role's goal around the ship it goes for,
+// sidestepping shots if its faction dodges, and fires when its cooldown and
+// range allow.
+func (h *Hub) steer(e *enemy, quarries []quarry, threats []sim.Projectile) {
 	stats := statsFor(e.kind, e.faction)
 	if e.garrison != nil {
-		players = inSector(players, e.garrison.sector)
+		quarries = slices.DeleteFunc(slices.Clone(quarries), func(q quarry) bool {
+			return !e.garrison.sector.Contains(q.at.x, q.at.y)
+		})
 	}
-	target, distance, found := nearest(e, players)
+	target, distance, found := pickQuarry(e, quarries, stats.aggroRange)
 	if distance < despawnRadius {
 		e.lastNear = h.tick
 	}
@@ -269,12 +258,20 @@ func (h *Hub) steer(e *enemy, players []point) {
 	// A garrison engages anyone in its sector, and roams it otherwise (#121).
 	engaged := found && (distance < stats.aggroRange || e.garrison != nil)
 	holding := h.tick < e.holdUntil
+	if engaged && !holding {
+		h.dodge(e, threats)
+	}
 	switch {
 	case holding:
 		e.vx *= holdDamping
 		e.vy *= holdDamping
+	case h.tick < e.dodgeUntil:
+		accelerate(e, point{
+			e.x + dodgeStep*math.Cos(e.dodgeAngle),
+			e.y + dodgeStep*math.Sin(e.dodgeAngle),
+		}, stats)
 	case engaged:
-		accelerate(e, h.goal(e, target, stats), stats)
+		accelerate(e, h.goal(e, target.at, stats), stats)
 	case e.garrison != nil:
 		if math.Hypot(e.post.x-e.x, e.post.y-e.y) <= postReach {
 			e.post = h.roamPoint(e.garrison.sector, roamMargin)
@@ -305,11 +302,11 @@ func (h *Hub) steer(e *enemy, players []point) {
 		return
 	}
 	// Aim and fire from where this tick's snapshot shows the enemy.
-	e.angle = math.Atan2(target.y-e.y, target.x-e.x)
+	e.angle = aimAt(e, target)
 	if e.cooldown > 0 {
 		e.cooldown--
 	}
-	if e.cooldown <= 0 && math.Hypot(target.x-e.x, target.y-e.y) < fireRange {
+	if e.cooldown <= 0 && math.Hypot(target.at.x-e.x, target.at.y-e.y) < fireRange {
 		e.cooldown = stats.fireEvery + h.rng.IntN(2*fireJitter+1) - fireJitter
 		h.fire(e)
 	}
@@ -319,7 +316,7 @@ func (h *Hub) steer(e *enemy, players []point) {
 // a Fighter holds its distance and strafes, and a Bomber or a Torpedo Ship
 // keeps its distance.
 func (h *Hub) goal(e *enemy, target point, stats enemyStats) point {
-	away := math.Atan2(e.y-target.y, e.x-target.x)
+	away := bearing(e, target)
 	if e.kind == pb.EnemyKind_ENEMY_KIND_BOMBER || e.kind == pb.EnemyKind_ENEMY_KIND_TORPEDO {
 		return point{
 			x: target.x + stats.keepDistance*math.Cos(away),

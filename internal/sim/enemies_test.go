@@ -1,6 +1,7 @@
 package sim_test
 
 import (
+	"math"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/sim"
@@ -90,5 +91,61 @@ func TestEnemyRadius_FollowsEachFactionsHull(t *testing.T) {
 		if got := EnemyRadius(tc.kind, tc.faction); got != tc.want {
 			t.Errorf("EnemyRadius(%s, %s) = %v, want %v", tc.kind, tc.faction, got, tc.want)
 		}
+	}
+}
+
+func TestLeadAngle_MeetsAMovingTarget(t *testing.T) {
+	t.Parallel()
+
+	const speed, delay = 150.0, 0.3
+	tests := []struct {
+		name           string
+		tx, ty, vx, vy float64
+	}{
+		{"still", 200, 0, 0, 0},
+		{"crossing", 200, 0, 0, 80},
+		{"closing", 200, 100, -60, -20},
+		{"fleeing", 0, 250, 30, 90},
+	}
+	for _, tc := range tests {
+		angle := LeadAngle(0, 0, tc.tx, tc.ty, tc.vx, tc.vy, speed, delay)
+		// Fly both forward and find the closest they come.
+		closest := math.Inf(1)
+		for step := range 800 {
+			ft := float64(step) / 100
+			sx, sy := speed*ft*math.Cos(angle), speed*ft*math.Sin(angle)
+			px, py := tc.tx+tc.vx*(ft+delay), tc.ty+tc.vy*(ft+delay)
+			closest = math.Min(closest, math.Hypot(sx-px, sy-py))
+		}
+		if closest > 2 {
+			t.Errorf(
+				"%s: a shot along %.3f passes %.1f px from the target, want it to meet it",
+				tc.name,
+				angle,
+				closest,
+			)
+		}
+	}
+	if got, want := LeadAngle(0, 0, 100, 0, 500, 0, 100, 0), 0.0; got != want {
+		t.Errorf(
+			"LeadAngle() at a target too fast to catch = %v, want straight at it, %v",
+			got,
+			want,
+		)
+	}
+}
+
+func TestFactionSmarts(t *testing.T) {
+	t.Parallel()
+
+	if (FactionSmarts(Klaed) != Smarts{}) {
+		t.Errorf("the Kla'ed have %+v, want none", FactionSmarts(Klaed))
+	}
+	if got := FactionSmarts(Nairan); !got.Lead || !got.Flank || got.Dodge || got.PickWeak {
+		t.Errorf("the Nairan have %+v, want leading and flanking", got)
+	}
+	all := Smarts{Lead: true, Flank: true, Dodge: true, PickWeak: true}
+	if got := FactionSmarts(Nautolan); got != all {
+		t.Errorf("the Nautolan have %+v, want all four", got)
 	}
 }
