@@ -13,14 +13,18 @@ import {
   pickItem,
   type OrderItem,
 } from '../ordermenu.ts';
+import { renderRatio } from '../display.ts';
 import {
   clearToken,
   loadAudioSettings,
   loadControlMode,
+  loadDisplaySettings,
   loadToken,
   saveAudioSettings,
   saveControlMode,
+  saveDisplaySettings,
   type AudioSettings,
+  type DisplaySettings,
 } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
@@ -57,6 +61,7 @@ import {
   CLOSED_SHADE_ALPHA,
   RING_TINT_FADE_MS,
   MINIMAP_REDRAW_MS,
+  FPS_CAP,
 } from '../sim/tuning.ts';
 import {
   ALL_OPEN,
@@ -233,6 +238,7 @@ export class SandboxScene extends Phaser.Scene {
   private debug!: DebugState;
   private readonly frameTimes = new FrameTimes();
   private mapsDrawnAt = -Infinity;
+  private displaySettings!: DisplaySettings;
   private gpuTimer: GpuTimer | undefined;
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
   private audioSettings!: AudioSettings;
@@ -247,6 +253,7 @@ export class SandboxScene extends Phaser.Scene {
   create(): void {
     this.sim.controlMode = loadControlMode();
     this.audioSettings = loadAudioSettings();
+    this.displaySettings = loadDisplaySettings();
     this.audio = new ShipAudio(this, this.audioSettings);
     this.world = this.add.layer();
     this.createBackgrounds();
@@ -289,6 +296,8 @@ export class SandboxScene extends Phaser.Scene {
       zoom: 1,
       fps: 0,
       frameMs: { average: 0, worst: 0 },
+      fpsCap: false,
+      cssPixels: false,
       gpuMs: undefined,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
@@ -877,6 +886,19 @@ export class SandboxScene extends Phaser.Scene {
         this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
         this.updateHud();
         break;
+      case 'KeyV':
+        this.displaySettings = { ...this.displaySettings, fpsCap: !this.displaySettings.fpsCap };
+        saveDisplaySettings(this.displaySettings);
+        this.game.loop.setFPSLimit(this.displaySettings.fpsCap ? FPS_CAP : 0);
+        this.updateHud();
+        break;
+      case 'KeyP':
+        this.displaySettings = { ...this.displaySettings, cssPixels: !this.displaySettings.cssPixels };
+        saveDisplaySettings(this.displaySettings);
+        // The window fit in main.ts reads the setting and resizes the canvas.
+        window.dispatchEvent(new Event('resize'));
+        this.updateHud();
+        break;
       case 'KeyF':
         this.effects = !this.effects;
         if (this.bloom !== undefined) {
@@ -1066,8 +1088,9 @@ export class SandboxScene extends Phaser.Scene {
     this.updateHud();
   }
 
+  /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   private dpr(): number {
-    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
   }
 
   /** Fits a loadout, each part at the tier this player owns it at. */
@@ -1342,9 +1365,9 @@ export class SandboxScene extends Phaser.Scene {
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${this.fpsLine()}`,
+      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : 'off'}  resolution ${this.displaySettings.cssPixels ? 'low' : 'full'}  ${this.fpsLine()}`,
       'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
-      'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
+      'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects · V 60 fps cap · P resolution',
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),
       this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? '',
@@ -1439,6 +1462,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
+    this.debug.fpsCap = this.game.loop.hasFpsLimit;
+    this.debug.cssPixels = this.displaySettings.cssPixels;
     this.debug.enemyFireGlow = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);

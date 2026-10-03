@@ -39,6 +39,9 @@ export interface DebugState {
   /** The average and worst frame time of the last second in ms, and the GPU's time for a recent frame where the browser can time it (#143). */
   frameMs: { average: number; worst: number };
   gpuMs: number | undefined;
+  /** Whether the game loop caps the frame rate (V), and whether P picked CSS pixels (#143). */
+  fpsCap: boolean;
+  cssPixels: boolean;
   weaponFrame: number;
   net: { status: NetStatus; playerId: string | undefined; others: RemoteDebug[] };
   enemies: EnemyDebug[];

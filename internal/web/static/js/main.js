@@ -11,6 +11,9 @@ function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
     dpr
   };
 }
+function renderRatio(devicePixelRatio, cssPixels) {
+  return cssPixels ? 1 : devicePixelRatio;
+}
 
 // src/name.ts
 var MAX_NAME_LENGTH = 16;
@@ -444,6 +447,7 @@ var MAP_FLASH_MS = 300;
 var RING_TINTS = [16777215, 16777215, 9429168, 9417983];
 var RING_TINT_FADE_MS = 1500;
 var MINIMAP_REDRAW_MS = 100;
+var FPS_CAP = 60;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -1244,6 +1248,29 @@ function loadAudioSettings(store = browserStorage()) {
 function saveAudioSettings(settings, store = browserStorage()) {
   try {
     store?.setItem(AUDIO_KEY, JSON.stringify(settings));
+  } catch {
+  }
+}
+var DISPLAY_KEY = "voidmarch.display";
+var DEFAULT_DISPLAY = { fpsCap: false, cssPixels: false };
+function loadDisplaySettings(store = browserStorage()) {
+  try {
+    const parsed = JSON.parse(store?.getItem(DISPLAY_KEY) ?? "null");
+    if (typeof parsed !== "object" || parsed === null) {
+      return { ...DEFAULT_DISPLAY };
+    }
+    const saved = parsed;
+    return {
+      fpsCap: typeof saved.fpsCap === "boolean" ? saved.fpsCap : DEFAULT_DISPLAY.fpsCap,
+      cssPixels: typeof saved.cssPixels === "boolean" ? saved.cssPixels : DEFAULT_DISPLAY.cssPixels
+    };
+  } catch {
+    return { ...DEFAULT_DISPLAY };
+  }
+}
+function saveDisplaySettings(settings, store = browserStorage()) {
+  try {
+    store?.setItem(DISPLAY_KEY, JSON.stringify(settings));
   } catch {
   }
 }
@@ -4718,6 +4745,7 @@ var SandboxScene = class extends Phaser10.Scene {
   debug;
   frameTimes = new FrameTimes();
   mapsDrawnAt = -Infinity;
+  displaySettings;
   gpuTimer;
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
@@ -4730,6 +4758,7 @@ var SandboxScene = class extends Phaser10.Scene {
   create() {
     this.sim.controlMode = loadControlMode();
     this.audioSettings = loadAudioSettings();
+    this.displaySettings = loadDisplaySettings();
     this.audio = new ShipAudio(this, this.audioSettings);
     this.world = this.add.layer();
     this.createBackgrounds();
@@ -4771,6 +4800,8 @@ var SandboxScene = class extends Phaser10.Scene {
       zoom: 1,
       fps: 0,
       frameMs: { average: 0, worst: 0 },
+      fpsCap: false,
+      cssPixels: false,
       gpuMs: void 0,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
@@ -5293,6 +5324,18 @@ var SandboxScene = class extends Phaser10.Scene {
         this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
         this.updateHud();
         break;
+      case "KeyV":
+        this.displaySettings = { ...this.displaySettings, fpsCap: !this.displaySettings.fpsCap };
+        saveDisplaySettings(this.displaySettings);
+        this.game.loop.setFPSLimit(this.displaySettings.fpsCap ? FPS_CAP : 0);
+        this.updateHud();
+        break;
+      case "KeyP":
+        this.displaySettings = { ...this.displaySettings, cssPixels: !this.displaySettings.cssPixels };
+        saveDisplaySettings(this.displaySettings);
+        window.dispatchEvent(new Event("resize"));
+        this.updateHud();
+        break;
       case "KeyF":
         this.effects = !this.effects;
         if (this.bloom !== void 0) {
@@ -5458,8 +5501,9 @@ ${modeName(info)}`,
     net.say(item.label);
     this.updateHud();
   }
+  /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   dpr() {
-    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
   }
   /** Fits a loadout, each part at the tier this player owns it at. */
   fit(loadout) {
@@ -5697,9 +5741,9 @@ ${modeName(info)}`,
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${this.fpsLine()}`,
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
-      "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
+      "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects \xB7 V 60 fps cap \xB7 P resolution",
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? "",
@@ -5788,6 +5832,8 @@ ${modeName(info)}`,
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
+    this.debug.fpsCap = this.game.loop.hasFpsLimit;
+    this.debug.cssPixels = this.displaySettings.cssPixels;
     this.debug.enemyFireGlow = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
@@ -5856,7 +5902,8 @@ async function start() {
     }
   }
   await loadSim("/static/wasm/sim.wasm");
-  const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+  const display = loadDisplaySettings();
+  const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
   const game = new Phaser11.Game({
     type: Phaser11.AUTO,
     parent: "game",
@@ -5873,6 +5920,8 @@ async function start() {
       zoom: size.zoom
     },
     scene: [BootScene, SandboxScene],
+    // V caps it at 60 (#143); 0 follows the display.
+    fps: { limit: display.fpsCap ? FPS_CAP : 0 },
     callbacks: {
       // The registry carries the token even where the browser refuses storage.
       preBoot: (game2) => {
@@ -5884,7 +5933,7 @@ async function start() {
 }
 function fitToWindow(game) {
   const fit = () => {
-    const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+    const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, loadDisplaySettings().cssPixels));
     game.scale.setZoom(size.zoom);
     game.scale.resize(size.width, size.height);
   };

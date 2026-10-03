@@ -118,3 +118,6 @@ export const RING_TINT_FADE_MS = 1500;
 
 /** How often the minimap redraws while the full map is closed (#143): it moves slowly, so every frame is wasted work. */
 export const MINIMAP_REDRAW_MS = 100;
+
+/** The frame rate V caps rendering at (#143). */
+export const FPS_CAP = 60;
