@@ -208,7 +208,7 @@ export class SandboxScene extends Phaser.Scene {
   private closedLayer!: Phaser.GameObjects.Graphics;
   private closedDrawn = -1;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
-  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
   private enemyFire!: Phaser.GameObjects.Layer;
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
