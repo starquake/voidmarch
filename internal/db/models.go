@@ -14,7 +14,7 @@ type ClearedSector struct {
 }
 
 type Dreadnought struct {
-	ID        int64
+	Faction   string
 	Health    float64
 	UpdatedAt int64
 }

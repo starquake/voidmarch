@@ -184,6 +184,43 @@ func TestEnemyPattern_TheDreadnoughtTakesItsVolleysInTurn(t *testing.T) {
 	}
 }
 
+func TestEnemyPattern_TheNairanDreadnoughtFiresItsOwnShots(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		volley DreadnoughtVolley
+		kind   ProjectileKind
+		count  int
+		spread float64
+	}{
+		{DreadnoughtRay, ProjectileKind(NairanRay), DreadnoughtRaySegments, 0},
+		{DreadnoughtWave, ProjectileKind(NairanRocket), DreadnoughtWaves, DreadnoughtWaveSpread},
+		{DreadnoughtRing, ProjectileKind(NairanTorpedo), DreadnoughtTorpedoes, DreadnoughtTorpedoFan},
+	} {
+		shots := EnemyPattern(EnemyDreadnought, Nairan, 0, 0, 0, DreadnoughtSeed(7, tc.volley))
+		if len(shots) != tc.count || shots[0].Kind != tc.kind {
+			t.Fatalf(
+				"volley %d = %d of %q, want %d of %q",
+				tc.volley,
+				len(shots),
+				shots[0].Kind,
+				tc.count,
+				tc.kind,
+			)
+		}
+		first, last := shots[0].Angle, shots[len(shots)-1].Angle
+		if !closeTo(first, -tc.spread/2) || !closeTo(last, tc.spread/2) {
+			t.Errorf(
+				"volley %d from %v to %v, want spread across %v",
+				tc.volley,
+				first,
+				last,
+				tc.spread,
+			)
+		}
+	}
+}
+
 func TestDreadnoughtSeed_KeepsMostOfTheSeed(t *testing.T) {
 	t.Parallel()
 

@@ -1570,6 +1570,13 @@ export declare type BossFell = Message<"voidmarch.v1.BossFell"> & {
    * @generated from field: uint32 tick = 3;
    */
   tick: number;
+
+  /**
+   * The fallen boss's faction, which says which ring opened (#140).
+   *
+   * @generated from field: voidmarch.v1.EnemyFaction faction = 4;
+   */
+  faction: EnemyFaction;
 };
 
 /**

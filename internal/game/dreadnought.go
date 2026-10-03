@@ -9,11 +9,9 @@ import (
 	"github.com/starquake/voidmarch/internal/sim"
 )
 
-// The Dreadnought's fight in hub ticks and world pixels (#124); its rules
+// The Dreadnoughts' fight in hub ticks and world pixels (#124); its rules
 // are the sim's.
 const (
-	// ringTwo is the ring the Dreadnought guards and wakes in.
-	ringTwo = 2
 	// halfSweep is half the arc a Ray sweep turns through.
 	halfSweep = sim.DreadnoughtRaySweep / 2
 	// dreadnoughtFireRange is how close a ship has to come for it to fire.
@@ -61,18 +59,21 @@ func (f *dreadnoughtFight) hp() int {
 	return max(1, int(math.Round(f.share*f.maxHP())))
 }
 
-// WithDreadnought sets the share of the Kla'ed Dreadnought's health left,
-// from 0 to 1, as saved, its offline regeneration applied (#124, #132); a
-// hub starts with it whole.
-func WithDreadnought(share float64) HubOption {
+// WithDreadnought sets the share of a faction's Dreadnought's health left,
+// from 0 to 1, as saved, its offline regeneration applied (#124, #132,
+// #140); a hub starts with each whole.
+func WithDreadnought(faction sim.EnemyFaction, share float64) HubOption {
 	return func(o *hubOptions) {
-		o.dreadnoughtShare = share
+		if o.dreadnoughtShares == nil {
+			o.dreadnoughtShares = map[sim.EnemyFaction]float64{}
+		}
+		o.dreadnoughtShares[faction] = share
 	}
 }
 
-// WithSaveDreadnought saves the share of the Dreadnought's health left, off
-// the tick goroutine, while it's awake and when it falls.
-func WithSaveDreadnought(save func(share float64)) HubOption {
+// WithSaveDreadnought saves the share of a faction's Dreadnought's health
+// left, off the tick goroutine, while it's awake and when it falls.
+func WithSaveDreadnought(save func(faction sim.EnemyFaction, share float64)) HubOption {
 	return func(o *hubOptions) {
 		o.saveDreadnought = save
 	}
@@ -85,11 +86,11 @@ func WithSaveOpenRings(save func(rings int)) HubOption {
 	}
 }
 
-// ringOneCleared is how many of ring 1's sectors are cleared.
-func (h *Hub) ringOneCleared() int {
+// ringCleared is how many of ring's sectors are cleared.
+func (h *Hub) ringCleared(ring int) int {
 	n := 0
 	for s := range h.cleared {
-		if s.Ring() == 1 {
+		if s.Ring() == ring {
 			n++
 		}
 	}
@@ -97,20 +98,34 @@ func (h *Hub) ringOneCleared() int {
 	return n
 }
 
-// wakeDreadnought wakes the Dreadnought, once enough of ring 1 is cleared
-// and ring 2 is still closed, in a ring-2 sector drawn at random that opens
-// for it (#8 decisions 1, 4 and 11).
+// dreadnoughtShare is the share of faction's Dreadnought's health left, as
+// saved: all of it until it's been fought.
+func (h *Hub) dreadnoughtShare(faction sim.EnemyFaction) float64 {
+	if share, ok := h.dreadnoughtShares[faction]; ok {
+		return share
+	}
+
+	return 1
+}
+
+// wakeDreadnought wakes the Dreadnought guarding the next closed ring,
+// once enough of the open ring inside it is cleared, in a sector of that
+// closed ring drawn at random that opens for it (#8 decisions 1, 4 and 11):
+// the Kla'ed one in ring 2 after ring 1, the Nairan one in ring 3 after
+// ring 2 (#140). Its faction is the one holding the ring it wakes beyond.
 func (h *Hub) wakeDreadnought() {
-	if _, awake := h.enemies[h.dreadnoughtID]; awake || h.frontier.OpenRings >= ringTwo {
+	inside := h.frontier.OpenRings
+	if _, awake := h.enemies[h.dreadnoughtID]; awake || inside >= sim.GridRings {
 		return
 	}
-	early := h.worldMap != nil && h.worldMap.DreadnoughtAwake
-	if !early && h.ringOneCleared() < sim.DreadnoughtWakesAt {
+	early := inside == 1 && h.worldMap != nil && h.worldMap.DreadnoughtAwake
+	if !early && h.ringCleared(inside) < sim.DreadnoughtWakesAt {
 		return
 	}
+	faction := sim.FactionOfRing(inside)
 	var spots []sim.Sector
 	for _, s := range sim.Sectors() {
-		if s.Ring() == ringTwo {
+		if s.Ring() == inside+1 {
 			spots = append(spots, s)
 		}
 	}
@@ -120,14 +135,14 @@ func (h *Hub) wakeDreadnought() {
 	e := &enemy{
 		id:       h.nextEnemy,
 		kind:     pb.EnemyKind_ENEMY_KIND_DREADNOUGHT,
-		faction:  sim.Klaed,
+		faction:  faction,
 		x:        c.X,
 		y:        c.Y,
 		angle:    quarterTurn,
 		lastNear: h.tick,
 		dread: &dreadnoughtFight{
 			shield: sim.DreadnoughtShield,
-			share:  h.dreadnoughtShare,
+			share:  h.dreadnoughtShare(faction),
 			weight: h.onlineWeight(),
 		},
 	}
@@ -138,18 +153,31 @@ func (h *Hub) wakeDreadnought() {
 	h.broadcastFrontier()
 }
 
-// closeRingsIfFallenBack closes rings 2 and 3 again once ring 1 has fewer
-// than sim.DreadnoughtWakesAt cleared sectors (#8 decision 9); reopening
-// them takes a fresh Dreadnought, which wakes once ring 1 is back.
+// closeRingsIfFallenBack closes every ring beyond the first open ring that
+// has fewer than sim.DreadnoughtWakesAt cleared sectors (#8 decision 9,
+// #140): ring 1 falling back closes rings 2 and 3, ring 2 falling back ring
+// 3. Reopening a ring takes its Dreadnought again. A Dreadnought awake
+// beyond the new edge goes back to sleep, keeping its share.
 func (h *Hub) closeRingsIfFallenBack() {
-	if h.frontier.OpenRings < ringTwo || h.ringOneCleared() >= sim.DreadnoughtWakesAt {
+	for ring := 1; ring < h.frontier.OpenRings; ring++ {
+		if h.ringCleared(ring) >= sim.DreadnoughtWakesAt {
+			continue
+		}
+		h.frontier = sim.Frontier{OpenRings: ring}
+		if h.saveOpenRings != nil {
+			h.saves <- func() { h.saveOpenRings(ring) }
+		}
+		if e, awake := h.enemies[h.dreadnoughtID]; awake {
+			h.dreadnoughtShares[e.faction] = e.dread.share
+			h.saveDreadnoughtShare(e.faction, e.dread.share)
+			delete(h.enemies, e.id)
+			h.forgetEnemy(e.id)
+			h.dreadnoughtID = 0
+		}
+		h.broadcastFrontier()
+
 		return
 	}
-	h.frontier = sim.Frontier{OpenRings: 1}
-	if h.saveOpenRings != nil {
-		h.saves <- func() { h.saveOpenRings(1) }
-	}
-	h.broadcastFrontier()
 }
 
 // stepDreadnought scales it to the players online, regenerates it,
@@ -162,7 +190,7 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	f.share = math.Min(1, f.share+regenPerTick)
 	e.hp = f.hp()
 	if h.tick%dreadnoughtSaveEvery == 0 {
-		h.saveDreadnoughtShare(f.share)
+		h.saveDreadnoughtShare(e.faction, f.share)
 	}
 	if f.shield < sim.DreadnoughtShield && h.tick-f.lastHit >= dreadnoughtShieldTicks {
 		f.shield = sim.DreadnoughtShield
@@ -212,8 +240,9 @@ func (f *dreadnoughtFight) takeHit(damage int, tick uint32) int {
 }
 
 // dreadnoughtFallen rewards the players near e, releases its derelicts and
-// tells everyone (#125), opens rings 2 and 3 (#8 decision 12), and saves a
-// fresh Dreadnought's health for the next time one wakes.
+// tells everyone (#125), opens the ring it guarded (#140, replacing #8
+// decision 12's "rings 2 and 3 together"), and saves a fresh Dreadnought's
+// health for the next time its faction's wakes.
 func (h *Hub) dreadnoughtFallen(e *enemy) {
 	var gains []*pb.PickupGain
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
@@ -237,23 +266,24 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 		)
 	}
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_BossFell{BossFell: &pb.BossFell{
-		Kind: e.kind, Gains: gains, Tick: h.tick,
+		Kind: e.kind, Gains: gains, Tick: h.tick, Faction: pbEnemyFaction(e.faction),
 	}}}, "")
 	h.dreadnoughtID = 0
-	h.dreadnoughtShare = 1
-	h.saveDreadnoughtShare(1)
-	h.frontier = sim.Frontier{OpenRings: sim.GridRings}
+	h.dreadnoughtShares[e.faction] = 1
+	h.saveDreadnoughtShare(e.faction, 1)
+	opened := min(h.frontier.OpenRings+1, sim.GridRings)
+	h.frontier = sim.Frontier{OpenRings: opened}
 	if h.saveOpenRings != nil {
-		h.saves <- func() { h.saveOpenRings(sim.GridRings) }
+		h.saves <- func() { h.saveOpenRings(opened) }
 	}
 	h.broadcastFrontier()
 }
 
-// saveDreadnoughtShare saves the share of its health left off the tick
-// goroutine.
-func (h *Hub) saveDreadnoughtShare(share float64) {
+// saveDreadnoughtShare saves the share of faction's Dreadnought's health
+// left off the tick goroutine.
+func (h *Hub) saveDreadnoughtShare(faction sim.EnemyFaction, share float64) {
 	if h.saveDreadnought != nil {
-		h.saves <- func() { h.saveDreadnought(share) }
+		h.saves <- func() { h.saveDreadnought(faction, share) }
 	}
 }
 

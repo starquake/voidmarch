@@ -18,7 +18,7 @@ func EnemyPattern(
 		return ringOf(x, y, angle+random.Next()*Tau/float64(count), bullet, count)
 	}
 	if kind == EnemyDreadnought {
-		return dreadnoughtPattern(x, y, angle, seed, random)
+		return dreadnoughtPattern(x, y, angle, seed, random, faction)
 	}
 	bullet := ProjectileKind(EnemyBullet(kind, faction))
 	if kind == EnemyBomber {
@@ -59,10 +59,13 @@ func bomberPair(bullet ProjectileKind, x, y, angle float64) []ProjectileSpawn {
 }
 
 // DreadnoughtVolley is which of its attacks a Dreadnought volley is: the
-// seed says, so every client expands it the same way (#124).
+// seed says, so every client expands it the same way (#124). Each faction
+// fills the three with its own: the Kla'ed fire a ring, a Ray sweep and a
+// Wave spread; the Nairan a Torpedo volley, a Ray sweep and a Rocket spread
+// (#140).
 type DreadnoughtVolley int
 
-// The Dreadnought's volleys, which it takes in turn.
+// The Dreadnought's volleys, which it takes in turn; named for the Kla'ed's.
 const (
 	DreadnoughtRing DreadnoughtVolley = iota
 	DreadnoughtRay
@@ -75,18 +78,27 @@ func DreadnoughtSeed(seed uint32, volley DreadnoughtVolley) uint32 {
 	return seed - seed%uint32(dreadnoughtVolleys) + uint32(volley) //nolint:gosec // 0 to 2.
 }
 
-// dreadnoughtPattern is the Dreadnought's volley the seed names: a ring of big
-// bullets, one beam of a Ray sweep along angle, or a spread of Waves.
-func dreadnoughtPattern(x, y, angle float64, seed uint32, random *Random) []ProjectileSpawn {
+// dreadnoughtPattern is the Dreadnought's volley the seed names: one beam
+// of a Ray sweep along angle, a spread of Waves or Rockets, or a ring of big
+// bullets or a fan of Torpedoes.
+func dreadnoughtPattern(
+	x, y, angle float64,
+	seed uint32,
+	random *Random,
+	faction EnemyFaction,
+) []ProjectileSpawn {
+	nairan := faction == Nairan
 	switch DreadnoughtVolley(seed % uint32(dreadnoughtVolleys)) {
 	case DreadnoughtRay:
+		ray := KlaedRay
+		if nairan {
+			ray = NairanRay
+		}
 		beam := make([]ProjectileSpawn, 0, DreadnoughtRaySegments)
 		for i := range DreadnoughtRaySegments {
 			d := DreadnoughtMuzzle + float64(i)*DreadnoughtRaySpacing
 			beam = append(beam, ProjectileSpawn{
-				Kind: ProjectileKind(
-					KlaedRay,
-				),
+				Kind:  ProjectileKind(ray),
 				X:     x + d*math.Cos(angle),
 				Y:     y + d*math.Sin(angle),
 				Angle: angle,
@@ -95,19 +107,25 @@ func dreadnoughtPattern(x, y, angle float64, seed uint32, random *Random) []Proj
 
 		return beam
 	case DreadnoughtWave:
-		spread := make([]ProjectileSpawn, 0, DreadnoughtWaves)
-		for i := range DreadnoughtWaves {
-			aim := angle + DreadnoughtWaveSpread*(float64(i)/(DreadnoughtWaves-1)-half)
-			muzzle := RotateOffset(DreadnoughtMuzzle, 0, aim)
-			spread = append(spread, ProjectileSpawn{
-				Kind: ProjectileKind(KlaedWave), X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim,
-			})
+		shot := KlaedWave
+		if nairan {
+			shot = NairanRocket
 		}
 
-		return spread
+		return dreadnoughtFan(x, y, angle, shot, DreadnoughtWaves, DreadnoughtWaveSpread)
 	case DreadnoughtRing, dreadnoughtVolleys:
 		fallthrough
 	default:
+		if nairan {
+			return dreadnoughtFan(
+				x,
+				y,
+				angle,
+				NairanTorpedo,
+				DreadnoughtTorpedoes,
+				DreadnoughtTorpedoFan,
+			)
+		}
 		ring := ringOf(
 			x, y, angle+random.Next()*Tau/FrigateRingBullets, KlaedBigBullet, FrigateRingBullets,
 		)
@@ -118,6 +136,26 @@ func dreadnoughtPattern(x, y, angle float64, seed uint32, random *Random) []Proj
 
 		return ring
 	}
+}
+
+// dreadnoughtFan is count shots spread evenly across spread radians around
+// angle, from the Dreadnought's muzzle.
+func dreadnoughtFan(
+	x, y, angle float64,
+	shot EnemyBulletID,
+	count int,
+	spread float64,
+) []ProjectileSpawn {
+	fan := make([]ProjectileSpawn, 0, count)
+	for i := range count {
+		aim := angle + spread*(float64(i)/float64(count-1)-half)
+		muzzle := RotateOffset(DreadnoughtMuzzle, 0, aim)
+		fan = append(fan, ProjectileSpawn{
+			Kind: ProjectileKind(shot), X: x + muzzle.X, Y: y + muzzle.Y, Angle: aim,
+		})
+	}
+
+	return fan
 }
 
 // FrigateRing is the bullet a faction's Frigate rings with, and how many

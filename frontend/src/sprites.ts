@@ -59,6 +59,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
+    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 10 },
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
