@@ -170,6 +170,17 @@ test('music starts after the first input, and M and N are remembered', async ({ 
   expect((await state(page)).audio).toMatchObject({ muted: true, music: false });
 });
 
+test('V caps the frame rate and P lowers the resolution, and both are remembered', async ({ page }) => {
+  expect(await state(page)).toMatchObject({ fpsCap: false, cssPixels: false });
+  await page.keyboard.press('v');
+  await page.keyboard.press('p');
+  await expect.poll(async () => await state(page)).toMatchObject({ fpsCap: true, cssPixels: true });
+
+  await page.reload();
+  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+  expect(await state(page)).toMatchObject({ fpsCap: true, cssPixels: true });
+});
+
 test('a big space gun ball fired at nothing bursts into a star when it runs out', async ({ page }) => {
   await page.keyboard.press('1');
   await page.keyboard.press('1');

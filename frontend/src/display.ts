@@ -23,3 +23,13 @@ export function deviceSize(cssWidth: number, cssHeight: number, devicePixelRatio
     dpr,
   };
 }
+
+/**
+ * The device pixels per CSS pixel the canvas renders at: the display's
+ * ratio, or 1 when the player picked CSS pixels (P, #143), which the
+ * browser then scales up: a quarter of the pixels on a 2x screen, with
+ * softer text.
+ */
+export function renderRatio(devicePixelRatio: number, cssPixels: boolean): number {
+  return cssPixels ? 1 : devicePixelRatio;
+}

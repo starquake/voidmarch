@@ -193,7 +193,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Bombers and Torpedo Ships** (#137), the later factions' slow heavy hitters: 20% of a ring-2 garrison and 30% of a ring-3 one, half each; the Kla'ed have none.
   - **Bomber**: 10 HP (15 Nairan, 20 Nautolan), slow (60 px/s), keeps 240 px from its target. It fires a pair of shots, Nairan Rockets (80 px/s) or Nautolan Bombs (100 px/s), that leave 0.4 rad either side of its aim and curve back in to cross 240 px down it, where the target was; every client draws the same curve from the spawn. No pack draws a Bomber's weapons, so its hull glows blue for the warning.
   - **Torpedo Ship**: 8 HP (12 Nairan, 16 Nautolan), keeps 260 px off, then lines up and holds still for a 0.75 s warning, its weapons animating, before one straight shot: a Nairan Torpedo (70 px/s) or a Nautolan Wave (88 px/s). A Torpedo takes two hull steps, or two shield charges; every other shot takes one.
-- **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they fly on a layer with one blue glow. Every faction's shots get the same blue (#136). Players' shots stay orange. The glow follows the F effects toggle.
+- **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they glow blue. Every faction's shots get the same blue (#136). Players' shots stay orange. The glow follows the F effects toggle. Since #143 the glow is baked once at boot into a glowing copy of each bullet sheet, the same math the old glow filter ran over a full-screen layer every frame.
 - **Death**: the pack's destruction animation, and an explosion sound when it happens in view. No drops yet (pickups are milestone 5).
 
 ## 7. Bosses and scaling for 1–16 players
@@ -318,6 +318,17 @@ As built (#76): a SQLite file (`DB_PATH`, `internal/store`, the pure Go `modernc
 ### Identity
 
 - Friends only: a player picks a name on first visit, the server issues a token stored in the browser. No passwords.
+
+### Frame rate on modest hardware (#143)
+
+The game is played on laptops, so the effects are built to stay cheap at 120 Hz on an integrated GPU (a Ryzen 5 7640U with Radeon 760M was the measure) without looking any different:
+
+- **Bloom** runs its threshold and blur at half the screen's size, between two smooth resamples (`frontend/src/scenes/resample.ts`); only the halo layer is smaller.
+- **The enemy-fire glow** is baked once at boot (`frontend/src/glow.ts`), not filtered every frame.
+- **The vignette** is a stretched overlay of black at the filter's darkness (`frontend/src/vignette.ts`), drawn on the HUD camera over the bloomed world.
+- **The minimap** redraws ten times a second while the full map is closed.
+- **Settings:** V caps rendering at 60 fps, and P renders at CSS pixels instead of device pixels, both remembered in the browser. A settings screen is #145.
+- **Measuring:** the debug state and the HUD carry the average and worst frame time of the last second, and the GPU's time per frame where the browser offers `EXT_disjoint_timer_query`.
 
 ## 10. Go conventions
 

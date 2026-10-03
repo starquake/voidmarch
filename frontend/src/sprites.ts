@@ -67,6 +67,8 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
 
 /** Enemy bullets are drawn in the blue recolor, apart from the players' orange shots (#36). */
 const BULLET_VARIANT = 'blue';
+/** How fast enemy bullets animate. */
+const BULLET_FPS = 12;
 
 /** The fleets' bullets: every enemy bullet but a burst's shard, drawn from the player's own shot. */
 type FleetBulletId = Exclude<EnemyBulletId, 'shard'>;
@@ -193,6 +195,8 @@ export const keys = {
   enemyDestruction: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-destruction`,
   enemyShield: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-shield`,
   enemyBullet: (id: FleetBulletId): string => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}`,
+  /** An enemy bullet with its glow baked in at boot (#143), drawn at half scale. */
+  enemyBulletGlow: (id: FleetBulletId): string => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}-glow`,
   pickup: (part: PartId): string => `pickup-${part}`,
 };
 
@@ -266,8 +270,30 @@ export function sheets(): Sheet[] {
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,
-      fps: 12,
+      fps: BULLET_FPS,
       loop: true,
     })),
   ];
+}
+
+/** An enemy bullet sheet to bake a glowing copy of: its key, the copy's, and its frames. */
+export interface GlowSheet {
+  key: string;
+  glowKey: string;
+  frameWidth: number;
+  frameHeight: number;
+  frames: number;
+  fps: number;
+}
+
+/** Every enemy bullet sheet, for the glowing copies the boot scene bakes (#143). */
+export function glowSheets(): GlowSheet[] {
+  return (Object.keys(BULLET_FRAMES) as FleetBulletId[]).map((id) => ({
+    key: keys.enemyBullet(id),
+    glowKey: keys.enemyBulletGlow(id),
+    frameWidth: BULLET_FRAMES[id].width,
+    frameHeight: BULLET_FRAMES[id].height,
+    frames: BULLET_FRAMES[id].frames,
+    fps: BULLET_FPS,
+  }));
 }

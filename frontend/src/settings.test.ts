@@ -5,10 +5,12 @@ import {
   clearToken,
   loadAudioSettings,
   loadControlMode,
+  loadDisplaySettings,
   loadLastSquadron,
   loadToken,
   saveAudioSettings,
   saveControlMode,
+  saveDisplaySettings,
   saveLastSquadron,
   saveToken,
 } from './settings.ts';
@@ -89,6 +91,21 @@ test('denied storage keeps the default sound settings', () => {
     saveAudioSettings({ muted: true, music: true }, brokenStore);
   });
   assert.deepEqual(loadAudioSettings(brokenStore), { muted: false, music: true });
+});
+
+test('the display runs at its own rate and full resolution by default, and V and P are remembered', () => {
+  assert.deepEqual(loadDisplaySettings(memoryStore()), { fpsCap: false, cssPixels: false });
+  const store = memoryStore();
+  saveDisplaySettings({ fpsCap: true, cssPixels: true }, store);
+  assert.deepEqual(loadDisplaySettings(store), { fpsCap: true, cssPixels: true });
+  store.setItem('voidmarch.display', '{"fpsCap": 1, "cssPixels": true}');
+  assert.deepEqual(loadDisplaySettings(store), { fpsCap: false, cssPixels: true }, 'damaged fields fall back one by one');
+  store.setItem('voidmarch.display', 'not json');
+  assert.deepEqual(loadDisplaySettings(store), { fpsCap: false, cssPixels: false });
+  assert.doesNotThrow(() => {
+    saveDisplaySettings({ fpsCap: true, cssPixels: true }, brokenStore);
+  });
+  assert.deepEqual(loadDisplaySettings(brokenStore), { fpsCap: false, cssPixels: false });
 });
 
 test('the token is kept, loaded and forgotten', () => {

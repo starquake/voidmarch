@@ -115,3 +115,9 @@ export const MAP_FLASH_MS = 300;
 export const RING_TINTS: readonly number[] = [0xffffff, 0xffffff, 0x8fe0b0, 0x8fb4ff];
 /** How long the background takes to fade to a new ring's tint. */
 export const RING_TINT_FADE_MS = 1500;
+
+/** How often the minimap redraws while the full map is closed (#143): it moves slowly, so every frame is wasted work. */
+export const MINIMAP_REDRAW_MS = 100;
+
+/** The frame rate V caps rendering at (#143). */
+export const FPS_CAP = 60;

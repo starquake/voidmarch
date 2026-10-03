@@ -70,6 +70,43 @@ export function saveAudioSettings(settings: AudioSettings, store: Store | undefi
   }
 }
 
+const DISPLAY_KEY = 'voidmarch.display';
+
+/** Display preferences (#143): V caps the frame rate at 60, P renders at CSS pixels instead of device pixels. */
+export interface DisplaySettings {
+  fpsCap: boolean;
+  cssPixels: boolean;
+}
+
+const DEFAULT_DISPLAY: Readonly<DisplaySettings> = { fpsCap: false, cssPixels: false };
+
+/** The saved display preferences, or the display's own rate at full resolution when none are saved. */
+export function loadDisplaySettings(store: Store | undefined = browserStorage()): DisplaySettings {
+  try {
+    const parsed: unknown = JSON.parse(store?.getItem(DISPLAY_KEY) ?? 'null');
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { ...DEFAULT_DISPLAY };
+    }
+    const saved = parsed as Partial<Record<keyof DisplaySettings, unknown>>;
+
+    return {
+      fpsCap: typeof saved.fpsCap === 'boolean' ? saved.fpsCap : DEFAULT_DISPLAY.fpsCap,
+      cssPixels: typeof saved.cssPixels === 'boolean' ? saved.cssPixels : DEFAULT_DISPLAY.cssPixels,
+    };
+  } catch {
+    return { ...DEFAULT_DISPLAY };
+  }
+}
+
+/** Remembers the display preferences in this browser; a denied write is ignored. */
+export function saveDisplaySettings(settings: DisplaySettings, store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(DISPLAY_KEY, JSON.stringify(settings));
+  } catch {
+    // Private windows can refuse storage; the settings then last for this visit.
+  }
+}
+
 const TOKEN_KEY = 'voidmarch.token';
 
 /** The player's token from registering, or undefined before the first visit. */

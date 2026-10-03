@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser10 from "./vendor/phaser.js";
+import Phaser11 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -10,6 +10,9 @@ function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
     zoom: 1 / dpr,
     dpr
   };
+}
+function renderRatio(devicePixelRatio, cssPixels) {
+  return cssPixels ? 1 : devicePixelRatio;
 }
 
 // src/name.ts
@@ -79,6 +82,75 @@ function askName() {
 
 // src/scenes/boot.ts
 import Phaser from "./vendor/phaser.js";
+
+// src/glow.ts
+var CHANNELS = 4;
+var MAX = 255;
+function double(src) {
+  const width = src.width * 2;
+  const height = src.height * 2;
+  const data = new Uint8ClampedArray(width * height * CHANNELS);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const from = (Math.floor(y / 2) * src.width + Math.floor(x / 2)) * CHANNELS;
+      data.set(src.data.subarray(from, from + CHANNELS), (y * width + x) * CHANNELS);
+    }
+  }
+  return { width, height, data };
+}
+function alphaAt(src, x, y) {
+  const x0 = Math.floor(x - 0.5);
+  const y0 = Math.floor(y - 0.5);
+  const fx = x - 0.5 - x0;
+  const fy = y - 0.5 - y0;
+  const at2 = (px, py) => px < 0 || py < 0 || px >= src.width || py >= src.height ? 0 : (src.data[(py * src.width + px) * CHANNELS + 3] ?? 0) / MAX;
+  return at2(x0, y0) * (1 - fx) * (1 - fy) + at2(x0 + 1, y0) * fx * (1 - fy) + at2(x0, y0 + 1) * (1 - fx) * fy + at2(x0 + 1, y0 + 1) * fx * fy;
+}
+function jitter(ring2, u, v) {
+  const s = Math.sin(ring2 * 12.9898 + (u + v) * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+function bakeGlow(src, glow) {
+  const pad = glow.distance;
+  const width = src.width + 2 * pad;
+  const height = src.height + 2 * pad;
+  const data = new Uint8ClampedArray(width * height * CHANNELS);
+  const maxAlpha = glow.distance * (glow.distance + 1) * glow.quality / 2;
+  const red = (glow.color >> 16 & MAX) / MAX;
+  const green = (glow.color >> 8 & MAX) / MAX;
+  const blue = (glow.color & MAX) / MAX;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const sx = x - pad + 0.5;
+      const sy = y - pad + 0.5;
+      let total = 0;
+      let angle = 0;
+      for (let ring2 = 0; ring2 < glow.distance; ring2++) {
+        angle += jitter(ring2, x / width, y / height);
+        for (let i = 0; i < glow.quality; i++) {
+          angle += Math.PI * 2 / glow.quality;
+          total += (glow.distance - ring2) * alphaAt(src, sx + Math.cos(angle) * (ring2 + 1), sy + Math.sin(angle) * (ring2 + 1));
+        }
+      }
+      const inside = sx > 0 && sy > 0 && sx < src.width && sy < src.height;
+      const from = (Math.floor(sy) * src.width + Math.floor(sx)) * CHANNELS;
+      const r = inside ? (src.data[from] ?? 0) / MAX : 0;
+      const g = inside ? (src.data[from + 1] ?? 0) / MAX : 0;
+      const b = inside ? (src.data[from + 2] ?? 0) / MAX : 0;
+      const a = inside ? (src.data[from + 3] ?? 0) / MAX : 0;
+      const outer = Math.min(1 - a, total / maxAlpha * glow.strength * (1 - a));
+      const alpha = a + outer;
+      const to = (y * width + x) * CHANNELS;
+      if (alpha > 0) {
+        data[to] = Math.round((r * a + outer * red) / alpha * MAX);
+        data[to + 1] = Math.round((g * a + outer * green) / alpha * MAX);
+        data[to + 2] = Math.round((b * a + outer * blue) / alpha * MAX);
+        data[to + 3] = Math.round(alpha * MAX);
+      }
+    }
+  }
+  return { width, height, data };
+}
 
 // src/sounds.ts
 var AUDIO = "/static/audio";
@@ -374,6 +446,8 @@ var MAP_YOU_COLOR = 16777215;
 var MAP_FLASH_MS = 300;
 var RING_TINTS = [16777215, 16777215, 9429168, 9417983];
 var RING_TINT_FADE_MS = 1500;
+var MINIMAP_REDRAW_MS = 100;
+var FPS_CAP = 60;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -454,6 +528,7 @@ var ENEMY_FILES = {
   }
 };
 var BULLET_VARIANT = "blue";
+var BULLET_FPS = 12;
 var BULLET_FRAMES = {
   klaedBullet: { faction: "klaed", file: "bullet", width: 4, height: 16, frames: 4 },
   klaedBigBullet: { faction: "klaed", file: "big-bullet", width: 8, height: 16, frames: 4 },
@@ -556,6 +631,8 @@ var keys = {
   enemyDestruction: (faction, kind) => `${faction}-${kind}-destruction`,
   enemyShield: (faction, kind) => `${faction}-${kind}-shield`,
   enemyBullet: (id) => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}`,
+  /** An enemy bullet with its glow baked in at boot (#143), drawn at half scale. */
+  enemyBulletGlow: (id) => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}-glow`,
   pickup: (part) => `pickup-${part}`
 };
 var pickupFile = (part) => `${WEAPONS.includes(part) ? "weapon" : ENGINES.includes(part) ? "engine" : "shield"}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
@@ -616,13 +693,53 @@ function sheets() {
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,
-      fps: 12,
+      fps: BULLET_FPS,
       loop: true
     }))
   ];
 }
+function glowSheets() {
+  return Object.keys(BULLET_FRAMES).map((id) => ({
+    key: keys.enemyBullet(id),
+    glowKey: keys.enemyBulletGlow(id),
+    frameWidth: BULLET_FRAMES[id].width,
+    frameHeight: BULLET_FRAMES[id].height,
+    frames: BULLET_FRAMES[id].frames,
+    fps: BULLET_FPS
+  }));
+}
 
 // src/scenes/boot.ts
+var ENEMY_FIRE_GLOW = {
+  color: ENEMY_FIRE_GLOW_COLOR,
+  strength: ENEMY_FIRE_GLOW_STRENGTH,
+  quality: ENEMY_FIRE_GLOW_QUALITY,
+  distance: ENEMY_FIRE_GLOW_DISTANCE
+};
+function bakeSheet(source, sheet) {
+  const read = document.createElement("canvas");
+  read.width = sheet.frameWidth * sheet.frames;
+  read.height = sheet.frameHeight;
+  const reader = read.getContext("2d", { willReadFrequently: true });
+  reader?.drawImage(source, 0, 0);
+  const frames = [];
+  for (let i = 0; i < sheet.frames; i++) {
+    const frame = reader?.getImageData(i * sheet.frameWidth, 0, sheet.frameWidth, sheet.frameHeight);
+    if (frame !== void 0) {
+      frames.push(bakeGlow(double({ width: frame.width, height: frame.height, data: frame.data }), ENEMY_FIRE_GLOW));
+    }
+  }
+  const frameWidth = frames[0]?.width ?? 1;
+  const frameHeight = frames[0]?.height ?? 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = frameWidth * frames.length;
+  canvas.height = frameHeight;
+  const writer = canvas.getContext("2d");
+  frames.forEach((f, i) => {
+    writer?.putImageData(new ImageData(new Uint8ClampedArray(f.data), f.width, f.height), i * frameWidth, 0);
+  });
+  return { canvas, frameWidth, frameHeight };
+}
 var BootScene = class extends Phaser.Scene {
   constructor() {
     super("boot");
@@ -638,6 +755,25 @@ var BootScene = class extends Phaser.Scene {
       this.load.audio(sound.key, sound.urls);
     }
   }
+  /** Bakes a glowing copy of every enemy bullet sheet, once, in place of a glow filter every frame (#143). */
+  bakeEnemyFireGlow() {
+    for (const sheet of glowSheets()) {
+      const { canvas, frameWidth, frameHeight } = bakeSheet(this.textures.get(sheet.key).getSourceImage(), sheet);
+      const texture = this.textures.addCanvas(sheet.glowKey, canvas);
+      if (texture === null) {
+        continue;
+      }
+      for (let i = 0; i < sheet.frames; i++) {
+        texture.add(i, 0, i * frameWidth, 0, frameWidth, frameHeight);
+      }
+      this.anims.create({
+        key: sheet.glowKey,
+        frames: this.anims.generateFrameNumbers(sheet.glowKey, { start: 0, end: sheet.frames - 1 }),
+        frameRate: sheet.fps,
+        repeat: -1
+      });
+    }
+  }
   create() {
     for (const sheet of sheets()) {
       if (sheet.fps > 0) {
@@ -649,12 +785,13 @@ var BootScene = class extends Phaser.Scene {
         });
       }
     }
+    this.bakeEnemyFireGlow();
     this.scene.start("sandbox");
   }
 };
 
 // src/scenes/sandbox.ts
-import Phaser9 from "./vendor/phaser.js";
+import Phaser10 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -736,6 +873,77 @@ var BackgroundTicker = class {
 function publishDebugState(state) {
   window.voidmarch = state;
 }
+
+// src/frametimes.ts
+var WINDOW_MS = 1e3;
+var FrameTimes = class {
+  frames = [];
+  /** Notes a frame that took ms and ended at now (ms). */
+  add(ms, now2) {
+    this.frames.push({ at: now2, ms });
+    const since = now2 - WINDOW_MS;
+    const first = this.frames.findIndex((f) => f.at > since);
+    this.frames = first < 0 ? [] : this.frames.slice(first);
+  }
+  /** The average frame time of the last second, 0 before the first frame. */
+  get average() {
+    return this.frames.length === 0 ? 0 : this.frames.reduce((sum, f) => sum + f.ms, 0) / this.frames.length;
+  }
+  /** The longest frame of the last second, 0 before the first frame. */
+  get worst() {
+    return this.frames.reduce((most, f) => Math.max(most, f.ms), 0);
+  }
+};
+var GpuTimer = class {
+  /** The GPU time of the latest frame measured, in ms, if any. */
+  last;
+  gl;
+  ext;
+  active;
+  pending = [];
+  constructor(gl) {
+    this.gl = gl;
+    this.ext = gl.getExtension("EXT_disjoint_timer_query") ?? void 0;
+  }
+  /** Whether the browser offers a GPU timer. */
+  get available() {
+    return this.ext !== void 0;
+  }
+  /** Starts timing a frame's GPU work. */
+  begin() {
+    if (this.ext === void 0 || this.active !== void 0) {
+      return;
+    }
+    const query = this.ext.createQueryEXT();
+    if (query === null) {
+      return;
+    }
+    this.ext.beginQueryEXT(this.ext.TIME_ELAPSED_EXT, query);
+    this.active = query;
+  }
+  /** Stops timing the frame, and reads the frames whose results are in. */
+  end() {
+    const ext = this.ext;
+    if (ext === void 0 || this.active === void 0) {
+      return;
+    }
+    ext.endQueryEXT(ext.TIME_ELAPSED_EXT);
+    this.pending.push(this.active);
+    this.active = void 0;
+    const disjoint = this.gl.getParameter(ext.GPU_DISJOINT_EXT) === true;
+    while (this.pending.length > 0) {
+      const query = this.pending[0];
+      if (query === void 0 || ext.getQueryObjectEXT(query, ext.QUERY_RESULT_AVAILABLE_EXT) !== true) {
+        break;
+      }
+      if (!disjoint) {
+        this.last = Number(ext.getQueryObjectEXT(query, ext.QUERY_RESULT_EXT)) / 1e6;
+      }
+      ext.deleteQueryEXT(query);
+      this.pending.shift();
+    }
+  }
+};
 
 // src/net/codec.ts
 import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/protobuf.js";
@@ -1040,6 +1248,29 @@ function loadAudioSettings(store = browserStorage()) {
 function saveAudioSettings(settings, store = browserStorage()) {
   try {
     store?.setItem(AUDIO_KEY, JSON.stringify(settings));
+  } catch {
+  }
+}
+var DISPLAY_KEY = "voidmarch.display";
+var DEFAULT_DISPLAY = { fpsCap: false, cssPixels: false };
+function loadDisplaySettings(store = browserStorage()) {
+  try {
+    const parsed = JSON.parse(store?.getItem(DISPLAY_KEY) ?? "null");
+    if (typeof parsed !== "object" || parsed === null) {
+      return { ...DEFAULT_DISPLAY };
+    }
+    const saved = parsed;
+    return {
+      fpsCap: typeof saved.fpsCap === "boolean" ? saved.fpsCap : DEFAULT_DISPLAY.fpsCap,
+      cssPixels: typeof saved.cssPixels === "boolean" ? saved.cssPixels : DEFAULT_DISPLAY.cssPixels
+    };
+  } catch {
+    return { ...DEFAULT_DISPLAY };
+  }
+}
+function saveDisplaySettings(settings, store = browserStorage()) {
+  try {
+    store?.setItem(DISPLAY_KEY, JSON.stringify(settings));
   } catch {
   }
 }
@@ -1394,7 +1625,7 @@ function missionCompleteBanner(sector, part) {
   return lines;
 }
 var WHITE = 16777215;
-var CHANNELS = [16, 8, 0];
+var CHANNELS2 = [16, 8, 0];
 var CHANNEL_MAX = 255;
 function ringTint(x, y) {
   const name = sectorName(x, y);
@@ -1404,7 +1635,7 @@ function ringTint(x, y) {
 function fadeColor(a, b, t) {
   const share = Math.min(1, Math.max(0, t));
   let out = 0;
-  for (const shift of CHANNELS) {
+  for (const shift of CHANNELS2) {
     const from = a >> shift & CHANNEL_MAX;
     const to = b >> shift & CHANNEL_MAX;
     const step = (to - from) * share;
@@ -4341,13 +4572,92 @@ var PickupsView = class {
   }
 };
 
+// src/scenes/resample.ts
+import Phaser9 from "./vendor/phaser.js";
+var RESAMPLE_NODE = "FilterResample";
+var FRAGMENT = [
+  "#pragma phaserTemplate(shaderName)",
+  "precision mediump float;",
+  "uniform sampler2D uMainSampler;",
+  "uniform vec2 inputSize;",
+  "varying vec2 outTexCoord;",
+  "#pragma phaserTemplate(fragmentHeader)",
+  "void main ()",
+  "{",
+  "    vec2 p = outTexCoord * inputSize - 0.5;",
+  "    vec2 f = fract(p);",
+  "    vec2 i = floor(p);",
+  "    vec4 a = texture2D(uMainSampler, (i + vec2(0.5, 0.5)) / inputSize);",
+  "    vec4 b = texture2D(uMainSampler, (i + vec2(1.5, 0.5)) / inputSize);",
+  "    vec4 c = texture2D(uMainSampler, (i + vec2(0.5, 1.5)) / inputSize);",
+  "    vec4 d = texture2D(uMainSampler, (i + vec2(1.5, 1.5)) / inputSize);",
+  "    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);",
+  "}"
+].join("\n");
+var Resample = class extends Phaser9.Filters.Controller {
+  scale;
+  constructor(camera, scale) {
+    super(camera, RESAMPLE_NODE);
+    this.scale = scale;
+  }
+};
+var ResampleNode = class extends Phaser9.Renderer.WebGL.RenderNodes.BaseFilterShader {
+  inputSize = [1, 1];
+  constructor(manager) {
+    super(RESAMPLE_NODE, manager, void 0, FRAGMENT);
+  }
+  run(controller, inputDrawingContext, outputDrawingContext) {
+    const scale = controller instanceof Resample ? controller.scale : 1;
+    this.inputSize = [inputDrawingContext.width, inputDrawingContext.height];
+    const output = outputDrawingContext ?? this.manager.renderer.drawingContextPool.get(
+      Math.max(1, Math.round(inputDrawingContext.width * scale)),
+      Math.max(1, Math.round(inputDrawingContext.height * scale))
+    );
+    return super.run(controller, inputDrawingContext, output, new Phaser9.Geom.Rectangle());
+  }
+  setupUniforms() {
+    this.programManager.setUniform("inputSize", this.inputSize);
+  }
+};
+function registerResample(renderer) {
+  if (renderer.renderNodes.getNode(RESAMPLE_NODE) === null) {
+    renderer.renderNodes.addNodeConstructor(RESAMPLE_NODE, ResampleNode);
+  }
+}
+
+// src/vignette.ts
+function vignetteDarkness(u, v, vignette) {
+  const d = Math.hypot(u - vignette.x, v - vignette.y);
+  if (d > vignette.radius) {
+    return 1;
+  }
+  return Math.sin(d / vignette.radius * 3.14 * vignette.strength);
+}
+function vignetteImage(size, vignette) {
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      data[(y * size + x) * 4 + 3] = Math.round(vignetteDarkness((x + 0.5) / size, (y + 0.5) / size, vignette) * 255);
+    }
+  }
+  return data;
+}
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var BLOOM_BLUR = 3;
+var BLOOM_THRESHOLD = 0.55;
+var BLOOM_BLUR_STEPS = 4;
+var BLOOM_AMOUNT = 0.6;
+var VIGNETTE = { x: 0.5, y: 0.5, radius: 0.9, strength: 0.35 };
+var VIGNETTE_KEY = "vignette";
+var VIGNETTE_SIZE = 256;
 var EFFECT_ZOOM = 2;
+var BAKED_GLOW_SCALE = 0.5;
+var BLOOM_SCALE = 0.5;
 var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var SHARD_TINT = 16765562;
@@ -4384,7 +4694,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser9.Scene {
+var SandboxScene = class extends Phaser10.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -4405,13 +4715,13 @@ var SandboxScene = class extends Phaser9.Scene {
   closedLayer;
   closedDrawn = -1;
   projectileSprites = [];
-  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
   enemyFire;
-  enemyFireGlow;
   muzzleFlash;
   puff;
   bloom;
   bloomBlur;
+  /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   vignette;
   hudCamera;
   hud;
@@ -4433,6 +4743,10 @@ var SandboxScene = class extends Phaser9.Scene {
   shotsFired = 0;
   hudUpdatedAt = 0;
   debug;
+  frameTimes = new FrameTimes();
+  mapsDrawnAt = -Infinity;
+  displaySettings;
+  gpuTimer;
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
   audio;
@@ -4444,6 +4758,7 @@ var SandboxScene = class extends Phaser9.Scene {
   create() {
     this.sim.controlMode = loadControlMode();
     this.audioSettings = loadAudioSettings();
+    this.displaySettings = loadDisplaySettings();
     this.audio = new ShipAudio(this, this.audioSettings);
     this.world = this.add.layer();
     this.createBackgrounds();
@@ -4457,10 +4772,11 @@ var SandboxScene = class extends Phaser9.Scene {
     this.createProjectiles();
     this.createParticles();
     this.createCameras();
+    this.timeGpu();
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser9.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser10.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -4483,6 +4799,10 @@ var SandboxScene = class extends Phaser9.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      frameMs: { average: 0, worst: 0 },
+      fpsCap: false,
+      cssPixels: false,
+      gpuMs: void 0,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
       net: { status: "offline", playerId: void 0, others: [] },
@@ -4524,6 +4844,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.publish();
   }
   update(time, deltaMs) {
+    this.frameTimes.add(deltaMs, time);
     const events = this.sim.advance(deltaMs / 1e3, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     const net = this.net?.update(events);
@@ -4662,7 +4983,7 @@ var SandboxScene = class extends Phaser9.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -4672,7 +4993,7 @@ var SandboxScene = class extends Phaser9.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -4697,16 +5018,6 @@ var SandboxScene = class extends Phaser9.Scene {
     });
     this.enemyFire = this.add.layer();
     this.world.add(this.enemyFire);
-    this.enemyFire.enableFilters();
-    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
-      ENEMY_FIRE_GLOW_COLOR,
-      ENEMY_FIRE_GLOW_STRENGTH,
-      0,
-      1,
-      false,
-      ENEMY_FIRE_GLOW_QUALITY,
-      ENEMY_FIRE_GLOW_DISTANCE
-    );
   }
   createParticles() {
     this.muzzleFlash = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -4715,7 +5026,7 @@ var SandboxScene = class extends Phaser9.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser9.BlendModes.ADD,
+      blendMode: Phaser10.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -4724,20 +5035,51 @@ var SandboxScene = class extends Phaser9.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser9.BlendModes.ADD,
+      blendMode: Phaser10.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
+  }
+  /**
+   * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
+   * blur at half the screen's size between two smooth resamples (#143).
+   */
+  createBloom(main) {
+    if (!(this.renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    registerResample(this.renderer);
+    const bloom = main.filters.external.addParallelFilters();
+    bloom.top.add(new Resample(main, BLOOM_SCALE));
+    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
+    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    bloom.blend.blendMode = Phaser10.BlendModes.ADD;
+    bloom.blend.amount = BLOOM_AMOUNT;
+    this.bloom = bloom;
+  }
+  /**
+   * The vignette the camera's filter used to draw, as one stretched image of
+   * black at its darkness: the same look without a pass over every pixel.
+   */
+  createVignette() {
+    if (!this.textures.exists(VIGNETTE_KEY)) {
+      const canvas = document.createElement("canvas");
+      canvas.width = VIGNETTE_SIZE;
+      canvas.height = VIGNETTE_SIZE;
+      canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser10.Textures.FilterMode.LINEAR);
+    }
+    return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
   }
   createCameras() {
     const main = this.cameras.main;
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser9.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
-    this.bloom = bloom?.parallelFilters;
-    this.bloomBlur = bloom?.blur;
-    this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
+    this.createBloom(main);
+    this.vignette = this.createVignette();
+    main.ignore(this.vignette);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
     this.partsLine = Array.from({ length: 4 }, () => {
@@ -4775,7 +5117,7 @@ var SandboxScene = class extends Phaser9.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser9.Input.Keyboard.KeyCodes;
+    const codes = Phaser10.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -4810,7 +5152,7 @@ var SandboxScene = class extends Phaser9.Scene {
     const onBlur = () => {
       this.closeOrderRing();
     };
-    this.input.on(Phaser9.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser10.Input.Events.POINTER_DOWN, (pointer) => {
       const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
         this.net?.pickMission(sector);
@@ -4819,7 +5161,7 @@ var SandboxScene = class extends Phaser9.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -4866,9 +5208,13 @@ var SandboxScene = class extends Phaser9.Scene {
   }
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
   drawMaps() {
-    const net = this.net;
-    const state = net?.status === "online" ? net.mapState(this.sim.ship) : void 0;
-    this.maps.draw(state, net?.mapName ?? "", performance.now());
+    const now2 = performance.now();
+    if (this.maps.open || now2 - this.mapsDrawnAt >= MINIMAP_REDRAW_MS) {
+      this.mapsDrawnAt = now2;
+      const net = this.net;
+      const state = net?.status === "online" ? net.mapState(this.sim.ship) : void 0;
+      this.maps.draw(state, net?.mapName ?? "", now2);
+    }
     const alpha = this.maps.open ? 0 : 1;
     for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
@@ -4978,17 +5324,24 @@ var SandboxScene = class extends Phaser9.Scene {
         this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
         this.updateHud();
         break;
+      case "KeyV":
+        this.displaySettings = { ...this.displaySettings, fpsCap: !this.displaySettings.fpsCap };
+        saveDisplaySettings(this.displaySettings);
+        this.game.loop.setFPSLimit(this.displaySettings.fpsCap ? FPS_CAP : 0);
+        this.updateHud();
+        break;
+      case "KeyP":
+        this.displaySettings = { ...this.displaySettings, cssPixels: !this.displaySettings.cssPixels };
+        saveDisplaySettings(this.displaySettings);
+        window.dispatchEvent(new Event("resize"));
+        this.updateHud();
+        break;
       case "KeyF":
         this.effects = !this.effects;
         if (this.bloom !== void 0) {
           this.bloom.active = this.effects;
         }
-        if (this.vignette !== void 0) {
-          this.vignette.active = this.effects;
-        }
-        if (this.enemyFireGlow !== void 0) {
-          this.enemyFireGlow.active = this.effects;
-        }
+        this.vignette.setVisible(this.effects);
         this.updateHud();
         break;
       default:
@@ -5082,11 +5435,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser9.Math.Vector2(cx, cy)];
+    const points = [new Phaser10.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser9.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser10.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -5148,8 +5501,9 @@ ${modeName(info)}`,
     net.say(item.label);
     this.updateHud();
   }
+  /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   dpr() {
-    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
   }
   /** Fits a loadout, each part at the tier this player owns it at. */
   fit(loadout) {
@@ -5170,13 +5524,11 @@ ${modeName(info)}`,
     this.cameras.main.setZoom(zoom);
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== void 0) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale;
-    }
-    if (this.enemyFireGlow !== void 0) {
-      this.enemyFireGlow.scale = effectScale;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
+    this.vignette.setDisplaySize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
     this.layoutHud();
@@ -5293,9 +5645,13 @@ ${modeName(info)}`,
       }
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       if (p.kind === "shard") {
-        sprite.play(keys.projectile("autoCannon"), true).setTint(SHARD_TINT);
+        sprite.play(keys.projectile("autoCannon"), true).setTint(SHARD_TINT).setScale(1);
+      } else if (isWeapon(p.kind)) {
+        sprite.play(keys.projectile(p.kind), true).clearTint().setScale(1);
+      } else if (this.effects) {
+        sprite.play(keys.enemyBulletGlow(p.kind), true).clearTint().setScale(BAKED_GLOW_SCALE);
       } else {
-        sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true).clearTint();
+        sprite.play(keys.enemyBullet(p.kind), true).clearTint().setScale(1);
       }
       const layer = p.faction === "enemy" ? this.enemyFire : this.world;
       if (sprite.displayList !== layer) {
@@ -5358,13 +5714,36 @@ ${modeName(info)}`,
       }
     }
   }
+  /** Times the GPU's work for each frame, where the browser can (#143). */
+  timeGpu() {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    const timer = new GpuTimer(renderer.gl);
+    if (!timer.available) {
+      return;
+    }
+    this.gpuTimer = timer;
+    renderer.on(Phaser10.Renderer.Events.PRE_RENDER, () => {
+      timer.begin();
+    });
+    renderer.on(Phaser10.Renderer.Events.POST_RENDER, () => {
+      timer.end();
+    });
+  }
+  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
+  fpsLine() {
+    const gpu = this.gpuTimer?.last;
+    return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === void 0 ? "" : `, gpu ${gpu.toFixed(1)} ms`})`;
+  }
   updateHud() {
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  ${Math.round(this.game.loop.actualFps)} fps`,
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
       "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
-      "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects",
+      "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects \xB7 V 60 fps cap \xB7 P resolution",
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? "",
@@ -5453,7 +5832,9 @@ ${modeName(info)}`,
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
-    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
+    this.debug.fpsCap = this.game.loop.hasFpsLimit;
+    this.debug.cssPixels = this.displaySettings.cssPixels;
+    this.debug.enemyFireGlow = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
@@ -5461,6 +5842,8 @@ ${modeName(info)}`,
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
+    this.debug.frameMs = { average: this.frameTimes.average, worst: this.frameTimes.worst };
+    this.debug.gpuMs = this.gpuTimer?.last;
     this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
     this.debug.audio.muted = this.audioSettings.muted;
     this.debug.audio.music = this.audioSettings.music;
@@ -5519,9 +5902,10 @@ async function start() {
     }
   }
   await loadSim("/static/wasm/sim.wasm");
-  const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser10.Game({
-    type: Phaser10.AUTO,
+  const display = loadDisplaySettings();
+  const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
+  const game = new Phaser11.Game({
+    type: Phaser11.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -5530,12 +5914,14 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser10.Scale.NONE,
+      mode: Phaser11.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom
     },
     scene: [BootScene, SandboxScene],
+    // V caps it at 60 (#143); 0 follows the display.
+    fps: { limit: display.fpsCap ? FPS_CAP : 0 },
     callbacks: {
       // The registry carries the token even where the browser refuses storage.
       preBoot: (game2) => {
@@ -5547,7 +5933,7 @@ async function start() {
 }
 function fitToWindow(game) {
   const fit = () => {
-    const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
+    const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, loadDisplaySettings().cssPixels));
     game.scale.setZoom(size.zoom);
     game.scale.resize(size.width, size.height);
   };

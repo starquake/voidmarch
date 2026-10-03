@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { BackgroundTicker, workerTimer } from '../background.ts';
 import { publishDebugState, type DebugState } from '../debug.ts';
+import { FrameTimes, GpuTimer } from '../frametimes.ts';
 import { wireFormatFrom } from '../net/codec.ts';
 import { fromCompanionMode } from '../net/mapping.ts';
 import {
@@ -12,14 +13,18 @@ import {
   pickItem,
   type OrderItem,
 } from '../ordermenu.ts';
+import { renderRatio } from '../display.ts';
 import {
   clearToken,
   loadAudioSettings,
   loadControlMode,
+  loadDisplaySettings,
   loadToken,
   saveAudioSettings,
   saveControlMode,
+  saveDisplaySettings,
   type AudioSettings,
+  type DisplaySettings,
 } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
 import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
@@ -29,10 +34,6 @@ import { LoadoutScreen } from '../loadout.ts';
 import { MapView } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
-  ENEMY_FIRE_GLOW_COLOR,
-  ENEMY_FIRE_GLOW_DISTANCE,
-  ENEMY_FIRE_GLOW_QUALITY,
-  ENEMY_FIRE_GLOW_STRENGTH,
   BRAIN_SPACING,
   HOME_SPAWN_Y,
   RESPAWN_DELAY,
@@ -59,6 +60,8 @@ import {
   CLOSED_EDGE_WIDTH,
   CLOSED_SHADE_ALPHA,
   RING_TINT_FADE_MS,
+  MINIMAP_REDRAW_MS,
+  FPS_CAP,
 } from '../sim/tuning.ts';
 import {
   ALL_OPEN,
@@ -81,6 +84,8 @@ import { ShipAudio } from './audio.ts';
 import { BossBarView } from './bossbar.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
 import { PickupsView } from './pickups.ts';
+import { Resample, registerResample } from './resample.ts';
+import { vignetteImage } from '../vignette.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 
 /** How far each background layer moves relative to the camera. */
@@ -90,12 +95,25 @@ const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
 /** Bloom's blur reach, in screen pixels at EFFECT_ZOOM. */
 const BLOOM_BLUR = 3;
+/** What counts as bright enough to bloom, how many blur rounds, and how much of the bloom adds to the scene. */
+const BLOOM_THRESHOLD = 0.55;
+const BLOOM_BLUR_STEPS = 4;
+const BLOOM_AMOUNT = 0.6;
+/** The vignette: centered, reaching 0.9 of the screen, at strength 0.35, as the filter it replaces (#143). */
+const VIGNETTE = { x: 0.5, y: 0.5, radius: 0.9, strength: 0.35 };
+const VIGNETTE_KEY = 'vignette';
+/** The vignette image's size; stretched with smoothing, its gradient needs no more. */
+const VIGNETTE_SIZE = 256;
 /**
  * Filters work in screen pixels, so their reach is scaled by zoom / EFFECT_ZOOM
  * to look the same on every screen size and display scaling. 2 is the zoom of
  * a 1280x720 window, where the effects were tuned.
  */
 const EFFECT_ZOOM = 2;
+/** The scale the baked glowing enemy bullets are drawn at, having been baked at twice the art's size. */
+const BAKED_GLOW_SCALE = 0.5;
+/** Bloom's threshold and blur run at this share of the screen's size, then scale back up (#143). */
+const BLOOM_SCALE = 0.5;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
 const HIT_SPARKS = 5;
@@ -190,14 +208,14 @@ export class SandboxScene extends Phaser.Scene {
   private closedLayer!: Phaser.GameObjects.Graphics;
   private closedDrawn = -1;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
-  /** Enemy bullets fly on their own layer, which glows as a whole: one filter, not one per bullet. */
+  /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
   private enemyFire!: Phaser.GameObjects.Layer;
-  private enemyFireGlow: Phaser.Filters.Glow | undefined;
   private muzzleFlash!: Phaser.GameObjects.Particles.ParticleEmitter;
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
   private bloomBlur: Phaser.Filters.Blur | undefined;
-  private vignette: Phaser.Filters.Vignette | undefined;
+  /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
+  private vignette!: Phaser.GameObjects.Image;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
   private bossBar!: BossBarView;
@@ -218,6 +236,10 @@ export class SandboxScene extends Phaser.Scene {
   private shotsFired = 0;
   private hudUpdatedAt = 0;
   private debug!: DebugState;
+  private readonly frameTimes = new FrameTimes();
+  private mapsDrawnAt = -Infinity;
+  private displaySettings!: DisplaySettings;
+  private gpuTimer: GpuTimer | undefined;
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
   private audioSettings!: AudioSettings;
   private audio!: ShipAudio;
@@ -231,6 +253,7 @@ export class SandboxScene extends Phaser.Scene {
   create(): void {
     this.sim.controlMode = loadControlMode();
     this.audioSettings = loadAudioSettings();
+    this.displaySettings = loadDisplaySettings();
     this.audio = new ShipAudio(this, this.audioSettings);
     this.world = this.add.layer();
     this.createBackgrounds();
@@ -244,6 +267,7 @@ export class SandboxScene extends Phaser.Scene {
     this.createProjectiles();
     this.createParticles();
     this.createCameras();
+    this.timeGpu();
     this.createInput();
     this.applyLoadout();
     this.resize();
@@ -271,6 +295,10 @@ export class SandboxScene extends Phaser.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      frameMs: { average: 0, worst: 0 },
+      fpsCap: false,
+      cssPixels: false,
+      gpuMs: undefined,
       weaponFrame: 0,
       audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
       net: { status: 'offline', playerId: undefined, others: [] },
@@ -313,6 +341,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   override update(time: number, deltaMs: number): void {
+    this.frameTimes.add(deltaMs, time);
     const events = this.sim.advance(deltaMs / 1000, this.readInput(), this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     const net = this.net?.update(events);
@@ -507,16 +536,6 @@ export class SandboxScene extends Phaser.Scene {
     });
     this.enemyFire = this.add.layer();
     this.world.add(this.enemyFire);
-    this.enemyFire.enableFilters();
-    this.enemyFireGlow = this.enemyFire.filters?.internal.addGlow(
-      ENEMY_FIRE_GLOW_COLOR,
-      ENEMY_FIRE_GLOW_STRENGTH,
-      0,
-      1,
-      false,
-      ENEMY_FIRE_GLOW_QUALITY,
-      ENEMY_FIRE_GLOW_DISTANCE,
-    );
   }
 
   private createParticles(): void {
@@ -541,15 +560,49 @@ export class SandboxScene extends Phaser.Scene {
     this.world.add([this.muzzleFlash, this.puff]);
   }
 
+  /**
+   * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
+   * blur at half the screen's size between two smooth resamples (#143).
+   */
+  private createBloom(main: Phaser.Cameras.Scene2D.Camera): void {
+    if (!(this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    registerResample(this.renderer);
+    const bloom = main.filters.external.addParallelFilters();
+    bloom.top.add(new Resample(main, BLOOM_SCALE));
+    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 0xffffff, BLOOM_BLUR_STEPS);
+    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    bloom.blend.blendMode = Phaser.BlendModes.ADD;
+    bloom.blend.amount = BLOOM_AMOUNT;
+    this.bloom = bloom;
+  }
+
+  /**
+   * The vignette the camera's filter used to draw, as one stretched image of
+   * black at its darkness: the same look without a pass over every pixel.
+   */
+  private createVignette(): Phaser.GameObjects.Image {
+    if (!this.textures.exists(VIGNETTE_KEY)) {
+      const canvas = document.createElement('canvas');
+      canvas.width = VIGNETTE_SIZE;
+      canvas.height = VIGNETTE_SIZE;
+      canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+
+    return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
+  }
+
   private createCameras(): void {
     const main = this.cameras.main;
     main.setBackgroundColor('#05030a');
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
-    this.bloom = bloom?.parallelFilters;
-    this.bloomBlur = bloom?.blur;
-    this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
+    this.createBloom(main);
+    this.vignette = this.createVignette();
+    main.ignore(this.vignette);
 
     this.hud = this.add
       .text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' })
@@ -709,9 +762,14 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
   private drawMaps(): void {
-    const net = this.net;
-    const state = net?.status === 'online' ? net.mapState(this.sim.ship) : undefined;
-    this.maps.draw(state, net?.mapName ?? '', performance.now());
+    const now = performance.now();
+    // The full map answers the mouse, so it draws every frame; the minimap alone needs far less.
+    if (this.maps.open || now - this.mapsDrawnAt >= MINIMAP_REDRAW_MS) {
+      this.mapsDrawnAt = now;
+      const net = this.net;
+      const state = net?.status === 'online' ? net.mapState(this.sim.ship) : undefined;
+      this.maps.draw(state, net?.mapName ?? '', now);
+    }
     const alpha = this.maps.open ? 0 : 1;
     for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
@@ -828,17 +886,25 @@ export class SandboxScene extends Phaser.Scene {
         this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
         this.updateHud();
         break;
+      case 'KeyV':
+        this.displaySettings = { ...this.displaySettings, fpsCap: !this.displaySettings.fpsCap };
+        saveDisplaySettings(this.displaySettings);
+        this.game.loop.setFPSLimit(this.displaySettings.fpsCap ? FPS_CAP : 0);
+        this.updateHud();
+        break;
+      case 'KeyP':
+        this.displaySettings = { ...this.displaySettings, cssPixels: !this.displaySettings.cssPixels };
+        saveDisplaySettings(this.displaySettings);
+        // The window fit in main.ts reads the setting and resizes the canvas.
+        window.dispatchEvent(new Event('resize'));
+        this.updateHud();
+        break;
       case 'KeyF':
         this.effects = !this.effects;
         if (this.bloom !== undefined) {
           this.bloom.active = this.effects;
         }
-        if (this.vignette !== undefined) {
-          this.vignette.active = this.effects;
-        }
-        if (this.enemyFireGlow !== undefined) {
-          this.enemyFireGlow.active = this.effects;
-        }
+        this.vignette.setVisible(this.effects);
         this.updateHud();
         break;
       default:
@@ -1022,8 +1088,9 @@ export class SandboxScene extends Phaser.Scene {
     this.updateHud();
   }
 
+  /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   private dpr(): number {
-    return window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
+    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
   }
 
   /** Fits a loadout, each part at the tier this player owns it at. */
@@ -1049,13 +1116,11 @@ export class SandboxScene extends Phaser.Scene {
     this.cameras.main.setZoom(zoom);
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== undefined) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale;
-    }
-    if (this.enemyFireGlow !== undefined) {
-      this.enemyFireGlow.scale = effectScale;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
+    this.vignette.setDisplaySize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
     this.layoutHud();
@@ -1194,9 +1259,14 @@ export class SandboxScene extends Phaser.Scene {
       sprite.setPosition(p.x, p.y).setRotation(p.angle + SPRITE_FACING);
       if (p.kind === 'shard') {
         // A burst's shard: the auto cannon's shot, recolored gold (#72).
-        sprite.play(keys.projectile('autoCannon'), true).setTint(SHARD_TINT);
+        sprite.play(keys.projectile('autoCannon'), true).setTint(SHARD_TINT).setScale(1);
+      } else if (isWeapon(p.kind)) {
+        sprite.play(keys.projectile(p.kind), true).clearTint().setScale(1);
+      } else if (this.effects) {
+        // Its glow baked in at twice the art's size (#143).
+        sprite.play(keys.enemyBulletGlow(p.kind), true).clearTint().setScale(BAKED_GLOW_SCALE);
       } else {
-        sprite.play(isWeapon(p.kind) ? keys.projectile(p.kind) : keys.enemyBullet(p.kind), true).clearTint();
+        sprite.play(keys.enemyBullet(p.kind), true).clearTint().setScale(1);
       }
       // Pooled sprites carry every faction in turn: move each to its layer.
       const layer = p.faction === 'enemy' ? this.enemyFire : this.world;
@@ -1265,13 +1335,39 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Times the GPU's work for each frame, where the browser can (#143). */
+  private timeGpu(): void {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    const timer = new GpuTimer(renderer.gl);
+    if (!timer.available) {
+      return;
+    }
+    this.gpuTimer = timer;
+    renderer.on(Phaser.Renderer.Events.PRE_RENDER, () => {
+      timer.begin();
+    });
+    renderer.on(Phaser.Renderer.Events.POST_RENDER, () => {
+      timer.end();
+    });
+  }
+
+  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
+  private fpsLine(): string {
+    const gpu = this.gpuTimer?.last;
+
+    return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === undefined ? '' : `, gpu ${gpu.toFixed(1)} ms`})`;
+  }
+
   private updateHud(): void {
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  ${Math.round(this.game.loop.actualFps)} fps`,
+      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : 'off'}  resolution ${this.displaySettings.cssPixels ? 'low' : 'full'}  ${this.fpsLine()}`,
       'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
-      'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects',
+      'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects · V 60 fps cap · P resolution',
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),
       this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? '',
@@ -1366,7 +1462,9 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.rotationSnap = ship.rotationSnap;
     this.debug.controlMode = this.sim.controlMode;
     this.debug.effects = this.effects;
-    this.debug.enemyFireGlow = this.enemyFireGlow?.active ?? false;
+    this.debug.fpsCap = this.game.loop.hasFpsLimit;
+    this.debug.cssPixels = this.displaySettings.cssPixels;
+    this.debug.enemyFireGlow = this.effects;
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
@@ -1374,6 +1472,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.shotsFired = this.shotsFired;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
+    this.debug.frameMs = { average: this.frameTimes.average, worst: this.frameTimes.worst };
+    this.debug.gpuMs = this.gpuTimer?.last;
     this.debug.weaponFrame = Number(this.ship.weapon.frame.name);
     this.debug.audio.muted = this.audioSettings.muted;
     this.debug.audio.music = this.audioSettings.music;
