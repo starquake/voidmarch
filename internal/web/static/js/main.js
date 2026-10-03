@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser10 from "./vendor/phaser.js";
+import Phaser11 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -786,7 +786,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser9 from "./vendor/phaser.js";
+import Phaser10 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -4544,14 +4544,71 @@ var PickupsView = class {
   }
 };
 
+// src/scenes/resample.ts
+import Phaser9 from "./vendor/phaser.js";
+var RESAMPLE_NODE = "FilterResample";
+var FRAGMENT = [
+  "#pragma phaserTemplate(shaderName)",
+  "precision mediump float;",
+  "uniform sampler2D uMainSampler;",
+  "uniform vec2 inputSize;",
+  "varying vec2 outTexCoord;",
+  "#pragma phaserTemplate(fragmentHeader)",
+  "void main ()",
+  "{",
+  "    vec2 p = outTexCoord * inputSize - 0.5;",
+  "    vec2 f = fract(p);",
+  "    vec2 i = floor(p);",
+  "    vec4 a = texture2D(uMainSampler, (i + vec2(0.5, 0.5)) / inputSize);",
+  "    vec4 b = texture2D(uMainSampler, (i + vec2(1.5, 0.5)) / inputSize);",
+  "    vec4 c = texture2D(uMainSampler, (i + vec2(0.5, 1.5)) / inputSize);",
+  "    vec4 d = texture2D(uMainSampler, (i + vec2(1.5, 1.5)) / inputSize);",
+  "    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);",
+  "}"
+].join("\n");
+var Resample = class extends Phaser9.Filters.Controller {
+  scale;
+  constructor(camera, scale) {
+    super(camera, RESAMPLE_NODE);
+    this.scale = scale;
+  }
+};
+var ResampleNode = class extends Phaser9.Renderer.WebGL.RenderNodes.BaseFilterShader {
+  inputSize = [1, 1];
+  constructor(manager) {
+    super(RESAMPLE_NODE, manager, void 0, FRAGMENT);
+  }
+  run(controller, inputDrawingContext, outputDrawingContext) {
+    const scale = controller instanceof Resample ? controller.scale : 1;
+    this.inputSize = [inputDrawingContext.width, inputDrawingContext.height];
+    const output = outputDrawingContext ?? this.manager.renderer.drawingContextPool.get(
+      Math.max(1, Math.round(inputDrawingContext.width * scale)),
+      Math.max(1, Math.round(inputDrawingContext.height * scale))
+    );
+    return super.run(controller, inputDrawingContext, output, new Phaser9.Geom.Rectangle());
+  }
+  setupUniforms() {
+    this.programManager.setUniform("inputSize", this.inputSize);
+  }
+};
+function registerResample(renderer) {
+  if (renderer.renderNodes.getNode(RESAMPLE_NODE) === null) {
+    renderer.renderNodes.addNodeConstructor(RESAMPLE_NODE, ResampleNode);
+  }
+}
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
 var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var BLOOM_BLUR = 3;
+var BLOOM_THRESHOLD = 0.55;
+var BLOOM_BLUR_STEPS = 4;
+var BLOOM_AMOUNT = 0.6;
 var EFFECT_ZOOM = 2;
 var BAKED_GLOW_SCALE = 0.5;
+var BLOOM_SCALE = 0.5;
 var HUD_REFRESH_MS = 250;
 var HIT_SPARKS = 5;
 var SHARD_TINT = 16765562;
@@ -4588,7 +4645,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser9.Scene {
+var SandboxScene = class extends Phaser10.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -4666,7 +4723,7 @@ var SandboxScene = class extends Phaser9.Scene {
     this.createInput();
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser9.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser10.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -4871,7 +4928,7 @@ var SandboxScene = class extends Phaser9.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -4881,7 +4938,7 @@ var SandboxScene = class extends Phaser9.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -4914,7 +4971,7 @@ var SandboxScene = class extends Phaser9.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser9.BlendModes.ADD,
+      blendMode: Phaser10.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -4923,19 +4980,35 @@ var SandboxScene = class extends Phaser9.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser9.BlendModes.ADD,
+      blendMode: Phaser10.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
+  }
+  /**
+   * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
+   * blur at half the screen's size between two smooth resamples (#143).
+   */
+  createBloom(main) {
+    if (!(this.renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    registerResample(this.renderer);
+    const bloom = main.filters.external.addParallelFilters();
+    bloom.top.add(new Resample(main, BLOOM_SCALE));
+    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
+    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    bloom.blend.blendMode = Phaser10.BlendModes.ADD;
+    bloom.blend.amount = BLOOM_AMOUNT;
+    this.bloom = bloom;
   }
   createCameras() {
     const main = this.cameras.main;
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser9.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
-    this.bloom = bloom?.parallelFilters;
-    this.bloomBlur = bloom?.blur;
+    this.createBloom(main);
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
@@ -4974,7 +5047,7 @@ var SandboxScene = class extends Phaser9.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser9.Input.Keyboard.KeyCodes;
+    const codes = Phaser10.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -5009,7 +5082,7 @@ var SandboxScene = class extends Phaser9.Scene {
     const onBlur = () => {
       this.closeOrderRing();
     };
-    this.input.on(Phaser9.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser10.Input.Events.POINTER_DOWN, (pointer) => {
       const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
         this.net?.pickMission(sector);
@@ -5018,7 +5091,7 @@ var SandboxScene = class extends Phaser9.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser9.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -5278,11 +5351,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser9.Math.Vector2(cx, cy)];
+    const points = [new Phaser10.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser9.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser10.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -5366,8 +5439,8 @@ ${modeName(info)}`,
     this.cameras.main.setZoom(zoom);
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== void 0) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
@@ -5558,7 +5631,7 @@ ${modeName(info)}`,
   /** Times the GPU's work for each frame, where the browser can (#143). */
   timeGpu() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser9.Renderer.WebGL.WebGLRenderer)) {
+    if (!(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     const timer = new GpuTimer(renderer.gl);
@@ -5566,10 +5639,10 @@ ${modeName(info)}`,
       return;
     }
     this.gpuTimer = timer;
-    renderer.on(Phaser9.Renderer.Events.PRE_RENDER, () => {
+    renderer.on(Phaser10.Renderer.Events.PRE_RENDER, () => {
       timer.begin();
     });
-    renderer.on(Phaser9.Renderer.Events.POST_RENDER, () => {
+    renderer.on(Phaser10.Renderer.Events.POST_RENDER, () => {
       timer.end();
     });
   }
@@ -5742,8 +5815,8 @@ async function start() {
   }
   await loadSim("/static/wasm/sim.wasm");
   const size = deviceSize(window.innerWidth, window.innerHeight, window.devicePixelRatio);
-  const game = new Phaser10.Game({
-    type: Phaser10.AUTO,
+  const game = new Phaser11.Game({
+    type: Phaser11.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -5752,7 +5825,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser10.Scale.NONE,
+      mode: Phaser11.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

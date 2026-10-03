@@ -78,6 +78,7 @@ import { ShipAudio } from './audio.ts';
 import { BossBarView } from './bossbar.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
 import { PickupsView } from './pickups.ts';
+import { Resample, registerResample } from './resample.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 
 /** How far each background layer moves relative to the camera. */
@@ -87,6 +88,10 @@ const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
 /** Bloom's blur reach, in screen pixels at EFFECT_ZOOM. */
 const BLOOM_BLUR = 3;
+/** What counts as bright enough to bloom, how many blur rounds, and how much of the bloom adds to the scene. */
+const BLOOM_THRESHOLD = 0.55;
+const BLOOM_BLUR_STEPS = 4;
+const BLOOM_AMOUNT = 0.6;
 /**
  * Filters work in screen pixels, so their reach is scaled by zoom / EFFECT_ZOOM
  * to look the same on every screen size and display scaling. 2 is the zoom of
@@ -95,6 +100,8 @@ const BLOOM_BLUR = 3;
 const EFFECT_ZOOM = 2;
 /** The scale the baked glowing enemy bullets are drawn at, having been baked at twice the art's size. */
 const BAKED_GLOW_SCALE = 0.5;
+/** Bloom's threshold and blur run at this share of the screen's size, then scale back up (#143). */
+const BLOOM_SCALE = 0.5;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
 const HIT_SPARKS = 5;
@@ -535,14 +542,31 @@ export class SandboxScene extends Phaser.Scene {
     this.world.add([this.muzzleFlash, this.puff]);
   }
 
+  /**
+   * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
+   * blur at half the screen's size between two smooth resamples (#143).
+   */
+  private createBloom(main: Phaser.Cameras.Scene2D.Camera): void {
+    if (!(this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
+      return;
+    }
+    registerResample(this.renderer);
+    const bloom = main.filters.external.addParallelFilters();
+    bloom.top.add(new Resample(main, BLOOM_SCALE));
+    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 0xffffff, BLOOM_BLUR_STEPS);
+    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    bloom.blend.blendMode = Phaser.BlendModes.ADD;
+    bloom.blend.amount = BLOOM_AMOUNT;
+    this.bloom = bloom;
+  }
+
   private createCameras(): void {
     const main = this.cameras.main;
     main.setBackgroundColor('#05030a');
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
-    const bloom = Phaser.Actions.AddEffectBloom(main, { threshold: 0.55, blurRadius: BLOOM_BLUR, blendAmount: 0.6 })[0];
-    this.bloom = bloom?.parallelFilters;
-    this.bloomBlur = bloom?.blur;
+    this.createBloom(main);
     this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
 
     this.hud = this.add
@@ -1040,8 +1064,8 @@ export class SandboxScene extends Phaser.Scene {
     this.cameras.main.setZoom(zoom);
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== undefined) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
     const dpr = this.dpr();
