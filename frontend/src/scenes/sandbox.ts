@@ -79,6 +79,7 @@ import { BossBarView } from './bossbar.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
 import { PickupsView } from './pickups.ts';
 import { Resample, registerResample } from './resample.ts';
+import { vignetteImage } from '../vignette.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 
 /** How far each background layer moves relative to the camera. */
@@ -92,6 +93,11 @@ const BLOOM_BLUR = 3;
 const BLOOM_THRESHOLD = 0.55;
 const BLOOM_BLUR_STEPS = 4;
 const BLOOM_AMOUNT = 0.6;
+/** The vignette: centered, reaching 0.9 of the screen, at strength 0.35, as the filter it replaces (#143). */
+const VIGNETTE = { x: 0.5, y: 0.5, radius: 0.9, strength: 0.35 };
+const VIGNETTE_KEY = 'vignette';
+/** The vignette image's size; stretched with smoothing, its gradient needs no more. */
+const VIGNETTE_SIZE = 256;
 /**
  * Filters work in screen pixels, so their reach is scaled by zoom / EFFECT_ZOOM
  * to look the same on every screen size and display scaling. 2 is the zoom of
@@ -202,7 +208,8 @@ export class SandboxScene extends Phaser.Scene {
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
   private bloomBlur: Phaser.Filters.Blur | undefined;
-  private vignette: Phaser.Filters.Vignette | undefined;
+  /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
+  private vignette!: Phaser.GameObjects.Image;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
   private hud!: Phaser.GameObjects.Text;
   private bossBar!: BossBarView;
@@ -561,13 +568,30 @@ export class SandboxScene extends Phaser.Scene {
     this.bloom = bloom;
   }
 
+  /**
+   * The vignette the camera's filter used to draw, as one stretched image of
+   * black at its darkness: the same look without a pass over every pixel.
+   */
+  private createVignette(): Phaser.GameObjects.Image {
+    if (!this.textures.exists(VIGNETTE_KEY)) {
+      const canvas = document.createElement('canvas');
+      canvas.width = VIGNETTE_SIZE;
+      canvas.height = VIGNETTE_SIZE;
+      canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+
+    return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
+  }
+
   private createCameras(): void {
     const main = this.cameras.main;
     main.setBackgroundColor('#05030a');
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
     this.createBloom(main);
-    this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
+    this.vignette = this.createVignette();
+    main.ignore(this.vignette);
 
     this.hud = this.add
       .text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' })
@@ -851,9 +875,7 @@ export class SandboxScene extends Phaser.Scene {
         if (this.bloom !== undefined) {
           this.bloom.active = this.effects;
         }
-        if (this.vignette !== undefined) {
-          this.vignette.active = this.effects;
-        }
+        this.vignette.setVisible(this.effects);
         this.updateHud();
         break;
       default:
@@ -1068,6 +1090,7 @@ export class SandboxScene extends Phaser.Scene {
       this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
+    this.vignette.setDisplaySize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
     this.layoutHud();

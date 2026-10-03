@@ -4597,6 +4597,24 @@ function registerResample(renderer) {
   }
 }
 
+// src/vignette.ts
+function vignetteDarkness(u, v, vignette) {
+  const d = Math.hypot(u - vignette.x, v - vignette.y);
+  if (d > vignette.radius) {
+    return 1;
+  }
+  return Math.sin(d / vignette.radius * 3.14 * vignette.strength);
+}
+function vignetteImage(size, vignette) {
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      data[(y * size + x) * 4 + 3] = Math.round(vignetteDarkness((x + 0.5) / size, (y + 0.5) / size, vignette) * 255);
+    }
+  }
+  return data;
+}
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
@@ -4606,6 +4624,9 @@ var BLOOM_BLUR = 3;
 var BLOOM_THRESHOLD = 0.55;
 var BLOOM_BLUR_STEPS = 4;
 var BLOOM_AMOUNT = 0.6;
+var VIGNETTE = { x: 0.5, y: 0.5, radius: 0.9, strength: 0.35 };
+var VIGNETTE_KEY = "vignette";
+var VIGNETTE_SIZE = 256;
 var EFFECT_ZOOM = 2;
 var BAKED_GLOW_SCALE = 0.5;
 var BLOOM_SCALE = 0.5;
@@ -4672,6 +4693,7 @@ var SandboxScene = class extends Phaser10.Scene {
   puff;
   bloom;
   bloomBlur;
+  /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   vignette;
   hudCamera;
   hud;
@@ -5003,13 +5025,28 @@ var SandboxScene = class extends Phaser10.Scene {
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
   }
+  /**
+   * The vignette the camera's filter used to draw, as one stretched image of
+   * black at its darkness: the same look without a pass over every pixel.
+   */
+  createVignette() {
+    if (!this.textures.exists(VIGNETTE_KEY)) {
+      const canvas = document.createElement("canvas");
+      canvas.width = VIGNETTE_SIZE;
+      canvas.height = VIGNETTE_SIZE;
+      canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser10.Textures.FilterMode.LINEAR);
+    }
+    return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
+  }
   createCameras() {
     const main = this.cameras.main;
     main.setBackgroundColor("#05030a");
     main.startFollow(this.ship.root, true, CAMERA_LERP, CAMERA_LERP);
     main.setRoundPixels(true);
     this.createBloom(main);
-    this.vignette = main.filters.external.addVignette(0.5, 0.5, 0.9, 0.35);
+    this.vignette = this.createVignette();
+    main.ignore(this.vignette);
     this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
     this.partsLine = Array.from({ length: 4 }, () => {
@@ -5255,9 +5292,7 @@ var SandboxScene = class extends Phaser10.Scene {
         if (this.bloom !== void 0) {
           this.bloom.active = this.effects;
         }
-        if (this.vignette !== void 0) {
-          this.vignette.active = this.effects;
-        }
+        this.vignette.setVisible(this.effects);
         this.updateHud();
         break;
       default:
@@ -5443,6 +5478,7 @@ ${modeName(info)}`,
       this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
+    this.vignette.setDisplaySize(width, height);
     const dpr = this.dpr();
     this.hud.setFontSize(HUD_FONT_PX * dpr);
     this.layoutHud();
