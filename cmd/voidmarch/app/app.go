@@ -136,6 +136,7 @@ func newHub(
 		game.WithSaveFleet(fleetSaver(ctx, logger, db)),
 		game.WithSaveUnlock(unlockSaver(ctx, logger, playerStore)),
 		game.WithSaveLoadout(loadoutSaver(ctx, logger, playerStore)),
+		game.WithSaveStats(statsSaver(ctx, logger, playerStore)),
 		game.WithClearedSectors(cleared),
 		game.WithSaveSector(sectorSaver(ctx, logger, db)),
 		game.WithForgetSector(sectorForgetter(ctx, logger, db)),
@@ -347,6 +348,23 @@ func loadoutSaver(
 		defer cancel()
 		if err := playerStore.SaveLoadout(saveCtx, player, l); err != nil {
 			logger.ErrorContext(saveCtx, "error saving loadout", slog.Any("err", err))
+		}
+	}
+}
+
+// statsSaver saves a player's season stats, like loadoutSaver (#154).
+func statsSaver(
+	ctx context.Context,
+	logger *slog.Logger,
+	playerStore *players.Store,
+) func(string, players.Stats) {
+	ctx = context.WithoutCancel(ctx)
+
+	return func(player string, st players.Stats) {
+		saveCtx, cancel := context.WithTimeout(ctx, fleetSaveTimeout)
+		defer cancel()
+		if err := playerStore.SaveStats(saveCtx, player, st); err != nil {
+			logger.ErrorContext(saveCtx, "error saving stats", slog.Any("err", err))
 		}
 	}
 }

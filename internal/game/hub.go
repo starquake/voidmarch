@@ -130,6 +130,9 @@ type member struct {
 	unlocks sim.Unlocks
 	// loadout is the loadout last saved for them (#78).
 	loadout sim.Loadout
+	// lastHitShot is the last shot counted as a hit, so a piercing shot
+	// counts once (#154).
+	lastHitShot uint32
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -189,6 +192,11 @@ type Hub struct {
 	// seasonWon is set once the finale falls (#153).
 	seasonWon     bool
 	saveSeasonWon func()
+	// stats are every player's season stats who joined since the hub
+	// started, statsChanged those not saved since they changed (#154).
+	stats         map[string]*players.Stats
+	statsChanged  map[string]bool
+	saveStats     func(player string, s players.Stats)
 	garrisonField int
 	saveSector    func(name string)
 	dropChance    float64
@@ -232,6 +240,7 @@ type hubOptions struct {
 	saveOpenRings     func(rings int)
 	seasonWon         bool
 	saveSeasonWon     func()
+	saveStats         func(player string, s players.Stats)
 	cleared           []string
 	saveSector        func(name string)
 	forgetSector      func(name string)
@@ -311,6 +320,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	h.saveDreadnought = o.saveDreadnought
 	h.saveOpenRings = o.saveOpenRings
 	h.seasonWon, h.saveSeasonWon = o.seasonWon, o.saveSeasonWon
+	h.stats, h.statsChanged = make(map[string]*players.Stats), make(map[string]bool)
+	h.saveStats = o.saveStats
 	h.forgetSector = o.forgetSector
 	h.eventTimes = defaultEventTimes()
 	if o.worldMap != nil && o.worldMap.NoEvents {
@@ -365,6 +376,7 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 	defer func() {
 		// Saved before the members go: removing them doesn't dock their ships.
 		h.queueFleetSave()
+		h.saveChangedStats()
 		for id := range h.members {
 			h.remove(id)
 		}
@@ -385,6 +397,7 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 		case <-ctx.Done():
 			return
 		case req := <-h.join:
+			h.keepStats(req.player)
 			req.reply <- h.handleJoin(req.player)
 		case s := <-h.leave:
 			if m, ok := h.members[s.Player.ID]; ok && m.session == s {
@@ -396,6 +409,9 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 			h.step()
 			h.expirePickups()
 			h.queueFleetSave()
+			if h.tick%statsSaveEvery == 0 {
+				h.saveChangedStats()
+			}
 		}
 	}
 }
@@ -537,6 +553,9 @@ func (h *Hub) handleMessage(in inbound) {
 
 	switch kind := in.msg.GetKind().(type) {
 	case *pb.ClientMessage_State:
+		if m.state != nil && !downed(m.state) && downed(kind.State) {
+			h.countStat(in.session.Player.ID, func(s *players.Stats) { s.Deaths++ })
+		}
 		m.state = kind.State
 		h.saveFittedLoadout(in.session.Player.ID, m)
 	case *pb.ClientMessage_Hit:
@@ -548,6 +567,7 @@ func (h *Hub) handleMessage(in inbound) {
 				shard:  kind.Hit.GetShard(),
 				goesOn: kind.Hit.GetGoesOn(),
 			}
+			h.countHit(id, m, shot)
 			h.hit(id, id, kind.Hit.GetEnemyId(), shot, kind.Hit.GetDamage())
 		}
 	case *pb.ClientMessage_Summon:
@@ -575,6 +595,7 @@ func (h *Hub) handleMessage(in inbound) {
 		}}}
 		h.broadcast(shot, in.session.Player.ID)
 		h.noteShot(kind.Shot)
+		h.countStat(in.session.Player.ID, func(s *players.Stats) { s.Shots++ })
 	default:
 	}
 }
@@ -655,6 +676,7 @@ func (h *Hub) drop(id, reason string) {
 		return
 	}
 	h.logger.Info("player left", slog.String("playerId", id), slog.String("reason", reason))
+	h.saveStatsOf(id)
 	h.hangar += m.held
 	m.held = 0
 	h.leaveSquadron(id, m)

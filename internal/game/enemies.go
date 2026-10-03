@@ -491,6 +491,7 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		h.garrisonLost(e)
 	}
 	h.forgetEnemy(e.id)
+	h.countKill(shooter)
 	h.broadcast(
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{
 			EnemyId:    e.id,

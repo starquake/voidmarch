@@ -283,6 +283,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 
 - **A season lasts as long as the host likes** (#10 decision 13): it ends when the finale falls, and the host starts the next, after a weekend or a single day. How long the rings and bosses take is still to be timed in a playtest (#160).
 - **The Nautolan Dreadnought's fall wins the season** (#153). The world stays open afterwards: no ring closes again, even if attacks retake sectors.
+- **Season stats** (#154): the server counts each player's own kills, shots and hits, their companions' kills, how often they went down, the derelicts they docked, and the sectors cleared with them in it (#10 decision 9). A piercing shot counts as one hit, and a burst's shards as none. The counts are saved per player (`season_stats`, migration 009) every 10 s while they change, when the player leaves, and when the server stops.
 - **A new season is started by hand**, with the server stopped. It resets the frontier, the boss health, the hangar and everyone's part unlocks, so a friend who missed a weekend isn't behind (#10 decisions 5–7).
 
 ## 9. Technical architecture
