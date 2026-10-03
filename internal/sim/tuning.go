@@ -134,7 +134,8 @@ const (
 	FrigateRespawn = 300
 )
 
-// The Kla'ed Dreadnought, the siege boss (#8, #124).
+// The Dreadnoughts, the siege bosses (#8, #124): the Kla'ed one guarding
+// ring 2 and the Nairan one ring 3 (#140).
 const (
 	// DreadnoughtBaseHP and DreadnoughtHPPerPlayer make its maximum health:
 	// the base plus the per-player amount for each player online, so 3-6
@@ -144,8 +145,9 @@ const (
 	// DreadnoughtRegenPerHour is the share of its health it gets back an
 	// hour; the share left is what's kept across sessions.
 	DreadnoughtRegenPerHour = 0.01
-	// DreadnoughtWakesAt is how many of ring 1's sectors must be cleared
-	// for it to wake (#8 decision 1).
+	// DreadnoughtWakesAt is how many sectors of the ring inside it must be
+	// cleared for a Dreadnought to wake, and to keep the ring beyond open
+	// (#8 decision 1, #140).
 	DreadnoughtWakesAt = 4
 	// DreadnoughtMuzzle is how far from its center its shots leave.
 	DreadnoughtMuzzle = 48
@@ -160,6 +162,11 @@ const (
 	// DreadnoughtWaveSpread radians.
 	DreadnoughtWaves      = 5
 	DreadnoughtWaveSpread = 0.9
+	// DreadnoughtTorpedoes is how many Torpedoes the Nairan Dreadnought's
+	// volley fans across DreadnoughtTorpedoFan radians (#140); each takes
+	// two hull steps, so a fan is narrow and few.
+	DreadnoughtTorpedoes  = 3
+	DreadnoughtTorpedoFan = 0.3
 	// DreadnoughtShield is the damage the shield takes before it drops,
 	// and DreadnoughtShieldDelay the seconds without a hit before it's back.
 	DreadnoughtShield      = 120
