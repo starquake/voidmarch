@@ -62,7 +62,8 @@ func bomberPair(bullet ProjectileKind, x, y, angle float64) []ProjectileSpawn {
 // seed says, so every client expands it the same way (#124). Each faction
 // fills the three with its own: the Kla'ed fire a ring, a Ray sweep and a
 // Wave spread; the Nairan a Torpedo volley, a Ray sweep and a Rocket spread
-// (#140).
+// (#140); the Nautolan a ring of Spinning Bullets, a Ray sweep and a Wave
+// spread (#153).
 type DreadnoughtVolley int
 
 // The Dreadnought's volleys, which it takes in turn; named for the Kla'ed's.
@@ -78,22 +79,33 @@ func DreadnoughtSeed(seed uint32, volley DreadnoughtVolley) uint32 {
 	return seed - seed%uint32(dreadnoughtVolleys) + uint32(volley) //nolint:gosec // 0 to 2.
 }
 
+// dreadnoughtShots are the beam and the spread shot of faction's
+// Dreadnought.
+func dreadnoughtShots(faction EnemyFaction) (ray, spread EnemyBulletID) {
+	switch faction {
+	case Nairan:
+		return NairanRay, NairanRocket
+	case Nautolan:
+		return NautolanRay, NautolanWave
+	case Klaed:
+		fallthrough
+	default:
+		return KlaedRay, KlaedWave
+	}
+}
+
 // dreadnoughtPattern is the Dreadnought's volley the seed names: one beam
-// of a Ray sweep along angle, a spread of Waves or Rockets, or a ring of big
-// bullets or a fan of Torpedoes.
+// of a Ray sweep along angle, a spread of Waves or Rockets, or a ring of its
+// faction's Frigate shot or, for the Nairan, a fan of Torpedoes.
 func dreadnoughtPattern(
 	x, y, angle float64,
 	seed uint32,
 	random *Random,
 	faction EnemyFaction,
 ) []ProjectileSpawn {
-	nairan := faction == Nairan
+	ray, spread := dreadnoughtShots(faction)
 	switch DreadnoughtVolley(seed % uint32(dreadnoughtVolleys)) {
 	case DreadnoughtRay:
-		ray := KlaedRay
-		if nairan {
-			ray = NairanRay
-		}
 		beam := make([]ProjectileSpawn, 0, DreadnoughtRaySegments)
 		for i := range DreadnoughtRaySegments {
 			d := DreadnoughtMuzzle + float64(i)*DreadnoughtRaySpacing
@@ -107,16 +119,11 @@ func dreadnoughtPattern(
 
 		return beam
 	case DreadnoughtWave:
-		shot := KlaedWave
-		if nairan {
-			shot = NairanRocket
-		}
-
-		return dreadnoughtFan(x, y, angle, shot, DreadnoughtWaves, DreadnoughtWaveSpread)
+		return dreadnoughtFan(x, y, angle, spread, DreadnoughtWaves, DreadnoughtWaveSpread)
 	case DreadnoughtRing, dreadnoughtVolleys:
 		fallthrough
 	default:
-		if nairan {
+		if faction == Nairan {
 			return dreadnoughtFan(
 				x,
 				y,
@@ -126,9 +133,8 @@ func dreadnoughtPattern(
 				DreadnoughtTorpedoFan,
 			)
 		}
-		ring := ringOf(
-			x, y, angle+random.Next()*Tau/FrigateRingBullets, KlaedBigBullet, FrigateRingBullets,
-		)
+		bullet, count := FrigateRing(faction)
+		ring := ringOf(x, y, angle+random.Next()*Tau/float64(count), bullet, count)
 		for i := range ring {
 			ring[i].X += (DreadnoughtMuzzle - FrigateMuzzle) * math.Cos(ring[i].Angle)
 			ring[i].Y += (DreadnoughtMuzzle - FrigateMuzzle) * math.Sin(ring[i].Angle)

@@ -11,7 +11,7 @@ export const ENEMY_KINDS = ['scout', 'fighter', 'frigate', 'dreadnought', 'bombe
 /** Enemy factions in index order, from home outward, matching the server's EnemyFaction. */
 export const ENEMY_FACTIONS = ['klaed', 'nairan', 'nautolan'] as const;
 /** Projectile kinds in index order: the weapons, then the enemy bullets. */
-export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet', 'klaedRay', 'klaedWave', 'nairanBolt', 'nairanRay', 'nautolanBullet', 'nautolanSpinningBullet', 'nairanRocket', 'nairanTorpedo', 'nautolanBomb', 'nautolanWave', 'shard'] as const;
+export const PROJECTILE_KINDS = ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper', 'klaedBullet', 'klaedBigBullet', 'klaedRay', 'klaedWave', 'nairanBolt', 'nairanRay', 'nautolanBullet', 'nautolanSpinningBullet', 'nairanRocket', 'nairanTorpedo', 'nautolanBomb', 'nautolanWave', 'nautolanRay', 'shard'] as const;
 /** Factions in index order: this player's, another player's, an enemy's. */
 export const FACTIONS = ['own', 'remote', 'enemy'] as const;
 

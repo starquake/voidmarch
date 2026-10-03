@@ -213,6 +213,37 @@ func SaveOpenRings(ctx context.Context, conn *sql.DB, rings int) error {
 	return nil
 }
 
+// Season is when the season started, and when its finale fell: the zero
+// time until it has (#153).
+type Season struct {
+	Started time.Time
+	Won     time.Time
+}
+
+// CurrentSeason returns the season.
+func CurrentSeason(ctx context.Context, conn *sql.DB) (Season, error) {
+	row, err := queries.New(conn).Season(ctx)
+	if err != nil {
+		return Season{}, fmt.Errorf("error reading the season: %w", err)
+	}
+	s := Season{Started: time.Unix(row.StartedAt, 0)}
+	if row.WonAt.Valid {
+		s.Won = time.Unix(row.WonAt.Int64, 0)
+	}
+
+	return s, nil
+}
+
+// SaveSeasonWon saves that the season was won at, unless it was already.
+func SaveSeasonWon(ctx context.Context, conn *sql.DB, at time.Time) error {
+	won := sql.NullInt64{Int64: at.Unix(), Valid: true}
+	if err := queries.New(conn).SaveSeasonWon(ctx, won); err != nil {
+		return fmt.Errorf("error saving the season won: %w", err)
+	}
+
+	return nil
+}
+
 // SavedDreadnought is the share of a faction's Dreadnought's health left,
 // from 0 to 1, and when it was saved (#132, #140).
 type SavedDreadnought struct {

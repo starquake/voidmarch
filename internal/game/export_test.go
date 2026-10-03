@@ -138,3 +138,9 @@ func WithWokenThenLost(name string) HubOption {
 		})
 	}
 }
+
+// DreadnoughtGap exposes dreadnoughtGap for tests.
+var DreadnoughtGap = dreadnoughtGap
+
+// DreadnoughtVolleyGap exposes dreadnoughtVolleyGap for tests.
+const DreadnoughtVolleyGap = dreadnoughtVolleyGap

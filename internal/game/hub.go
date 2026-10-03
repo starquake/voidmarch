@@ -186,14 +186,17 @@ type Hub struct {
 	dreadnoughtShares map[sim.EnemyFaction]float64
 	saveDreadnought   func(faction sim.EnemyFaction, share float64)
 	saveOpenRings     func(rings int)
-	garrisonField     int
-	saveSector        func(name string)
-	dropChance        float64
-	dropChanceSet     bool
-	saveUnlock        func(player string, part sim.Part, tier sim.Tier)
-	saveLoadout       func(player string, l sim.Loadout)
-	saves             chan func()
-	development       bool
+	// seasonWon is set once the finale falls (#153).
+	seasonWon     bool
+	saveSeasonWon func()
+	garrisonField int
+	saveSector    func(name string)
+	dropChance    float64
+	dropChanceSet bool
+	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
+	saveLoadout   func(player string, l sim.Loadout)
+	saves         chan func()
+	development   bool
 	// frigates are the map's Frigate spots and the tick each may next have a
 	// Frigate again (#89).
 	frigates []frigateSpot
@@ -227,6 +230,8 @@ type hubOptions struct {
 	dreadnoughtShares map[sim.EnemyFaction]float64
 	saveDreadnought   func(faction sim.EnemyFaction, share float64)
 	saveOpenRings     func(rings int)
+	seasonWon         bool
+	saveSeasonWon     func()
 	cleared           []string
 	saveSector        func(name string)
 	forgetSector      func(name string)
@@ -305,6 +310,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	maps.Copy(h.dreadnoughtShares, o.dreadnoughtShares)
 	h.saveDreadnought = o.saveDreadnought
 	h.saveOpenRings = o.saveOpenRings
+	h.seasonWon, h.saveSeasonWon = o.seasonWon, o.saveSeasonWon
 	h.forgetSector = o.forgetSector
 	h.eventTimes = defaultEventTimes()
 	if o.worldMap != nil && o.worldMap.NoEvents {

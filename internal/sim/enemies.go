@@ -70,6 +70,8 @@ const (
 	NairanTorpedo EnemyBulletID = "nairanTorpedo"
 	NautolanBomb  EnemyBulletID = "nautolanBomb"
 	NautolanWave  EnemyBulletID = "nautolanWave"
+	// NautolanRay is the Nautolan Dreadnought's beam (#153).
+	NautolanRay EnemyBulletID = "nautolanRay"
 )
 
 // EnemyKinds lists every enemy class.

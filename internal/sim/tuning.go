@@ -532,6 +532,8 @@ func EnemyBulletStatsOf(id EnemyBulletID) ProjectileStats {
 		return ProjectileStats{Speed: 130, MaxSpeed: 130, Lifetime: 3}
 	case KlaedRay:
 		return ProjectileStats{Speed: 200, MaxSpeed: 200, Lifetime: 2.5}
+	case NautolanRay:
+		return ProjectileStats{Speed: 220, MaxSpeed: 220, Lifetime: 2.3}
 	case KlaedWave:
 		return ProjectileStats{Speed: 100, MaxSpeed: 100, Lifetime: 4}
 	case KlaedBullet:

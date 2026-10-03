@@ -46,7 +46,7 @@ func (h *Hub) startSaver() <-chan struct{} {
 	done := make(chan struct{})
 	savers := []bool{
 		h.saveUnlock != nil, h.saveLoadout != nil, h.saveSector != nil, h.forgetSector != nil,
-		h.saveDreadnought != nil, h.saveOpenRings != nil,
+		h.saveDreadnought != nil, h.saveOpenRings != nil, h.saveSeasonWon != nil,
 	}
 	if !slices.Contains(savers, true) {
 		close(done)

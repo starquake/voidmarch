@@ -236,6 +236,9 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 
 **The Nairan Dreadnought (#140).** It guards ring 3 as the Kla'ed one guards ring 2: it wakes once 4 of ring 2's 12 sectors are cleared, in a ring-3 sector drawn at random that opens for it, and its fall opens ring 3. It's Fleet Pack 2's 128 px Dreadnought. Its health and its scaling to the players online are the Kla'ed one's, and its share of health is saved apart, keyed by faction (migration 007). It fires its own faction's shots in turn: a sweep of Nairan Ray beams, a spread of 5 Rockets, and a fan of 3 Torpedoes across 0.3 radians in place of the ring. Ring 2 falling below 4 cleared closes ring 3, and an awake Dreadnought beyond a ring that closes goes back to sleep, keeping its share.
 
+**The Nautolan Dreadnought, the season's finale (#153).** It wakes once 4 of ring 3's 18 sectors are cleared, in a random ring-3 sector, which is open already. It goes back to sleep, keeping its share, if ring 3 falls below 4. It's Fleet Pack 3's 128 px Dreadnought, and it fires Nautolan Ray sweeps (the pack's Ray, recolored blue), spreads of 5 Waves, and a ring of 24 Spinning Bullets, its Frigate's ring. Its fall wins the season: the time is saved (`season.won_at`, migration 008), and it doesn't wake again until a new season.
+- **Fire rate by faction** (#10 decision 8): every Dreadnought's gaps between volleys and beams are divided by its faction's shots multiplier (`sim.FactionStats`). The Kla'ed one waits 2 s after a volley, the Nairan one about 1.35 s and the Nautolan one 1 s. Their health stays the same, so each fight still takes about an evening.
+
 ## 8. World structure: the frontier
 
 - **37 hexagonal sectors**: home and three rings around it, flat-top hexagons 990 px from center to corner, about the area of the 1,600 px squares they replaced (#117, built after #99's 7 × 7 grid).
@@ -278,8 +281,9 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 
 ### Season
 
-- When all three Dreadnoughts are destroyed, the season ends.
-- New season: reset frontier and boss health, optionally reshuffle the ring order or layout. **Keep personal part unlocks** (or reset them — decide later).
+- **A season lasts as long as the host likes** (#10 decision 13): it ends when the finale falls, and the host starts the next, after a weekend or a single day. How long the rings and bosses take is still to be timed in a playtest (#160).
+- **The Nautolan Dreadnought's fall wins the season** (#153). The world stays open afterwards: no ring closes again, even if attacks retake sectors.
+- **A new season is started by hand**, with the server stopped. It resets the frontier, the boss health, the hangar and everyone's part unlocks, so a friend who missed a weekend isn't behind (#10 decisions 5–7).
 
 ## 9. Technical architecture
 
@@ -373,7 +377,7 @@ Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney'
 ## 12. Open questions
 
 - Stats for each weapon, engine and shield.
-- Do personal unlocks reset at season end?
+- ~~Do personal unlocks reset at season end?~~ Yes, so a friend who missed a weekend isn't behind (#10 decision 6).
 - ~~Dreadnought health and regeneration numbers~~: sized for one evening, scaling with the players near it (#132).
 - Map size and how rings are separated.
 - ~~Sound and music~~: decided in #14 (Kenney Sci-Fi Sounds, Foozle Explorer Chiptunes and Eerie Space Music, all CC0).

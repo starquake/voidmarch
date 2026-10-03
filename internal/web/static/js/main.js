@@ -209,7 +209,7 @@ var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
 var SHIELDS = ["front", "frontAndSide", "round", "invincibility"];
 var ENEMY_KINDS = ["scout", "fighter", "frigate", "dreadnought", "bomber", "torpedo"];
 var ENEMY_FACTIONS = ["klaed", "nairan", "nautolan"];
-var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "klaedRay", "klaedWave", "nairanBolt", "nairanRay", "nautolanBullet", "nautolanSpinningBullet", "nairanRocket", "nairanTorpedo", "nautolanBomb", "nautolanWave", "shard"];
+var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "klaedRay", "klaedWave", "nairanBolt", "nairanRay", "nautolanBullet", "nautolanSpinningBullet", "nairanRocket", "nairanTorpedo", "nautolanBomb", "nautolanWave", "nautolanRay", "shard"];
 var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", weaponTier: 0, engineTier: 0, shieldTier: 0 };
 var TICK_RATE = 60;
@@ -523,14 +523,15 @@ var ENEMY_FILES = {
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
-    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 10 }
+    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 }
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
     fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 },
     bomber: { size: 64, engine: 8, destruction: 10 },
     torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
-    frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 }
+    frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
+    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 }
   }
 };
 var BULLET_VARIANT = "blue";
@@ -549,7 +550,9 @@ var BULLET_FRAMES = {
   nairanRocket: { faction: "nairan", file: "rocket", width: 9, height: 16, frames: 4 },
   nairanTorpedo: { faction: "nairan", file: "torpedo", width: 9, height: 24, frames: 3 },
   nautolanBomb: { faction: "nautolan", file: "bomb", width: 16, height: 16, frames: 16 },
-  nautolanWave: { faction: "nautolan", file: "wave", width: 64, height: 64, frames: 6 }
+  nautolanWave: { faction: "nautolan", file: "wave", width: 64, height: 64, frames: 6 },
+  // The Nautolan Dreadnought's beam (#153).
+  nautolanRay: { faction: "nautolan", file: "ray", width: 18, height: 38, frames: 4 }
 };
 var strip = (key, url, size, frames, fps, loop = true) => ({
   key,
@@ -3564,7 +3567,8 @@ function rescueNotice(name, hangar, docked) {
 // src/net/frontier.ts
 var ringOpenedBy = (faction) => RING_FACTIONS.lastIndexOf(faction) + 1;
 function bossFellBanner(faction, part) {
-  const lines = [`The ${FACTION_NAMES[faction]} Dreadnought has fallen`, `Ring ${String(ringOpenedBy(faction))} is open.`];
+  const ring2 = ringOpenedBy(faction);
+  const lines = [`The ${FACTION_NAMES[faction]} Dreadnought has fallen`, ring2 > GRID_RINGS ? "The season is won." : `Ring ${String(ring2)} is open.`];
   if (part !== void 0) {
     lines.push(`Your reward: ${part}`);
   }
