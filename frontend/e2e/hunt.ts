@@ -175,7 +175,17 @@ export async function collectNearest(page: Page, owned: number): Promise<boolean
 export async function collectAPart(page: Page, owned: number): Promise<void> {
   for (let tries = 1; ; tries++) {
     await shootOneDown(page);
-    await expect.poll(async () => (await state(page)).pickups.length, { message: 'a part drops' }).toBeGreaterThan(0);
+    // A ship coasting over the kill can collect the part before this looks (#151).
+    await expect
+      .poll(
+        async () => {
+          const s = await state(page);
+
+          return s.pickups.length > 0 || Object.keys(s.unlocks).length > owned;
+        },
+        { message: 'a part drops, or is collected already' },
+      )
+      .toBe(true);
     if (await collectNearest(page, owned)) {
       break;
     }
