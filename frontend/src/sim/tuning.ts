@@ -98,9 +98,6 @@ export const MAP_FILL_ALPHA = 0.9;
 export const MAP_CLOSED_COLOR = 0x2a2a33;
 /** In the world, a closed sector's shade (#123). */
 export const CLOSED_SHADE_ALPHA = 0.45;
-export const CLOSED_EDGE_COLOR = 0xff5a4a;
-export const CLOSED_EDGE_ALPHA = 0.85;
-export const CLOSED_EDGE_WIDTH = 3;
 /** The force field on a closed sector's edge with the open ones (#127): its red, and what it flares toward near a ship. */
 export const FIELD_COLOR = 0xff5a4a;
 export const FIELD_HOT_COLOR = 0xff9a80;

@@ -190,6 +190,7 @@ var SHIELD_SOUND = "sfx-shield";
 var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
 var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
+var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
 var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
 function effectFiles() {
   const files = [
@@ -204,6 +205,7 @@ function effectFiles() {
     both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
     both("sfx-engine-base", "sfx/engine-base"),
     both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
     both("sfx-engine-burst", "sfx/engine-burst"),
@@ -446,9 +448,23 @@ var MAP_HOSTILE_COLORS = [9056304, 9056304, 7218726, 5643549];
 var MAP_FILL_ALPHA = 0.9;
 var MAP_CLOSED_COLOR = 2763315;
 var CLOSED_SHADE_ALPHA = 0.45;
-var CLOSED_EDGE_COLOR = 16734794;
-var CLOSED_EDGE_ALPHA = 0.85;
-var CLOSED_EDGE_WIDTH = 3;
+var FIELD_COLOR = 16734794;
+var FIELD_HOT_COLOR = 16751232;
+var FIELD_STEP = 5;
+var FIELD_DRAW_RANGE = 450;
+var FIELD_FLARE_RANGE = 340;
+var FIELD_RIPPLES = [
+  { amplitude: 2.2, along: 0.05, speed: 3.1, phase: 0 },
+  { amplitude: 1.2, along: 0.13, speed: -5.3, phase: 0 },
+  { amplitude: 2.2, along: 0.07, speed: -4.2, phase: 1.7 },
+  { amplitude: 1.2, along: 0.17, speed: 6.1, phase: 0 }
+];
+var FIELD_FLARE_SWELL = 2.5;
+var FIELD_JITTER = 2.5;
+var FIELD_STRAND_ALPHA = 0.55;
+var FIELD_GLOW_ALPHA = 0.035;
+var FIELD_GLOW_RADIUS = 9;
+var FIELD_CORE_RADIUS = 4;
 var MAP_EDGE_COLOR = 1181712;
 var MAP_PANEL_COLOR = 328458;
 var MAP_PANEL_ALPHA = 0.82;
@@ -2681,6 +2697,60 @@ function sandbox() {
   return loaded;
 }
 
+// src/sim/forcefield.ts
+function distanceToSide(side, p) {
+  const dx = side.b.x - side.a.x;
+  const dy = side.b.y - side.a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const u = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - side.a.x) * dx + (p.y - side.a.y) * dy) / lengthSquared));
+  return Math.hypot(p.x - (side.a.x + dx * u), p.y - (side.a.y + dy * u));
+}
+function nearestSide(sides, p) {
+  return sides.reduce((nearest, side) => Math.min(nearest, distanceToSide(side, p)), Number.POSITIVE_INFINITY);
+}
+function fieldSides(sides, ship, t) {
+  return sides.filter((side) => distanceToSide(side, ship) <= FIELD_DRAW_RANGE).map((side) => sampleSide(side, ship, t));
+}
+function sampleSide(side, ship, t) {
+  const length = Math.hypot(side.b.x - side.a.x, side.b.y - side.a.y);
+  const nx = -(side.b.y - side.a.y) / length;
+  const ny = (side.b.x - side.a.x) / length;
+  const steps = Math.ceil(length / FIELD_STEP);
+  const [r1, r2, r3, r4] = FIELD_RIPPLES;
+  const wave = (r, s) => r.amplitude * Math.sin(s * r.along + t * r.speed + r.phase);
+  const samples = [];
+  for (let i = 0; i <= steps; i++) {
+    const s = i / steps * length;
+    const x = side.a.x + (side.b.x - side.a.x) * (i / steps);
+    const y = side.a.y + (side.b.y - side.a.y) * (i / steps);
+    const flare = Math.max(0, 1 - Math.hypot(ship.x - x, ship.y - y) / FIELD_FLARE_RANGE) ** 2;
+    const swell = 1 + flare * FIELD_FLARE_SWELL;
+    const jitter2 = Math.sin(s * 0.9 + t * 31) * flare * FIELD_JITTER;
+    const one = (wave(r1, s) + wave(r2, s)) * swell + jitter2;
+    const two = (wave(r3, s) + wave(r4, s)) * swell - jitter2;
+    samples.push({
+      x: x + nx * one,
+      y: y + ny * one,
+      x2: x + nx * two,
+      y2: y + ny * two,
+      flare,
+      flicker: 0.65 + 0.35 * Math.sin(t * 9 + s * 0.021) * Math.sin(t * 13.7 - s * 9e-3)
+    });
+  }
+  return { samples, nx, ny };
+}
+function fieldColor(flare) {
+  const channel = (shift) => {
+    const from = FIELD_COLOR >> shift & 255;
+    const to = FIELD_HOT_COLOR >> shift & 255;
+    return Math.round(from + (to - from) * flare) << shift;
+  };
+  return channel(16) | channel(8) | channel(0);
+}
+function sparks(i, t) {
+  return Math.sin(i * 12.9898 + Math.floor(t * 20) * 78.233) > 0.93;
+}
+
 // src/sim/touch.ts
 function touchUnit(height, dpr) {
   const scale = Math.min(1, Math.max(TOUCH_MIN_SCALE, height / dpr / TOUCH_FULL_HEIGHT_PX));
@@ -3148,6 +3218,7 @@ var ShipAudio = class {
   musicIndex = 0;
   musicLoaded = false;
   shots = 0;
+  zaps = 0;
   scene;
   settings;
   constructor(scene, settings) {
@@ -3230,6 +3301,13 @@ var ShipAudio = class {
   }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
+  }
+  /** A force field zap (#127), at a volume from 0 to 1. */
+  fieldZap(volume) {
+    const key = nextVariant(FIELD_ZAP_SOUNDS, this.zaps++);
+    if (key !== void 0) {
+      this.scene.sound.play(key, { volume });
+    }
   }
   partSwitched() {
     this.scene.sound.play(PART_SWITCH_SOUND, { volume: UI_VOLUME });
@@ -5454,9 +5532,13 @@ var SandboxScene = class extends Phaser11.Scene {
   /** The notch's safe area, read on resize (#180). */
   insets = { insetLeft: 0, insetRight: 0 };
   maps;
-  /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
+  /** The closed sectors' shade (#123), and the frontier it was drawn for. */
   closedLayer;
   closedDrawn = -1;
+  /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
+  closedSides = [];
+  fieldLayer;
+  fieldZaps = 0;
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
   enemyFire;
@@ -5573,6 +5655,7 @@ var SandboxScene = class extends Phaser11.Scene {
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
       enemyFireGlow: false,
+      field: { distance: null, zaps: 0 },
       hitsTaken: 0,
       rams: 0,
       downed: false,
@@ -5639,6 +5722,7 @@ var SandboxScene = class extends Phaser11.Scene {
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
+    this.drawField(time);
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -5726,6 +5810,8 @@ var SandboxScene = class extends Phaser11.Scene {
     this.world.add(lines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
+    this.fieldLayer = this.add.graphics().setBlendMode(Phaser11.BlendModes.ADD);
+    this.world.add(this.fieldLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -5963,7 +6049,7 @@ var SandboxScene = class extends Phaser11.Scene {
       this.maps.close();
     }
   }
-  /** Shades the closed sectors and draws their edge with the open ones, whenever the frontier changes (#123). */
+  /** Shades the closed sectors and finds their sides with the open ones, whenever the frontier changes (#123). */
   drawClosed() {
     const version = this.net?.frontierVersion ?? 0;
     if (version === this.closedDrawn) {
@@ -5985,9 +6071,37 @@ var SandboxScene = class extends Phaser11.Scene {
         g.closePath().fillPath();
       }
     }
-    g.lineStyle(CLOSED_EDGE_WIDTH, CLOSED_EDGE_COLOR, CLOSED_EDGE_ALPHA);
-    for (const { a, b } of closedEdges(frontier)) {
-      g.lineBetween(a.x, a.y, b.x, b.y);
+    this.closedSides = closedEdges(frontier);
+  }
+  /** Draws the force field along the closed sides near the ship (#127). */
+  drawField(time) {
+    const g = this.fieldLayer.clear();
+    const ship = this.sim.ship;
+    for (const { samples, nx, ny } of fieldSides(this.closedSides, ship, time / 1e3)) {
+      if (this.effects) {
+        for (const s of samples) {
+          g.fillStyle(fieldColor(s.flare), FIELD_GLOW_ALPHA * s.flicker * (1 + s.flare * 3));
+          g.fillCircle(s.x, s.y, FIELD_GLOW_RADIUS * (1 + s.flare));
+          g.fillCircle(s.x, s.y, FIELD_CORE_RADIUS * (1 + s.flare));
+        }
+      }
+      samples.forEach((s, i) => {
+        const prev = samples[i - 1];
+        if (prev === void 0) {
+          return;
+        }
+        g.lineStyle(1, fieldColor(s.flare), Math.min(1, FIELD_STRAND_ALPHA * s.flicker * (1 + s.flare * 1.2)));
+        g.lineBetween(prev.x, prev.y, s.x, s.y);
+        if (!this.effects) {
+          return;
+        }
+        g.lineStyle(1, fieldColor(s.flare / 2), Math.min(1, FIELD_STRAND_ALPHA * 0.6 * s.flicker * (1 + s.flare * 1.5)));
+        g.lineBetween(prev.x2, prev.y2, s.x2, s.y2);
+        if (s.flare > 0.3 && sparks(i, time / 1e3)) {
+          const jump = Math.sin(i + time / 25) * 6;
+          g.fillStyle(16765120, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
+        }
+      });
     }
   }
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */
@@ -6933,6 +7047,8 @@ ${modeName(info)}`,
     this.debug.fpsCap = this.game.loop.hasFpsLimit;
     this.debug.cssPixels = this.displaySettings.cssPixels;
     this.debug.enemyFireGlow = this.effects;
+    const distance = nearestSide(this.closedSides, this.sim.ship);
+    this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps };
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
