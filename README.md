@@ -65,6 +65,31 @@ The movement, sound, music, frame rate and resolution choices are remembered
 in the browser. Sound starts after the first click or key press. The HUD's
 fps shows the worst frame of the last second too.
 
+### On a tablet or phone
+
+On an iPad, an Android tablet or a phone (a touch screen with no mouse) the
+game shows twin-stick touch controls instead, smaller on a phone; `?touch=1`
+turns them on anywhere, and `?touch=0` off. Play in landscape.
+
+| Touch | Action |
+|---|---|
+| Left half | A stick where your thumb lands: move that way on the screen, as far as you push |
+| Right half | A stick where your thumb lands: aim that way and fire while pushed; let go to stop (the big space gun fires on release) |
+| Summon | Draw a companion from the hangar |
+| Orders (hold) | Order ring: slide to an order and let go; a tap repeats the last order |
+| Loadout | Loadout screen, at the home planet; a tap beside it closes it |
+| Minimap | Full map: tap a sector to send your squadron there, tap beside it to close |
+| Respawn buttons | When down, respawn at home or beside a squadmate |
+| Full screen | Top left: switch to fullscreen and back (asked for on the first tap too; not on an iPhone, whose Safari can't) |
+
+An iPhone's Safari can't switch a page to fullscreen. Add the game to the
+Home Screen instead (Share, then Add to Home Screen): opened from there it
+runs fullscreen in landscape.
+
+Two switches in the address help on a phone or tablet without a keyboard:
+`?effects=0` turns the bloom and vignette off, like **F**, and `?diag=1`
+shows the WebGL renderer's limits and any errors in the HUD.
+
 On a development server and offline, debug keys **1**, **2** and **3** cycle
 the weapon, engine and shield, locked parts too; **R** switches between free
 rotation and 16 directions; **F** turns effects on and off.

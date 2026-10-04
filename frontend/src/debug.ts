@@ -77,6 +77,12 @@ export interface DebugState {
   loadoutScreen: boolean;
   /** Whether the victory screen is open (#156). */
   victoryScreen: boolean;
+  /** Whether the touch controls are on, and the touch buttons showing (#180). */
+  touch: boolean;
+  touchButtons: string[];
+  /** The touch sticks held, and whether the aim stick fires. */
+  touchSticks: string[];
+  touchFiring: boolean;
   /** Whether the full map is open (#100), and where its grid sits in device pixels. */
   mapOpen: boolean;
   mapLayout: { x: number; y: number; scale: number };

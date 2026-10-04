@@ -121,3 +121,25 @@ export const MINIMAP_REDRAW_MS = 100;
 
 /** The frame rate V caps rendering at (#143). */
 export const FPS_CAP = 60;
+
+/** Touch controls (#180), in CSS pixels unless named otherwise. */
+/** How far a thumb pushes a stick to full deflection. */
+export const TOUCH_STICK_RADIUS_PX = 75;
+/** The share of a stick's reach that does nothing, so a resting thumb neither moves nor fires. */
+export const TOUCH_DEAD_ZONE = 0.2;
+/** How far from the ship, in world pixels, the aim stick puts the aim point. */
+export const TOUCH_AIM_REACH = 150;
+/** A touch button's height and a small one's width, a wide one's width, the gap between them and their inset from the edge. */
+export const TOUCH_BUTTON_PX = 64;
+export const TOUCH_BUTTON_WIDTH_PX = 96;
+export const TOUCH_WIDE_BUTTON_PX = 240;
+export const TOUCH_BUTTON_GAP_PX = 14;
+export const TOUCH_EDGE_PX = 24;
+/** Where the right-edge buttons start, and the respawn buttons sit, as a share of the screen's height. */
+export const TOUCH_BUTTONS_Y = 0.37;
+export const TOUCH_RESPAWN_Y = 0.66;
+/** The screen height the touch UI is drawn full size for, and the smallest it shrinks to on a phone (#180). */
+export const TOUCH_FULL_HEIGHT_PX = 700;
+/** The fullscreen switch's size, as a share of a wide button's, in the top left corner. */
+export const TOUCH_SMALL_SHARE = 0.55;
+export const TOUCH_MIN_SCALE = 0.6;

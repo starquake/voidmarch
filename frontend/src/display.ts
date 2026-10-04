@@ -33,3 +33,20 @@ export function deviceSize(cssWidth: number, cssHeight: number, devicePixelRatio
 export function renderRatio(devicePixelRatio: number, cssPixels: boolean): number {
   return cssPixels ? 1 : devicePixelRatio;
 }
+
+/** Where to sample a canvas width by height to tell a black world: a 3x3 grid across its middle, clear of the HUD's corners. */
+export function blankSamples(width: number, height: number): { x: number; y: number }[] {
+  const out: { x: number; y: number }[] = [];
+  for (const fx of [0.3, 0.5, 0.7]) {
+    for (const fy of [0.3, 0.5, 0.7]) {
+      out.push({ x: Math.floor(width * fx), y: Math.floor(height * fy) });
+    }
+  }
+
+  return out;
+}
+
+/** Whether every sampled RGBA pixel is pure black: nothing drew there. */
+export function allBlack(samples: readonly Uint8Array[]): boolean {
+  return samples.length > 0 && samples.every((p) => p[0] === 0 && p[1] === 0 && p[2] === 0);
+}

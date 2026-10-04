@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser11 from "./vendor/phaser.js";
+import Phaser12 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -13,6 +13,18 @@ function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
 }
 function renderRatio(devicePixelRatio, cssPixels) {
   return cssPixels ? 1 : devicePixelRatio;
+}
+function blankSamples(width, height) {
+  const out = [];
+  for (const fx of [0.3, 0.5, 0.7]) {
+    for (const fy of [0.3, 0.5, 0.7]) {
+      out.push({ x: Math.floor(width * fx), y: Math.floor(height * fy) });
+    }
+  }
+  return out;
+}
+function allBlack(samples) {
+  return samples.length > 0 && samples.every((p) => p[0] === 0 && p[1] === 0 && p[2] === 0);
 }
 
 // src/name.ts
@@ -448,6 +460,19 @@ var RING_TINTS = [16777215, 16777215, 9429168, 9417983];
 var RING_TINT_FADE_MS = 1500;
 var MINIMAP_REDRAW_MS = 100;
 var FPS_CAP = 60;
+var TOUCH_STICK_RADIUS_PX = 75;
+var TOUCH_DEAD_ZONE = 0.2;
+var TOUCH_AIM_REACH = 150;
+var TOUCH_BUTTON_PX = 64;
+var TOUCH_BUTTON_WIDTH_PX = 96;
+var TOUCH_WIDE_BUTTON_PX = 240;
+var TOUCH_BUTTON_GAP_PX = 14;
+var TOUCH_EDGE_PX = 24;
+var TOUCH_BUTTONS_Y = 0.37;
+var TOUCH_RESPAWN_Y = 0.66;
+var TOUCH_FULL_HEIGHT_PX = 700;
+var TOUCH_SMALL_SHARE = 0.55;
+var TOUCH_MIN_SCALE = 0.6;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -800,7 +825,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser10 from "./vendor/phaser.js";
+import Phaser11 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -1226,8 +1251,12 @@ function chooseFocus(enemies, x, y, lastHit, nowMs) {
 // src/sim/input.ts
 var CONTROL_MODES = ["ship", "screen"];
 function toCommand(input) {
-  const move = normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up));
+  const move = input.moveX === void 0 || input.moveY === void 0 ? normalize(Number(input.right) - Number(input.left), Number(input.down) - Number(input.up)) : capped(input.moveX, input.moveY);
   return { moveX: move.x, moveY: move.y, aimX: input.pointerX, aimY: input.pointerY, fire: input.fire };
+}
+function capped(x, y) {
+  const length = Math.hypot(x, y);
+  return length > 1 ? { x: x / length, y: y / length } : { x, y };
 }
 
 // src/settings.ts
@@ -1344,6 +1373,20 @@ function loadSeenSeason(store = browserStorage()) {
 function saveSeenSeason(season, store = browserStorage()) {
   try {
     store?.setItem(SEEN_SEASON_KEY, season);
+  } catch {
+  }
+}
+var BLOOM_BROKEN_KEY = "voidmarch.bloomBroken.2";
+function loadBloomBroken(store = browserStorage()) {
+  try {
+    return store?.getItem(BLOOM_BROKEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function saveBloomBroken(store = browserStorage()) {
+  try {
+    store?.setItem(BLOOM_BROKEN_KEY, "1");
   } catch {
   }
 }
@@ -1960,6 +2003,14 @@ var MapView = class {
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
     this.legend.setText(mapLegend(state.missions, state.dreadnoughts.length > 0).join("\n")).setPosition(this.fullLayout.x, legendY);
   }
+  /** Whether (x, y) is on the minimap, which a tap opens the full map from (#180). */
+  onMinimap(x, y) {
+    return within(this.miniLayout, x, y);
+  }
+  /** Whether (x, y) is on the open full map's grid, so a tap beside it closes it (#180). */
+  onFull(x, y) {
+    return this.open && within(this.fullLayout, x, y);
+  }
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
   pick(x, y, cleared, frontier) {
     if (!this.open) {
@@ -2030,6 +2081,10 @@ function polygon(g, corners) {
     g.lineTo(c.x, c.y);
   }
   g.closePath();
+}
+function within(layout, x, y) {
+  const size = mapSize(layout);
+  return Math.abs(x - layout.x) <= size.width / 2 && Math.abs(y - layout.y) <= size.height / 2;
 }
 
 // src/simwasm.ts
@@ -2483,6 +2538,171 @@ function sandbox() {
     throw new Error("the sim is not loaded yet");
   }
   return loaded;
+}
+
+// src/sim/touch.ts
+function touchUnit(height, dpr) {
+  const scale = Math.min(1, Math.max(TOUCH_MIN_SCALE, height / dpr / TOUCH_FULL_HEIGHT_PX));
+  return dpr * scale;
+}
+function touchButtons(screen) {
+  const dpr = touchUnit(screen.height, screen.dpr);
+  const switcher = screen.fullscreen === void 0 ? [] : [
+    {
+      button: "fullscreen",
+      label: screen.fullscreen ? "Windowed" : "Full screen",
+      x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
+      y: TOUCH_EDGE_PX * dpr,
+      width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
+      height: TOUCH_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
+      gold: false
+    }
+  ];
+  return [...playButtons(screen, dpr), ...switcher];
+}
+function playButtons(screen, dpr) {
+  const { width, height } = screen;
+  const h = TOUCH_BUTTON_PX * dpr;
+  const gap = TOUCH_BUTTON_GAP_PX * dpr;
+  if (screen.down) {
+    if (!screen.canRespawn) {
+      return [];
+    }
+    const wide = TOUCH_WIDE_BUTTON_PX * dpr;
+    const respawns = [{ button: "respawnHome", label: "Respawn at home", gold: true }];
+    if (screen.beside !== void 0) {
+      respawns.push({ button: "respawnBeside", label: `Respawn beside ${screen.beside}`, gold: false });
+    }
+    const total = respawns.length * wide + (respawns.length - 1) * gap;
+    const left = (width - total) / 2;
+    return respawns.map((r, i) => ({ ...r, x: left + i * (wide + gap), y: height * TOUCH_RESPAWN_Y, width: wide, height: h }));
+  }
+  const w = TOUCH_BUTTON_WIDTH_PX * dpr;
+  const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
+  const top = height * TOUCH_BUTTONS_Y;
+  const buttons = [
+    { button: "summon", label: "Summon", x: right, y: top, width: w, height: h, gold: false },
+    { button: "orders", label: "Orders", x: right, y: top + h + gap, width: w, height: h, gold: false }
+  ];
+  if (screen.atHome) {
+    buttons.push({ button: "loadout", label: "Loadout", x: right - gap - w, y: top + h + gap, width: w, height: h, gold: true });
+  }
+  return buttons;
+}
+function buttonAt(buttons, x, y) {
+  return buttons.find((b) => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height);
+}
+var TouchControls = class {
+  tracks = /* @__PURE__ */ new Map();
+  dpr = 1;
+  /**
+   * Starts touch id at (x, y) and returns what it does; undefined when that
+   * stick is taken already. unit is touchUnit's: device pixels per CSS pixel
+   * of touch UI.
+   */
+  start(id, x, y, width, buttons, onMinimap, unit) {
+    this.dpr = unit;
+    let role = buttonAt(buttons, x, y)?.button ?? (onMinimap ? "map" : void 0);
+    if (role === void 0) {
+      const stick = x < width / 2 ? "move" : "aim";
+      role = this.held(stick) ? void 0 : stick;
+    }
+    if (role !== void 0) {
+      this.tracks.set(id, { role, originX: x, originY: y, x, y });
+    }
+    return role;
+  }
+  /**
+   * Moves touch id to (x, y). A touch that started on the minimap and moves
+   * becomes the aim stick, if that's free: only a tap opens the map, since on
+   * a phone the minimap covers much of where the aiming thumb lands.
+   */
+  moveTo(id, x, y) {
+    const t = this.tracks.get(id);
+    if (t === void 0) {
+      return;
+    }
+    t.x = x;
+    t.y = y;
+    const moved = Math.hypot(x - t.originX, y - t.originY) > TOUCH_STICK_RADIUS_PX * this.dpr * TOUCH_DEAD_ZONE;
+    if (t.role === "map" && moved && !this.held("aim")) {
+      t.role = "aim";
+    }
+  }
+  /** Ends touch id and returns what it was doing. */
+  end(id) {
+    const t = this.tracks.get(id);
+    this.tracks.delete(id);
+    return t?.role;
+  }
+  /** Lets go of every touch, as when the window loses focus. */
+  clear() {
+    this.tracks.clear();
+  }
+  /** Whether a touch is doing role. */
+  held(role) {
+    return [...this.tracks.values()].some((t) => t.role === role);
+  }
+  /** Where the touch doing role is now, if any. */
+  position(role) {
+    const t = this.track(role);
+    return t === void 0 ? void 0 : { x: t.x, y: t.y };
+  }
+  /** A stick's deflection: its offset over its reach, at most length 1, zero inside the dead zone. */
+  stick(role) {
+    const t = this.track(role);
+    if (t === void 0) {
+      return { x: 0, y: 0 };
+    }
+    const radius = TOUCH_STICK_RADIUS_PX * this.dpr;
+    const x = (t.x - t.originX) / radius;
+    const y = (t.y - t.originY) / radius;
+    const length = Math.hypot(x, y);
+    if (length < TOUCH_DEAD_ZONE) {
+      return { x: 0, y: 0 };
+    }
+    return length > 1 ? { x: x / length, y: y / length } : { x, y };
+  }
+  /** The aim stick's direction while it's pushed past the dead zone, as a unit vector. */
+  aim() {
+    const { x, y } = this.stick("aim");
+    const length = Math.hypot(x, y);
+    return length === 0 ? void 0 : { x: x / length, y: y / length };
+  }
+  /** Whether the aim stick fires: pushed past the dead zone. */
+  get firing() {
+    return this.aim() !== void 0;
+  }
+  /** The sticks being held, for drawing: where each started, and its knob, kept within reach. */
+  sticks() {
+    const radius = TOUCH_STICK_RADIUS_PX * this.dpr;
+    const out = [];
+    for (const t of this.tracks.values()) {
+      if (t.role !== "move" && t.role !== "aim") {
+        continue;
+      }
+      const dx = t.x - t.originX;
+      const dy = t.y - t.originY;
+      const scale = Math.min(1, radius / Math.max(Math.hypot(dx, dy), Number.EPSILON));
+      out.push({
+        role: t.role,
+        origin: { x: t.originX, y: t.originY },
+        knob: { x: t.originX + dx * scale, y: t.originY + dy * scale },
+        firing: t.role === "aim" && this.firing
+      });
+    }
+    return out;
+  }
+  track(role) {
+    return [...this.tracks.values()].find((t) => t.role === role);
+  }
+};
+function touchMode(matches, search) {
+  const asked = new URLSearchParams(search).get("touch");
+  if (asked !== null) {
+    return asked === "1";
+  }
+  return matches("(pointer: coarse)") && !matches("(any-pointer: fine)");
 }
 
 // src/sim/world.ts
@@ -4766,7 +4986,12 @@ import Phaser9 from "./vendor/phaser.js";
 var RESAMPLE_NODE = "FilterResample";
 var FRAGMENT = [
   "#pragma phaserTemplate(shaderName)",
+  // mediump can be 16 bits on a phone, too coarse for pixel positions past 2048 (#180).
+  "#ifdef GL_FRAGMENT_PRECISION_HIGH",
+  "precision highp float;",
+  "#else",
   "precision mediump float;",
+  "#endif",
   "uniform sampler2D uMainSampler;",
   "uniform vec2 inputSize;",
   "varying vec2 outTexCoord;",
@@ -4832,6 +5057,167 @@ function vignetteImage(size, vignette) {
   return data;
 }
 
+// src/scenes/touchview.ts
+var UI = 9427199;
+var GOLD = 16773258;
+var PANEL = 328458;
+var KNOB_RADIUS = 32;
+var LINE_PX = 2;
+var BUTTON_ALPHA = 0.7;
+var RING_ALPHA = 0.45;
+var KNOB_ALPHA = 0.35;
+var FONT_PX3 = 13;
+var TouchView = class {
+  g;
+  labels = [];
+  scene;
+  hide;
+  constructor(scene, hideFromWorld) {
+    this.scene = scene;
+    this.hide = hideFromWorld;
+    this.g = scene.add.graphics().setDepth(1e3);
+    hideFromWorld(this.g);
+  }
+  /** Draws the sticks being held and the buttons, unit device pixels to a CSS pixel of touch UI (touchUnit). */
+  draw(controls, buttons, unit) {
+    const g = this.g.clear();
+    for (const s of controls.sticks()) {
+      const color = s.firing ? GOLD : UI;
+      g.fillStyle(PANEL, RING_ALPHA).fillCircle(s.origin.x, s.origin.y, TOUCH_STICK_RADIUS_PX * unit);
+      g.lineStyle(LINE_PX * unit, color, RING_ALPHA).strokeCircle(s.origin.x, s.origin.y, TOUCH_STICK_RADIUS_PX * unit);
+      g.fillStyle(color, KNOB_ALPHA).fillCircle(s.knob.x, s.knob.y, KNOB_RADIUS * unit);
+      g.lineStyle(LINE_PX * unit, color, 1).strokeCircle(s.knob.x, s.knob.y, KNOB_RADIUS * unit);
+    }
+    while (this.labels.length < buttons.length) {
+      const label = this.scene.add.text(0, 0, "", { fontFamily: "monospace" }).setOrigin(0.5).setDepth(1001);
+      this.hide(label);
+      this.labels.push(label);
+    }
+    this.labels.forEach((label, i) => {
+      const b = buttons[i];
+      label.setVisible(b !== void 0);
+      if (b === void 0) {
+        return;
+      }
+      const color = b.gold ? GOLD : UI;
+      const radius = b.height / 2;
+      g.fillStyle(PANEL, BUTTON_ALPHA).fillRoundedRect(b.x, b.y, b.width, b.height, radius);
+      g.lineStyle(LINE_PX * unit, color, BUTTON_ALPHA).strokeRoundedRect(b.x, b.y, b.width, b.height, radius);
+      label.setText(b.label).setFontSize(FONT_PX3 * unit).setColor(b.gold ? "#fff08a" : "#d8f8ff").setPosition(b.x + b.width / 2, b.y + b.height / 2);
+    });
+  }
+};
+
+// src/scenes/blend.ts
+import Phaser10 from "./vendor/phaser.js";
+var FRAGMENT2 = [
+  "#pragma phaserTemplate(shaderName)",
+  "precision mediump float;",
+  "uniform sampler2D uMainSampler;",
+  "uniform sampler2D uMainSampler2;",
+  "uniform float amount;",
+  "uniform vec4 color;",
+  "uniform float mode;",
+  "varying vec2 outTexCoord;",
+  "#pragma phaserTemplate(fragmentHeader)",
+  "void main ()",
+  "{",
+  "    vec4 base = texture2D(uMainSampler, outTexCoord);",
+  "    vec4 blend = texture2D(uMainSampler2, outTexCoord) * color;",
+  "    vec4 blended = blend + base * (1.0 - blend.a);",
+  "    if (mode > 1.5) {",
+  "        blended = blend;",
+  "    } else if (mode > 0.5) {",
+  "        blended = base + blend;",
+  "    }",
+  "    gl_FragColor = mix(base, blended, amount);",
+  "}"
+].join("\n");
+function modeOf(blendMode) {
+  if (blendMode === Phaser10.BlendModes.COPY) {
+    return 2;
+  }
+  return blendMode === Phaser10.BlendModes.ADD ? 1 : 0;
+}
+var SmallBlendNode = class extends Phaser10.Renderer.WebGL.RenderNodes.BaseFilterShader {
+  constructor(manager) {
+    super("FilterBlend", manager, void 0, FRAGMENT2);
+  }
+  setupTextures(controller, textures) {
+    textures[1] = controller.glTexture;
+  }
+  setupUniforms(controller) {
+    const blend = controller;
+    this.programManager.setUniform("uMainSampler2", 1);
+    this.programManager.setUniform("amount", blend.amount);
+    this.programManager.setUniform("color", blend.color);
+    this.programManager.setUniform("mode", modeOf(blend.blendMode));
+  }
+};
+var registered = /* @__PURE__ */ new WeakSet();
+function registerSmallBlend(renderer) {
+  if (registered.has(renderer)) {
+    return;
+  }
+  registered.add(renderer);
+  renderer.renderNodes.addNode("FilterBlend", new SmallBlendNode(renderer.renderNodes));
+}
+
+// src/diag.ts
+var KEEP = 4;
+var Diagnostics = class {
+  errors = [];
+  info;
+  gl;
+  canvas;
+  constructor(gl, canvas) {
+    this.gl = gl;
+    this.canvas = canvas;
+    this.info = describe(gl);
+    window.addEventListener("error", (event) => {
+      this.note(`error: ${event.message}`);
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      this.note(`rejected: ${String(event.reason)}`);
+    });
+    const consoleError = console.error.bind(console);
+    console.error = (...args) => {
+      this.note(`console: ${args.map(String).join(" ")}`);
+      consoleError(...args);
+    };
+  }
+  /** Reads WebGL's error flag once a frame, keeping any error it held. */
+  check() {
+    const code = this.gl?.getError() ?? 0;
+    if (code !== 0) {
+      this.note(`gl error 0x${code.toString(16)}`);
+    }
+  }
+  /** The lines for the HUD; the canvas's size as it is now, since a phone turning changes it. */
+  lines() {
+    const size = `canvas ${String(this.canvas.width)}x${String(this.canvas.height)} window ${String(window.innerWidth)}x${String(window.innerHeight)} dpr ${String(window.devicePixelRatio)}`;
+    return [...this.info, size, ...this.errors];
+  }
+  note(message) {
+    this.errors.push(message.slice(0, 160));
+    if (this.errors.length > KEEP) {
+      this.errors.shift();
+    }
+  }
+};
+function describe(gl) {
+  if (gl === void 0) {
+    return ["no WebGL"];
+  }
+  const version = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext ? "webgl2" : "webgl1";
+  const debug = gl.getExtension("WEBGL_debug_renderer_info");
+  const gpu = debug === null ? "gpu ?" : String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL));
+  const maxTexture = String(gl.getParameter(gl.MAX_TEXTURE_SIZE));
+  const highp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision ?? 0;
+  const mediump = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT)?.precision ?? 0;
+  return [`${version} \xB7 ${gpu}`, `max texture ${maxTexture} \xB7 fragment highp ${String(highp)} mediump ${String(mediump)} bits`];
+}
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
@@ -4856,6 +5242,9 @@ var DOWN_PANEL_FONT_PX = 14;
 var DOWN_PANEL_PADDING_X = 12;
 var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
+var BLOOM_CHECK_FRAME = 30;
+var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home";
+var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects \xB7 V 60 fps cap \xB7 P resolution";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
@@ -4883,7 +5272,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser10.Scene {
+var SandboxScene = class extends Phaser11.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -4900,6 +5289,14 @@ var SandboxScene = class extends Phaser10.Scene {
   /** The loadout screen at the home planet (#78). */
   loadoutScreen = new LoadoutScreen();
   victoryScreen = new VictoryScreen();
+  /** Twin-stick touch controls on a tablet (#180). */
+  touchOn = touchMode((query) => window.matchMedia(query).matches, window.location.search);
+  touch = new TouchControls();
+  touchView;
+  touchButtonRects = [];
+  askedFullscreen = false;
+  /** The notch's safe area, read on resize (#180). */
+  insets = { insetLeft: 0, insetRight: 0 };
   maps;
   /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
   closedLayer;
@@ -4911,6 +5308,8 @@ var SandboxScene = class extends Phaser10.Scene {
   puff;
   bloom;
   bloomBlur;
+  /** Set where the bloom draws the world black, so it stays off (#180). */
+  bloomBroken = false;
   /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   vignette;
   hudCamera;
@@ -4930,6 +5329,8 @@ var SandboxScene = class extends Phaser10.Scene {
   revives = 0;
   moveKeys;
   effects = true;
+  /** WebGL's limits and the page's errors in the HUD, with `?diag=1` (#180). */
+  diagnostics;
   shotsFired = 0;
   hudUpdatedAt = 0;
   debug;
@@ -4963,10 +5364,22 @@ var SandboxScene = class extends Phaser10.Scene {
     this.createParticles();
     this.createCameras();
     this.timeGpu();
+    this.checkBloom();
     this.createInput();
+    if (this.touchOn) {
+      this.createTouch();
+    }
+    const asked = new URLSearchParams(window.location.search);
+    if (asked.get("effects") === "0") {
+      this.setEffects(false);
+    }
+    if (asked.get("diag") === "1") {
+      const renderer = this.renderer;
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
+    }
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser10.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser11.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -5017,6 +5430,10 @@ var SandboxScene = class extends Phaser10.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       victoryScreen: false,
+      touch: this.touchOn,
+      touchButtons: [],
+      touchSticks: [],
+      touchFiring: false,
       mapOpen: false,
       openRings: 0,
       openedSectors: [],
@@ -5044,6 +5461,8 @@ var SandboxScene = class extends Phaser10.Scene {
     }
     this.updateLoadoutScreen();
     this.openVictoryIfDue();
+    this.drawTouch();
+    this.diagnostics?.check();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -5175,7 +5594,7 @@ var SandboxScene = class extends Phaser10.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -5185,7 +5604,7 @@ var SandboxScene = class extends Phaser10.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -5218,7 +5637,7 @@ var SandboxScene = class extends Phaser10.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser10.BlendModes.ADD,
+      blendMode: Phaser11.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -5227,7 +5646,7 @@ var SandboxScene = class extends Phaser10.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser10.BlendModes.ADD,
+      blendMode: Phaser11.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -5237,16 +5656,17 @@ var SandboxScene = class extends Phaser10.Scene {
    * blur at half the screen's size between two smooth resamples (#143).
    */
   createBloom(main) {
-    if (!(this.renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+    if (!(this.renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     registerResample(this.renderer);
+    registerSmallBlend(this.renderer);
     const bloom = main.filters.external.addParallelFilters();
     bloom.top.add(new Resample(main, BLOOM_SCALE));
     bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
     bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
-    bloom.blend.blendMode = Phaser10.BlendModes.ADD;
+    bloom.blend.blendMode = Phaser11.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
   }
@@ -5260,7 +5680,7 @@ var SandboxScene = class extends Phaser10.Scene {
       canvas.width = VIGNETTE_SIZE;
       canvas.height = VIGNETTE_SIZE;
       canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
-      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser10.Textures.FilterMode.LINEAR);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser11.Textures.FilterMode.LINEAR);
     }
     return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
   }
@@ -5309,7 +5729,7 @@ var SandboxScene = class extends Phaser10.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser10.Input.Keyboard.KeyCodes;
+    const codes = Phaser11.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -5348,7 +5768,10 @@ var SandboxScene = class extends Phaser10.Scene {
     const onBlur = () => {
       this.closeOrderRing();
     };
-    this.input.on(Phaser10.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser11.Input.Events.POINTER_DOWN, (pointer) => {
+      if (this.touchOn) {
+        return;
+      }
       const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
         this.net?.pickMission(sector);
@@ -5357,7 +5780,7 @@ var SandboxScene = class extends Phaser10.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -5558,25 +5981,22 @@ var SandboxScene = class extends Phaser10.Scene {
         this.updateHud();
         break;
       case "KeyF":
-        this.effects = !this.effects;
-        if (this.bloom !== void 0) {
-          this.bloom.active = this.effects;
-        }
-        this.vignette.setVisible(this.effects);
-        this.updateHud();
+        this.setEffects(!this.effects);
         break;
       default:
     }
   }
   /** Q down: remember where the pointer is. */
-  pressOrders() {
+  pressOrders(at2) {
     this.closeOrderRing();
     const pointer = this.input.activePointer;
-    const world = pointer.positionToCamera(this.cameras.main);
+    const screen = at2 ?? { x: pointer.x, y: pointer.y };
+    const world = this.cameras.main.getWorldPoint(screen.x, screen.y);
     this.orderPress = {
       downAt: this.time.now,
-      screenX: pointer.x,
-      screenY: pointer.y,
+      touch: at2 !== void 0,
+      screenX: screen.x,
+      screenY: screen.y,
       worldX: world.x,
       worldY: world.y,
       labels: void 0,
@@ -5656,16 +6076,16 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser10.Math.Vector2(cx, cy)];
+    const points = [new Phaser11.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser10.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser11.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
   pickedOrder(press) {
-    const pointer = this.input.activePointer;
+    const pointer = press.touch ? this.touch.position("orders") ?? { x: press.screenX, y: press.screenY } : this.input.activePointer;
     return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
   }
   /** Drops a Q press and its ring without giving an order. */
@@ -5683,7 +6103,7 @@ ${modeName(info)}`,
       return;
     }
     if (press.labels === void 0) {
-      const world = this.input.activePointer.positionToCamera(this.cameras.main);
+      const world = press.touch ? { x: press.worldX, y: press.worldY } : this.input.activePointer.positionToCamera(this.cameras.main);
       if (this.lastOrder === void 0) {
         this.net?.say("no order to repeat yet: hold Q");
       } else {
@@ -5724,7 +6144,8 @@ ${modeName(info)}`,
   }
   /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   dpr() {
-    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
+    const ratio = renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
+    return this.touchOn ? touchUnit(this.scale.height, ratio) : ratio;
   }
   /** Fits a loadout, each part at the tier this player owns it at. */
   fit(loadout) {
@@ -5743,6 +6164,9 @@ ${modeName(info)}`,
     const { width, height } = this.scale;
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
+    if (this.touchOn) {
+      this.insets = this.safeInsets();
+    }
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== void 0) {
       this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
@@ -5762,9 +6186,203 @@ ${modeName(info)}`,
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
   }
+  /** Turns the touch controls on (#180): screen-relative sticks, their view, and the canvas's touches. */
+  createTouch() {
+    this.sim.controlMode = "screen";
+    document.body.classList.add("touch");
+    this.touchView = new TouchView(this, (object) => {
+      this.cameras.main.ignore(object);
+    });
+    const canvas = this.game.canvas;
+    const at2 = (t) => {
+      const r = canvas.getBoundingClientRect();
+      return { x: (t.clientX - r.left) * canvas.width / r.width, y: (t.clientY - r.top) * canvas.height / r.height };
+    };
+    const onStart = (event) => {
+      event.preventDefault();
+      for (const t of event.changedTouches) {
+        this.touchStart(t.identifier, at2(t));
+      }
+    };
+    const onMove = (event) => {
+      event.preventDefault();
+      for (const t of event.changedTouches) {
+        const p = at2(t);
+        this.touch.moveTo(t.identifier, p.x, p.y);
+      }
+    };
+    const onEnd = (event) => {
+      event.preventDefault();
+      this.askFullscreen();
+      for (const t of event.changedTouches) {
+        this.touchEnd(t.identifier);
+      }
+    };
+    const onBlur = () => {
+      this.touch.clear();
+    };
+    canvas.addEventListener("touchstart", onStart, { passive: false });
+    canvas.addEventListener("touchmove", onMove, { passive: false });
+    canvas.addEventListener("touchend", onEnd, { passive: false });
+    canvas.addEventListener("touchcancel", onEnd, { passive: false });
+    window.addEventListener("blur", onBlur);
+    const victory = document.querySelector("#victory-form");
+    const closeVictory = () => {
+      this.victoryScreen.hide();
+    };
+    victory?.addEventListener("click", closeVictory);
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
+      canvas.removeEventListener("touchstart", onStart);
+      canvas.removeEventListener("touchmove", onMove);
+      canvas.removeEventListener("touchend", onEnd);
+      canvas.removeEventListener("touchcancel", onEnd);
+      window.removeEventListener("blur", onBlur);
+      victory?.removeEventListener("click", closeVictory);
+    });
+  }
+  /** Asks for fullscreen once, on the first touch, where the browser has it. */
+  askFullscreen() {
+    if (this.askedFullscreen) {
+      return;
+    }
+    this.askedFullscreen = true;
+    this.switchFullscreen(true);
+  }
+  /** Switches the page to fullscreen or back, where the browser can: iPadOS Safari only by its webkit names, an iPhone's not at all. */
+  switchFullscreen(on) {
+    const page = document.documentElement;
+    const doc = document;
+    if (on) {
+      if (page.requestFullscreen !== void 0) {
+        page.requestFullscreen().catch(() => void 0);
+      } else {
+        page.webkitRequestFullscreen?.();
+      }
+    } else if (this.fullscreenState() === true) {
+      if (doc.exitFullscreen !== void 0) {
+        doc.exitFullscreen().catch(() => void 0);
+      } else {
+        doc.webkitExitFullscreen?.();
+      }
+    }
+  }
+  /** Whether the page is fullscreen, or undefined where the browser can't switch. */
+  fullscreenState() {
+    const doc = document;
+    if (doc.fullscreenEnabled !== true && doc.webkitFullscreenEnabled !== true) {
+      return void 0;
+    }
+    return (doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null) !== null;
+  }
+  /** The notch's safe area on the left and right, in canvas pixels, from the page's safe-area probe. */
+  safeInsets() {
+    const probe = document.querySelector("#safe-area");
+    if (probe === null) {
+      return { insetLeft: 0, insetRight: 0 };
+    }
+    const style = getComputedStyle(probe);
+    const toCanvas = this.scale.width / Math.max(1, window.innerWidth);
+    return { insetLeft: parseFloat(style.paddingLeft) * toCanvas || 0, insetRight: parseFloat(style.paddingRight) * toCanvas || 0 };
+  }
+  /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
+  touchStart(id, p) {
+    if (this.victoryScreen.open) {
+      this.victoryScreen.hide();
+      return;
+    }
+    if (this.loadoutScreen.open) {
+      this.loadoutScreen.hide();
+      return;
+    }
+    if (this.maps.open) {
+      const sector = this.maps.pick(p.x, p.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
+      if (sector !== void 0) {
+        this.net?.pickMission(sector);
+      } else if (!this.maps.onFull(p.x, p.y)) {
+        this.maps.close();
+      }
+      return;
+    }
+    const role = this.touch.start(id, p.x, p.y, this.scale.width, this.touchButtonRects, this.maps.onMinimap(p.x, p.y), this.dpr());
+    if (role === "orders") {
+      this.pressOrders(p);
+    }
+  }
+  /** A touch lifts: a button does its job on release, like its key. */
+  touchEnd(id) {
+    switch (this.touch.end(id)) {
+      case "orders":
+        this.releaseOrders();
+        break;
+      case "summon":
+        this.net?.summon();
+        break;
+      case "loadout":
+        this.openLoadout();
+        break;
+      case "respawnHome":
+        this.respawn(false);
+        break;
+      case "respawnBeside":
+        this.respawn(true);
+        break;
+      case "fullscreen":
+        this.switchFullscreen(this.fullscreenState() !== true);
+        break;
+      case "map":
+        if (this.canOpenMap()) {
+          this.maps.toggle();
+        }
+        break;
+      case "move":
+      case "aim":
+      case void 0:
+        break;
+    }
+  }
+  /** The touch sticks as input (#180): the left one moves, and the right one aims and fires while pushed. */
+  readTouch() {
+    const { x, y, angle } = this.sim.ship;
+    const move = this.touch.stick("move");
+    const aim = this.touch.aim() ?? { x: Math.cos(angle), y: Math.sin(angle) };
+    return {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      moveX: move.x,
+      moveY: move.y,
+      pointerX: x + aim.x * TOUCH_AIM_REACH,
+      pointerY: y + aim.y * TOUCH_AIM_REACH,
+      fire: this.touch.firing
+    };
+  }
+  /** Lays out and draws the touch buttons and sticks; none over a screen or the full map. */
+  drawTouch() {
+    if (this.touchView === void 0) {
+      return;
+    }
+    const ship = this.sim.ship;
+    const covered = this.loadoutScreen.open || this.maps.open || this.victoryScreen.open;
+    this.touchButtonRects = covered ? [] : touchButtons({
+      width: this.scale.width,
+      height: this.scale.height,
+      dpr: renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels),
+      atHome: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS,
+      down: this.sim.downed,
+      canRespawn: this.sim.canRespawn,
+      beside: this.net?.nearestSquadmate()?.name,
+      fullscreen: this.fullscreenState(),
+      ...this.insets
+    });
+    this.touchView.draw(this.touch, this.touchButtonRects, this.dpr());
+  }
   readInput() {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main);
+    if (this.touchOn && !(this.loadoutScreen.open || this.maps.open || this.victoryScreen.open)) {
+      return this.readTouch();
+    }
     if (this.loadoutScreen.open || this.maps.open || this.victoryScreen.open) {
       const { x, y, angle } = this.sim.ship;
       return {
@@ -5803,7 +6421,8 @@ ${modeName(info)}`,
       return;
     }
     const beside = this.net?.nearestSquadmate();
-    const choices = this.sim.canRespawn ? `[H] respawn at home${beside === void 0 ? "" : `      [J] respawn beside ${beside.name}`}` : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
+    const keys2 = `[H] respawn at home${beside === void 0 ? "" : `      [J] respawn beside ${beside.name}`}`;
+    const choices = this.sim.canRespawn ? this.touchOn ? "respawn with a button above" : keys2 : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
     const text = ["You're down", "", choices, "or stay: a friend close by revives you"].join("\n");
     if (this.downPanel.text !== text) {
       this.downPanel.setText(text);
@@ -5938,7 +6557,7 @@ ${modeName(info)}`,
   /** Times the GPU's work for each frame, where the browser can (#143). */
   timeGpu() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+    if (!(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     const timer = new GpuTimer(renderer.gl);
@@ -5946,12 +6565,61 @@ ${modeName(info)}`,
       return;
     }
     this.gpuTimer = timer;
-    renderer.on(Phaser10.Renderer.Events.PRE_RENDER, () => {
+    renderer.on(Phaser11.Renderer.Events.PRE_RENDER, () => {
       timer.begin();
     });
-    renderer.on(Phaser10.Renderer.Events.POST_RENDER, () => {
+    renderer.on(Phaser11.Renderer.Events.POST_RENDER, () => {
       timer.end();
     });
+  }
+  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. The bloom stays off where it draws the world black. */
+  setEffects(on) {
+    this.effects = on;
+    if (this.bloom !== void 0) {
+      this.bloom.active = on && !this.bloomBroken;
+    }
+    this.vignette.setVisible(on);
+    this.updateHud();
+  }
+  /**
+   * Turns the bloom off for good in this browser if it draws the world black,
+   * as Phaser's parallel filters do on some phones' GPUs (a PowerVR D-Series,
+   * #180): a moment after the start, if every sample across the middle of the
+   * screen is pure black, which the world's background never is.
+   */
+  checkBloom() {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
+      return;
+    }
+    if (loadBloomBroken()) {
+      this.bloomBroken = true;
+      this.bloom.active = false;
+      return;
+    }
+    let frames = 0;
+    const check = () => {
+      frames++;
+      if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
+        return;
+      }
+      renderer.off(Phaser11.Renderer.Events.POST_RENDER, check);
+      const gl = renderer.gl;
+      const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const samples = blankSamples(gl.drawingBufferWidth, gl.drawingBufferHeight).map(({ x, y }) => {
+        const pixel = new Uint8Array(4);
+        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        return pixel;
+      });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+      if (allBlack(samples)) {
+        this.bloomBroken = true;
+        this.bloom.active = false;
+        saveBloomBroken();
+      }
+    };
+    renderer.on(Phaser11.Renderer.Events.POST_RENDER, check);
   }
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   fpsLine() {
@@ -5962,14 +6630,15 @@ ${modeName(info)}`,
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
-      "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home",
-      "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects \xB7 V 60 fps cap \xB7 P resolution",
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? this.bloomBroken ? "on, no bloom" : "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
+      // The key lines are about keys, so a tablet goes without them (#180, decision 6).
+      ...this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE],
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? "",
       this.netStatus(),
-      this.squadronStatus()
+      this.squadronStatus(),
+      ...this.diagnostics?.lines() ?? []
     ]);
     this.layoutHud();
   }
@@ -6097,6 +6766,9 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
+    this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
+    this.debug.touchSticks = this.touch.sticks().map((s) => s.role);
+    this.debug.touchFiring = this.touch.firing;
     this.debug.mapOpen = this.maps.open;
     this.debug.openRings = this.net?.frontier.openRings ?? 0;
     this.debug.openedSectors = [...this.net?.frontier.opened ?? []];
@@ -6126,8 +6798,8 @@ async function start() {
   await loadSim("/static/wasm/sim.wasm");
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
-  const game = new Phaser11.Game({
-    type: Phaser11.AUTO,
+  const game = new Phaser12.Game({
+    type: Phaser12.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -6136,7 +6808,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser11.Scale.NONE,
+      mode: Phaser12.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

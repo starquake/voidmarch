@@ -175,3 +175,24 @@ export function saveSeenSeason(season: string, store: Store | undefined = browse
     // Private windows can refuse storage; the screen then shows again next visit.
   }
 }
+
+// Numbered: a phone that found the bloom black before the small blend (#180) tries it again.
+const BLOOM_BROKEN_KEY = 'voidmarch.bloomBroken.2';
+
+/** Whether this browser found the bloom draws the world black (#180). */
+export function loadBloomBroken(store: Store | undefined = browserStorage()): boolean {
+  try {
+    return store?.getItem(BLOOM_BROKEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Remembers that the bloom draws the world black here, so the next start goes without it; a denied write is ignored. */
+export function saveBloomBroken(store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(BLOOM_BROKEN_KEY, '1');
+  } catch {
+    // Without storage the check runs again next time, after a moment of black.
+  }
+}
