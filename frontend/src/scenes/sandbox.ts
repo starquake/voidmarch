@@ -20,14 +20,18 @@ import {
   loadControlMode,
   loadDisplaySettings,
   loadToken,
+  loadViewSettings,
   saveAudioSettings,
   saveControlMode,
   saveDisplaySettings,
+  saveViewSettings,
   type AudioSettings,
   type DisplaySettings,
 } from '../settings.ts';
 import { keys, weaponTiming } from '../sprites.ts';
-import { CONTROL_MODES, type InputSnapshot } from '../sim/input.ts';
+import { type InputSnapshot } from '../sim/input.ts';
+import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
+import { SettingsScreen } from '../settingsscreen.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { defaultUnlocks, partLabel, tierCss, withTiers } from '../sim/parts.ts';
 import { LoadoutScreen } from '../loadout.ts';
@@ -139,7 +143,7 @@ const DOWN_PANEL_Y = 0.8;
 const BLOOM_CHECK_FRAME = 30;
 /** The HUD's two lines of keys. */
 const KEY_HELP_MOVE = 'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home';
-const KEY_HELP_MORE = 'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects · V 60 fps cap · P resolution';
+const KEY_HELP_MORE = 'hold Q orders, tap to repeat · 1/2/3 parts · Esc settings';
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
 /** The order ring's height radius and its dead center, in CSS pixels. */
@@ -219,6 +223,9 @@ export class SandboxScene extends Phaser.Scene {
   /** The loadout screen at the home planet (#78). */
   private readonly loadoutScreen = new LoadoutScreen();
   private readonly victoryScreen = new VictoryScreen();
+  private readonly settingsScreen = new SettingsScreen((row) => {
+    this.setOption(row.id);
+  });
   /** Twin-stick touch controls on a tablet (#180). */
   private readonly touchOn = touchMode((query) => window.matchMedia(query).matches, window.location.search);
   private readonly touch = new TouchControls();
@@ -302,7 +309,12 @@ export class SandboxScene extends Phaser.Scene {
       this.createTouch();
     }
     const asked = new URLSearchParams(window.location.search);
-    if (asked.get('effects') === '0') {
+    const view = loadViewSettings();
+    if (view.snapRotation) {
+      this.sim.setRotationSnap(ROTATION_SNAP_STEPS);
+    }
+    // ?effects=0 is for this visit only, so it isn't saved.
+    if (!view.effects || asked.get('effects') === '0') {
       this.setEffects(false);
     }
     if (asked.get('diag') === '1') {
@@ -363,6 +375,7 @@ export class SandboxScene extends Phaser.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       victoryScreen: false,
+      settingsScreen: false,
       touch: this.touchOn,
       touchButtons: [],
       touchSticks: [],
@@ -725,7 +738,9 @@ export class SandboxScene extends Phaser.Scene {
       if (event.repeat) {
         return;
       }
-      if (this.victoryScreen.open) {
+      if (this.settingsScreen.open) {
+        this.settingsKey(event);
+      } else if (this.victoryScreen.open) {
         this.victoryKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
@@ -740,6 +755,8 @@ export class SandboxScene extends Phaser.Scene {
         this.openVictory();
       } else if (event.code === 'KeyQ') {
         this.pressOrders();
+      } else if (event.code === 'Escape') {
+        this.openSettings();
       } else {
         this.handleDebugKey(event.code);
       }
@@ -858,6 +875,83 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
+  private get screenOpen(): boolean {
+    return this.loadoutScreen.open || this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+  }
+
+  /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
+  private openSettings(): void {
+    const squadronScreen = document.querySelector<HTMLFormElement>('#squadron-form');
+    if (this.orderPress !== undefined || squadronScreen?.hidden === false) {
+      return;
+    }
+    this.settingsScreen.show(optionRows(this.options()));
+  }
+
+  /** A key while the settings screen is open: Esc closes it, the arrows and Enter are its own, and the rest wait. */
+  private settingsKey(event: KeyboardEvent): void {
+    if (event.code === 'Escape') {
+      this.settingsScreen.hide();
+    } else {
+      this.settingsScreen.key(event);
+    }
+  }
+
+  /** The settings screen's options, as they are now. */
+  private options(): Options {
+    return {
+      sound: !this.audioSettings.muted,
+      music: this.audioSettings.music,
+      controls: this.sim.controlMode,
+      snapRotation: this.sim.ship.rotationSnap !== 0,
+      effects: this.effects,
+      fpsCap: this.displaySettings.fpsCap,
+      lowResolution: this.displaySettings.cssPixels,
+    };
+  }
+
+  /** Changes one option to its next value, applies it at once and remembers it (#145). */
+  private setOption(id: OptionId): void {
+    const next = changeOption(this.options(), id);
+    switch (id) {
+      case 'sound':
+        this.audio.toggleMute();
+        saveAudioSettings(this.audioSettings);
+        break;
+      case 'music':
+        this.audio.toggleMusic();
+        saveAudioSettings(this.audioSettings);
+        break;
+      case 'controls':
+        this.sim.controlMode = next.controls;
+        saveControlMode(next.controls);
+        break;
+      case 'snapRotation':
+        this.sim.setRotationSnap(next.snapRotation ? ROTATION_SNAP_STEPS : 0);
+        break;
+      case 'effects':
+        this.setEffects(next.effects);
+        break;
+      case 'fpsCap':
+        this.displaySettings = { ...this.displaySettings, fpsCap: next.fpsCap };
+        saveDisplaySettings(this.displaySettings);
+        this.game.loop.setFPSLimit(next.fpsCap ? FPS_CAP : 0);
+        break;
+      case 'lowResolution':
+        this.displaySettings = { ...this.displaySettings, cssPixels: next.lowResolution };
+        saveDisplaySettings(this.displaySettings);
+        // The window fit in main.ts reads the setting and resizes the canvas.
+        window.dispatchEvent(new Event('resize'));
+        break;
+    }
+    if (id === 'snapRotation' || id === 'effects') {
+      saveViewSettings({ snapRotation: next.snapRotation, effects: next.effects });
+    }
+    this.settingsScreen.update(optionRows(this.options()));
+    this.updateHud();
+  }
+
   /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
   private openLoadout(): void {
     const ship = this.sim.ship;
@@ -951,41 +1045,6 @@ export class SandboxScene extends Phaser.Scene {
       case 'KeyG':
         this.net?.summon();
         this.updateHud();
-        break;
-      case 'KeyM':
-        this.audio.toggleMute();
-        saveAudioSettings(this.audioSettings);
-        this.updateHud();
-        break;
-      case 'KeyN':
-        this.audio.toggleMusic();
-        saveAudioSettings(this.audioSettings);
-        this.updateHud();
-        break;
-      case 'KeyC':
-        this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
-        saveControlMode(this.sim.controlMode);
-        this.updateHud();
-        break;
-      case 'KeyR':
-        this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
-        this.updateHud();
-        break;
-      case 'KeyV':
-        this.displaySettings = { ...this.displaySettings, fpsCap: !this.displaySettings.fpsCap };
-        saveDisplaySettings(this.displaySettings);
-        this.game.loop.setFPSLimit(this.displaySettings.fpsCap ? FPS_CAP : 0);
-        this.updateHud();
-        break;
-      case 'KeyP':
-        this.displaySettings = { ...this.displaySettings, cssPixels: !this.displaySettings.cssPixels };
-        saveDisplaySettings(this.displaySettings);
-        // The window fit in main.ts reads the setting and resizes the canvas.
-        window.dispatchEvent(new Event('resize'));
-        this.updateHud();
-        break;
-      case 'KeyF':
-        this.setEffects(!this.effects);
         break;
       default:
     }
@@ -1339,6 +1398,11 @@ export class SandboxScene extends Phaser.Scene {
 
   /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
   private touchStart(id: number, p: Point): void {
+    if (this.settingsScreen.open) {
+      this.settingsScreen.hide();
+
+      return;
+    }
     if (this.victoryScreen.open) {
       this.victoryScreen.hide();
 
@@ -1376,6 +1440,9 @@ export class SandboxScene extends Phaser.Scene {
         break;
       case 'loadout':
         this.openLoadout();
+        break;
+      case 'settings':
+        this.openSettings();
         break;
       case 'respawnHome':
         this.respawn(false);
@@ -1423,8 +1490,7 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     const ship = this.sim.ship;
-    const covered = this.loadoutScreen.open || this.maps.open || this.victoryScreen.open;
-    this.touchButtonRects = covered
+    this.touchButtonRects = this.screenOpen
       ? []
       : touchButtons({
           width: this.scale.width,
@@ -1443,10 +1509,10 @@ export class SandboxScene extends Phaser.Scene {
   private readInput(): InputSnapshot {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
-    if (this.touchOn && !(this.loadoutScreen.open || this.maps.open || this.victoryScreen.open)) {
+    if (this.touchOn && !this.screenOpen) {
       return this.readTouch();
     }
-    if (this.loadoutScreen.open || this.maps.open || this.victoryScreen.open) {
+    if (this.screenOpen) {
       // The ship holds still under the screen or the map, still facing where it was (#78 and #100).
       const { x, y, angle } = this.sim.ship;
 
@@ -1869,6 +1935,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
+    this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
     this.debug.touchSticks = this.touch.sticks().map((s) => s.role);
     this.debug.touchFiring = this.touch.firing;

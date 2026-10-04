@@ -77,6 +77,8 @@ export interface DebugState {
   loadoutScreen: boolean;
   /** Whether the victory screen is open (#156). */
   victoryScreen: boolean;
+  /** Whether the settings screen is open (#145). */
+  settingsScreen: boolean;
   /** Whether the touch controls are on, and the touch buttons showing (#180). */
   touch: boolean;
   touchButtons: string[];

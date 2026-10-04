@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { TouchControls, buttonAt, touchButtons, touchMode, touchUnit, type TouchScreen } from './touch.ts';
+import { TouchControls, buttonAt, touchButtons, touchMode, touchUnit, type ButtonRect, type TouchScreen } from './touch.ts';
 import { TOUCH_DEAD_ZONE, TOUCH_MIN_SCALE, TOUCH_STICK_RADIUS_PX } from './tuning.ts';
 
 const screen: TouchScreen = { width: 1000, height: 800, dpr: 1, atHome: false, down: false, canRespawn: false, beside: undefined, fullscreen: undefined };
@@ -40,11 +40,14 @@ test('a knob is drawn within its stick reach', () => {
   assert.deepEqual(t.sticks()[0]?.knob, { x: 100 + TOUCH_STICK_RADIUS_PX, y: 100 });
 });
 
+/** The buttons for playing, without the top-left Settings and fullscreen switch. */
+const play = (s: TouchScreen): ButtonRect[] => touchButtons(s).filter((b) => b.button !== 'settings' && b.button !== 'fullscreen');
+
 test('buttons and the minimap take their touches before the sticks', () => {
   const buttons = touchButtons({ ...screen, atHome: true });
   assert.deepEqual(
     buttons.map((b) => b.button),
-    ['summon', 'orders', 'loadout'],
+    ['summon', 'orders', 'loadout', 'settings'],
   );
   const orders = buttons[1];
   assert.ok(orders);
@@ -60,9 +63,9 @@ test('buttons and the minimap take their touches before the sticks', () => {
 });
 
 test('Loadout shows only at home, and while down only the respawns', () => {
-  assert.equal(touchButtons(screen).length, 2);
-  assert.deepEqual(touchButtons({ ...screen, down: true }), [], 'not yet allowed to respawn');
-  const respawns = touchButtons({ ...screen, down: true, canRespawn: true, beside: 'Mira' });
+  assert.equal(play(screen).length, 2);
+  assert.deepEqual(play({ ...screen, down: true }), [], 'not yet allowed to respawn');
+  const respawns = play({ ...screen, down: true, canRespawn: true, beside: 'Mira' });
   assert.deepEqual(
     respawns.map((b) => b.label),
     ['Respawn at home', 'Respawn beside Mira'],
@@ -70,7 +73,7 @@ test('Loadout shows only at home, and while down only the respawns', () => {
   const [home, beside] = respawns;
   assert.ok(home && beside);
   assert.equal(home.x + home.width / 2 + (beside.x + beside.width / 2), 1000, 'centered as a pair');
-  assert.equal(touchButtons({ ...screen, down: true, canRespawn: true }).length, 1);
+  assert.equal(play({ ...screen, down: true, canRespawn: true }).length, 1);
 });
 
 test('touch shows on a touch screen without a mouse, or when the page asks', () => {
@@ -105,13 +108,23 @@ test('the buttons keep clear of a notch', () => {
   const plain = touchButtons({ ...screen, fullscreen: false });
   const notched = touchButtons({ ...screen, fullscreen: false, insetLeft: 40, insetRight: 30 });
   assert.equal((notched[0]?.x ?? 0) - (plain[0]?.x ?? 0), -30, 'Summon moves in from the right');
-  assert.equal((notched.at(-1)?.x ?? 0) - (plain.at(-1)?.x ?? 0), 40, 'the switch moves in from the left');
+  assert.equal((notched.at(-1)?.x ?? 0) - (plain.at(-1)?.x ?? 0), 40, 'the top-left buttons move in from the left');
 });
 
-test('a switch in the top left turns fullscreen on and off, where the browser can', () => {
-  assert.equal(buttonAt(touchButtons(screen), 30, 30), undefined, 'none where the browser cannot switch');
-  const windowed = touchButtons({ ...screen, fullscreen: false });
-  assert.equal(buttonAt(windowed, 30, 30)?.label, 'Full screen');
-  assert.equal(buttonAt(touchButtons({ ...screen, fullscreen: true }), 30, 30)?.label, 'Windowed');
-  assert.equal(touchButtons({ ...screen, down: true, fullscreen: false }).at(-1)?.button, 'fullscreen', 'also while down');
+test('Settings sits in the top left, with the fullscreen switch beside it where the browser can switch (#145)', () => {
+  const fullscreen = (s: TouchScreen): ButtonRect | undefined => touchButtons(s).find((b) => b.button === 'fullscreen');
+  assert.equal(buttonAt(touchButtons(screen), 30, 30)?.button, 'settings');
+  assert.equal(fullscreen(screen), undefined, 'no switch where the browser cannot switch');
+  const windowed = fullscreen({ ...screen, fullscreen: false });
+  assert.equal(windowed?.label, 'Full screen');
+  const settings = touchButtons(screen).find((b) => b.button === 'settings');
+  assert.ok(settings);
+  assert.ok(windowed);
+  assert.ok(windowed.x > settings.x + settings.width, 'the switch is right of Settings');
+  assert.equal(fullscreen({ ...screen, fullscreen: true })?.label, 'Windowed');
+  assert.deepEqual(
+    touchButtons({ ...screen, down: true, fullscreen: false }).slice(-2).map((b) => b.button),
+    ['settings', 'fullscreen'],
+    'both also while down',
+  );
 });
