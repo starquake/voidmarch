@@ -150,12 +150,11 @@ done
 
 ### 4. The image on GHCR
 
-CI publishes `ghcr.io/starquake/voidmarch` from `main`. Each deploy pulls with
-the workflow's own token, so the package needs no other access as long as it
-belongs to this repository. The token goes in a throwaway Docker config that
-the deploy deletes when it ends, not through `docker login`: that would hand it
-to the server's credential helper (`pass`), which the deploy users don't have
-set up.
+CI publishes `ghcr.io/starquake/voidmarch` from `main`. The package is public,
+like the repository, so the server and the deploy's checks pull it without
+logging in; only development's job logs in, to push its `:pr-<n>` image. If the
+package is ever made private, staging and production fail at "Resolve and
+verify the image" until the deploys log in again.
 
 ### 5. The `deploy:dev` label
 
