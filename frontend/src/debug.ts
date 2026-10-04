@@ -70,6 +70,8 @@ export interface DebugState {
   companionKills: number;
   /** The HUD's current notice, if any. */
   notice: string | undefined;
+  /** The HUD (#91): the panel's rows as "Label: value", and the toasts showing. */
+  hud: { panel: string[]; toasts: string[] };
   /** Whether the Q order ring is showing. */
   orderMenuOpen: boolean;
   /** The player's squadron, "" before choosing, and whether the join screen is up. */

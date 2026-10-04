@@ -100,6 +100,8 @@ export const MAP_CLEARED_COLOR = 0x2c6a3c;
 /** Hostile sectors by ring, darker the farther from home. */
 export const MAP_HOSTILE_COLORS: readonly number[] = [0x8a3030, 0x8a3030, 0x6e2626, 0x561d1d];
 export const MAP_FILL_ALPHA = 0.9;
+/** The minimap's sectors are see-through, so ships behind it stay visible (#91, decision 6). */
+export const MINIMAP_FILL_ALPHA = 0.45;
 /** A closed sector on the maps (#123). */
 export const MAP_CLOSED_COLOR = 0x2a2a33;
 /** In the world, a closed sector's shade (#123). */
