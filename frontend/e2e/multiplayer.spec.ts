@@ -55,10 +55,13 @@ test('two players see each other fly and shoot', async ({ browser, baseURL }) =>
       .toBeGreaterThan((before?.x ?? 0) + 20);
     await sanne.keyboard.up('w');
 
-    // Sanne fires; her shots reach Mo's world.
-    const shotsBefore = (await state(mo)).projectiles;
+    // Sanne fires; her shots reach Mo's world. Counted as Sanne's, not Mo's total:
+    // enemy bullets near home change that (#164).
+    const sanneShots = async (): Promise<number> =>
+      (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`)?.shotsSeen ?? 0;
+    const shotsBefore = await sanneShots();
     await sanne.mouse.down();
-    await expect.poll(async () => (await state(mo)).projectiles).toBeGreaterThan(shotsBefore);
+    await expect.poll(sanneShots, { message: "Mo sees Sanne's shots" }).toBeGreaterThan(shotsBefore);
     await sanne.mouse.up();
 
     // And Sanne sees Mo, over JSON.
