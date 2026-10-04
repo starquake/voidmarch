@@ -1,0 +1,26 @@
+# Development: the PR labeled deploy:dev, an unsigned :pr-<n> build. Safe to wipe.
+# No host port: SWAG reaches the container by name on the web network.
+services:
+  voidmarch-development:
+    image: ${IMAGE_NAME}@${IMAGE_DIGEST:?IMAGE_DIGEST must be set in .env}
+    container_name: voidmarch-development
+    environment:
+      # The web network's subnet, so REGISTER_LIMIT counts players' addresses.
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-}
+    volumes:
+      - voidmarch_development_data:/data
+    networks:
+      - web
+    # Docker's json-file log has no size limit by default.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    restart: unless-stopped
+
+volumes:
+  voidmarch_development_data:
+networks:
+  web:
+    external: true
