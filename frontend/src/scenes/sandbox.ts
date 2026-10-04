@@ -36,6 +36,7 @@ import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type
 import { defaultUnlocks, partLabel, tierCss, withTiers } from '../sim/parts.ts';
 import { LoadoutScreen } from '../loadout.ts';
 import { VictoryScreen } from '../victory.ts';
+import { StandingsPanel } from '../standings.ts';
 import { MapView } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
@@ -231,6 +232,9 @@ export class SandboxScene extends Phaser.Scene {
   private readonly settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
   });
+  /** The season so far on the join screen and above the down panel (#167). */
+  private readonly standingsJoin = new StandingsPanel('#standings-join');
+  private readonly standingsDown = new StandingsPanel('#standings-down');
   /** Twin-stick touch controls on a tablet (#180). */
   private readonly touchOn = touchMode((query) => window.matchMedia(query).matches, window.location.search);
   private readonly touch = new TouchControls();
@@ -387,6 +391,7 @@ export class SandboxScene extends Phaser.Scene {
       loadoutScreen: false,
       victoryScreen: false,
       settingsScreen: false,
+      standings: { join: 0, down: 0 },
       touch: this.touchOn,
       touchButtons: [],
       touchSticks: [],
@@ -419,6 +424,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     this.updateLoadoutScreen();
     this.openVictoryIfDue();
+    this.updateStandings();
     this.drawTouch();
     this.diagnostics?.check();
     this.drawShip(events);
@@ -914,6 +920,19 @@ export class SandboxScene extends Phaser.Scene {
   private openVictoryIfDue(): void {
     if (this.net?.takeVictory() === true) {
       this.openVictory();
+    }
+  }
+
+  /** Shows the season so far on the join screen while it's up, and above the down panel while down (#167). */
+  private updateStandings(): void {
+    const net = this.net;
+    const players = net?.standings ?? [];
+    const joinOpen = document.querySelector<HTMLFormElement>('#squadron-form')?.hidden === false;
+    for (const [panel, show] of [
+      [this.standingsJoin, joinOpen],
+      [this.standingsDown, this.sim.downed],
+    ] as const) {
+      panel.update(show, players, net?.playerId, net?.seasonStarted ?? 0, net?.standingsVersion ?? 0);
     }
   }
 
@@ -1987,6 +2006,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
+    this.debug.standings = { join: this.standingsJoin.rows, down: this.standingsDown.rows };
     this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
     this.debug.touchSticks = this.touch.sticks().map((s) => s.role);
     this.debug.touchFiring = this.touch.firing;

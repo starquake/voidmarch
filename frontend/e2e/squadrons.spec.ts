@@ -37,11 +37,16 @@ test('squadmates join from the screen and hear each other\'s orders', async ({ p
   await expect.poll(async () => (await state(page)).squadron).not.toBe('');
   const squadron = (await state(page)).squadron;
   expect((await state(page)).squadronScreen).toBe(false);
+  // A few shots, so the season has stats to show a joiner (#167).
+  await page.mouse.down();
+  await expect.poll(async () => (await state(page)).shotsFired).toBeGreaterThan(0);
+  await page.mouse.up();
 
   const mo = await otherPlayer(browser, baseURL ?? '', `Mo${String(Date.now() % 100000)}`);
   try {
-    // The second player picks it on the join screen: Enter joins the picked one.
+    // The second player picks it on the join screen, under the season so far: Enter joins the picked one.
     await expect.poll(async () => (await state(mo)).squadronScreen).toBe(true);
+    await expect.poll(async () => (await state(mo)).standings.join, { message: 'the join screen shows the season so far' }).toBeGreaterThan(0);
     await mo.keyboard.press('Enter');
     await expect.poll(async () => (await state(mo)).squadron).toBe(squadron);
     await expect.poll(async () => (await state(mo)).squadronScreen).toBe(false);

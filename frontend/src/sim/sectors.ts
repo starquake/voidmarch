@@ -218,9 +218,12 @@ export function missionBanner(sector: string): string[] {
   ];
 }
 
-/** The lines that announce the squadron's mission is done, and the part it gave this player, if any. */
-export function missionCompleteBanner(sector: string, part: string | undefined): string[] {
+/** The lines that announce the squadron's mission is done, what its fighters did (#167), and the part it gave this player, if any. */
+export function missionCompleteBanner(sector: string, part: string | undefined, stats?: string): string[] {
   const lines = [`Mission complete: sector ${sector} cleared`];
+  if (stats !== undefined) {
+    lines.push(stats);
+  }
   if (part !== undefined) {
     lines.push(`Your reward: ${part}`);
   }

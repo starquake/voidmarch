@@ -81,6 +81,8 @@ export interface DebugState {
   victoryScreen: boolean;
   /** Whether the settings screen is open (#145). */
   settingsScreen: boolean;
+  /** The rows the season-so-far tables show on the join screen and above the down panel, 0 while hidden (#167). */
+  standings: { join: number; down: number };
   /** Whether the touch controls are on, and the touch buttons showing (#180). */
   touch: boolean;
   touchButtons: string[];

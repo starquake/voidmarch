@@ -169,3 +169,8 @@ export const TOUCH_FULL_HEIGHT_PX = 700;
 /** The fullscreen switch's size, as a share of a wide button's, in the top left corner. */
 export const TOUCH_SMALL_SHARE = 0.55;
 export const TOUCH_MIN_SCALE = 0.6;
+
+/** The season-so-far table's length, before the player's own row (#167). */
+export const STANDINGS_TOP = 5;
+/** The shots a player needs in a mission to be named for the best aim, so one lucky shot isn't (#167). */
+export const MISSION_AIM_MIN_SHOTS = 10;

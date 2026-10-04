@@ -50,6 +50,8 @@ test('a downed player respawns at home, whole', async ({ page }) => {
   // Alone out there, nobody revives: DOWN, and no bar yet.
   expect([down.downLabel, down.reviveBar]).toEqual(['DOWN', undefined]);
   expect(down.downPanel).toContain("You're down");
+  // The season so far shows above the panel; going down counted in it (#167).
+  await expect.poll(async () => (await state(page)).standings.down, { message: 'the season so far while down' }).toBeGreaterThan(0);
   await expect
     .poll(async () => (await state(page)).downPanel ?? '', { timeout: 10_000 })
     .toContain('[H] respawn at home');
@@ -63,4 +65,5 @@ test('a downed player respawns at home, whole', async ({ page }) => {
     })
     .toEqual([false, 'fullHealth', 1, 0, undefined]);
   expect((await state(page)).revives).toBe(0);
+  expect((await state(page)).standings.down, 'gone once up again').toBe(0);
 });

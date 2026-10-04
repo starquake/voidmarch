@@ -146,6 +146,7 @@ test("a sector's faction is its ring's, and the mission banner names it", () => 
 test('a finished mission is announced with the part it gave', () => {
   assert.deepEqual(missionCompleteBanner('D3', 'Mega Zapper'), ['Mission complete: sector D3 cleared', 'Your reward: Mega Zapper']);
   assert.deepEqual(missionCompleteBanner('D3', undefined), ['Mission complete: sector D3 cleared']);
+  assert.deepEqual(missionCompleteBanner('D3', undefined, 'Nobody went down'), ['Mission complete: sector D3 cleared', 'Nobody went down']);
 });
 
 test("the background takes each ring's tint, and white off the grid", () => {

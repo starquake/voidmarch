@@ -9,6 +9,7 @@ import type {
   PickupTaken,
   SeasonWon,
   SectorCleared,
+  Standings,
   Snapshot,
   WorldEvent,
   SquadronInfo,
@@ -29,6 +30,7 @@ import {
   fromEnemyKind,
   fromLoadout,
   fromPart,
+  fromPlayerStats,
   fromSeasonWon,
   fromShipState,
   fromUnlocks,
@@ -41,6 +43,7 @@ import {
 import { ORDER_ITEMS, type OrderContext, type OrderItem } from '../ordermenu.ts';
 import { loadLastSquadron, loadSeenSeason, saveLastSquadron, saveSeenSeason } from '../settings.ts';
 import type { SeasonResult } from '../victory.ts';
+import { missionStatsLine, type PlayerStatsRow } from '../sim/standings.ts';
 import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
@@ -237,6 +240,10 @@ export class NetPlay {
   frontierVersion = 0;
   /** The season's result once it's won (#156), and whether the victory screen should open for it. */
   seasonResult: SeasonResult | undefined;
+  /** The season so far (#167): everyone's stats, when the season started, and a count that moves on every change. */
+  standings: PlayerStatsRow[] = [];
+  seasonStarted = 0;
+  standingsVersion = 0;
   private victoryPending = false;
   private enemyVolleys = new TimedQueue<EnemyVolley>(20);
   private enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(20);
@@ -388,6 +395,9 @@ export class NetPlay {
         seasonWon: (won) => {
           this.seasonWon(won, true);
         },
+        standings: (standings) => {
+          this.setStandings(standings);
+        },
         eventEnded: (ended) => {
           this.worldEvent = undefined;
           const event = ended.event;
@@ -533,6 +543,13 @@ export class NetPlay {
       this.victoryPending = true;
       saveSeenSeason(result.season);
     }
+  }
+
+  /** Keeps the season so far (#167). */
+  private setStandings(standings: Standings): void {
+    this.standings = standings.players.map(fromPlayerStats);
+    this.seasonStarted = Number(standings.season);
+    this.standingsVersion++;
   }
 
   /** Whether the victory screen should open now; asking clears it. */
@@ -1035,6 +1052,9 @@ export class NetPlay {
     this.worldEvent = welcome.worldEvent;
     this.mapName = welcome.mapName;
     this.seasonResult = undefined;
+    if (welcome.standings !== undefined) {
+      this.setStandings(welcome.standings);
+    }
     if (welcome.seasonWon !== undefined) {
       this.seasonWon(welcome.seasonWon, false);
     }
@@ -1117,7 +1137,7 @@ export class NetPlay {
     this.say(`Sector ${cleared.sector} cleared${gained}`);
     this.lastClear = { sector: cleared.sector, reward };
     if (ours) {
-      this.banners.push(missionCompleteBanner(cleared.sector, reward));
+      this.banners.push(missionCompleteBanner(cleared.sector, reward, missionStatsLine(cleared.mission.map(fromPlayerStats))));
     }
     this.options.pickups.regrade(this.unlocks);
     this.refit();

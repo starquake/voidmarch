@@ -132,6 +132,7 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     frontier: (f) => log.events.push(`frontier ${String(f.openRings)} ${f.opened.join(',')}`),
     bossFell: (f) => log.events.push(`boss fell, ${String(f.gains.length)} gains`),
     seasonWon: (w) => log.events.push(`season won in ${String(w.seconds)} s`),
+    standings: (s) => log.events.push(`standings ${String(s.players.length)}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -202,6 +203,7 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'frontier', value: { openRings: 1, opened: ['D2'] } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'bossFell', value: { gains: [{ playerId: 'me' }] } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'seasonWon', value: { seconds: 3600n } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'standings', value: { players: [{ playerId: 'mo' }] } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -222,6 +224,7 @@ test('server messages reach their events', () => {
     'frontier 1 D2',
     'boss fell, 1 gains',
     'season won in 3600 s',
+    'standings 1',
   ]);
   assert.equal(conn.connected, true);
 });

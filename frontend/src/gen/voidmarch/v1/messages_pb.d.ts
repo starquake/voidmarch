@@ -736,6 +736,13 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
    * @generated from field: voidmarch.v1.SeasonWon season_won = 21;
    */
   seasonWon?: SeasonWon | undefined;
+
+  /**
+   * The season so far (#167).
+   *
+   * @generated from field: voidmarch.v1.Standings standings = 22;
+   */
+  standings?: Standings | undefined;
 };
 
 /**
@@ -743,6 +750,32 @@ export declare type Welcome = Message<"voidmarch.v1.Welcome"> & {
  * Use `create(WelcomeSchema)` to create a new message.
  */
 export declare const WelcomeSchema: GenMessage<Welcome>;
+
+/**
+ * Standings are the season so far (#167): everyone who did anything, and
+ * when the season started, sent in Welcome and whenever stats change.
+ *
+ * @generated from message voidmarch.v1.Standings
+ */
+export declare type Standings = Message<"voidmarch.v1.Standings"> & {
+  /**
+   * @generated from field: repeated voidmarch.v1.PlayerStats players = 1;
+   */
+  players: PlayerStats[];
+
+  /**
+   * When the season started, in Unix seconds.
+   *
+   * @generated from field: int64 season = 2;
+   */
+  season: bigint;
+};
+
+/**
+ * Describes the message voidmarch.v1.Standings.
+ * Use `create(StandingsSchema)` to create a new message.
+ */
+export declare const StandingsSchema: GenMessage<Standings>;
 
 /**
  * SeasonWon is the season's result (#156): sent to everyone when the finale
@@ -1676,6 +1709,12 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: SeasonWon;
     case: "seasonWon";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.Standings standings = 25;
+     */
+    value: Standings;
+    case: "standings";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1925,6 +1964,14 @@ export declare type SectorCleared = Message<"voidmarch.v1.SectorCleared"> & {
    * @generated from field: repeated voidmarch.v1.PickupGain gains = 3;
    */
   gains: PickupGain[];
+
+  /**
+   * What each player who fought in it did there, from when they first came
+   * in until it was cleared (#167).
+   *
+   * @generated from field: repeated voidmarch.v1.PlayerStats mission = 4;
+   */
+  mission: PlayerStats[];
 };
 
 /**

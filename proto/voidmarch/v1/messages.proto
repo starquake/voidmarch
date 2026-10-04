@@ -270,6 +270,16 @@ message Welcome {
   Frontier frontier = 20;
   // The season's result, once it's won (#156).
   SeasonWon season_won = 21;
+  // The season so far (#167).
+  Standings standings = 22;
+}
+
+// Standings are the season so far (#167): everyone who did anything, and
+// when the season started, sent in Welcome and whenever stats change.
+message Standings {
+  repeated PlayerStats players = 1;
+  // When the season started, in Unix seconds.
+  int64 season = 2;
 }
 
 // SeasonWon is the season's result (#156): sent to everyone when the finale
@@ -507,6 +517,7 @@ message ServerMessage {
     Frontier frontier = 22;
     BossFell boss_fell = 23;
     SeasonWon season_won = 24;
+    Standings standings = 25;
   }
 }
 
@@ -587,6 +598,9 @@ message SectorCleared {
   uint32 tick = 2;
   // The parts it gave every player online (#101).
   repeated PickupGain gains = 3;
+  // What each player who fought in it did there, from when they first came
+  // in until it was cleared (#167).
+  repeated PlayerStats mission = 4;
 }
 
 // DerelictRescued is a derelict docked in the hangar (#52).

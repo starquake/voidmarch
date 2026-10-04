@@ -200,17 +200,19 @@ type Hub struct {
 	now           func() time.Time
 	// stats are every player's season stats who joined since the hub
 	// started, statsChanged those not saved since they changed (#154).
-	stats         map[string]*players.Stats
-	statsChanged  map[string]bool
-	saveStats     func(player string, s players.Stats)
-	garrisonField int
-	saveSector    func(name string)
-	dropChance    float64
-	dropChanceSet bool
-	saveUnlock    func(player string, part sim.Part, tier sim.Tier)
-	saveLoadout   func(player string, l sim.Loadout)
-	saves         chan func()
-	development   bool
+	stats        map[string]*players.Stats
+	statsChanged map[string]bool
+	// standingsChanged is set when a stat changed since the last Standings.
+	standingsChanged bool
+	saveStats        func(player string, s players.Stats)
+	garrisonField    int
+	saveSector       func(name string)
+	dropChance       float64
+	dropChanceSet    bool
+	saveUnlock       func(player string, part sim.Part, tier sim.Tier)
+	saveLoadout      func(player string, l sim.Loadout)
+	saves            chan func()
+	development      bool
 	// frigates are the map's Frigate spots and the tick each may next have a
 	// Frigate again (#89).
 	frigates []frigateSpot
@@ -429,6 +431,7 @@ func (h *Hub) Run(ctx context.Context, ticks <-chan time.Time) {
 			h.queueFleetSave()
 			if h.tick%statsSaveEvery == 0 {
 				h.saveChangedStats()
+				h.sendStandingsIfChanged()
 			}
 		}
 	}
