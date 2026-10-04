@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { deviceSize, renderRatio } from './display.ts';
+import { allBlack, blankSamples, deviceSize, renderRatio } from './display.ts';
 
 test('the canvas is as large as the device pixels it covers', () => {
   assert.deepEqual(deviceSize(1280, 720, 1.5), { width: 1920, height: 1080, zoom: 1 / 1.5, dpr: 1.5 });
@@ -30,4 +30,16 @@ test('rendering at CSS pixels uses a ratio of 1, a quarter of the pixels on a 2x
   assert.equal(renderRatio(2, false), 2);
   assert.equal(renderRatio(2, true), 1);
   assert.deepEqual(deviceSize(1000, 600, renderRatio(2, true)), { width: 1000, height: 600, zoom: 1, dpr: 1 });
+});
+
+test('a black world is told by a grid of pure black samples across the middle', () => {
+  const grid = blankSamples(1000, 500);
+  assert.equal(grid.length, 9);
+  assert.deepEqual(grid[0], { x: 300, y: 150 });
+  assert.deepEqual(grid.at(-1), { x: 700, y: 350 });
+  const black = new Uint8Array([0, 0, 0, 255]);
+  const space = new Uint8Array([5, 3, 10, 255]);
+  assert.equal(allBlack([black, black]), true);
+  assert.equal(allBlack([black, space]), false, 'the background drew somewhere');
+  assert.equal(allBlack([]), false);
 });

@@ -91,6 +91,8 @@ import { Resample, registerResample } from './resample.ts';
 import { vignetteImage } from '../vignette.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 import { TouchView } from './touchview.ts';
+import { allBlack, blankSamples } from '../display.ts';
+import { loadBloomBroken, saveBloomBroken } from '../settings.ts';
 import { Diagnostics } from '../diag.ts';
 
 /** How far each background layer moves relative to the camera. */
@@ -132,6 +134,8 @@ const DOWN_PANEL_FONT_PX = 14;
 const DOWN_PANEL_PADDING_X = 12;
 const DOWN_PANEL_PADDING_Y = 8;
 const DOWN_PANEL_Y = 0.8;
+/** How many frames in the bloom is checked for drawing the world black, once things have settled (#180). */
+const BLOOM_CHECK_FRAME = 30;
 /** The HUD's two lines of keys. */
 const KEY_HELP_MOVE = 'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home';
 const KEY_HELP_MORE = 'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects · V 60 fps cap · P resolution';
@@ -235,6 +239,8 @@ export class SandboxScene extends Phaser.Scene {
   private bloomBlur: Phaser.Filters.Blur | undefined;
   /** The size the bloom's blur runs at: half, between its resamples, or whole without them. */
   private bloomScale = BLOOM_SCALE;
+  /** Set where the bloom draws the world black, so it stays off (#180). */
+  private bloomBroken = false;
   /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   private vignette!: Phaser.GameObjects.Image;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
@@ -291,6 +297,7 @@ export class SandboxScene extends Phaser.Scene {
     this.createParticles();
     this.createCameras();
     this.timeGpu();
+    this.checkBloom();
     this.createInput();
     if (this.touchOn) {
       this.createTouch();
@@ -611,9 +618,15 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     registerResample(this.renderer);
-    // `?skip=resample,threshold,blur,blend` leaves parts out, to find what a GPU can't draw (#180).
+    // `?skip=resample,threshold,blur,blend,parallel` leaves parts out, to find what a GPU can't draw (#180).
     const skip = new Set((new URLSearchParams(window.location.search).get('skip') ?? '').split(','));
     if (skip.has('blend')) {
+      return;
+    }
+    if (skip.has('parallel')) {
+      // One plain filter, no blend: tells a GPU that can't run Phaser's blend from one that can't run any filter.
+      main.filters.external.addThreshold(BLOOM_THRESHOLD, 1);
+
       return;
     }
     const resample = !skip.has('resample');
@@ -1668,17 +1681,61 @@ export class SandboxScene extends Phaser.Scene {
     });
   }
 
-  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
-  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. */
+  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. The bloom stays off where it draws the world black. */
   private setEffects(on: boolean): void {
     this.effects = on;
     if (this.bloom !== undefined) {
-      this.bloom.active = on;
+      this.bloom.active = on && !this.bloomBroken;
     }
     this.vignette.setVisible(on);
     this.updateHud();
   }
 
+  /**
+   * Turns the bloom off for good in this browser if it draws the world black,
+   * as Phaser's parallel filters do on some phones' GPUs (a PowerVR D-Series,
+   * #180): a moment after the start, if every sample across the middle of the
+   * screen is pure black, which the world's background never is.
+   */
+  private checkBloom(): void {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) || this.bloom === undefined) {
+      return;
+    }
+    if (loadBloomBroken()) {
+      this.bloomBroken = true;
+      this.bloom.active = false;
+
+      return;
+    }
+    let frames = 0;
+    const check = (): void => {
+      frames++;
+      if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
+        return;
+      }
+      renderer.off(Phaser.Renderer.Events.POST_RENDER, check);
+      const gl = renderer.gl;
+      // The screen's own buffer, whatever Phaser has bound, put back after.
+      const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const samples = blankSamples(gl.drawingBufferWidth, gl.drawingBufferHeight).map(({ x, y }) => {
+        const pixel = new Uint8Array(4);
+        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+
+        return pixel;
+      });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+      if (allBlack(samples)) {
+        this.bloomBroken = true;
+        this.bloom.active = false;
+        saveBloomBroken();
+      }
+    };
+    renderer.on(Phaser.Renderer.Events.POST_RENDER, check);
+  }
+
+  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   private fpsLine(): string {
     const gpu = this.gpuTimer?.last;
 
@@ -1689,7 +1746,7 @@ export class SandboxScene extends Phaser.Scene {
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : 'off'}  resolution ${this.displaySettings.cssPixels ? 'low' : 'full'}  ${this.fpsLine()}`,
+      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? (this.bloomBroken ? 'on, no bloom' : 'on') : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : 'off'}  resolution ${this.displaySettings.cssPixels ? 'low' : 'full'}  ${this.fpsLine()}`,
       // The key lines are about keys, so a tablet goes without them (#180, decision 6).
       ...(this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE]),
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),

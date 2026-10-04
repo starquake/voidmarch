@@ -4,12 +4,14 @@ import { test } from 'node:test';
 import {
   clearToken,
   loadAudioSettings,
+  loadBloomBroken,
   loadControlMode,
   loadDisplaySettings,
   loadLastSquadron,
   loadSeenSeason,
   loadToken,
   saveAudioSettings,
+  saveBloomBroken,
   saveControlMode,
   saveDisplaySettings,
   saveLastSquadron,
@@ -146,4 +148,15 @@ test('the season whose victory screen was seen is remembered', () => {
   assert.equal(loadSeenSeason(store), '1800000000');
   saveSeenSeason('1800000000', brokenStore);
   assert.equal(loadSeenSeason(brokenStore), undefined);
+});
+
+test('a bloom found broken is remembered', () => {
+  const store = memoryStore();
+  assert.equal(loadBloomBroken(store), false);
+  saveBloomBroken(store);
+  assert.equal(loadBloomBroken(store), true);
+  assert.doesNotThrow(() => {
+    saveBloomBroken(brokenStore);
+  });
+  assert.equal(loadBloomBroken(brokenStore), false);
 });

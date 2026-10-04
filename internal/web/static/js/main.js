@@ -14,6 +14,18 @@ function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
 function renderRatio(devicePixelRatio, cssPixels) {
   return cssPixels ? 1 : devicePixelRatio;
 }
+function blankSamples(width, height) {
+  const out = [];
+  for (const fx of [0.3, 0.5, 0.7]) {
+    for (const fy of [0.3, 0.5, 0.7]) {
+      out.push({ x: Math.floor(width * fx), y: Math.floor(height * fy) });
+    }
+  }
+  return out;
+}
+function allBlack(samples) {
+  return samples.length > 0 && samples.every((p) => p[0] === 0 && p[1] === 0 && p[2] === 0);
+}
 
 // src/name.ts
 var MAX_NAME_LENGTH = 16;
@@ -1361,6 +1373,20 @@ function loadSeenSeason(store = browserStorage()) {
 function saveSeenSeason(season, store = browserStorage()) {
   try {
     store?.setItem(SEEN_SEASON_KEY, season);
+  } catch {
+  }
+}
+var BLOOM_BROKEN_KEY = "voidmarch.bloomBroken";
+function loadBloomBroken(store = browserStorage()) {
+  try {
+    return store?.getItem(BLOOM_BROKEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function saveBloomBroken(store = browserStorage()) {
+  try {
+    store?.setItem(BLOOM_BROKEN_KEY, "1");
   } catch {
   }
 }
@@ -5161,6 +5187,7 @@ var DOWN_PANEL_FONT_PX = 14;
 var DOWN_PANEL_PADDING_X = 12;
 var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
+var BLOOM_CHECK_FRAME = 30;
 var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home";
 var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects \xB7 V 60 fps cap \xB7 P resolution";
 var ORDER_HOLD_MS = 200;
@@ -5228,6 +5255,8 @@ var SandboxScene = class extends Phaser10.Scene {
   bloomBlur;
   /** The size the bloom's blur runs at: half, between its resamples, or whole without them. */
   bloomScale = BLOOM_SCALE;
+  /** Set where the bloom draws the world black, so it stays off (#180). */
+  bloomBroken = false;
   /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   vignette;
   hudCamera;
@@ -5282,6 +5311,7 @@ var SandboxScene = class extends Phaser10.Scene {
     this.createParticles();
     this.createCameras();
     this.timeGpu();
+    this.checkBloom();
     this.createInput();
     if (this.touchOn) {
       this.createTouch();
@@ -5579,6 +5609,10 @@ var SandboxScene = class extends Phaser10.Scene {
     registerResample(this.renderer);
     const skip = new Set((new URLSearchParams(window.location.search).get("skip") ?? "").split(","));
     if (skip.has("blend")) {
+      return;
+    }
+    if (skip.has("parallel")) {
+      main.filters.external.addThreshold(BLOOM_THRESHOLD, 1);
       return;
     }
     const resample = !skip.has("resample");
@@ -6502,16 +6536,56 @@ ${modeName(info)}`,
       timer.end();
     });
   }
-  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
-  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. */
+  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. The bloom stays off where it draws the world black. */
   setEffects(on) {
     this.effects = on;
     if (this.bloom !== void 0) {
-      this.bloom.active = on;
+      this.bloom.active = on && !this.bloomBroken;
     }
     this.vignette.setVisible(on);
     this.updateHud();
   }
+  /**
+   * Turns the bloom off for good in this browser if it draws the world black,
+   * as Phaser's parallel filters do on some phones' GPUs (a PowerVR D-Series,
+   * #180): a moment after the start, if every sample across the middle of the
+   * screen is pure black, which the world's background never is.
+   */
+  checkBloom() {
+    const renderer = this.renderer;
+    if (!(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
+      return;
+    }
+    if (loadBloomBroken()) {
+      this.bloomBroken = true;
+      this.bloom.active = false;
+      return;
+    }
+    let frames = 0;
+    const check = () => {
+      frames++;
+      if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
+        return;
+      }
+      renderer.off(Phaser10.Renderer.Events.POST_RENDER, check);
+      const gl = renderer.gl;
+      const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const samples = blankSamples(gl.drawingBufferWidth, gl.drawingBufferHeight).map(({ x, y }) => {
+        const pixel = new Uint8Array(4);
+        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        return pixel;
+      });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, bound);
+      if (allBlack(samples)) {
+        this.bloomBroken = true;
+        this.bloom.active = false;
+        saveBloomBroken();
+      }
+    };
+    renderer.on(Phaser10.Renderer.Events.POST_RENDER, check);
+  }
+  /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   fpsLine() {
     const gpu = this.gpuTimer?.last;
     return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === void 0 ? "" : `, gpu ${gpu.toFixed(1)} ms`})`;
@@ -6520,7 +6594,7 @@ ${modeName(info)}`,
     const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
+      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? this.bloomBroken ? "on, no bloom" : "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
       // The key lines are about keys, so a tablet goes without them (#180, decision 6).
       ...this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE],
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
