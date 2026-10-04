@@ -172,6 +172,9 @@ type enemy struct {
 	// escortOf is the Frigate a Fighter guards, which keeps it from
 	// despawning while that Frigate is there.
 	escortOf uint32
+	// leaving is set while a straggler flies off from downed ships, with
+	// nobody up to fight (#166).
+	leaving bool
 }
 
 type point struct{ x, y float64 }
@@ -206,7 +209,7 @@ func (h *Hub) stepEnemies() {
 		if _, guarding := h.enemies[e.escortOf]; guarding || e.garrison != nil {
 			e.lastNear = h.tick
 		}
-		if h.tick-e.lastNear > despawnAfter {
+		if h.tick-e.lastNear > despawnAfter || e.leaving && h.outOfView(e) {
 			delete(h.enemies, id)
 			h.forgetEnemy(id)
 		}
@@ -281,8 +284,7 @@ func (h *Hub) steer(e *enemy, quarries []quarry, threats []sim.Projectile) {
 		f := h.enemies[e.escortOf]
 		accelerate(e, point{f.x + e.post.x, f.y + e.post.y}, roaming(stats))
 	default:
-		e.vx *= idleDamping
-		e.vy *= idleDamping
+		e.leaving = h.flyOff(e, stats)
 	}
 
 	e.x += e.vx * tickDuration
@@ -549,4 +551,55 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 	}
 
 	return out
+}
+
+// leaveStep is how far ahead a straggler flying off aims, away from the
+// downed ship it leaves.
+const leaveStep = 200
+
+// flyOff turns a straggler with nobody up to fight away from the nearest
+// downed player within despawnRadius, at its roaming speed, and reports
+// whether it is leaving; with no downed player near it slows to a stop
+// (#166).
+func (h *Hub) flyOff(e *enemy, stats enemyStats) bool {
+	from, found := point{}, false
+	best := math.Inf(1)
+	for _, m := range h.members {
+		if m.gone || m.state == nil || !downed(m.state) {
+			continue
+		}
+		p := point{float64(m.state.GetX()), float64(m.state.GetY())}
+		if d := math.Hypot(e.x-p.x, e.y-p.y); d < best && d < despawnRadius {
+			from, best, found = p, d, true
+		}
+	}
+	if !found {
+		e.vx *= idleDamping
+		e.vy *= idleDamping
+
+		return false
+	}
+	away := math.Atan2(e.y-from.y, e.x-from.x)
+	accelerate(
+		e,
+		point{e.x + leaveStep*math.Cos(away), e.y + leaveStep*math.Sin(away)},
+		roaming(stats),
+	)
+
+	return true
+}
+
+// outOfView reports whether e is farther than despawnRadius from every
+// player, up or down.
+func (h *Hub) outOfView(e *enemy) bool {
+	for _, m := range h.members {
+		if m.gone || m.state == nil {
+			continue
+		}
+		if math.Hypot(e.x-float64(m.state.GetX()), e.y-float64(m.state.GetY())) <= despawnRadius {
+			return false
+		}
+	}
+
+	return true
 }
