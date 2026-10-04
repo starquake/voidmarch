@@ -5617,7 +5617,7 @@ var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
 var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home";
-var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 1/2/3 parts \xB7 Esc settings";
+var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 M map \xB7 hold Tab standings \xB7 1/2/3 parts \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
@@ -5665,9 +5665,10 @@ var SandboxScene = class extends Phaser11.Scene {
   settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
   });
-  /** The season so far on the join screen and above the down panel (#167). */
+  /** The season so far on the join screen, and above the down panel while down or while Tab is held (#167). */
   standingsJoin = new StandingsPanel("#standings-join");
   standingsDown = new StandingsPanel("#standings-down");
+  standingsHeld = false;
   /** Twin-stick touch controls on a tablet (#180). */
   touchOn = touchMode((query) => window.matchMedia(query).matches, window.location.search);
   touch = new TouchControls();
@@ -6134,6 +6135,9 @@ var SandboxScene = class extends Phaser11.Scene {
     this.input.mouse?.disableContextMenu();
     const onKeyDown = (event) => {
       if (event.repeat) {
+        if (event.code === "Tab" && this.standingsHeld) {
+          event.preventDefault();
+        }
         return;
       }
       if (this.settingsScreen.open) {
@@ -6144,9 +6148,11 @@ var SandboxScene = class extends Phaser11.Scene {
         this.mapKey(event);
       } else if (this.loadoutScreen.open) {
         this.loadoutKey(event);
-      } else if (event.code === "Tab" && this.canOpenMap()) {
-        event.preventDefault();
+      } else if (event.code === "KeyM" && this.canOpenMap()) {
         this.maps.toggle();
+      } else if (event.code === "Tab" && !this.joinScreenOpen()) {
+        event.preventDefault();
+        this.standingsHeld = true;
       } else if (event.code === "KeyL") {
         this.openLoadout();
       } else if (event.code === "KeyO") {
@@ -6162,10 +6168,13 @@ var SandboxScene = class extends Phaser11.Scene {
     const onKeyUp = (event) => {
       if (event.code === "KeyQ") {
         this.releaseOrders();
+      } else if (event.code === "Tab") {
+        this.standingsHeld = false;
       }
     };
     const onBlur = () => {
       this.closeOrderRing();
+      this.standingsHeld = false;
     };
     this.input.on(Phaser11.Input.Events.POINTER_DOWN, (pointer) => {
       if (this.touchOn) {
@@ -6185,14 +6194,17 @@ var SandboxScene = class extends Phaser11.Scene {
       window.removeEventListener("blur", onBlur);
     });
   }
-  /** The full map opens online, and not over the join screen or the order ring, where Tab and the mouse are theirs. */
+  /** The full map opens online, and not over the join screen or the order ring, where the keys and the mouse are theirs. */
   canOpenMap() {
-    const squadronScreen = document.querySelector("#squadron-form");
-    return this.net?.status === "online" && this.orderPress === void 0 && squadronScreen?.hidden !== false;
+    return this.net?.status === "online" && this.orderPress === void 0 && !this.joinScreenOpen();
   }
-  /** A key while the full map is open: Tab and Esc close it, and the rest wait. */
+  /** Whether the squadron join screen is up, whose form takes Tab to move between its fields. */
+  joinScreenOpen() {
+    return document.querySelector("#squadron-form")?.hidden === false;
+  }
+  /** A key while the full map is open: M and Esc close it, and the rest wait. */
   mapKey(event) {
-    if (event.code === "Tab" || event.code === "Escape") {
+    if (event.code === "KeyM" || event.code === "Escape") {
       event.preventDefault();
       this.maps.close();
     }
@@ -6292,10 +6304,10 @@ var SandboxScene = class extends Phaser11.Scene {
   updateStandings() {
     const net = this.net;
     const players = net?.standings ?? [];
-    const joinOpen = document.querySelector("#squadron-form")?.hidden === false;
     for (const [panel, show] of [
-      [this.standingsJoin, joinOpen],
-      [this.standingsDown, this.sim.downed]
+      [this.standingsJoin, this.joinScreenOpen()],
+      // Holding Tab shows it too, in the same place (#167, decision 6).
+      [this.standingsDown, this.sim.downed || this.standingsHeld]
     ]) {
       panel.update(show, players, net?.playerId, net?.seasonStarted ?? 0, net?.standingsVersion ?? 0);
     }
