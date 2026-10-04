@@ -25,8 +25,9 @@ TINYGO_BIN := $(TOOLCHAINS)/tinygo/bin/tinygo
 BINARYEN_VERSION := version_133
 WASM_OPT := $(TOOLCHAINS)/binaryen/bin/wasm-opt
 TINYGO := WASMOPT=$(abspath $(WASM_OPT)) $(TINYGO_BIN)
-# Built from the version tools/go.mod requires.
+# Built from the versions tools/go.mod requires.
 PROTOC_GEN_GO := $(BIN_DIR)/protoc-gen-go
+GO_LICENSES := $(BIN_DIR)/go-licenses
 
 UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 UNAME_M := $(shell uname -m)
@@ -146,6 +147,10 @@ $(BUF_BIN):
 $(PROTOC_GEN_GO): tools/go.mod
 	@mkdir -p $(BIN_DIR)
 	cd tools && go build -o ../$(PROTOC_GEN_GO) google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(GO_LICENSES): tools/go.mod
+	@mkdir -p $(BIN_DIR)
+	cd tools && go build -o ../$(GO_LICENSES) github.com/google/go-licenses/v2
 
 PROTO_TOOLS := $(BUF_BIN) $(PROTOC_GEN_GO) $(JS_DEPS)
 
