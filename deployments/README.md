@@ -1,8 +1,8 @@
 # Deployments
 
-Voidmarch runs in three environments on one VPS, `zoot` (Debian 13, Docker
-29.8, Compose v5.6), behind the SWAG reverse proxy that also serves topbanana
-and mediumrogue. `.github/workflows/deploy.yml`
+Voidmarch runs in three environments on one VPS, `zoot.linuxeverywhere.link`
+(Debian 13, Docker 29.8, Compose v5.6), behind the SWAG reverse proxy that also
+serves topbanana and mediumrogue. `.github/workflows/deploy.yml`
 deploys; this file is the one-time setup on the server and on GitHub that the
 workflow can't do, and the jobs done by hand afterwards.
 
@@ -61,7 +61,7 @@ chmod 600 "/home/voidmarch-$env/.ssh/authorized_keys"
 Check it from your machine:
 
 ```bash
-ssh -i voidmarch-production voidmarch-production@<SSH_HOST> docker ps --format '{{.Names}}'
+ssh -i voidmarch-production voidmarch-production@zoot.linuxeverywhere.link docker ps --format '{{.Names}}'
 ```
 
 ### 1. DNS
@@ -99,7 +99,7 @@ Copy `deployments/swag/voidmarch*.subdomain.conf` into SWAG's
 host, and reload it:
 
 ```bash
-scp deployments/swag/voidmarch*.subdomain.conf root@<SSH_HOST>:/opt/docker/appdata/swag/nginx/proxy-confs/
+scp deployments/swag/voidmarch*.subdomain.conf root@zoot.linuxeverywhere.link:/opt/docker/appdata/swag/nginx/proxy-confs/
 ```
 
 ```bash
@@ -119,7 +119,7 @@ Create `production`, `staging` and `development` under Settings, Environments.
 On each:
 
 - Secrets:
-  - `SSH_HOST`: the VPS, the same on all three.
+  - `SSH_HOST`: `zoot.linuxeverywhere.link`, the same on all three.
   - `SSH_USER`: `voidmarch-<env>`, the environment's own user (step 0).
   - `SSH_KEY`: the private key made for that user.
 - Variables:
