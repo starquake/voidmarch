@@ -233,6 +233,8 @@ export class SandboxScene extends Phaser.Scene {
   private puff!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bloom: Phaser.Filters.ParallelFilters | undefined;
   private bloomBlur: Phaser.Filters.Blur | undefined;
+  /** The size the bloom's blur runs at: half, between its resamples, or whole without them. */
+  private bloomScale = BLOOM_SCALE;
   /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   private vignette!: Phaser.GameObjects.Image;
   private hudCamera!: Phaser.Cameras.Scene2D.Camera;
@@ -609,11 +611,26 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     registerResample(this.renderer);
+    // `?skip=resample,threshold,blur,blend` leaves parts out, to find what a GPU can't draw (#180).
+    const skip = new Set((new URLSearchParams(window.location.search).get('skip') ?? '').split(','));
+    if (skip.has('blend')) {
+      return;
+    }
+    const resample = !skip.has('resample');
+    this.bloomScale = resample ? BLOOM_SCALE : 1;
     const bloom = main.filters.external.addParallelFilters();
-    bloom.top.add(new Resample(main, BLOOM_SCALE));
-    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
-    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 0xffffff, BLOOM_BLUR_STEPS);
-    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    if (resample) {
+      bloom.top.add(new Resample(main, BLOOM_SCALE));
+    }
+    if (!skip.has('threshold')) {
+      bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    }
+    if (!skip.has('blur')) {
+      this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * this.bloomScale, BLOOM_BLUR * this.bloomScale, 1, 0xffffff, BLOOM_BLUR_STEPS);
+    }
+    if (resample) {
+      bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    }
     bloom.blend.blendMode = Phaser.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
@@ -1195,8 +1212,8 @@ export class SandboxScene extends Phaser.Scene {
     }
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== undefined) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * this.bloomScale;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * this.bloomScale;
     }
     this.hudCamera.setSize(width, height);
     this.vignette.setDisplaySize(width, height);

@@ -10,10 +10,12 @@ export class Diagnostics {
   private readonly errors: string[] = [];
   private readonly info: string[];
   private readonly gl: WebGLRenderingContext | WebGL2RenderingContext | undefined;
+  private readonly canvas: HTMLCanvasElement;
 
   constructor(gl: WebGLRenderingContext | WebGL2RenderingContext | undefined, canvas: HTMLCanvasElement) {
     this.gl = gl;
-    this.info = describe(gl, canvas);
+    this.canvas = canvas;
+    this.info = describe(gl);
     window.addEventListener('error', (event) => {
       this.note(`error: ${event.message}`);
     });
@@ -35,9 +37,11 @@ export class Diagnostics {
     }
   }
 
-  /** The lines for the HUD. */
+  /** The lines for the HUD; the canvas's size as it is now, since a phone turning changes it. */
   lines(): string[] {
-    return [...this.info, ...this.errors];
+    const size = `canvas ${String(this.canvas.width)}x${String(this.canvas.height)} window ${String(window.innerWidth)}x${String(window.innerHeight)} dpr ${String(window.devicePixelRatio)}`;
+
+    return [...this.info, size, ...this.errors];
   }
 
   private note(message: string): void {
@@ -48,11 +52,10 @@ export class Diagnostics {
   }
 }
 
-/** Two lines about the renderer: WebGL's version and GPU, then its sizes and float precision. */
-function describe(gl: WebGLRenderingContext | WebGL2RenderingContext | undefined, canvas: HTMLCanvasElement): string[] {
-  const size = `canvas ${String(canvas.width)}x${String(canvas.height)} dpr ${String(window.devicePixelRatio)}`;
+/** Two lines about the renderer: WebGL's version and GPU, then its limits and float precision. */
+function describe(gl: WebGLRenderingContext | WebGL2RenderingContext | undefined): string[] {
   if (gl === undefined) {
-    return [`no WebGL · ${size}`];
+    return ['no WebGL'];
   }
   const version = typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext ? 'webgl2' : 'webgl1';
   const debug = gl.getExtension('WEBGL_debug_renderer_info');
@@ -61,5 +64,5 @@ function describe(gl: WebGLRenderingContext | WebGL2RenderingContext | undefined
   const highp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision ?? 0;
   const mediump = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT)?.precision ?? 0;
 
-  return [`${version} · ${gpu}`, `max texture ${maxTexture} · fragment highp ${String(highp)} mediump ${String(mediump)} bits · ${size}`];
+  return [`${version} · ${gpu}`, `max texture ${maxTexture} · fragment highp ${String(highp)} mediump ${String(mediump)} bits`];
 }

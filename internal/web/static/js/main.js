@@ -5088,9 +5088,11 @@ var Diagnostics = class {
   errors = [];
   info;
   gl;
+  canvas;
   constructor(gl, canvas) {
     this.gl = gl;
-    this.info = describe(gl, canvas);
+    this.canvas = canvas;
+    this.info = describe(gl);
     window.addEventListener("error", (event) => {
       this.note(`error: ${event.message}`);
     });
@@ -5110,9 +5112,10 @@ var Diagnostics = class {
       this.note(`gl error 0x${code.toString(16)}`);
     }
   }
-  /** The lines for the HUD. */
+  /** The lines for the HUD; the canvas's size as it is now, since a phone turning changes it. */
   lines() {
-    return [...this.info, ...this.errors];
+    const size = `canvas ${String(this.canvas.width)}x${String(this.canvas.height)} window ${String(window.innerWidth)}x${String(window.innerHeight)} dpr ${String(window.devicePixelRatio)}`;
+    return [...this.info, size, ...this.errors];
   }
   note(message) {
     this.errors.push(message.slice(0, 160));
@@ -5121,10 +5124,9 @@ var Diagnostics = class {
     }
   }
 };
-function describe(gl, canvas) {
-  const size = `canvas ${String(canvas.width)}x${String(canvas.height)} dpr ${String(window.devicePixelRatio)}`;
+function describe(gl) {
   if (gl === void 0) {
-    return [`no WebGL \xB7 ${size}`];
+    return ["no WebGL"];
   }
   const version = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext ? "webgl2" : "webgl1";
   const debug = gl.getExtension("WEBGL_debug_renderer_info");
@@ -5132,7 +5134,7 @@ function describe(gl, canvas) {
   const maxTexture = String(gl.getParameter(gl.MAX_TEXTURE_SIZE));
   const highp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision ?? 0;
   const mediump = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT)?.precision ?? 0;
-  return [`${version} \xB7 ${gpu}`, `max texture ${maxTexture} \xB7 fragment highp ${String(highp)} mediump ${String(mediump)} bits \xB7 ${size}`];
+  return [`${version} \xB7 ${gpu}`, `max texture ${maxTexture} \xB7 fragment highp ${String(highp)} mediump ${String(mediump)} bits`];
 }
 
 // src/scenes/sandbox.ts
@@ -5224,6 +5226,8 @@ var SandboxScene = class extends Phaser10.Scene {
   puff;
   bloom;
   bloomBlur;
+  /** The size the bloom's blur runs at: half, between its resamples, or whole without them. */
+  bloomScale = BLOOM_SCALE;
   /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
   vignette;
   hudCamera;
@@ -5573,11 +5577,25 @@ var SandboxScene = class extends Phaser10.Scene {
       return;
     }
     registerResample(this.renderer);
+    const skip = new Set((new URLSearchParams(window.location.search).get("skip") ?? "").split(","));
+    if (skip.has("blend")) {
+      return;
+    }
+    const resample = !skip.has("resample");
+    this.bloomScale = resample ? BLOOM_SCALE : 1;
     const bloom = main.filters.external.addParallelFilters();
-    bloom.top.add(new Resample(main, BLOOM_SCALE));
-    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
-    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
-    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    if (resample) {
+      bloom.top.add(new Resample(main, BLOOM_SCALE));
+    }
+    if (!skip.has("threshold")) {
+      bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    }
+    if (!skip.has("blur")) {
+      this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * this.bloomScale, BLOOM_BLUR * this.bloomScale, 1, 16777215, BLOOM_BLUR_STEPS);
+    }
+    if (resample) {
+      bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
+    }
     bloom.blend.blendMode = Phaser10.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
@@ -6081,8 +6099,8 @@ ${modeName(info)}`,
     }
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== void 0) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * this.bloomScale;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * this.bloomScale;
     }
     this.hudCamera.setSize(width, height);
     this.vignette.setDisplaySize(width, height);
