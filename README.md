@@ -203,6 +203,11 @@ new one starts. Everyone online sees the victory screen with how long the
 season took and each player's stats, and anyone joining later sees it once;
 the world stays open behind it.
 
+The season so far shows on the squadron screen when you join and above the
+"You're down" panel while you're down: the top five by kills, and you, with
+hit rate and kills per death. When your squadron clears its mission, the
+banner names who made the most kills, who aimed best, and who went down.
+
 ## Parts
 
 Shot-down enemies drop parts: the Scout sometimes, the Fighter more often,
