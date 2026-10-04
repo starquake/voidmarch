@@ -134,6 +134,20 @@ On each:
     docker network inspect web --format '{{range .IPAM.Config}}{{.Subnet}} {{end}}'
     ```
 
+With `gh`, from the directory holding the keys of step 0:
+
+```bash
+for env in production staging development; do
+  host=voidmarch-$env; [ "$env" = production ] && host=voidmarch
+  gh api -X PUT "repos/starquake/voidmarch/environments/$env" >/dev/null
+  gh secret set SSH_HOST --env "$env" --body zoot.linuxeverywhere.link
+  gh secret set SSH_USER --env "$env" --body "voidmarch-$env"
+  gh secret set SSH_KEY --env "$env" < "voidmarch-$env"
+  gh variable set SERVER_URL --env "$env" --body "https://$host.bananajuice.net"
+  gh variable set TRUSTED_PROXY_IPS --env "$env" --body 172.19.0.0/16
+done
+```
+
 ### 4. The image on GHCR
 
 CI publishes `ghcr.io/starquake/voidmarch` from `main`. The server logs in with
@@ -142,7 +156,13 @@ as long as it belongs to this repository.
 
 ### 5. The `deploy:dev` label
 
-Create a `deploy:dev` label. Adding it to a pull request deploys that PR to
+Create a `deploy:dev` label:
+
+```bash
+gh label create deploy:dev --repo starquake/voidmarch --color 0e8a16 --description "Deploy this PR to development"
+```
+
+Adding it to a pull request deploys that PR to
 development, and every push to the PR while it carries the label deploys again.
 The workflow runs from the PR branch's own copy of `deploy.yml`, so a branch
 older than the deploy pipeline has to be rebased first. Development is one slot:
