@@ -121,6 +121,9 @@ export const FIELD_STRAND_ALPHA = 0.55;
 export const FIELD_GLOW_ALPHA = 0.035;
 export const FIELD_GLOW_RADIUS = 9;
 export const FIELD_CORE_RADIUS = 4;
+/** A spark's color, and how far it jumps off the strand in px. */
+export const FIELD_SPARK_COLOR = 0xffd0c0;
+export const FIELD_SPARK_JUMP = 6;
 /** The fewest ms between two zaps, and the loudest one (#127). */
 export const FIELD_ZAP_EVERY_MS = 600;
 export const FIELD_ZAP_VOLUME = 0.35;

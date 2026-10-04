@@ -465,6 +465,8 @@ var FIELD_STRAND_ALPHA = 0.55;
 var FIELD_GLOW_ALPHA = 0.035;
 var FIELD_GLOW_RADIUS = 9;
 var FIELD_CORE_RADIUS = 4;
+var FIELD_SPARK_COLOR = 16765120;
+var FIELD_SPARK_JUMP = 6;
 var FIELD_ZAP_EVERY_MS = 600;
 var FIELD_ZAP_VOLUME = 0.35;
 var MAP_EDGE_COLOR = 1181712;
@@ -6107,8 +6109,8 @@ var SandboxScene = class extends Phaser11.Scene {
         g.lineStyle(1, fieldColor(s.flare / 2), Math.min(1, FIELD_STRAND_ALPHA * 0.6 * s.flicker * (1 + s.flare * 1.5)));
         g.lineBetween(prev.x2, prev.y2, s.x2, s.y2);
         if (s.flare > 0.3 && sparks(i, time / 1e3)) {
-          const jump = Math.sin(i + time / 25) * 6;
-          g.fillStyle(16765120, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
+          const jump = Math.sin(i + time / 25) * FIELD_SPARK_JUMP;
+          g.fillStyle(FIELD_SPARK_COLOR, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
         }
       });
     }

@@ -64,6 +64,8 @@ import {
   FIELD_CORE_RADIUS,
   FIELD_GLOW_ALPHA,
   FIELD_GLOW_RADIUS,
+  FIELD_SPARK_COLOR,
+  FIELD_SPARK_JUMP,
   FIELD_STRAND_ALPHA,
   FIELD_ZAP_EVERY_MS,
   RING_TINT_FADE_MS,
@@ -868,8 +870,8 @@ export class SandboxScene extends Phaser.Scene {
         g.lineStyle(1, fieldColor(s.flare / 2), Math.min(1, FIELD_STRAND_ALPHA * 0.6 * s.flicker * (1 + s.flare * 1.5)));
         g.lineBetween(prev.x2, prev.y2, s.x2, s.y2);
         if (s.flare > 0.3 && sparks(i, time / 1000)) {
-          const jump = Math.sin(i + time / 25) * 6;
-          g.fillStyle(0xffd0c0, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
+          const jump = Math.sin(i + time / 25) * FIELD_SPARK_JUMP;
+          g.fillStyle(FIELD_SPARK_COLOR, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
         }
       });
     }
