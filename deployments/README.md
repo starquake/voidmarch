@@ -2,14 +2,14 @@
 
 Voidmarch runs in three environments on one VPS, `zoot.linuxeverywhere.link`
 (Debian 13, Docker 29.8, Compose v5.6), behind the SWAG reverse proxy that also
-serves topbanana and mediumrogue. `.github/workflows/deploy.yml`
-deploys; this file is the one-time setup on the server and on GitHub that the
-workflow can't do, and the jobs done by hand afterwards.
+serves topbanana and mediumrogue. `.github/workflows/deploy.yml` deploys; this
+file is the one-time setup on the server and on GitHub that the workflow can't
+do, and the jobs done by hand afterwards.
 
-| Environment | Address                                       | Deployed when                     | Image                       |
-| ----------- | --------------------------------------------- | --------------------------------- | --------------------------- |
-| production  | `https://voidmarch.bananajuice.net`             | CI passes on a `v*.*.*` tag       | the release, e.g. `:0.1.0`  |
-| staging     | `https://voidmarch-staging.bananajuice.net`     | CI passes on `main`               | `:edge`                     |
+| Environment | Address                                         | Deployed when                       | Image                        |
+| ----------- | ----------------------------------------------- | ----------------------------------- | ---------------------------- |
+| production  | `https://voidmarch.bananajuice.net`             | CI passes on a `v*.*.*` tag         | the release, e.g. `:0.1.0`   |
+| staging     | `https://voidmarch-staging.bananajuice.net`     | CI passes on `main`                 | `:edge`                      |
 | development | `https://voidmarch-development.bananajuice.net` | a PR carries the `deploy:dev` label | `:pr-<n>`, built from the PR |
 
 Staging and production deploy only an image that `ci.yml` signed on `main`
@@ -19,8 +19,8 @@ version's tags. Development builds the PR's own image, unsigned.
 
 Each environment deploys as its own user, `voidmarch-<env>`, like topbanana's
 and mediumrogue's. Every deploy copies `deployments/app/docker-compose.<env>.yml`
-to `/home/voidmarch-<env>/voidmarch-<env>/docker-compose.yml`, writes `.env` there with
-the image digest, pulls and runs `docker compose up -d`
+to `/home/voidmarch-<env>/voidmarch-<env>/docker-compose.yml`, writes `.env`
+there with the image digest, pulls and runs `docker compose up -d`
 (`.github/scripts/deploy-remote.sh`), then waits for `/healthz` to answer.
 
 ## One-time setup
@@ -150,9 +150,12 @@ done
 
 ### 4. The image on GHCR
 
-CI publishes `ghcr.io/starquake/voidmarch` from `main`. The server logs in with
-the workflow's own token for each deploy, so the package needs no other access
-as long as it belongs to this repository.
+CI publishes `ghcr.io/starquake/voidmarch` from `main`. Each deploy pulls with
+the workflow's own token, so the package needs no other access as long as it
+belongs to this repository. The token goes in a throwaway Docker config that
+the deploy deletes when it ends, not through `docker login`: that would hand it
+to the server's credential helper (`pass`), which the deploy users don't have
+set up.
 
 ### 5. The `deploy:dev` label
 
@@ -162,11 +165,11 @@ Create a `deploy:dev` label:
 gh label create deploy:dev --repo starquake/voidmarch --color 0e8a16 --description "Deploy this PR to development"
 ```
 
-Adding it to a pull request deploys that PR to
-development, and every push to the PR while it carries the label deploys again.
-The workflow runs from the PR branch's own copy of `deploy.yml`, so a branch
-older than the deploy pipeline has to be rebased first. Development is one slot:
-the last PR deployed is the one running.
+Adding it to a pull request deploys that PR to development, and every push to
+the PR while it carries the label deploys again. The workflow runs from the PR
+branch's own copy of `deploy.yml`, so a branch older than the deploy pipeline
+has to be rebased first. Development is one slot: the last PR deployed is the
+one running.
 
 ## By hand
 
