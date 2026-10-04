@@ -41,7 +41,7 @@ export const ENEMY_EXPLOSION_SOUND = 'sfx-enemy-explosion';
 /** A laser of their own, so incoming fire doesn't sound like yours. */
 export const ENEMY_SHOT_SOUND = 'sfx-enemy-shot';
 export const PART_SWITCH_SOUND = 'sfx-part-switch';
-/** The force field's zaps (#127), played in turn. */
+/** The force field's zaps (#127), played in random order. */
 export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
 /** Music tracks, played in turn. */

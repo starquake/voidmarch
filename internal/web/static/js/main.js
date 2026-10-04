@@ -3206,6 +3206,10 @@ function nextVariant(variants, counter) {
   }
   return variants[counter % variants.length];
 }
+function randomVariant(variants, last, random) {
+  const others = variants.length > 1 ? variants.filter((v) => v !== last) : variants;
+  return others[Math.floor(random() * others.length)];
+}
 var DETUNE_CENTS = 80;
 function shotDetune(random) {
   return (random() * 2 - 1) * DETUNE_CENTS;
@@ -3228,7 +3232,7 @@ var ShipAudio = class {
   musicIndex = 0;
   musicLoaded = false;
   shots = 0;
-  zaps = 0;
+  lastZap;
   scene;
   settings;
   constructor(scene, settings) {
@@ -3312,9 +3316,10 @@ var ShipAudio = class {
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
   }
-  /** A force field zap (#127), at a volume from 0 to 1. */
+  /** A force field zap (#127), at a volume from 0 to 1: a random one, never the last one again. */
   fieldZap(volume) {
-    const key = nextVariant(FIELD_ZAP_SOUNDS, this.zaps++);
+    const key = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
+    this.lastZap = key;
     if (key !== void 0) {
       this.scene.sound.play(key, { volume });
     }

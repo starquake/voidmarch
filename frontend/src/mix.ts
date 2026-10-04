@@ -28,6 +28,13 @@ export function nextVariant(variants: readonly string[], counter: number): strin
   return variants[counter % variants.length];
 }
 
+/** Picks a random one of several variants, never the one played last unless it's the only one. */
+export function randomVariant(variants: readonly string[], last: string | undefined, random: () => number): string | undefined {
+  const others = variants.length > 1 ? variants.filter((v) => v !== last) : variants;
+
+  return others[Math.floor(random() * others.length)];
+}
+
 const DETUNE_CENTS = 80;
 
 /** A small random pitch shift in cents, so repeated shots don't sound machine-made. */
