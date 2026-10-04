@@ -93,9 +93,11 @@ case "${1:-}" in
       --jq ".data.repository.issue.projectItems.nodes[] | select(.project.id==\"$PROJECT_ID\") | .fieldValueByName.name // \"(unset)\""
     ;;
   list)
-    # The targeted query (1 GraphQL point) rather than `gh project item-list`
-    # (~100 points a call), so a loop can afford it.
-    gh api graphql -f query="{ user(login:\"$PROJECT_OWNER\"){ projectV2(number: $PROJECT_NUMBER){ items(first:100){ nodes{
+    # The targeted query (1 GraphQL point a page) rather than `gh project
+    # item-list` (~100 points a call), so a loop can afford it. Paged: the
+    # board holds more than one page of 100 items (#197).
+    gh api graphql --paginate -f query="query(\$endCursor: String) { user(login:\"$PROJECT_OWNER\"){ projectV2(number: $PROJECT_NUMBER){
+        items(first:100, after:\$endCursor){ pageInfo{ hasNextPage endCursor } nodes{
         content{ ... on Issue { number } }
         fieldValueByName(name:\"Status\"){ ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } }" \
       --jq ".data.user.projectV2.items.nodes[] | select(.fieldValueByName.name==\"$2\") | .content.number // empty" | sort -n
