@@ -82,7 +82,8 @@ found and let the maintainer confirm the shape first.
   automation, and when it breaks nothing announces it:
 
   ```bash
-  gh api graphql -f query='{ user(login:"starquake"){ projectV2(number:6){ items(first:100){ nodes{
+  gh api graphql --paginate -f query='query($endCursor: String) { user(login:"starquake"){ projectV2(number:6){
+    items(first:100, after:$endCursor){ pageInfo{ hasNextPage endCursor } nodes{
     content{ ... on Issue { number state } }
     fieldValueByName(name:"Status"){ ... on ProjectV2ItemFieldSingleSelectValue { name } }
   }}}}}' --jq '.data.user.projectV2.items.nodes[]
@@ -234,14 +235,16 @@ within the one-build cap), or a ticket with no design question left on to
 maintainer ranks it by dragging. A pass never pulls from `Backlog` on its own:
 a card leaves it only when the maintainer moves it, or asks in chat or a
 comment to "pick up the next one", which means the **top** card. Read the
-order through the API; the position sort is what the board shows:
+order through the API; the position sort is what the board shows. Every
+board query pages (`--paginate`): the board holds more than 100 items, and a
+single page silently misses the rest (#197).
 
 ```bash
-gh api graphql -f query='{ user(login:"starquake"){ projectV2(number:6){
-  items(first:100, orderBy:{field:POSITION, direction:ASC}){ nodes{
+gh api graphql --paginate -f query='query($endCursor: String) { user(login:"starquake"){ projectV2(number:6){
+  items(first:100, after:$endCursor, orderBy:{field:POSITION, direction:ASC}){ pageInfo{ hasNextPage endCursor } nodes{
     content{ ... on Issue { number title } }
     fieldValueByName(name:"Status"){ ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } }' \
-  --jq '[.data.user.projectV2.items.nodes[] | select(.fieldValueByName.name=="Backlog")][0].content'
+  --jq '.data.user.projectV2.items.nodes[] | select(.fieldValueByName.name=="Backlog") | "\(.content.number) \(.content.title)"' | head -1
 ```
 
 Picking it up follows its label, and takes the label off: `needs: build` goes
@@ -321,12 +324,14 @@ set -o pipefail
 R=starquake/voidmarch
 since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 SELF="${BOARD_SELF_SET_FILE:-${TMPDIR:-/tmp}/voidmarch-board-selfset}"
-GQ='{ user(login:"starquake"){ projectV2(number:6){ items(first:100){ nodes{
+# Paged: the board outgrew one page of 100 items, and cards past it went unseen (#197).
+GQ='query($endCursor: String) { user(login:"starquake"){ projectV2(number:6){
+  items(first:100, after:$endCursor){ pageInfo{ hasNextPage endCursor } nodes{
   content{ ... on Issue { number } }
   fieldValueByName(name:"Status"){ ... on ProjectV2ItemFieldSingleSelectValue { name } }
 }}}}}'
 # No `|| true` on a snapshot: a failed call must FAIL so the diff is skipped.
-snap_board(){ gh api graphql -f query="$GQ" --jq '.data.user.projectV2.items.nodes[]
+snap_board(){ gh api graphql --paginate -f query="$GQ" --jq '.data.user.projectV2.items.nodes[]
   | select(.content.number != null) | "\(.content.number)|\(.fieldValueByName.name // "none")"' 2>/dev/null | sort -n; }
 snap_label(){ gh pr list -R $R --state open --label "$1" --json number -q '.[].number' 2>/dev/null | sort; }
 snap_hold(){ gh issue list -R $R --state open --label hold --json number -q '.[].number' 2>/dev/null | sort; }
