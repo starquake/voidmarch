@@ -488,7 +488,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	// A player who is back (a reconnect, a second tab) keeps their companions
 	// and their squadron.
 	companions := make(map[uint32]*companion)
-	wing := &sim.Wing{}
+	wing := &sim.Wing{Key: wingKey(player.ID)}
 	attackers := make(map[uint32]bool)
 	var squadron string
 	var held int

@@ -206,6 +206,11 @@ const (
 	BrainLeash = 450
 	// BrainAttackDistance is how close a hunting companion gets to its target.
 	BrainAttackDistance = 130
+	// TargetSpreadCount is how many of the best-ranked enemies a squadron's
+	// companions spread over, and TargetSpreadReach how much farther than the
+	// best one an enemy may be to count (#165).
+	TargetSpreadCount = 3
+	TargetSpreadReach = 1.5
 	// BrainFireCone: a companion fires only when facing within this many
 	// radians of its target.
 	BrainFireCone = 0.2
