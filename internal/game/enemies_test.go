@@ -6,6 +6,7 @@ import (
 
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/sim"
 )
 
 // latest steps the hub n ticks, keeping s's ship at (x, y), and returns the
@@ -215,6 +216,63 @@ func TestEnemies_HitOnUnknownEnemyIsIgnored(t *testing.T) {
 		}
 		if msg.GetSnapshot() != nil {
 			return
+		}
+	}
+}
+
+func TestEnemies_AStragglerFliesOffWhenEveryoneNearIsDown(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithEnemyAt(0, 700), NoEvents)
+	a, _ := join(t, hub, "a")
+	down := &pb.ClientMessage{Kind: &pb.ClientMessage_State{State: &pb.ShipState{
+		X: 0, Y: 600, Damage: sim.MaxDamage,
+	}}}
+	// straggler is where the straggler is after n more ticks, and whether
+	// it's still there.
+	var id uint32
+	straggler := func(n int) (float64, bool) {
+		var snap *pb.Snapshot
+		for range n {
+			a.Send(down)
+			tick(1)
+			for snap = nil; snap == nil; {
+				snap = next(t, a).GetSnapshot()
+			}
+		}
+		for _, e := range snap.GetEnemies() {
+			if id == 0 && math.Hypot(float64(e.GetX()), float64(e.GetY())-700) < 50 {
+				id = e.GetEnemyId()
+			}
+			if e.GetEnemyId() == id {
+				return math.Hypot(float64(e.GetX()), float64(e.GetY())-600), true
+			}
+		}
+
+		return 0, false
+	}
+	start, ok := straggler(1)
+	if !ok {
+		t.Fatal("no straggler at (0, 700)")
+	}
+	later, ok := straggler(TickRate * 3)
+	if !ok || later < start+60 {
+		t.Errorf(
+			"straggler %v from the downed player after 3 s, want flown off from %v",
+			later,
+			start,
+		)
+	}
+	for ticks := TickRate * 3; ; ticks += TickRate {
+		if _, ok = straggler(TickRate); !ok {
+			break
+		}
+		if ticks >= DespawnAfter-TickRate {
+			t.Fatalf(
+				"straggler still there after %d ticks, want gone once out of view, before the %d-tick timer",
+				ticks,
+				DespawnAfter,
+			)
 		}
 	}
 }
