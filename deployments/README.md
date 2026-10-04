@@ -75,7 +75,8 @@ dig +short voidmarch.bananajuice.net voidmarch-staging.bananajuice.net voidmarch
 ### 2. TLS and proxy (SWAG)
 
 SWAG's own domain is `URL=linuxeverywhere.link`; the bananajuice.net names are
-in `EXTRA_DOMAINS`. Append the three there:
+in `EXTRA_DOMAINS`, in SWAG's compose file `/opt/docker/compose.yml`. Append
+the three there:
 
 ```
 EXTRA_DOMAINS=...,mediumrogue-development.bananajuice.net,voidmarch.bananajuice.net,voidmarch-staging.bananajuice.net,voidmarch-development.bananajuice.net
@@ -84,7 +85,12 @@ EXTRA_DOMAINS=...,mediumrogue-development.bananajuice.net,voidmarch.bananajuice.
 SWAG validates over HTTP (`VALIDATION=http`) and asks for one certificate
 covering every name, so a single name that doesn't resolve yet fails the whole
 request: that is why DNS comes first. An environment variable only changes
-when the container is recreated, not restarted.
+when the container is recreated, not restarted, so as root:
+
+```bash
+cd /opt/docker && docker compose up -d swag
+docker logs --tail 50 -f swag   # wait for the certificate to be issued
+```
 
 Copy `deployments/swag/voidmarch*.subdomain.conf` into SWAG's
 `proxy-confs/` and reload it:
