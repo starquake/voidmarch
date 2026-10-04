@@ -5308,8 +5308,6 @@ var SandboxScene = class extends Phaser11.Scene {
   puff;
   bloom;
   bloomBlur;
-  /** The size the bloom's blur runs at: half, between its resamples, or whole without them. */
-  bloomScale = BLOOM_SCALE;
   /** Set where the bloom draws the world black, so it stays off (#180). */
   bloomBroken = false;
   /** The vignette as an overlay on the HUD camera, over the bloomed world (#143). */
@@ -5663,29 +5661,11 @@ var SandboxScene = class extends Phaser11.Scene {
     }
     registerResample(this.renderer);
     registerSmallBlend(this.renderer);
-    const skip = new Set((new URLSearchParams(window.location.search).get("skip") ?? "").split(","));
-    if (skip.has("blend")) {
-      return;
-    }
-    if (skip.has("parallel")) {
-      main.filters.external.addThreshold(BLOOM_THRESHOLD, 1);
-      return;
-    }
-    const resample = !skip.has("resample");
-    this.bloomScale = resample ? BLOOM_SCALE : 1;
     const bloom = main.filters.external.addParallelFilters();
-    if (resample) {
-      bloom.top.add(new Resample(main, BLOOM_SCALE));
-    }
-    if (!skip.has("threshold")) {
-      bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
-    }
-    if (!skip.has("blur")) {
-      this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * this.bloomScale, BLOOM_BLUR * this.bloomScale, 1, 16777215, BLOOM_BLUR_STEPS);
-    }
-    if (resample) {
-      bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
-    }
+    bloom.top.add(new Resample(main, BLOOM_SCALE));
+    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
+    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
     bloom.blend.blendMode = Phaser11.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
@@ -6189,8 +6169,8 @@ ${modeName(info)}`,
     }
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== void 0) {
-      this.bloomBlur.x = BLOOM_BLUR * effectScale * this.bloomScale;
-      this.bloomBlur.y = BLOOM_BLUR * effectScale * this.bloomScale;
+      this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
+      this.bloomBlur.y = BLOOM_BLUR * effectScale * BLOOM_SCALE;
     }
     this.hudCamera.setSize(width, height);
     this.vignette.setDisplaySize(width, height);
