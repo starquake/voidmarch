@@ -96,6 +96,8 @@ interface Remote {
   squadron: string;
   /** Where it was drawn this frame, for hits and bumping. */
   drawn: RemoteShip | undefined;
+  /** How many of its shots reached this client (#164). */
+  shotsSeen: number;
 }
 
 /** How long a notice (a refused summon, a companion sent home) stays in the HUD. */
@@ -195,6 +197,8 @@ export interface RemoteDebug {
   y: number;
   /** Set for a companion: its owner's player id. */
   ownerId: string;
+  /** How many of its shots reached this client, so a spec can watch one player's shots (#164). */
+  shotsSeen: number;
 }
 
 const now = (): number => performance.now();
@@ -288,6 +292,10 @@ export class NetPlay {
           const owner = remote.playerId.split('/')[0] ?? '';
           if (shot === undefined || (!this.remotes.has(remote.playerId) && !this.remotes.has(owner))) {
             return;
+          }
+          const shooter = this.remotes.get(remote.playerId);
+          if (shooter !== undefined) {
+            shooter.shotsSeen++;
           }
           this.shots.add(remote.tick, {
             from: remote.playerId,
@@ -425,6 +433,7 @@ export class NetPlay {
       x: r.view.root.x,
       y: r.view.root.y,
       ownerId: r.ownerId,
+      shotsSeen: r.shotsSeen,
     }));
   }
 
@@ -1218,6 +1227,7 @@ export class NetPlay {
       ownerId,
       squadron,
       drawn: undefined,
+      shotsSeen: 0,
     };
     this.remotes.set(id, remote);
 

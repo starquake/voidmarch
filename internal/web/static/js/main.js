@@ -4060,6 +4060,10 @@ var NetPlay = class {
           if (shot === void 0 || !this.remotes.has(remote.playerId) && !this.remotes.has(owner)) {
             return;
           }
+          const shooter = this.remotes.get(remote.playerId);
+          if (shooter !== void 0) {
+            shooter.shotsSeen++;
+          }
           this.shots.add(remote.tick, {
             from: remote.playerId,
             id: shot.id,
@@ -4191,7 +4195,8 @@ var NetPlay = class {
       color: r.color,
       x: r.view.root.x,
       y: r.view.root.y,
-      ownerId: r.ownerId
+      ownerId: r.ownerId,
+      shotsSeen: r.shotsSeen
     }));
   }
   /** The latest notice for the HUD, while it lasts. */
@@ -4899,7 +4904,8 @@ var NetPlay = class {
       color,
       ownerId,
       squadron,
-      drawn: void 0
+      drawn: void 0,
+      shotsSeen: 0
     };
     this.remotes.set(id, remote);
     return remote;
