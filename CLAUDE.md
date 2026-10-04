@@ -347,8 +347,8 @@ for looking, never for assuring behaviour.
 the source of truth. Its required checks are the jobs of `ci.yml`: `lint`,
 `build`, `e2e (chromium)`, `e2e (firefox)` and `docker` (which builds and
 smoke-tests the image alongside the others). `publish`, which pushes and signs
-the image from `main` once they pass, is not required: on a pull request it is
-skipped. When you add, rename or remove a required job, change the ruleset
+the image from `main` once they pass, and `promote`, which retags it for a
+`v*.*.*` tag, are not required: on a pull request they are skipped. When you add, rename or remove a required job, change the ruleset
 file in the same PR and apply it:
 
 ```bash
@@ -357,6 +357,15 @@ gh api -X PUT repos/starquake/voidmarch/rulesets/$RID --input .github/rulesets/m
 ```
 
 A required context that no job produces blocks every PR.
+
+## Deployment
+
+`.github/workflows/deploy.yml` deploys to one VPS behind SWAG
+(`deployments/README.md` has the server's setup): staging from `main`'s
+`:edge`, production from a `v*.*.*` tag (`ci.yml`'s `promote` retags main's
+signed image, no rebuild), and development from a PR labeled `deploy:dev`.
+Staging and production only run images `ci.yml` signed on `main`. Tags and
+releases are the maintainer's to make.
 
 ## Comments
 
