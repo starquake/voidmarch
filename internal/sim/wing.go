@@ -44,7 +44,10 @@ type Wing struct {
 	// each Step (#52).
 	Derelicts []Vec
 	// Frontier is which sectors its companions may fly in (#123).
-	Frontier   Frontier
+	Frontier Frontier
+	// Key tells this wing's companions apart from other wings', so all of a
+	// squadron's companions spread over the enemies (#165).
+	Key        uint32
 	ownerTrail []Mover
 }
 
@@ -164,6 +167,7 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 					Enemies:   enemies,
 					Friends:   friends,
 					Derelicts: w.Derelicts,
+					SpreadKey: spreadKey(w.Key, c.Number),
 				},
 				c.Orders,
 				c.Random,
@@ -207,4 +211,10 @@ func (w *Wing) friendsOf(c *Companion, others []Friend) []Friend {
 	}
 
 	return friends
+}
+
+// spreadKey is a companion's key for spreading over the enemies: its wing's,
+// moved on by its number.
+func spreadKey(wing uint32, number int) uint32 {
+	return wing + uint32(number) //nolint:gosec // companion numbers are small.
 }

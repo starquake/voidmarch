@@ -1,6 +1,7 @@
 package game
 
 import (
+	"hash/fnv"
 	"maps"
 	"math"
 	"slices"
@@ -212,4 +213,14 @@ func dismissed(number uint32) *pb.ServerMessage {
 
 func left(id string) *pb.ServerMessage {
 	return &pb.ServerMessage{Kind: &pb.ServerMessage_Left{Left: &pb.PlayerLeft{PlayerId: id}}}
+}
+
+// wingKey is a player's companions' key for spreading over the enemies:
+// the same for every join of theirs, and different from other players'
+// (#165).
+func wingKey(player string) uint32 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(player))
+
+	return h.Sum32()
 }

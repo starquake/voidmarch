@@ -453,3 +453,44 @@ func TestThink_BadlyDamagedFallsBack(t *testing.T) {
 		t.Errorf("conserving: %v from its owner, want staying close", d)
 	}
 }
+
+func TestChooseTarget_CompanionsSpreadOverTheNearestEnemies(t *testing.T) {
+	t.Parallel()
+
+	self, owner := newShip(0, 0), newShip(0, 0)
+	far := enemy(4, 160, 300)
+	all := []BrainEnemy{enemy(1, 100, -100), enemy(2, -110, -100), enemy(3, 0, 130), far}
+	const near = 3
+	picked := map[int]bool{}
+	for key := range uint32(12) {
+		view := BrainView{
+			Self:      self,
+			Owner:     owner.Mover(),
+			SpreadKey: key,
+			Enemies:   all,
+		}
+		target, ok := ChooseTarget(view, DefaultOrders())
+		if !ok {
+			t.Fatalf("key %d: no target among %v", key, view.Enemies)
+		}
+		if target.ID == far.ID {
+			t.Errorf(
+				"key %d: picked the far enemy, over %v from the nearest",
+				key,
+				TargetSpreadReach,
+			)
+		}
+		picked[target.ID] = true
+		if again, _ := ChooseTarget(view, DefaultOrders()); again.ID != target.ID {
+			t.Errorf(
+				"key %d: picked %d, then %d from the same view, want it held",
+				key,
+				target.ID,
+				again.ID,
+			)
+		}
+	}
+	if len(picked) != near {
+		t.Errorf("12 companions picked %v, want all %d near enemies covered", picked, near)
+	}
+}

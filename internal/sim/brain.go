@@ -108,6 +108,9 @@ type BrainView struct {
 	Friends []Friend
 	// Derelicts are the derelict ships waiting to be rescued (#52).
 	Derelicts []Vec
+	// SpreadKey tells this companion apart from the others, so they spread
+	// over the nearest enemies instead of all picking one (#165).
+	SpreadKey uint32
 }
 
 // Friend is another friendly ship as a companion sees it.
@@ -264,15 +267,67 @@ func chooseTarget(view *BrainView, orders *Orders) (BrainEnemy, bool) {
 
 		return rank{support, weakness, distance(e.X, e.Y, view.Self.X, view.Self.Y)}
 	}
-	var best BrainEnemy
-	found := false
-	for _, e := range candidates(view, orders) {
-		if !found || before(rankOf(&e), rankOf(&best)) {
-			best, found = e, true
+	ranked := candidates(view, orders)
+	if len(ranked) == 0 {
+		return BrainEnemy{}, false
+	}
+	slices.SortStableFunc(ranked, func(a, b BrainEnemy) int {
+		switch ra, rb := rankOf(&a), rankOf(&b); {
+		case before(ra, rb):
+			return -1
+		case before(rb, ra):
+			return 1
+		default:
+			return 0
+		}
+	})
+
+	return spreadPick(ranked, rankOf, view.SpreadKey), true
+}
+
+// spreadPick is one of the best few of ranked, best first, for the companion
+// with key: among those as good on everything but distance, and not much
+// farther than the best, the one its key hashes lowest with. The pick is
+// pure and holds while the same enemies are there, and companions with
+// different keys spread over them (#165).
+func spreadPick(ranked []BrainEnemy, rankOf func(*BrainEnemy) rank, key uint32) BrainEnemy {
+	best := ranked[0]
+	top := rankOf(&best)
+	pick, lowest := best, spreadHash(key, best.ID)
+	for i := 1; i < min(len(ranked), TargetSpreadCount); i++ {
+		e := ranked[i]
+		r := rankOf(&e)
+		if r[0] != top[0] || r[1] != top[1] || r[2] > top[2]*TargetSpreadReach {
+			break
+		}
+		if h := spreadHash(key, e.ID); h < lowest {
+			pick, lowest = e, h
 		}
 	}
 
-	return best, found
+	return pick
+}
+
+// The constants of the mix spreadHash uses: the golden ratio's, then
+// MurmurHash3's 32-bit finalizer.
+const (
+	goldenRatio32 = 0x9e3779b9
+	murmurMul1    = 0x85ebca6b
+	murmurMul2    = 0xc2b2ae35
+	murmurShift1  = 16
+	murmurShift2  = 13
+)
+
+// spreadHash mixes a companion's key with an enemy's id.
+func spreadHash(key uint32, id int) uint32 {
+	h := key ^ uint32(id)*goldenRatio32 //nolint:gosec // ids are small; any wrap is a fine mix.
+	h ^= h >> murmurShift1
+	h *= murmurMul1
+	h ^= h >> murmurShift2
+	h *= murmurMul2
+	h ^= h >> murmurShift1
+
+	return h
 }
 
 // rankParts is how many criteria a target is ranked on.

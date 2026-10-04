@@ -21,7 +21,9 @@ const tolerance = 1e-9
 // (#48): their three companions start 30 px apart. The brain cases'
 // formation points and commands, and those traces again, were re-recorded
 // when the formation widened and companions kept clear of their owner (#68); the rockets'
-// weapon cases were, when rockets began seeking at a lower damage rate (#72).
+// weapon cases were, when rockets began seeking at a lower damage rate (#72);
+// brain cases 0 and 6 and the screen sandbox's trace from frame 126 were,
+// when companions began spreading over the nearest enemies (#165).
 type golden struct {
 	Math        goldenMath         `json:"math"`
 	Ships       []goldenShip       `json:"ships"`
