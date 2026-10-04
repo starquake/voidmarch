@@ -34,13 +34,15 @@ test('the client boots into the sandbox without errors', async ({ page }) => {
   console.log(`${test.info().project.name}: ${line}`);
 });
 
-test('the game\'s text is set in Orbitron (#170)', async ({ page }) => {
+test('the game\'s text is in Exo 2, with titles in Orbitron (#170)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
-  // check() alone also passes for a font the page never declared, so look for the loaded face itself.
-  const loaded = await page.evaluate(() => [...document.fonts].some((f) => f.family.replace(/"/g, '') === 'Orbitron' && f.status === 'loaded'));
-  expect(loaded, 'Orbitron loaded').toBe(true);
+  // check() alone also passes for a font the page never declared, so look for the loaded faces themselves.
+  const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')));
+  expect(loaded).toEqual(expect.arrayContaining(['Orbitron', 'Exo 2']));
   await page.keyboard.press('Escape');
   await expect(page.locator('#settings-form')).toBeVisible();
-  expect(await page.locator('#settings-form').evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^Orbitron/);
+  const family = async (selector: string): Promise<string> => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(await family('#settings-form .settings-row')).toMatch(/^"Exo 2"/);
+  expect(await family('#settings-form h2')).toMatch(/^Orbitron/);
 });
