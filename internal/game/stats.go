@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/sim"
 )
@@ -35,6 +36,7 @@ func (h *Hub) countStat(player string, count func(*players.Stats)) {
 	if s, ok := h.stats[player]; ok {
 		count(s)
 		h.statsChanged[player] = true
+		h.standingsChanged = true
 	}
 }
 
@@ -87,4 +89,57 @@ func (h *Hub) saveChangedStats() {
 	for _, id := range slices.Sorted(maps.Keys(h.statsChanged)) {
 		h.saveStatsOf(id)
 	}
+}
+
+// noteBaseline keeps player's stats as they are, the first time they're in
+// g's sector, so its clear can tell what they did there; a companion's seat
+// isn't a player (#167).
+func (h *Hub) noteBaseline(g *garrison, player string) {
+	if strings.Contains(player, "/") {
+		return
+	}
+	if g.baselines == nil {
+		g.baselines = make(map[string]players.Stats)
+	}
+	if _, noted := g.baselines[player]; noted {
+		return
+	}
+	if s, ok := h.stats[player]; ok {
+		g.baselines[player] = *s
+	}
+}
+
+// missionStats is what each player who fought in g's sector did there: their
+// kills, companion kills, shots, hits and deaths since they first came in.
+func (h *Hub) missionStats(g *garrison) []*pb.PlayerStats {
+	out := make([]*pb.PlayerStats, 0, len(g.baselines))
+	for _, id := range slices.Sorted(maps.Keys(g.baselines)) {
+		now, ok := h.stats[id]
+		if !ok {
+			continue
+		}
+		then := g.baselines[id]
+		out = append(out, pbPlayerStats(id, h.names[id], players.Stats{
+			Kills:          now.Kills - then.Kills,
+			CompanionKills: now.CompanionKills - then.CompanionKills,
+			Shots:          now.Shots - then.Shots,
+			Hits:           now.Hits - then.Hits,
+			Deaths:         now.Deaths - then.Deaths,
+		}))
+	}
+
+	return out
+}
+
+// sendStandingsIfChanged tells everyone the season so far, when any stat
+// changed since the last time (#167).
+func (h *Hub) sendStandingsIfChanged() {
+	if !h.standingsChanged {
+		return
+	}
+	h.standingsChanged = false
+	h.broadcast(
+		&pb.ServerMessage{Kind: &pb.ServerMessage_Standings{Standings: h.standingsMessage()}},
+		"",
+	)
 }

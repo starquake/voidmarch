@@ -404,3 +404,70 @@ body.touch {
     font: 16px/1.4 monospace;
   }
 }
+
+/* The season so far (#167): on the join screen, and above the down panel. */
+.standings {
+  border: 1px solid #3a2f55;
+  background: #120c1f;
+  padding: 0.4rem 0.6rem;
+  font: 13px/1.4 monospace;
+  color: #d8f8ff;
+}
+
+.standings[hidden] {
+  display: none;
+}
+
+.standings h3 {
+  margin: 0 0 0.3rem;
+  font-size: 11px;
+  font-weight: normal;
+  color: #8fd8ff;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+}
+
+.standings h3 span {
+  color: #6d6488;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.standings table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.standings th {
+  font-weight: normal;
+  font-size: 11px;
+  color: #6d6488;
+  text-align: right;
+  padding: 0.1rem 0.4rem;
+}
+
+.standings td {
+  text-align: right;
+  padding: 0.1rem 0.4rem;
+}
+
+.standings th:first-child,
+.standings td:first-child {
+  text-align: left;
+}
+
+.standings tr.you td {
+  color: #fff08a;
+}
+
+.standings-float {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20% + 6px);
+  transform: translateX(-50%);
+  width: min(26rem, calc(100% - 2rem));
+  background: rgb(5 3 10 / 92%);
+  pointer-events: none;
+}

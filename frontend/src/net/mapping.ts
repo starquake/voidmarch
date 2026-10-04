@@ -11,6 +11,7 @@ import {
   Weapon,
   type Loadout as WireLoadout,
   type Part,
+  type PlayerStats,
   type SeasonWon,
   type ShipState,
   type Unlock,
@@ -22,6 +23,7 @@ import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type Shiel
 import type { PartId } from '../sim/parts.ts';
 import { MAX_TIER } from '../sim/rules.gen.ts';
 import type { Ship } from '../simwasm.ts';
+import type { PlayerStatsRow } from '../sim/standings.ts';
 import type { SeasonResult } from '../victory.ts';
 
 const WEAPONS: Readonly<Record<WeaponId, Weapon>> = {
@@ -73,22 +75,25 @@ export const fromEnemyKind = (kind: WireEnemyKind): EnemyKind => {
   }
 };
 
+/** A player's stats from the wire (#154). */
+export const fromPlayerStats = (p: PlayerStats): PlayerStatsRow => ({
+  playerId: p.playerId,
+  name: p.name,
+  kills: p.kills,
+  companionKills: p.companionKills,
+  shots: p.shots,
+  hits: p.hits,
+  deaths: p.deaths,
+  rescues: p.rescues,
+  sectors: p.sectors,
+});
+
 /** The season's result from the wire (#156): the season named by its start, as text. */
 export const fromSeasonWon = (won: SeasonWon): SeasonResult => ({
   season: won.season.toString(),
   seconds: Number(won.seconds),
   sectors: won.sectors,
-  players: won.players.map((p) => ({
-    playerId: p.playerId,
-    name: p.name,
-    kills: p.kills,
-    companionKills: p.companionKills,
-    shots: p.shots,
-    hits: p.hits,
-    deaths: p.deaths,
-    rescues: p.rescues,
-    sectors: p.sectors,
-  })),
+  players: won.players.map(fromPlayerStats),
 });
 
 /** The sim's faction for a wire faction; unset or unknown is the Kla'ed. */

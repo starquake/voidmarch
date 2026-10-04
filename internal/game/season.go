@@ -48,8 +48,11 @@ func (h *Hub) admit(player players.Player) joinResult {
 	h.keepStats(player)
 	h.names[player.ID] = player.Name
 	res := h.handleJoin(player)
-	if res.welcome != nil && h.seasonWon {
-		res.welcome.SeasonWon = h.seasonResult(h.seasonWonAt)
+	if res.welcome != nil {
+		res.welcome.Standings = h.standingsMessage()
+		if h.seasonWon {
+			res.welcome.SeasonWon = h.seasonResult(h.seasonWonAt)
+		}
 	}
 
 	return res
@@ -82,6 +85,16 @@ func (h *Hub) devSeasonWon(player string) {
 // seasonResult is the season's result, won at: how long it took, and
 // everyone who did anything, most kills first.
 func (h *Hub) seasonResult(at time.Time) *pb.SeasonWon {
+	return &pb.SeasonWon{
+		Season:  h.seasonStarted.Unix(),
+		Seconds: uint64(max(0, at.Sub(h.seasonStarted).Seconds())),
+		Players: h.standingRows(),
+		Sectors: uint32(len(h.cleared)), //nolint:gosec // 37 sectors at most.
+	}
+}
+
+// standingRows are everyone who did anything this season, most kills first.
+func (h *Hub) standingRows() []*pb.PlayerStats {
 	var rows []*pb.PlayerStats
 	for _, id := range slices.Sorted(maps.Keys(h.stats)) {
 		if s := *h.stats[id]; s != (players.Stats{}) {
@@ -92,12 +105,13 @@ func (h *Hub) seasonResult(at time.Time) *pb.SeasonWon {
 		return cmp.Compare(b.GetKills(), a.GetKills())
 	})
 
-	return &pb.SeasonWon{
-		Season:  h.seasonStarted.Unix(),
-		Seconds: uint64(max(0, at.Sub(h.seasonStarted).Seconds())),
-		Players: rows,
-		Sectors: uint32(len(h.cleared)), //nolint:gosec // 37 sectors at most.
-	}
+	return rows
+}
+
+// standingsMessage is the season so far, for the join screen and the down
+// panel (#167).
+func (h *Hub) standingsMessage() *pb.Standings {
+	return &pb.Standings{Players: h.standingRows(), Season: h.seasonStarted.Unix()}
 }
 
 // pbPlayerStats is a player's stats on the wire.

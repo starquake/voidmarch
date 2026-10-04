@@ -137,3 +137,68 @@ func TestStats_ASectorClearCountsForEveryoneInIt(t *testing.T) {
 		t.Errorf("b's saved stats = %+v, want no sector: at home", got)
 	}
 }
+
+func TestStats_AClearTellsWhatEachPlayerInItDid(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m))
+	a, _ := join(t, hub, "a")
+	b, _ := join(t, hub, "b")
+	b.Send(state(0, 0))
+	a.Send(shotFired(1))
+	snap := must(latest(t, a, tick, 1, enterX, enterY))
+	killAll(a, snap)
+	var cleared *pb.SectorCleared
+	for range 3 {
+		for _, msg := range must2(latest(t, a, tick, 1, enterX, enterY)) {
+			if c := msg.GetSectorCleared(); c != nil {
+				cleared = c
+			}
+		}
+	}
+	if cleared == nil {
+		t.Fatal("no SectorCleared")
+	}
+	rows := cleared.GetMission()
+	if len(rows) != 1 || rows[0].GetPlayerId() != "a" || rows[0].GetKills() != 1 ||
+		rows[0].GetHits() != 1 {
+		t.Errorf(
+			"SectorCleared.Mission = %v, want a's kill and hit, and nobody who stayed home",
+			rows,
+		)
+	}
+}
+
+func TestStats_StandingsGoOutInWelcomeAndWhenTheyChange(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(
+		t,
+		WithSeason(seasonStart, time.Time{}),
+		WithStandings([]players.Standing{{ID: "z", Name: "Zed", Stats: players.Stats{Kills: 3}}}),
+	)
+	a, w := join(t, hub, "a")
+	if got := w.GetStandings(); got.GetSeason() != seasonStart.Unix() ||
+		len(got.GetPlayers()) != 1 {
+		t.Errorf("Welcome.Standings = %v, want the season's start and Zed", got)
+	}
+	standings := func(n int) *pb.Standings {
+		var last *pb.Standings
+		for _, msg := range must2(latest(t, a, tick, n, 0, 0)) {
+			if s := msg.GetStandings(); s != nil {
+				last = s
+			}
+		}
+
+		return last
+	}
+	if got := standings(StatsSaveEvery); got != nil {
+		t.Errorf("Standings %v with nothing changed, want none", got)
+	}
+	a.Send(shotFired(1))
+	// One tick more: the save tick's Standings comes after that tick's snapshot.
+	if got := standings(StatsSaveEvery + 1); len(got.GetPlayers()) != 2 {
+		t.Errorf("Standings %v after a's shot, want Zed and a", got)
+	}
+}

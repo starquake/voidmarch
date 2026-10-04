@@ -18,6 +18,7 @@ import {
   type Frontier as FrontierMessage,
   type BossFell,
   type SeasonWon,
+  type Standings,
   type SquadronOrder,
   type SquadronOrdered,
   type Squadrons,
@@ -92,6 +93,8 @@ export interface ConnectionEvents {
   bossFell(fell: BossFell): void;
   /** The season is won, with its result (#156). */
   seasonWon(won: SeasonWon): void;
+  /** The season so far changed (#167). */
+  standings(standings: Standings): void;
 }
 
 export interface Timers {
@@ -353,6 +356,9 @@ export class Connection {
         break;
       case 'seasonWon':
         events.seasonWon(message.kind.value);
+        break;
+      case 'standings':
+        events.standings(message.kind.value);
         break;
       default:
     }

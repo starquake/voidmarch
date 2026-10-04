@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
+	"github.com/starquake/voidmarch/internal/players"
 	"github.com/starquake/voidmarch/internal/sim"
 	"github.com/starquake/voidmarch/internal/world"
 )
@@ -125,6 +126,9 @@ type garrison struct {
 	killed   int
 	field    int
 	lastNear uint32
+	// baselines are each player's stats when they first came into its
+	// sector, for what they did there once it's cleared (#167).
+	baselines map[string]players.Stats
 }
 
 // size is the garrison's whole size: the base for one player, and the
@@ -185,6 +189,7 @@ func (h *Hub) stepGarrisons(ships []upShip) {
 		for _, ship := range ships {
 			if s.Contains(ship.at.x, ship.at.y) {
 				g.count(ship)
+				h.noteBaseline(g, ship.key)
 				near = true
 			} else if distanceToSector(ship.at, s) <= garrisonReach {
 				near = true
@@ -298,13 +303,18 @@ func (h *Hub) clearIfDone(s sim.Sector) {
 			return
 		}
 	}
+	var mission []*pb.PlayerStats
+	if g := h.garrisons[s]; g != nil {
+		mission = h.missionStats(g)
+	}
 	delete(h.garrisons, s)
-	h.clearSector(s)
+	h.clearSector(s, mission)
 }
 
 // clearSector marks s cleared, saves it, rewards it, moves the missions
-// sent there on, and tells everyone.
-func (h *Hub) clearSector(s sim.Sector) {
+// sent there on, and tells everyone, with what each player who fought there
+// did (#167).
+func (h *Hub) clearSector(s sim.Sector, mission []*pb.PlayerStats) {
 	h.cleared[s] = true
 	name := s.Name()
 	if h.saveSector != nil {
@@ -314,15 +324,20 @@ func (h *Hub) clearSector(s sim.Sector) {
 	h.countClear(s)
 	h.moveMissionsOn(s)
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_SectorCleared{
-		SectorCleared: &pb.SectorCleared{Sector: name, Tick: h.tick, Gains: gains},
+		SectorCleared: &pb.SectorCleared{
+			Sector:  name,
+			Tick:    h.tick,
+			Gains:   gains,
+			Mission: mission,
+		},
 	}}, "")
 	h.broadcastSquadrons()
 }
 
 // spawnStragglers sends the odd Scout into a cleared sector someone is in,
 // at most one every stragglerTicks; the clock starts when someone arrives.
-func (h *Hub) spawnStragglers(players []point) {
-	for _, p := range players {
+func (h *Hub) spawnStragglers(positions []point) {
+	for _, p := range positions {
 		s, ok := sim.SectorAt(p.x, p.y)
 		if !ok || !h.cleared[s] {
 			continue

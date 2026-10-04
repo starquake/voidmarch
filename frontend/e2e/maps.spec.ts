@@ -17,14 +17,14 @@ const D1 = { x: 0, y: -3 * Math.sqrt(3) * 990 };
 /** E3's center: ring 1, up and right of home, which no spec clears. */
 const E3 = { x: 1485, y: -(Math.sqrt(3) / 2) * 990 };
 
-test('Tab opens the full map, the ship holds still under it, and a click sends the squadron', async ({ page }) => {
+test('M opens the full map, the ship holds still under it, and a click sends the squadron', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   await expect.poll(async () => (await state(page)).mission).toMatch(/^[A-G]\d$/);
   // Only home and ring 1 are open until the Kla'ed Dreadnought falls (#123).
   expect((await state(page)).openRings).toBe(1);
 
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('m');
   await expect.poll(async () => (await state(page)).mapOpen).toBe(true);
   const before = (await state(page)).ship;
   await page.keyboard.down('w');
@@ -43,9 +43,9 @@ test('Tab opens the full map, the ship holds still under it, and a click sends t
   await click(E3);
   await expect.poll(async () => (await state(page)).mission).toBe('E3');
 
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('m');
   await expect.poll(async () => (await state(page)).mapOpen).toBe(false);
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('m');
   await expect.poll(async () => (await state(page)).mapOpen).toBe(true);
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await state(page)).mapOpen).toBe(false);

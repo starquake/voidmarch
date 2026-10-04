@@ -51,7 +51,8 @@ From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
 | Left button (hold) | Fire |
 | G | Draw a companion from the hangar (at the home planet) |
 | L | Loadout screen: fit your parts (at the home planet); Esc closes it |
-| Tab | Full map: click an uncleared sector to send your squadron there; Tab or Esc closes it |
+| M | Full map: click an uncleared sector to send your squadron there; M or Esc closes it |
+| Tab (hold) | The season so far: the top players by kills, and you, while held |
 | O | Victory screen, once the season is won: everyone's kills, hit rate, deaths, rescues and sectors; O or Esc closes it |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
@@ -152,7 +153,7 @@ over several visits. Every cleared sector adds a ship to the hangar and gives
 everyone online a part. Your squadron has a mission, the nearest uncleared
 sector: the HUD names it, and a gold arrow at the screen's edge points the
 way. The minimap in the top right shows every sector's state, the Frigates,
-each squadron's mission and your squadmates; **Tab** opens the full map, where
+each squadron's mission and your squadmates; **M** opens the full map, where
 a click sends your squadron to another sector. Every few minutes a world
 event calls everyone somewhere. It might be an
 attack on a cleared sector, to beat within 10 minutes or lose the sector, or a
@@ -202,6 +203,11 @@ twice as often. Its fall wins the season, and it doesn't wake again until a
 new one starts. Everyone online sees the victory screen with how long the
 season took and each player's stats, and anyone joining later sees it once;
 the world stays open behind it.
+
+The season so far shows on the squadron screen when you join, and above the
+"You're down" panel while you're down or hold Tab: the top five by kills, and you, with
+hit rate and kills per death. When your squadron clears its mission, the
+banner names who made the most kills, who aimed best, and who went down.
 
 ## Parts
 

@@ -1,15 +1,7 @@
+import { hitRate, type PlayerStatsRow } from './sim/standings.ts';
+
 /** A player's season stats, as the server sends them (#154). */
-export interface PlayerResult {
-  playerId: string;
-  name: string;
-  kills: number;
-  companionKills: number;
-  shots: number;
-  hits: number;
-  deaths: number;
-  rescues: number;
-  sectors: number;
-}
+export type PlayerResult = PlayerStatsRow;
 
 /** The season's result (#156): which season, how long it took, everyone's stats, and the sectors cleared. */
 export interface SeasonResult {
@@ -33,7 +25,6 @@ export interface VictoryRow {
 
 const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
-const PERCENT = 100;
 
 /** How long the season took: "41 h 12 min", or "12 min" under an hour. */
 export function formatTook(seconds: number): string {
@@ -44,10 +35,6 @@ export function formatTook(seconds: number): string {
   return hours === 0 ? `${String(rest)} min` : `${String(hours)} h ${String(rest)} min`;
 }
 
-/** Hits over shots fired, as a whole percentage, or a dash with no shots. */
-function hitRate(hits: number, shots: number): string {
-  return shots === 0 ? '–' : `${String(Math.round((PERCENT * hits) / shots))}%`;
-}
 
 /** The table's rows, in the server's order, the player's own marked, then everyone's totals. */
 export function victoryRows(result: SeasonResult, playerId: string | undefined): VictoryRow[] {
