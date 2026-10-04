@@ -22,7 +22,14 @@ IMAGE_DIGEST='${IMAGE_DIGEST}'
 TRUSTED_PROXY_IPS='${TRUSTED_PROXY_IPS}'
 ENV
 cp -f "$COMPOSE_FILE" docker-compose.yml
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+# A throwaway config holding the registry login: docker login would use the
+# server's credential helper (pass), which these users don't have set up.
+DOCKER_CONFIG="$(mktemp -d)"
+export DOCKER_CONFIG
+trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+auth="$(printf '%s:%s' "$GITHUB_ACTOR" "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\n' "$auth" > "$DOCKER_CONFIG/config.json"
+
 docker compose pull
 docker compose up -d
-docker logout ghcr.io
