@@ -96,11 +96,37 @@ export const MAP_HOSTILE_COLORS: readonly number[] = [0x8a3030, 0x8a3030, 0x6e26
 export const MAP_FILL_ALPHA = 0.9;
 /** A closed sector on the maps (#123). */
 export const MAP_CLOSED_COLOR = 0x2a2a33;
-/** In the world, a closed sector's shade and its edge with the open ones (#123). */
+/** In the world, a closed sector's shade (#123). */
 export const CLOSED_SHADE_ALPHA = 0.45;
 export const CLOSED_EDGE_COLOR = 0xff5a4a;
 export const CLOSED_EDGE_ALPHA = 0.85;
 export const CLOSED_EDGE_WIDTH = 3;
+/** The force field on a closed sector's edge with the open ones (#127): its red, and what it flares toward near a ship. */
+export const FIELD_COLOR = 0xff5a4a;
+export const FIELD_HOT_COLOR = 0xff9a80;
+/** World px between the field's samples along a side. */
+export const FIELD_STEP = 5;
+/** Sides farther than this from the ship aren't drawn: drawing every one each frame costs too much. */
+export const FIELD_DRAW_RANGE = 450;
+/** The field starts to flare this far from a ship, which reaches past the push-back band. */
+export const FIELD_FLARE_RANGE = 340;
+/** The two strands' ripples: each a pair of waves, in radians per px along the side and per second. */
+export const FIELD_RIPPLES = [
+  { amplitude: 2.2, along: 0.05, speed: 3.1, phase: 0 },
+  { amplitude: 1.2, along: 0.13, speed: -5.3, phase: 0 },
+  { amplitude: 2.2, along: 0.07, speed: -4.2, phase: 1.7 },
+  { amplitude: 1.2, along: 0.17, speed: 6.1, phase: 0 },
+] as const;
+/** How much wider the ripples get at full flare, and its fast jitter in px. */
+export const FIELD_FLARE_SWELL = 2.5;
+export const FIELD_JITTER = 2.5;
+export const FIELD_STRAND_ALPHA = 0.55;
+export const FIELD_GLOW_ALPHA = 0.035;
+export const FIELD_GLOW_RADIUS = 9;
+export const FIELD_CORE_RADIUS = 4;
+/** The fewest ms between two zaps, and the loudest one (#127). */
+export const FIELD_ZAP_EVERY_MS = 600;
+export const FIELD_ZAP_VOLUME = 0.35;
 export const MAP_EDGE_COLOR = 0x120810;
 export const MAP_PANEL_COLOR = 0x05030a;
 export const MAP_PANEL_ALPHA = 0.82;
