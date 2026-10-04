@@ -63,6 +63,7 @@ make wasm       # rebuild the committed WebAssembly sim and rules.gen.ts after a
 make test-tinygo # internal/sim's tests compiled by TinyGo, run under Node's WASI
 make proto      # regenerate Go and TypeScript after any proto/ change
 make sqlc       # regenerate internal/db after any internal/store/queries or migrations change
+make third-party # regenerate THIRD-PARTY.md after any dependency change; make check fails when it is stale
 make lint-fix   # golangci-lint --fix and eslint --fix
 make server     # the server with the embedded client on :8080
 make js-watch   # with make server-dev: edit, reload, no rebuild
@@ -181,7 +182,8 @@ answer given in chat is written back into the issue body before acting on it.
   once the required checks pass. Claude never merges one by hand and never adds
   `ready to merge` to one. It keeps them mergeable: one left behind `main` is
   rebased locally and force-pushed, and a `frontend/` bump that fails only on
-  bundle drift gets the rebuilt bundle committed onto its branch. A bump of
+  bundle drift gets the rebuilt bundle committed onto its branch, and one that
+  changes `THIRD-PARTY.md` gets `make third-party` committed the same way. A bump of
   `@playwright/test` gets the E2E job's image tag (`ci.yml`,
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
   on its branch: the image carries the browsers that version expects.

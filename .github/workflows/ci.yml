@@ -48,7 +48,7 @@ jobs:
         with:
           version: ${{ steps.golangci.outputs.version }}
           skip-cache: true
-      - run: make lint-ascii proto-lint proto-check sqlc-check ts-check ts-lint
+      - run: make lint-ascii proto-lint proto-check sqlc-check third-party-check ts-check ts-lint
 
   build:
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}

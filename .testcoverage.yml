@@ -4,6 +4,7 @@
 exclude:
   packages:
     - github.com/starquake/voidmarch/cmd/voidmarch$
+    - github.com/starquake/voidmarch/cmd/thirdparty$
     - github.com/starquake/voidmarch/internal/testutil
     - github.com/starquake/voidmarch/internal/gen
     - github.com/starquake/voidmarch/internal/db

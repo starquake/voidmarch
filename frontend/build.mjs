@@ -2,7 +2,7 @@
 // runtime are separate vendor modules, kept external, so the committed game
 // bundle stays small and its diffs readable; vendor files change only when
 // a dependency is bumped.
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -13,6 +13,8 @@ const { values } = parseArgs({
   options: {
     watch: { type: 'boolean', default: false },
     outdir: { type: 'string', default: path.join(root, '../internal/web/static/js') },
+    // Where to write the npm packages the bundle ships, for THIRD-PARTY.md (#196).
+    packages: { type: 'string' },
   },
 });
 const outdir = path.resolve(values.outdir);
@@ -72,11 +74,32 @@ await copyFile(
   path.join(outdir, 'vendor/phaser.js'),
 );
 
-await esbuild.build(protobufVendor);
+/** The npm package an esbuild input path belongs to, if any. */
+function packageOf(input) {
+  const match = /node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(input);
+
+  return match?.[1];
+}
+
+/** Phaser ships as a copied file rather than through esbuild, so it's named here. */
+const shipped = new Set(['phaser']);
+const collect = (result) => {
+  for (const input of Object.keys(result.metafile?.inputs ?? {})) {
+    const name = packageOf(input);
+    if (name !== undefined) {
+      shipped.add(name);
+    }
+  }
+};
+
+collect(await esbuild.build({ ...protobufVendor, metafile: true }));
 
 if (values.watch) {
   const ctx = await esbuild.context(options);
   await ctx.watch();
 } else {
-  await esbuild.build(options);
+  collect(await esbuild.build({ ...options, metafile: true }));
+  if (values.packages !== undefined) {
+    await writeFile(values.packages, `${JSON.stringify([...shipped].sort(), null, 2)}\n`);
+  }
 }

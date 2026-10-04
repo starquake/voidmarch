@@ -25,8 +25,9 @@ TINYGO_BIN := $(TOOLCHAINS)/tinygo/bin/tinygo
 BINARYEN_VERSION := version_133
 WASM_OPT := $(TOOLCHAINS)/binaryen/bin/wasm-opt
 TINYGO := WASMOPT=$(abspath $(WASM_OPT)) $(TINYGO_BIN)
-# Built from the version tools/go.mod requires.
+# Built from the versions tools/go.mod requires.
 PROTOC_GEN_GO := $(BIN_DIR)/protoc-gen-go
+GO_LICENSES := $(BIN_DIR)/go-licenses
 
 UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 UNAME_M := $(shell uname -m)
@@ -47,14 +48,14 @@ VERSION_LDFLAGS := -X $(VERSION_PKG).Version=$(shell cat VERSION 2>/dev/null) \
 	-X $(VERSION_PKG).Commit=$(shell git rev-parse HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo -dirty) \
 	-X $(VERSION_PKG).Date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/internal/testutil$$|/internal/gen/|/internal/db$$|/test/' | paste -sd "," -)
+COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/cmd/thirdparty$$|/internal/testutil$$|/internal/gen/|/internal/db$$|/test/' | paste -sd "," -)
 
 .PHONY: help
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii proto-lint proto-check sqlc-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check sqlc-check third-party-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -146,6 +147,10 @@ $(BUF_BIN):
 $(PROTOC_GEN_GO): tools/go.mod
 	@mkdir -p $(BIN_DIR)
 	cd tools && go build -o ../$(PROTOC_GEN_GO) google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(GO_LICENSES): tools/go.mod
+	@mkdir -p $(BIN_DIR)
+	cd tools && go build -o ../$(GO_LICENSES) github.com/google/go-licenses/v2
 
 PROTO_TOOLS := $(BUF_BIN) $(PROTOC_GEN_GO) $(JS_DEPS)
 
@@ -241,6 +246,38 @@ js: $(JS_DEPS) ## Bundle the client into internal/web/static/js
 .PHONY: js-watch
 js-watch: $(JS_DEPS) ## Rebundle the client on every change
 	cd $(FRONTEND) && npm run watch
+
+# THIRD-PARTY.md (#196): what ships, as the image builds it for Linux, and
+# only the licences on this list.
+THIRD_PARTY_DIR := $(BUILD_DIR)/third-party
+ALLOWED_LICENSES := Apache-2.0,BSD-2-Clause,BSD-3-Clause,CC0-1.0,ISC,MIT,OFL-1.1
+GO_LICENSES_RUN := GOOS=linux GOARCH=amd64 $(GO_LICENSES)
+THIRD_PARTY_GEN := go run ./cmd/thirdparty -go-report $(THIRD_PARTY_DIR)/go.tsv \
+	-packages $(THIRD_PARTY_DIR)/packages.json -node-modules $(FRONTEND)/node_modules \
+	-tinygo-version $(TINYGO_VERSION)
+
+.PHONY: third-party-inputs
+third-party-inputs: $(GO_LICENSES) $(JS_DEPS)
+	@mkdir -p $(THIRD_PARTY_DIR)
+	@$(GO_LICENSES_RUN) check ./cmd/voidmarch --ignore github.com/starquake/voidmarch \
+		--allowed_licenses=$(ALLOWED_LICENSES) 2>$(THIRD_PARTY_DIR)/go-licenses.log || \
+		{ cat $(THIRD_PARTY_DIR)/go-licenses.log; exit 1; }
+	@$(GO_LICENSES_RUN) report ./cmd/voidmarch --ignore github.com/starquake/voidmarch \
+		--template internal/thirdparty/report.tpl >$(THIRD_PARTY_DIR)/go.tsv 2>$(THIRD_PARTY_DIR)/go-licenses.log || \
+		{ cat $(THIRD_PARTY_DIR)/go-licenses.log; exit 1; }
+	@tmp=$$(mktemp -d); \
+	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp" --packages ../$(THIRD_PARTY_DIR)/packages.json) >/dev/null; \
+	rc=$$?; rm -rf "$$tmp"; exit $$rc
+
+.PHONY: third-party
+third-party: third-party-inputs ## Write THIRD-PARTY.md: the libraries that ship and their licences
+	$(THIRD_PARTY_GEN) -o THIRD-PARTY.md
+
+.PHONY: third-party-check
+third-party-check: third-party-inputs ## Fail when THIRD-PARTY.md is stale, or a licence isn't allowed
+	@$(THIRD_PARTY_GEN) -o $(THIRD_PARTY_DIR)/THIRD-PARTY.md && \
+	diff -u THIRD-PARTY.md $(THIRD_PARTY_DIR)/THIRD-PARTY.md || \
+	{ echo "THIRD-PARTY.md is stale: run make third-party"; exit 1; }
 
 .PHONY: js-check
 js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh build

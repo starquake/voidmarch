@@ -18,6 +18,8 @@ RUN mkdir /data
 
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /voidmarch /voidmarch
+# The licences of what the binary is built from (#196).
+COPY THIRD-PARTY.md /THIRD-PARTY.md
 COPY --from=build --chown=nonroot:nonroot /data /data
 EXPOSE 8080
 USER nonroot

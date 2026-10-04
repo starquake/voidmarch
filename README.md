@@ -257,6 +257,10 @@ are committed, so `go build` needs neither Node.js nor TinyGo.
 
 ## Credits
 
+The libraries the server and the client are built from, with their licences,
+are in [THIRD-PARTY.md](THIRD-PARTY.md), which the Docker image carries too.
+
+
 - Art: the Void asset packs by [Foozle](https://foozlecc.itch.io/), CC0.
 - Music: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music) by Foozle, CC0.
 - Sound effects: [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) by Kenney, CC0.
