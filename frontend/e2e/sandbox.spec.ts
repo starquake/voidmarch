@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
+import { changeOption } from './settings.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -42,8 +43,8 @@ test.describe('with the game\'s own default controls', () => {
     await page.keyboard.up('w');
   });
 
-  test('C switches to ship-relative, and the choice survives a reload', async ({ page }) => {
-    await page.keyboard.press('c');
+  test('the settings switch to ship-relative, and the choice survives a reload', async ({ page }) => {
+    await changeOption(page, 'Controls');
     await expect.poll(async () => (await state(page)).controlMode).toBe('ship');
 
     const { x, y } = await center(page);
@@ -79,12 +80,12 @@ test('holding the left button fires projectiles', async ({ page }) => {
   await page.mouse.up();
 });
 
-test('debug keys cycle parts, rotation and effects', async ({ page }) => {
+test('debug keys cycle parts, and the settings switch rotation and effects', async ({ page }) => {
   await page.keyboard.press('1');
   await page.keyboard.press('2');
   await page.keyboard.press('3');
-  await page.keyboard.press('r');
-  await page.keyboard.press('f');
+  await changeOption(page, 'Rotation');
+  await changeOption(page, 'Effects');
 
   // Phaser handles queued key events on its next update, so wait for it.
   await expect
@@ -152,7 +153,7 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
   expect(samples.at(-1)?.frame).toBeGreaterThanOrEqual(7);
 });
 
-test('music starts after the first input, and M and N are remembered', async ({ page }) => {
+test('music starts after the first input, and the sound and music settings are remembered', async ({ page }) => {
   const { x, y } = await center(page);
   await page.mouse.click(x + 100, y);
   try {
@@ -161,8 +162,8 @@ test('music starts after the first input, and M and N are remembered', async ({ 
     console.log(`${test.info().project.name} audio: ${JSON.stringify((await state(page)).audio)}`);
   }
 
-  await page.keyboard.press('m');
-  await page.keyboard.press('n');
+  await changeOption(page, 'Sound');
+  await changeOption(page, 'Music');
   await expect.poll(async () => (await state(page)).audio).toMatchObject({ muted: true, music: false, playingMusic: null });
 
   await page.reload();
@@ -170,10 +171,10 @@ test('music starts after the first input, and M and N are remembered', async ({ 
   expect((await state(page)).audio).toMatchObject({ muted: true, music: false });
 });
 
-test('V caps the frame rate and P lowers the resolution, and both are remembered', async ({ page }) => {
+test('the settings cap the frame rate and lower the resolution, and both are remembered', async ({ page }) => {
   expect(await state(page)).toMatchObject({ fpsCap: false, cssPixels: false });
-  await page.keyboard.press('v');
-  await page.keyboard.press('p');
+  await changeOption(page, 'Frame rate');
+  await changeOption(page, 'Resolution');
   await expect.poll(async () => await state(page)).toMatchObject({ fpsCap: true, cssPixels: true });
 
   await page.reload();

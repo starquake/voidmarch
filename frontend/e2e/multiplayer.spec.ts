@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test';
 
-import { expect, registerPlayer, signIn, test } from './fixtures.ts';
+import { expect, registerPlayer, signIn, test, type Controls } from './fixtures.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -19,10 +19,10 @@ const state = (page: Page): Promise<DebugState> =>
  * the pixels. Otherwise a slow runner drops to a few fps, and the sim, which
  * catches up at most a few ticks a frame, runs in slow motion (#22).
  */
-async function player(browser: Browser, baseURL: string, name: string, query = ''): Promise<Page> {
+async function player(browser: Browser, baseURL: string, name: string, query = '', controls: Controls = 'ship'): Promise<Page> {
   const context = await browser.newContext({ baseURL, viewport: VIEWPORT });
   const token = await registerPlayer(context.request, name);
-  await signIn(context, token);
+  await signIn(context, token, controls);
   const page = await context.newPage();
   await page.goto(`/${query}`);
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
@@ -78,7 +78,8 @@ test('two ships flown into each other bump apart', async ({ browser, baseURL }) 
   test.setTimeout(90_000);
   const suffix = String(Date.now() % 100000);
   const sanne = await player(browser, baseURL ?? '', `Sanne${suffix}`);
-  const mo = await player(browser, baseURL ?? '', `Mo${suffix}`);
+  // Screen-relative, so Mo backs away and flies along a line whatever his aim.
+  const mo = await player(browser, baseURL ?? '', `Mo${suffix}`, '', 'game');
   const apart = async (): Promise<{ dx: number; distance: number; rams: number }> => {
     const [a, b] = await Promise.all([state(sanne), state(mo)]);
 
@@ -93,8 +94,7 @@ test('two ships flown into each other bump apart', async ({ browser, baseURL }) 
 
     // They part along x, so with screen-relative controls Mo backs away
     // along that line and then flies straight into her, whatever his aim.
-    await mo.keyboard.press('c');
-    await expect.poll(async () => (await state(mo)).controlMode).toBe('screen');
+    expect((await state(mo)).controlMode).toBe('screen');
     const [away, toward] = (await apart()).dx > 0 ? ['d', 'a'] : ['a', 'd'];
     await mo.keyboard.down(away);
     await expect.poll(async () => (await apart()).distance).toBeGreaterThan(80);
