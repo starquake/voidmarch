@@ -278,7 +278,8 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Closed rings** (#123, #140): only home and ring 1 are open until the Kla'ed Dreadnought falls, which opens ring 2; the Nairan Dreadnought's fall opens ring 3. The server keeps the open rings in its database and sends them, with any sector opened on its own (the Dreadnought's while it's awake), as the `Frontier`.
   - A closed sector pushes a ship back like the world's edge, in a 200 px band, and stops it at its side. The browser's sim and the server's companions both apply it (`sim.ApplyFrontier`).
   - Nothing happens in one: no garrison wakes, no straggler, attack or distress call comes, and no mission goes there; a pick of one is refused.
-  - In the world a closed sector is shaded, with a red line on its sides with open ones; on the maps it's gray, and the HUD line says "closed".
+  - In the world a closed sector is shaded; on the maps it's gray, and the HUD line says "closed".
+  - Its sides with open ones carry a force field (#127): two red strands rippling out of step in a soft, flickering glow, which ripples wider, brightens and throws sparks near a ship. The field starts to flare 340 px from a ship, which reaches past the push-back band. Only the sides within 450 px of the ship are drawn each frame, since drawing every side costs too much; with effects off (F) it's one plain strand. A ship inside the band hears an electric zap, at most every 0.6 s and louder the deeper it is (Kenney's `forceField` sounds).
 - Asteroids (Environment pack) as obstacles/cover.
 
 ### Season
