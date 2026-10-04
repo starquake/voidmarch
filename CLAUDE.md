@@ -179,7 +179,9 @@ answer given in chat is written back into the issue body before acting on it.
 - **Dependabot's pull requests are the one exception**: they have no issue
   behind them and no card (`.github/dependabot.yml`), and they merge
   themselves: `.github/workflows/dependabot-auto-merge.yml` squash-merges each
-  once the required checks pass. Claude never merges one by hand and never adds
+  once the required checks pass. Its merge starts no workflows, so the same
+  workflow then dispatches CI on `main`, which publishes `:edge` and deploys
+  staging. Claude never merges one by hand and never adds
   `ready to merge` to one. It keeps them mergeable: one left behind `main` is
   rebased locally and force-pushed, and a `frontend/` bump that fails only on
   bundle drift gets the rebuilt bundle committed onto its branch, and one that

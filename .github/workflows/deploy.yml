@@ -24,12 +24,13 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # CI green on a push to main deploys main's :edge.
+  # CI green on main, pushed or dispatched, deploys main's :edge.
   deploy-staging:
     if: >-
       (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
+        (github.event.workflow_run.event == 'push' ||
+          github.event.workflow_run.event == 'workflow_dispatch') &&
         github.event.workflow_run.head_repository.full_name == github.repository &&
         github.event.workflow_run.head_branch == 'main') ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
@@ -86,7 +87,8 @@ jobs:
     if: >-
       (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
+        (github.event.workflow_run.event == 'push' ||
+          github.event.workflow_run.event == 'workflow_dispatch') &&
         github.event.workflow_run.head_repository.full_name == github.repository &&
         startsWith(github.event.workflow_run.head_branch, 'v')) ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
