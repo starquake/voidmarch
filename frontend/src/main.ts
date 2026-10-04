@@ -6,7 +6,7 @@ import { BootScene } from './scenes/boot.ts';
 import { SandboxScene } from './scenes/sandbox.ts';
 import { loadDisplaySettings, loadToken, saveToken } from './settings.ts';
 import { loadSim } from './simwasm.ts';
-import { FPS_CAP } from './sim/tuning.ts';
+import { FONT_NAME, FPS_CAP } from './sim/tuning.ts';
 
 /** Asks for a name on the first visit, then starts the game with the player's token. */
 async function start(): Promise<void> {
@@ -19,7 +19,12 @@ async function start(): Promise<void> {
   }
 
   // The rules run in WebAssembly (internal/sim); the scenes need them from their first frame.
-  await loadSim('/static/wasm/sim.wasm');
+  // Phaser draws a text into its canvas once, so the font has to be loaded before the first one (#170);
+  // if it fails, the text falls back to monospace.
+  await Promise.all([
+    loadSim('/static/wasm/sim.wasm'),
+    document.fonts.load(`16px ${FONT_NAME}`).catch(() => []),
+  ]);
 
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));

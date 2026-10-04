@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import type { ButtonRect, TouchControls } from '../sim/touch.ts';
-import { TOUCH_STICK_RADIUS_PX } from '../sim/tuning.ts';
+import { TOUCH_STICK_RADIUS_PX, UI_FONT } from '../sim/tuning.ts';
 
 const UI = 0x8fd8ff;
 const GOLD = 0xfff08a;
@@ -38,7 +38,7 @@ export class TouchView {
       g.lineStyle(LINE_PX * unit, color, 1).strokeCircle(s.knob.x, s.knob.y, KNOB_RADIUS * unit);
     }
     while (this.labels.length < buttons.length) {
-      const label = this.scene.add.text(0, 0, '', { fontFamily: 'monospace' }).setOrigin(0.5).setDepth(1001);
+      const label = this.scene.add.text(0, 0, '', { fontFamily: UI_FONT }).setOrigin(0.5).setDepth(1001);
       this.hide(label);
       this.labels.push(label);
     }

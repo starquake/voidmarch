@@ -73,6 +73,7 @@ import {
   MINIMAP_REDRAW_MS,
   FPS_CAP,
   TOUCH_AIM_REACH,
+  UI_FONT,
 } from '../sim/tuning.ts';
 import { fieldColor, fieldSides, nearestSide, sparks, zapVolume, type Side } from '../sim/forcefield.ts';
 import { TouchControls, touchButtons, touchMode, touchUnit, type ButtonRect, type Point } from '../sim/touch.ts';
@@ -688,20 +689,20 @@ export class SandboxScene extends Phaser.Scene {
     main.ignore(this.vignette);
 
     this.hud = this.add
-      .text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' })
+      .text(8, 8, '', { fontFamily: UI_FONT, fontSize: '12px', color: '#d8f8ff' })
       .setOrigin(0, 1)
       .setShadow(1, 1, '#000000', 0);
     main.ignore(this.hud);
     // The parts line (#77): "parts", then each fitted part in its tier's color.
     this.partsLine = Array.from({ length: 4 }, () => {
-      const text = this.add.text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: '#d8f8ff' }).setShadow(1, 1, '#000000', 0);
+      const text = this.add.text(0, 0, '', { fontFamily: UI_FONT, fontSize: '12px', color: '#d8f8ff' }).setShadow(1, 1, '#000000', 0);
       main.ignore(text);
 
       return text;
     });
     this.downPanel = this.add
       .text(0, 0, '', {
-        fontFamily: 'monospace',
+        fontFamily: UI_FONT,
         fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
         color: '#d8f8ff',
         align: 'center',
@@ -714,7 +715,7 @@ export class SandboxScene extends Phaser.Scene {
     this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add
       .text(0, 0, '', {
-        fontFamily: 'monospace',
+        fontFamily: UI_FONT,
         fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
         color: MISSION_CSS,
         align: 'center',
@@ -726,11 +727,11 @@ export class SandboxScene extends Phaser.Scene {
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
     this.missionLabel = this.add
-      .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: MISSION_CSS })
+      .text(0, 0, '', { fontFamily: UI_FONT, fontSize: '12px', color: MISSION_CSS })
       .setOrigin(0.5)
       .setShadow(1, 1, '#000000', 0);
     this.eventLabel = this.add
-      .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: EVENT_CSS })
+      .text(0, 0, '', { fontFamily: UI_FONT, fontSize: '12px', color: EVENT_CSS })
       .setOrigin(0.5)
       .setShadow(1, 1, '#000000', 0);
     main.ignore([this.missionArrow, this.missionLabel, this.eventLabel]);
@@ -1170,7 +1171,7 @@ export class SandboxScene extends Phaser.Scene {
   /** Lays out the ring: a label and its pack icon per order, and the wing's mode in the center. */
   private openOrderRing(press: OrderPress): Phaser.GameObjects.Text[] {
     const dpr = this.dpr();
-    const style = { fontFamily: 'monospace', fontSize: `${String(HUD_FONT_PX * dpr)}px` };
+    const style = { fontFamily: UI_FONT, fontSize: `${String(HUD_FONT_PX * dpr)}px` };
     const info = this.net?.squadronInfo;
     const mode = info === undefined ? undefined : fromCompanionMode(info.mode) ?? 'escort';
     press.backdrop = this.add.graphics();
