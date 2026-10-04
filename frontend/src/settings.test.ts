@@ -10,6 +10,7 @@ import {
   loadLastSquadron,
   loadSeenSeason,
   loadToken,
+  loadViewSettings,
   saveAudioSettings,
   saveBloomBroken,
   saveControlMode,
@@ -17,6 +18,7 @@ import {
   saveLastSquadron,
   saveSeenSeason,
   saveToken,
+  saveViewSettings,
 } from './settings.ts';
 
 const memoryStore = (): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> => {
@@ -97,7 +99,7 @@ test('denied storage keeps the default sound settings', () => {
   assert.deepEqual(loadAudioSettings(brokenStore), { muted: false, music: true });
 });
 
-test('the display runs at its own rate and full resolution by default, and V and P are remembered', () => {
+test('the display runs at its own rate and full resolution by default, and both are remembered', () => {
   assert.deepEqual(loadDisplaySettings(memoryStore()), { fpsCap: false, cssPixels: false });
   const store = memoryStore();
   saveDisplaySettings({ fpsCap: true, cssPixels: true }, store);
@@ -110,6 +112,21 @@ test('the display runs at its own rate and full resolution by default, and V and
     saveDisplaySettings({ fpsCap: true, cssPixels: true }, brokenStore);
   });
   assert.deepEqual(loadDisplaySettings(brokenStore), { fpsCap: false, cssPixels: false });
+});
+
+test('rotation is free and effects are on by default, and both are remembered (#145)', () => {
+  assert.deepEqual(loadViewSettings(memoryStore()), { snapRotation: false, effects: true });
+  const store = memoryStore();
+  saveViewSettings({ snapRotation: true, effects: false }, store);
+  assert.deepEqual(loadViewSettings(store), { snapRotation: true, effects: false });
+  store.setItem('voidmarch.view', '{"snapRotation": "yes", "effects": false}');
+  assert.deepEqual(loadViewSettings(store), { snapRotation: false, effects: false }, 'damaged fields fall back one by one');
+  store.setItem('voidmarch.view', 'not json');
+  assert.deepEqual(loadViewSettings(store), { snapRotation: false, effects: true });
+  assert.doesNotThrow(() => {
+    saveViewSettings({ snapRotation: true, effects: false }, brokenStore);
+  });
+  assert.deepEqual(loadViewSettings(brokenStore), { snapRotation: false, effects: true });
 });
 
 test('the token is kept, loaded and forgotten', () => {
