@@ -110,13 +110,35 @@ func (h *Hub) startAttack(ticks uint32) bool {
 }
 
 // devStartAttack starts an attack on the named cleared sector at once, on a
-// development server with no event running.
+// development server, in place of any event running (#176).
 func (h *Hub) devStartAttack(name string) {
 	s, ok := sim.ParseSector(name)
-	if !h.development || h.event != nil || !ok || !h.cleared[s] {
+	if !h.development || !ok || !h.cleared[s] {
 		return
 	}
+	h.callOffEvent()
 	h.attack(s, h.eventTimes.attack)
+}
+
+// callOffEvent drops the event running with no outcome: its force or its
+// derelict gone, its sector as it was, and nobody told, since the event
+// that replaces it is.
+func (h *Hub) callOffEvent() {
+	e := h.event
+	if e == nil {
+		return
+	}
+	h.event = nil
+	if e.kind == pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS {
+		delete(h.derelicts, e.derelict)
+
+		return
+	}
+	h.standDown(e.force)
+	h.retireFrigate(e.frigate)
+	if h.garrisons[e.sector] == e.force {
+		delete(h.garrisons, e.sector)
+	}
 }
 
 // attack sends a Frigate and a garrison at s, to last ticks.
@@ -221,6 +243,17 @@ func (h *Hub) isDistress(id uint32) bool {
 	return e != nil && e.kind == pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS && e.derelict == id
 }
 
+// retireFrigate takes an attack's Frigate off the field for good, leaving
+// its spot free for the next attack.
+func (h *Hub) retireFrigate(i int) {
+	spot := &h.frigates[i]
+	if spot.enemyID != 0 {
+		delete(h.enemies, spot.enemyID)
+		h.forgetEnemy(spot.enemyID)
+	}
+	spot.enemyID, spot.respawnAt = 0, math.MaxUint32
+}
+
 // loseSector turns s hostile again: forgotten as cleared, the attack's
 // force gone, and a fresh garrison of its own in its place.
 func (h *Hub) loseSector(s sim.Sector) {
@@ -230,11 +263,7 @@ func (h *Hub) loseSector(s sim.Sector) {
 		h.saves <- func() { h.forgetSector(name) }
 	}
 	h.standDown(h.event.force)
-	if spot := &h.frigates[h.event.frigate]; spot.enemyID != 0 {
-		delete(h.enemies, spot.enemyID)
-		h.forgetEnemy(spot.enemyID)
-		spot.enemyID, spot.respawnAt = 0, math.MaxUint32
-	}
+	h.retireFrigate(h.event.frigate)
 	h.garrisons[s] = h.newGarrison(s)
 	for _, name := range slices.Sorted(maps.Keys(h.squadrons)) {
 		if sq := h.squadrons[name]; !sq.hasMission {
