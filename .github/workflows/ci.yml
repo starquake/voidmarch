@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    # A release tag promotes main's tested image; it doesn't rerun the suite.
+    tags: ['v*.*.*']
   pull_request:
     branches: [main]
   schedule:
@@ -24,6 +26,7 @@ env:
 # renaming one means updating the ruleset in the same PR.
 jobs:
   lint:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -48,6 +51,7 @@ jobs:
       - run: make lint-ascii proto-lint proto-check sqlc-check ts-check ts-lint
 
   build:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write # coverage badge on the badges branch
@@ -79,6 +83,7 @@ jobs:
           git-branch: badges
 
   e2e:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-24.04
     # Microsoft's image has the browsers and their system packages, so nothing
     # is installed per run (#115). The tag is the @playwright/test version in
@@ -132,6 +137,7 @@ jobs:
   # Builds and smoke-tests the image alongside the other jobs (#115), so it
   # adds nothing to the run's time; publish pushes it from main afterwards.
   docker:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -220,3 +226,44 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes "{}@${DIGEST}"
+
+  # Retags the image main built and signed for this commit with the release's
+  # version. The signature binds to the digest, so the new tags carry it.
+  promote:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: |
+            latest=auto
+      - name: Promote the main image to the release tags
+        env:
+          SRC: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          if ! docker buildx imagetools inspect "$SRC" >/dev/null 2>&1; then
+            echo "error: ${SRC} not found; tag a commit that main built" >&2
+            exit 1
+          fi
+          args=()
+          while IFS= read -r tag; do
+            [ -n "$tag" ] && args+=(--tag "$tag")
+          done <<< "$TAGS"
+          docker buildx imagetools create "${args[@]}" "$SRC"
