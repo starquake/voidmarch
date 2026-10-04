@@ -1,7 +1,8 @@
 # Deployments
 
-Voidmarch runs in three environments on one VPS, behind the SWAG reverse proxy
-that also serves topbanana and mediumrogue. `.github/workflows/deploy.yml`
+Voidmarch runs in three environments on one VPS, `zoot` (Debian 13, Docker
+29.8, Compose v5.6), behind the SWAG reverse proxy that also serves topbanana
+and mediumrogue. `.github/workflows/deploy.yml`
 deploys; this file is the one-time setup on the server and on GitHub that the
 workflow can't do, and the jobs done by hand afterwards.
 
@@ -26,7 +27,8 @@ the image digest, pulls and runs `docker compose up -d`
 ### 1. DNS
 
 Three CNAMEs in `bananajuice.net`, pointing at the VPS like mediumrogue's:
-`voidmarch`, `voidmarch-staging` and `voidmarch-development`.
+`voidmarch`, `voidmarch-staging` and `voidmarch-development`. Wait until all
+three resolve before step 2:
 
 ```bash
 dig +short voidmarch.bananajuice.net voidmarch-staging.bananajuice.net voidmarch-development.bananajuice.net
@@ -34,18 +36,31 @@ dig +short voidmarch.bananajuice.net voidmarch-staging.bananajuice.net voidmarch
 
 ### 2. TLS and proxy (SWAG)
 
-Add the three names to SWAG's `SUBDOMAINS`; SWAG reissues its certificate on
-restart. Copy `deployments/swag/voidmarch*.subdomain.conf` into SWAG's
+SWAG's own domain is `URL=linuxeverywhere.link`; the bananajuice.net names are
+in `EXTRA_DOMAINS`. Append the three there:
+
+```
+EXTRA_DOMAINS=...,mediumrogue-development.bananajuice.net,voidmarch.bananajuice.net,voidmarch-staging.bananajuice.net,voidmarch-development.bananajuice.net
+```
+
+SWAG validates over HTTP (`VALIDATION=http`) and asks for one certificate
+covering every name, so a single name that doesn't resolve yet fails the whole
+request: that is why DNS comes first. An environment variable only changes
+when the container is recreated, not restarted.
+
+Copy `deployments/swag/voidmarch*.subdomain.conf` into SWAG's
 `proxy-confs/` and reload it:
 
 ```bash
 docker exec swag nginx -s reload
+docker logs --tail 50 swag
 ```
 
 The confs need nothing special for the game's WebSocket at `/ws`: SWAG's
-`proxy.conf` sets the `Upgrade` and `Connection` headers, and the server sends
-snapshots 20 times a second, so the connection is never idle long enough to
-time out.
+`proxy.conf` already sets `Upgrade $http_upgrade` and
+`Connection $connection_upgrade`, with 240 s read and send timeouts, and the
+server sends snapshots 20 times a second, so the connection is never idle that
+long.
 
 ### 3. GitHub environments
 
@@ -58,9 +73,10 @@ On each:
 - Variables:
   - `SERVER_URL`: the environment's address from the table above. The deploy
     checks `SERVER_URL/healthz`.
-  - `TRUSTED_PROXY_IPS`: the subnet of the `web` network, which SWAG's
-    requests come from. Without it every player has SWAG's address, and
-    `REGISTER_LIMIT` (20 names a minute per address) counts them all together.
+  - `TRUSTED_PROXY_IPS`: `172.19.0.0/16`, the subnet of the `web` network,
+    which SWAG's requests come from. Without it every player has SWAG's
+    address, and `REGISTER_LIMIT` (20 names a minute per address) counts them
+    all together. If the network is ever recreated, check it again:
 
     ```bash
     docker network inspect web --format '{{range .IPAM.Config}}{{.Subnet}} {{end}}'
