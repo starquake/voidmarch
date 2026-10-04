@@ -63,8 +63,15 @@ ship-relative, where W flies toward the mouse), rotation (free or 16
 directions), effects, a 60 fps frame rate cap and a lower render resolution
 (CSS pixels), the last two for slower graphics. Pick a row with the arrow keys
 and change it with Enter, Space, left or right, or click it. The ship holds
-still while it's open, and every choice is remembered in the browser. Sound starts after the first click or key press. The HUD's
-fps shows the worst frame of the last second too.
+still while it's open, and every choice is remembered in the browser. Sound starts after the first click or key press.
+
+The HUD shows your ship bottom left: the three fitted parts as their icons,
+in their tier's color, and the hull and shield as pips. Top left, a panel
+names your squadron and its orders, the hangar at home, the sector you're
+in, your mission and any alert. Notices, and the connection while it isn't
+online, show as toasts at the top. The keys are listed bottom right. On a
+development server or offline, **F3** shows frames per second, with the
+worst frame of the last second.
 
 ### On a tablet or phone
 
