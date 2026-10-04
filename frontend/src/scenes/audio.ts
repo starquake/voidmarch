@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { engineMix, nextVariant, shotDetune } from '../mix.ts';
+import { engineMix, nextVariant, randomVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
 import type { EngineId, WeaponId } from '../sim/loadout.ts';
 import { isWeapon, type FrameEvents, type Ship } from '../simwasm.ts';
@@ -10,6 +10,7 @@ import {
   ENEMY_EXPLOSION_SOUND,
   ENEMY_SHOT_SOUND,
   ENGINE_LOOPS,
+  FIELD_ZAP_SOUNDS,
   EXPIRE_SOUNDS,
   MUSIC,
   PART_SWITCH_SOUND,
@@ -41,6 +42,7 @@ export class ShipAudio {
   private musicIndex = 0;
   private musicLoaded = false;
   private shots = 0;
+  private lastZap: string | undefined;
   private readonly scene: Phaser.Scene;
   private readonly settings: AudioSettings;
 
@@ -135,6 +137,15 @@ export class ShipAudio {
 
   shieldSwitched(): void {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
+  }
+
+  /** A force field zap (#127), at a volume from 0 to 1: a random one, never the last one again. */
+  fieldZap(volume: number): void {
+    const key = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
+    this.lastZap = key;
+    if (key !== undefined) {
+      this.scene.sound.play(key, { volume });
+    }
   }
 
   partSwitched(): void {

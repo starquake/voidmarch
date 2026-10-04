@@ -117,3 +117,22 @@ func TestApplyFrontier_LeavesWhatItCantFix(t *testing.T) {
 		}
 	}
 }
+
+func TestSandbox_ADownedShipDriftsNoFurtherThanAClosedSide(t *testing.T) {
+	t.Parallel()
+
+	s := NewSandbox()
+	s.Frontier = Frontier{OpenRings: 1}
+	s.Ship.X, s.Ship.Y = 0, d3Top+10
+	s.Ship.VY = -300
+	s.Ship.Damage = MaxDamage
+	for range 300 {
+		s.AdvanceCommand(TickSeconds, Command{})
+	}
+	if !s.Ship.Downed() {
+		t.Fatal("the ship came back up, so it didn't drift down")
+	}
+	if s.Ship.Y < d3Top {
+		t.Errorf("downed ship at y = %v, past D3's side with closed D2 at %v", s.Ship.Y, d3Top)
+	}
+}

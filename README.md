@@ -135,8 +135,8 @@ squadmates see "you: Attack", and every companion in the squadron follows.
 ## Enemies
 
 The world is 37 hexagonal sectors, home in D4 and three rings around it. Only
-home and ring 1 are open at first: a red line marks where the closed rings
-begin, and they push you back. The HUD names the sector you're in. Every other sector is held by a
+home and ring 1 are open at first: a red force field marks where the closed rings
+begin, and it zaps and pushes you back. The HUD names the sector you're in. Every other sector is held by a
 garrison of its ring's faction: the Kla'ed in ring 1, the Nairan in ring 2 and
 the Nautolan in ring 3. The later factions take more hits and fire faster,
 quicker shots, and each ring tints the background its own color. Out there

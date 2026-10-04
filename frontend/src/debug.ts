@@ -25,6 +25,8 @@ export interface DebugState {
   effects: boolean;
   /** Whether enemy bullets glow (#36); it follows the effects toggle. */
   enemyFireGlow: boolean;
+  /** The force field (#127): the ship's distance to the nearest closed side (null with none), and the zaps played. */
+  field: { distance: number | null; zaps: number };
   projectiles: number;
   /** This player's own burst shards in flight (#72). */
   ownShards: number;

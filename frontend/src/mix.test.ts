@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { engineMix, nextVariant, shotDetune } from './mix.ts';
+import { engineMix, nextVariant, randomVariant, shotDetune } from './mix.ts';
 
 test('the engine is louder when thrusting than when idle', () => {
   assert.ok(engineMix(0, 200, true).volume > engineMix(0, 200, false).volume);
@@ -26,6 +26,22 @@ test('nextVariant cycles through the variants', () => {
   const variants = ['a', 'b', 'c'];
   assert.deepEqual([0, 1, 2, 3].map((i) => nextVariant(variants, i)), ['a', 'b', 'c', 'a']);
   assert.equal(nextVariant([], 3), undefined);
+});
+
+test('randomVariant picks at random, never the last one twice in a row', () => {
+  const variants = ['a', 'b', 'c'];
+  assert.equal(randomVariant(variants, undefined, () => 0), 'a');
+  assert.equal(randomVariant(variants, undefined, () => 0.99), 'c');
+  assert.equal(randomVariant(variants, 'a', () => 0), 'b');
+  assert.equal(randomVariant(variants, 'a', () => 0.99), 'c');
+  let last: string | undefined;
+  for (let i = 0; i < 50; i++) {
+    const next = randomVariant(variants, last, Math.random);
+    assert.notEqual(next, last);
+    last = next;
+  }
+  assert.equal(randomVariant(['only'], 'only', () => 0.5), 'only');
+  assert.equal(randomVariant([], undefined, () => 0.5), undefined);
 });
 
 test('shotDetune stays within a small range', () => {

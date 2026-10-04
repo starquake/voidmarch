@@ -60,15 +60,20 @@ import {
   VIEW_HEIGHT,
   VIEW_WIDTH,
   WEAPON_STATS,
-  CLOSED_EDGE_ALPHA,
-  CLOSED_EDGE_COLOR,
-  CLOSED_EDGE_WIDTH,
   CLOSED_SHADE_ALPHA,
+  FIELD_CORE_RADIUS,
+  FIELD_GLOW_ALPHA,
+  FIELD_GLOW_RADIUS,
+  FIELD_SPARK_COLOR,
+  FIELD_SPARK_JUMP,
+  FIELD_STRAND_ALPHA,
+  FIELD_ZAP_EVERY_MS,
   RING_TINT_FADE_MS,
   MINIMAP_REDRAW_MS,
   FPS_CAP,
   TOUCH_AIM_REACH,
 } from '../sim/tuning.ts';
+import { fieldColor, fieldSides, nearestSide, sparks, zapVolume, type Side } from '../sim/forcefield.ts';
 import { TouchControls, touchButtons, touchMode, touchUnit, type ButtonRect, type Point } from '../sim/touch.ts';
 import {
   ALL_OPEN,
@@ -235,9 +240,14 @@ export class SandboxScene extends Phaser.Scene {
   /** The notch's safe area, read on resize (#180). */
   private insets = { insetLeft: 0, insetRight: 0 };
   private maps!: MapView;
-  /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
+  /** The closed sectors' shade (#123), and the frontier it was drawn for. */
   private closedLayer!: Phaser.GameObjects.Graphics;
   private closedDrawn = -1;
+  /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
+  private closedSides: Side[] = [];
+  private fieldLayer!: Phaser.GameObjects.Graphics;
+  private lastZap = Number.NEGATIVE_INFINITY;
+  private fieldZaps = 0;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
   private enemyFire!: Phaser.GameObjects.Layer;
@@ -358,6 +368,7 @@ export class SandboxScene extends Phaser.Scene {
       enemiesDestroyed: 0,
       lastEnemyDestroyed: undefined,
       enemyFireGlow: false,
+      field: { distance: null, zaps: 0 },
       hitsTaken: 0,
       rams: 0,
       downed: false,
@@ -425,6 +436,7 @@ export class SandboxScene extends Phaser.Scene {
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
+    this.drawField(time);
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
@@ -527,6 +539,8 @@ export class SandboxScene extends Phaser.Scene {
     this.world.add(lines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
+    this.fieldLayer = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
+    this.world.add(this.fieldLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -806,7 +820,7 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Shades the closed sectors and draws their edge with the open ones, whenever the frontier changes (#123). */
+  /** Shades the closed sectors and finds their sides with the open ones, whenever the frontier changes (#123). */
   private drawClosed(): void {
     const version = this.net?.frontierVersion ?? 0;
     if (version === this.closedDrawn) {
@@ -828,9 +842,44 @@ export class SandboxScene extends Phaser.Scene {
         g.closePath().fillPath();
       }
     }
-    g.lineStyle(CLOSED_EDGE_WIDTH, CLOSED_EDGE_COLOR, CLOSED_EDGE_ALPHA);
-    for (const { a, b } of closedEdges(frontier)) {
-      g.lineBetween(a.x, a.y, b.x, b.y);
+    this.closedSides = closedEdges(frontier);
+  }
+
+  /** Draws the force field along the closed sides near the ship, and zaps while the ship is in its push-back band (#127). */
+  private drawField(time: number): void {
+    const g = this.fieldLayer.clear();
+    const ship = this.sim.ship;
+    for (const { samples, nx, ny } of fieldSides(this.closedSides, ship, time / 1000)) {
+      if (this.effects) {
+        for (const s of samples) {
+          g.fillStyle(fieldColor(s.flare), FIELD_GLOW_ALPHA * s.flicker * (1 + s.flare * 3));
+          g.fillCircle(s.x, s.y, FIELD_GLOW_RADIUS * (1 + s.flare));
+          g.fillCircle(s.x, s.y, FIELD_CORE_RADIUS * (1 + s.flare));
+        }
+      }
+      samples.forEach((s, i) => {
+        const prev = samples[i - 1];
+        if (prev === undefined) {
+          return;
+        }
+        g.lineStyle(1, fieldColor(s.flare), Math.min(1, FIELD_STRAND_ALPHA * s.flicker * (1 + s.flare * 1.2)));
+        g.lineBetween(prev.x, prev.y, s.x, s.y);
+        if (!this.effects) {
+          return;
+        }
+        g.lineStyle(1, fieldColor(s.flare / 2), Math.min(1, FIELD_STRAND_ALPHA * 0.6 * s.flicker * (1 + s.flare * 1.5)));
+        g.lineBetween(prev.x2, prev.y2, s.x2, s.y2);
+        if (s.flare > 0.3 && sparks(i, time / 1000)) {
+          const jump = Math.sin(i + time / 25) * FIELD_SPARK_JUMP;
+          g.fillStyle(FIELD_SPARK_COLOR, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
+        }
+      });
+    }
+    const volume = zapVolume(nearestSide(this.closedSides, ship), this.sim.downed);
+    if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
+      this.lastZap = time;
+      this.fieldZaps++;
+      this.audio.fieldZap(volume);
     }
   }
 
@@ -1892,6 +1941,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.fpsCap = this.game.loop.hasFpsLimit;
     this.debug.cssPixels = this.displaySettings.cssPixels;
     this.debug.enemyFireGlow = this.effects;
+    const distance = nearestSide(this.closedSides, this.sim.ship);
+    this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps };
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
