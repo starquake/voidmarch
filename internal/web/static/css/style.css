@@ -257,6 +257,41 @@ body {
   outline: none;
 }
 
+/* The settings screen (#145), in the loadout screen's style. */
+.loadout-screen.settings-screen {
+  width: min(26rem, calc(100% - 2rem));
+}
+
+.settings-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.name-screen .settings-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+  font-size: 13px;
+  border: 1px solid #3a2f55;
+  background: #120c1f;
+}
+
+.name-screen .settings-row.selected {
+  border-color: #fff08a;
+}
+
+.settings-row .value {
+  color: #8fd8ff;
+}
+
+.settings-row.selected .value {
+  color: #fff08a;
+}
+
 .name-screen.victory-screen {
   width: min(44rem, calc(100% - 2rem));
   padding: 1.25rem 1.5rem;

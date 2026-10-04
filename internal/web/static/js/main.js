@@ -1328,6 +1328,29 @@ function saveDisplaySettings(settings, store = browserStorage()) {
   } catch {
   }
 }
+var VIEW_KEY = "voidmarch.view";
+var DEFAULT_VIEW = { snapRotation: false, effects: true };
+function loadViewSettings(store = browserStorage()) {
+  try {
+    const parsed = JSON.parse(store?.getItem(VIEW_KEY) ?? "null");
+    if (typeof parsed !== "object" || parsed === null) {
+      return { ...DEFAULT_VIEW };
+    }
+    const saved = parsed;
+    return {
+      snapRotation: typeof saved.snapRotation === "boolean" ? saved.snapRotation : DEFAULT_VIEW.snapRotation,
+      effects: typeof saved.effects === "boolean" ? saved.effects : DEFAULT_VIEW.effects
+    };
+  } catch {
+    return { ...DEFAULT_VIEW };
+  }
+}
+function saveViewSettings(settings, store = browserStorage()) {
+  try {
+    store?.setItem(VIEW_KEY, JSON.stringify(settings));
+  } catch {
+  }
+}
 var TOKEN_KEY = "voidmarch.token";
 function loadToken(store = browserStorage()) {
   try {
@@ -1390,6 +1413,124 @@ function saveBloomBroken(store = browserStorage()) {
   } catch {
   }
 }
+
+// src/sim/options.ts
+var OPTION_IDS = ["sound", "music", "controls", "snapRotation", "effects", "fpsCap", "lowResolution"];
+var onOff = (on) => on ? "on" : "off";
+function optionRows(options) {
+  const values = {
+    sound: ["Sound", onOff(options.sound)],
+    music: ["Music", onOff(options.music)],
+    controls: ["Controls", options.controls === "ship" ? "ship-relative" : "screen-relative"],
+    snapRotation: ["Rotation", options.snapRotation ? `${String(ROTATION_SNAP_STEPS)} directions` : "free"],
+    effects: ["Effects", onOff(options.effects)],
+    fpsCap: ["Frame rate", options.fpsCap ? `capped at ${String(FPS_CAP)}` : "the display's own"],
+    lowResolution: ["Resolution", options.lowResolution ? "low" : "full"]
+  };
+  return OPTION_IDS.map((id) => ({ id, label: values[id][0], value: values[id][1] }));
+}
+function changeOption(options, id) {
+  if (id === "controls") {
+    const next = CONTROL_MODES[(CONTROL_MODES.indexOf(options.controls) + 1) % CONTROL_MODES.length] ?? options.controls;
+    return { ...options, controls: next };
+  }
+  return { ...options, [id]: !options[id] };
+}
+function moveSelection(selected, step, rows) {
+  return rows === 0 ? 0 : ((selected + step) % rows + rows) % rows;
+}
+
+// src/settingsscreen.ts
+var SettingsScreen = class {
+  form;
+  list;
+  change;
+  rows = [];
+  selected = 0;
+  constructor(change, doc = document) {
+    this.change = change;
+    this.form = doc.querySelector("#settings-form");
+    this.list = doc.querySelector("#settings-rows");
+    this.form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+    });
+    this.list?.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+    });
+    this.list?.addEventListener("click", (event) => {
+      const button = event.target instanceof Element ? event.target.closest("[data-row]") : null;
+      const index = Number(button?.dataset.row);
+      const row = this.rows[index];
+      if (row !== void 0) {
+        this.selected = index;
+        this.change(row);
+      }
+    });
+  }
+  get open() {
+    return this.form !== null && !this.form.hidden;
+  }
+  /** Opens the screen on its first row. */
+  show(rows) {
+    this.selected = 0;
+    this.update(rows);
+    if (this.form !== null) {
+      this.form.hidden = false;
+    }
+  }
+  /** Shows the rows' current values. */
+  update(rows) {
+    this.rows = rows;
+    const doc = this.list?.ownerDocument;
+    if (doc === void 0) {
+      return;
+    }
+    this.list?.replaceChildren(
+      ...rows.map((row, i) => {
+        const button = doc.createElement("button");
+        button.type = "button";
+        button.className = i === this.selected ? "settings-row selected" : "settings-row";
+        button.dataset.row = String(i);
+        const label = doc.createElement("span");
+        label.textContent = row.label;
+        const value = doc.createElement("span");
+        value.className = "value";
+        value.textContent = row.value;
+        button.append(label, value);
+        return button;
+      })
+    );
+  }
+  hide() {
+    if (this.form !== null) {
+      this.form.hidden = true;
+    }
+  }
+  /** Handles a key while open: the arrows pick a row, and Enter, Space, left and right change it. Returns whether the key was the screen's. */
+  key(event) {
+    switch (event.code) {
+      case "ArrowUp":
+      case "ArrowDown":
+        event.preventDefault();
+        this.selected = moveSelection(this.selected, event.code === "ArrowUp" ? -1 : 1, this.rows.length);
+        this.update(this.rows);
+        return true;
+      case "Enter":
+      case "Space":
+      case "ArrowLeft":
+      case "ArrowRight": {
+        event.preventDefault();
+        const row = this.rows[this.selected];
+        if (row !== void 0) {
+          this.change(row);
+        }
+        return true;
+      }
+      default:
+        return false;
+    }
+  }
+};
 
 // src/loadout.ts
 var SLOTS = ["weapon", "engine", "shield"];
@@ -2547,18 +2688,24 @@ function touchUnit(height, dpr) {
 }
 function touchButtons(screen) {
   const dpr = touchUnit(screen.height, screen.dpr);
+  const small = { y: TOUCH_EDGE_PX * dpr, height: TOUCH_BUTTON_PX * dpr * TOUCH_SMALL_SHARE, gold: false };
+  const settings = {
+    ...small,
+    button: "settings",
+    label: "Settings",
+    x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
+    width: TOUCH_BUTTON_WIDTH_PX * dpr * TOUCH_SMALL_SHARE
+  };
   const switcher = screen.fullscreen === void 0 ? [] : [
     {
+      ...small,
       button: "fullscreen",
       label: screen.fullscreen ? "Windowed" : "Full screen",
-      x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
-      y: TOUCH_EDGE_PX * dpr,
-      width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
-      height: TOUCH_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
-      gold: false
+      x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr,
+      width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE
     }
   ];
-  return [...playButtons(screen, dpr), ...switcher];
+  return [...playButtons(screen, dpr), settings, ...switcher];
 }
 function playButtons(screen, dpr) {
   const { width, height } = screen;
@@ -5250,7 +5397,7 @@ var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
 var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home";
-var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 C controls \xB7 M sound \xB7 N music \xB7 1/2/3 parts \xB7 R rotation \xB7 F effects \xB7 V 60 fps cap \xB7 P resolution";
+var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 1/2/3 parts \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
@@ -5295,6 +5442,9 @@ var SandboxScene = class extends Phaser11.Scene {
   /** The loadout screen at the home planet (#78). */
   loadoutScreen = new LoadoutScreen();
   victoryScreen = new VictoryScreen();
+  settingsScreen = new SettingsScreen((row) => {
+    this.setOption(row.id);
+  });
   /** Twin-stick touch controls on a tablet (#180). */
   touchOn = touchMode((query) => window.matchMedia(query).matches, window.location.search);
   touch = new TouchControls();
@@ -5376,7 +5526,11 @@ var SandboxScene = class extends Phaser11.Scene {
       this.createTouch();
     }
     const asked = new URLSearchParams(window.location.search);
-    if (asked.get("effects") === "0") {
+    const view = loadViewSettings();
+    if (view.snapRotation) {
+      this.sim.setRotationSnap(ROTATION_SNAP_STEPS);
+    }
+    if (!view.effects || asked.get("effects") === "0") {
       this.setEffects(false);
     }
     if (asked.get("diag") === "1") {
@@ -5436,6 +5590,7 @@ var SandboxScene = class extends Phaser11.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       victoryScreen: false,
+      settingsScreen: false,
       touch: this.touchOn,
       touchButtons: [],
       touchSticks: [],
@@ -5747,7 +5902,9 @@ var SandboxScene = class extends Phaser11.Scene {
       if (event.repeat) {
         return;
       }
-      if (this.victoryScreen.open) {
+      if (this.settingsScreen.open) {
+        this.settingsKey(event);
+      } else if (this.victoryScreen.open) {
         this.victoryKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
@@ -5762,6 +5919,8 @@ var SandboxScene = class extends Phaser11.Scene {
         this.openVictory();
       } else if (event.code === "KeyQ") {
         this.pressOrders();
+      } else if (event.code === "Escape") {
+        this.openSettings();
       } else {
         this.handleDebugKey(event.code);
       }
@@ -5867,6 +6026,77 @@ var SandboxScene = class extends Phaser11.Scene {
       this.victoryScreen.hide();
     }
   }
+  /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
+  get screenOpen() {
+    return this.loadoutScreen.open || this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+  }
+  /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
+  openSettings() {
+    const squadronScreen = document.querySelector("#squadron-form");
+    if (this.orderPress !== void 0 || squadronScreen?.hidden === false) {
+      return;
+    }
+    this.settingsScreen.show(optionRows(this.options()));
+  }
+  /** A key while the settings screen is open: Esc closes it, the arrows and Enter are its own, and the rest wait. */
+  settingsKey(event) {
+    if (event.code === "Escape") {
+      this.settingsScreen.hide();
+    } else {
+      this.settingsScreen.key(event);
+    }
+  }
+  /** The settings screen's options, as they are now. */
+  options() {
+    return {
+      sound: !this.audioSettings.muted,
+      music: this.audioSettings.music,
+      controls: this.sim.controlMode,
+      snapRotation: this.sim.ship.rotationSnap !== 0,
+      effects: this.effects,
+      fpsCap: this.displaySettings.fpsCap,
+      lowResolution: this.displaySettings.cssPixels
+    };
+  }
+  /** Changes one option to its next value, applies it at once and remembers it (#145). */
+  setOption(id) {
+    const next = changeOption(this.options(), id);
+    switch (id) {
+      case "sound":
+        this.audio.toggleMute();
+        saveAudioSettings(this.audioSettings);
+        break;
+      case "music":
+        this.audio.toggleMusic();
+        saveAudioSettings(this.audioSettings);
+        break;
+      case "controls":
+        this.sim.controlMode = next.controls;
+        saveControlMode(next.controls);
+        break;
+      case "snapRotation":
+        this.sim.setRotationSnap(next.snapRotation ? ROTATION_SNAP_STEPS : 0);
+        break;
+      case "effects":
+        this.setEffects(next.effects);
+        break;
+      case "fpsCap":
+        this.displaySettings = { ...this.displaySettings, fpsCap: next.fpsCap };
+        saveDisplaySettings(this.displaySettings);
+        this.game.loop.setFPSLimit(next.fpsCap ? FPS_CAP : 0);
+        break;
+      case "lowResolution":
+        this.displaySettings = { ...this.displaySettings, cssPixels: next.lowResolution };
+        saveDisplaySettings(this.displaySettings);
+        window.dispatchEvent(new Event("resize"));
+        break;
+    }
+    if (id === "snapRotation" || id === "effects") {
+      saveViewSettings({ snapRotation: next.snapRotation, effects: next.effects });
+    }
+    this.settingsScreen.update(optionRows(this.options()));
+    this.updateHud();
+  }
   /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
   openLoadout() {
     const ship = this.sim.ship;
@@ -5954,40 +6184,6 @@ var SandboxScene = class extends Phaser11.Scene {
       case "KeyG":
         this.net?.summon();
         this.updateHud();
-        break;
-      case "KeyM":
-        this.audio.toggleMute();
-        saveAudioSettings(this.audioSettings);
-        this.updateHud();
-        break;
-      case "KeyN":
-        this.audio.toggleMusic();
-        saveAudioSettings(this.audioSettings);
-        this.updateHud();
-        break;
-      case "KeyC":
-        this.sim.controlMode = nextInCycle(CONTROL_MODES, this.sim.controlMode);
-        saveControlMode(this.sim.controlMode);
-        this.updateHud();
-        break;
-      case "KeyR":
-        this.sim.setRotationSnap(ship.rotationSnap === 0 ? ROTATION_SNAP_STEPS : 0);
-        this.updateHud();
-        break;
-      case "KeyV":
-        this.displaySettings = { ...this.displaySettings, fpsCap: !this.displaySettings.fpsCap };
-        saveDisplaySettings(this.displaySettings);
-        this.game.loop.setFPSLimit(this.displaySettings.fpsCap ? FPS_CAP : 0);
-        this.updateHud();
-        break;
-      case "KeyP":
-        this.displaySettings = { ...this.displaySettings, cssPixels: !this.displaySettings.cssPixels };
-        saveDisplaySettings(this.displaySettings);
-        window.dispatchEvent(new Event("resize"));
-        this.updateHud();
-        break;
-      case "KeyF":
-        this.setEffects(!this.effects);
         break;
       default:
     }
@@ -6292,6 +6488,10 @@ ${modeName(info)}`,
   }
   /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
+    if (this.settingsScreen.open) {
+      this.settingsScreen.hide();
+      return;
+    }
     if (this.victoryScreen.open) {
       this.victoryScreen.hide();
       return;
@@ -6325,6 +6525,9 @@ ${modeName(info)}`,
         break;
       case "loadout":
         this.openLoadout();
+        break;
+      case "settings":
+        this.openSettings();
         break;
       case "respawnHome":
         this.respawn(false);
@@ -6369,8 +6572,7 @@ ${modeName(info)}`,
       return;
     }
     const ship = this.sim.ship;
-    const covered = this.loadoutScreen.open || this.maps.open || this.victoryScreen.open;
-    this.touchButtonRects = covered ? [] : touchButtons({
+    this.touchButtonRects = this.screenOpen ? [] : touchButtons({
       width: this.scale.width,
       height: this.scale.height,
       dpr: renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels),
@@ -6386,10 +6588,10 @@ ${modeName(info)}`,
   readInput() {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main);
-    if (this.touchOn && !(this.loadoutScreen.open || this.maps.open || this.victoryScreen.open)) {
+    if (this.touchOn && !this.screenOpen) {
       return this.readTouch();
     }
-    if (this.loadoutScreen.open || this.maps.open || this.victoryScreen.open) {
+    if (this.screenOpen) {
       const { x, y, angle } = this.sim.ship;
       return {
         up: false,
@@ -6772,6 +6974,7 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
+    this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
     this.debug.touchSticks = this.touch.sticks().map((s) => s.role);
     this.debug.touchFiring = this.touch.firing;

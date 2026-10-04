@@ -35,7 +35,7 @@ export function saveControlMode(mode: ControlMode, store: Store | undefined = br
 
 const AUDIO_KEY = 'voidmarch.audio';
 
-/** Sound preferences: M mutes everything, N switches the music. */
+/** Sound preferences: everything muted, and the music on or off. */
 export interface AudioSettings {
   muted: boolean;
   music: boolean;
@@ -72,7 +72,7 @@ export function saveAudioSettings(settings: AudioSettings, store: Store | undefi
 
 const DISPLAY_KEY = 'voidmarch.display';
 
-/** Display preferences (#143): V caps the frame rate at 60, P renders at CSS pixels instead of device pixels. */
+/** Display preferences (#143): the frame rate capped at 60, and rendering at CSS pixels instead of device pixels. */
 export interface DisplaySettings {
   fpsCap: boolean;
   cssPixels: boolean;
@@ -102,6 +102,43 @@ export function loadDisplaySettings(store: Store | undefined = browserStorage())
 export function saveDisplaySettings(settings: DisplaySettings, store: Store | undefined = browserStorage()): void {
   try {
     store?.setItem(DISPLAY_KEY, JSON.stringify(settings));
+  } catch {
+    // Private windows can refuse storage; the settings then last for this visit.
+  }
+}
+
+const VIEW_KEY = 'voidmarch.view';
+
+/** How the ship turns and whether effects show (#145): remembered like the rest since the settings screen. */
+export interface ViewSettings {
+  snapRotation: boolean;
+  effects: boolean;
+}
+
+const DEFAULT_VIEW: Readonly<ViewSettings> = { snapRotation: false, effects: true };
+
+/** The saved view preferences, or free rotation with effects on when none are saved. */
+export function loadViewSettings(store: Store | undefined = browserStorage()): ViewSettings {
+  try {
+    const parsed: unknown = JSON.parse(store?.getItem(VIEW_KEY) ?? 'null');
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { ...DEFAULT_VIEW };
+    }
+    const saved = parsed as Partial<Record<keyof ViewSettings, unknown>>;
+
+    return {
+      snapRotation: typeof saved.snapRotation === 'boolean' ? saved.snapRotation : DEFAULT_VIEW.snapRotation,
+      effects: typeof saved.effects === 'boolean' ? saved.effects : DEFAULT_VIEW.effects,
+    };
+  } catch {
+    return { ...DEFAULT_VIEW };
+  }
+}
+
+/** Remembers the view preferences in this browser; a denied write is ignored. */
+export function saveViewSettings(settings: ViewSettings, store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(VIEW_KEY, JSON.stringify(settings));
   } catch {
     // Private windows can refuse storage; the settings then last for this visit.
   }
