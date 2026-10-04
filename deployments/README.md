@@ -17,12 +17,50 @@ Staging and production deploy only an image that `ci.yml` signed on `main`
 rebuild: CI's `promote` job gives the image main built for that commit the
 version's tags. Development builds the PR's own image, unsigned.
 
-Every deploy copies `deployments/app/docker-compose.<env>.yml` to
-`~/voidmarch-<env>/docker-compose.yml` on the server, writes `.env` there with
+Each environment deploys as its own user, `voidmarch-<env>`, like topbanana's
+and mediumrogue's. Every deploy copies `deployments/app/docker-compose.<env>.yml`
+to `/home/voidmarch-<env>/voidmarch-<env>/docker-compose.yml`, writes `.env` there with
 the image digest, pulls and runs `docker compose up -d`
 (`.github/scripts/deploy-remote.sh`), then waits for `/healthz` to answer.
 
 ## One-time setup
+
+### 0. Deploy users
+
+One user per environment, in the `docker` group, which the deploy's
+`docker compose` needs. As root on the server:
+
+```bash
+for env in production staging development; do
+  useradd --create-home --shell /bin/bash --groups docker "voidmarch-$env"
+done
+```
+
+A key pair per environment, made on your own machine; the private half becomes
+that environment's `SSH_KEY` secret (step 3), and nothing else uses it:
+
+```bash
+for env in production staging development; do
+  ssh-keygen -t ed25519 -N '' -C "voidmarch-$env deploy" -f "voidmarch-$env"
+done
+```
+
+The public half goes in the user's `authorized_keys`, as root on the server,
+once per environment:
+
+```bash
+env=production   # then staging, then development
+install -d -m 700 -o "voidmarch-$env" -g "voidmarch-$env" "/home/voidmarch-$env/.ssh"
+cat >> "/home/voidmarch-$env/.ssh/authorized_keys"   # paste voidmarch-$env.pub, then Ctrl-D
+chown "voidmarch-$env:" "/home/voidmarch-$env/.ssh/authorized_keys"
+chmod 600 "/home/voidmarch-$env/.ssh/authorized_keys"
+```
+
+Check it from your machine:
+
+```bash
+ssh -i voidmarch-production voidmarch-production@<SSH_HOST> docker ps --format '{{.Names}}'
+```
 
 ### 1. DNS
 
@@ -67,9 +105,10 @@ long.
 Create `production`, `staging` and `development` under Settings, Environments.
 On each:
 
-- Secrets, the same on all three:
-  - `SSH_HOST`, `SSH_USER`, `SSH_KEY`: SSH access to the VPS for a user that
-    can run `docker`.
+- Secrets:
+  - `SSH_HOST`: the VPS, the same on all three.
+  - `SSH_USER`: `voidmarch-<env>`, the environment's own user (step 0).
+  - `SSH_KEY`: the private key made for that user.
 - Variables:
   - `SERVER_URL`: the environment's address from the table above. The deploy
     checks `SERVER_URL/healthz`.
@@ -97,6 +136,9 @@ older than the deploy pipeline has to be rebased first. Development is one slot:
 the last PR deployed is the one running.
 
 ## By hand
+
+The commands below run as the environment's user, whose home holds its
+compose project, e.g. `sudo -iu voidmarch-production`.
 
 ### Redeploy
 
