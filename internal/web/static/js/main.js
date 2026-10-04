@@ -4945,7 +4945,12 @@ import Phaser9 from "./vendor/phaser.js";
 var RESAMPLE_NODE = "FilterResample";
 var FRAGMENT = [
   "#pragma phaserTemplate(shaderName)",
+  // mediump can be 16 bits on a phone, too coarse for pixel positions past 2048 (#180).
+  "#ifdef GL_FRAGMENT_PRECISION_HIGH",
+  "precision highp float;",
+  "#else",
   "precision mediump float;",
+  "#endif",
   "uniform sampler2D uMainSampler;",
   "uniform vec2 inputSize;",
   "varying vec2 outTexCoord;",
@@ -5062,6 +5067,59 @@ var TouchView = class {
   }
 };
 
+// src/diag.ts
+var KEEP = 4;
+var Diagnostics = class {
+  errors = [];
+  info;
+  gl;
+  constructor(gl, canvas) {
+    this.gl = gl;
+    this.info = describe(gl, canvas);
+    window.addEventListener("error", (event) => {
+      this.note(`error: ${event.message}`);
+    });
+    window.addEventListener("unhandledrejection", (event) => {
+      this.note(`rejected: ${String(event.reason)}`);
+    });
+    const consoleError = console.error.bind(console);
+    console.error = (...args) => {
+      this.note(`console: ${args.map(String).join(" ")}`);
+      consoleError(...args);
+    };
+  }
+  /** Reads WebGL's error flag once a frame, keeping any error it held. */
+  check() {
+    const code = this.gl?.getError() ?? 0;
+    if (code !== 0) {
+      this.note(`gl error 0x${code.toString(16)}`);
+    }
+  }
+  /** The lines for the HUD. */
+  lines() {
+    return [...this.info, ...this.errors];
+  }
+  note(message) {
+    this.errors.push(message.slice(0, 160));
+    if (this.errors.length > KEEP) {
+      this.errors.shift();
+    }
+  }
+};
+function describe(gl, canvas) {
+  const size = `canvas ${String(canvas.width)}x${String(canvas.height)} dpr ${String(window.devicePixelRatio)}`;
+  if (gl === void 0) {
+    return [`no WebGL \xB7 ${size}`];
+  }
+  const version = typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext ? "webgl2" : "webgl1";
+  const debug = gl.getExtension("WEBGL_debug_renderer_info");
+  const gpu = debug === null ? "gpu ?" : String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL));
+  const maxTexture = String(gl.getParameter(gl.MAX_TEXTURE_SIZE));
+  const highp = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision ?? 0;
+  const mediump = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT)?.precision ?? 0;
+  return [`${version} \xB7 ${gpu}`, `max texture ${maxTexture} \xB7 fragment highp ${String(highp)} mediump ${String(mediump)} bits \xB7 ${size}`];
+}
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var BACKGROUND_FPS = 6;
@@ -5168,6 +5226,8 @@ var SandboxScene = class extends Phaser10.Scene {
   revives = 0;
   moveKeys;
   effects = true;
+  /** WebGL's limits and the page's errors in the HUD, with `?diag=1` (#180). */
+  diagnostics;
   shotsFired = 0;
   hudUpdatedAt = 0;
   debug;
@@ -5204,6 +5264,14 @@ var SandboxScene = class extends Phaser10.Scene {
     this.createInput();
     if (this.touchOn) {
       this.createTouch();
+    }
+    const asked = new URLSearchParams(window.location.search);
+    if (asked.get("effects") === "0") {
+      this.setEffects(false);
+    }
+    if (asked.get("diag") === "1") {
+      const renderer = this.renderer;
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
     }
     this.applyLoadout();
     this.resize();
@@ -5290,6 +5358,7 @@ var SandboxScene = class extends Phaser10.Scene {
     this.updateLoadoutScreen();
     this.openVictoryIfDue();
     this.drawTouch();
+    this.diagnostics?.check();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -5807,12 +5876,7 @@ var SandboxScene = class extends Phaser10.Scene {
         this.updateHud();
         break;
       case "KeyF":
-        this.effects = !this.effects;
-        if (this.bloom !== void 0) {
-          this.bloom.active = this.effects;
-        }
-        this.vignette.setVisible(this.effects);
-        this.updateHud();
+        this.setEffects(!this.effects);
         break;
       default:
     }
@@ -6361,6 +6425,15 @@ ${modeName(info)}`,
     });
   }
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
+  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. */
+  setEffects(on) {
+    this.effects = on;
+    if (this.bloom !== void 0) {
+      this.bloom.active = on;
+    }
+    this.vignette.setVisible(on);
+    this.updateHud();
+  }
   fpsLine() {
     const gpu = this.gpuTimer?.last;
     return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === void 0 ? "" : `, gpu ${gpu.toFixed(1)} ms`})`;
@@ -6376,7 +6449,8 @@ ${modeName(info)}`,
       this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? "",
       this.netStatus(),
-      this.squadronStatus()
+      this.squadronStatus(),
+      ...this.diagnostics?.lines() ?? []
     ]);
     this.layoutHud();
   }

@@ -10,7 +10,12 @@ const RESAMPLE_NODE = 'FilterResample';
  */
 const FRAGMENT = [
   '#pragma phaserTemplate(shaderName)',
+  // mediump can be 16 bits on a phone, too coarse for pixel positions past 2048 (#180).
+  '#ifdef GL_FRAGMENT_PRECISION_HIGH',
+  'precision highp float;',
+  '#else',
   'precision mediump float;',
+  '#endif',
   'uniform sampler2D uMainSampler;',
   'uniform vec2 inputSize;',
   'varying vec2 outTexCoord;',

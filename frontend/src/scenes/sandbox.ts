@@ -91,6 +91,7 @@ import { Resample, registerResample } from './resample.ts';
 import { vignetteImage } from '../vignette.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 import { TouchView } from './touchview.ts';
+import { Diagnostics } from '../diag.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -249,6 +250,8 @@ export class SandboxScene extends Phaser.Scene {
   private revives = 0;
   private moveKeys!: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
   private effects = true;
+  /** WebGL's limits and the page's errors in the HUD, with `?diag=1` (#180). */
+  private diagnostics: Diagnostics | undefined;
   private shotsFired = 0;
   private hudUpdatedAt = 0;
   private debug!: DebugState;
@@ -287,6 +290,14 @@ export class SandboxScene extends Phaser.Scene {
     this.createInput();
     if (this.touchOn) {
       this.createTouch();
+    }
+    const asked = new URLSearchParams(window.location.search);
+    if (asked.get('effects') === '0') {
+      this.setEffects(false);
+    }
+    if (asked.get('diag') === '1') {
+      const renderer = this.renderer;
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer.gl : undefined, this.game.canvas);
     }
     this.applyLoadout();
     this.resize();
@@ -375,6 +386,7 @@ export class SandboxScene extends Phaser.Scene {
     this.updateLoadoutScreen();
     this.openVictoryIfDue();
     this.drawTouch();
+    this.diagnostics?.check();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -962,12 +974,7 @@ export class SandboxScene extends Phaser.Scene {
         this.updateHud();
         break;
       case 'KeyF':
-        this.effects = !this.effects;
-        if (this.bloom !== undefined) {
-          this.bloom.active = this.effects;
-        }
-        this.vignette.setVisible(this.effects);
-        this.updateHud();
+        this.setEffects(!this.effects);
         break;
       default:
     }
@@ -1594,6 +1601,16 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
+  /** Turns the bloom and the vignette on or off: F, or `?effects=0` for a device without a keyboard. */
+  private setEffects(on: boolean): void {
+    this.effects = on;
+    if (this.bloom !== undefined) {
+      this.bloom.active = on;
+    }
+    this.vignette.setVisible(on);
+    this.updateHud();
+  }
+
   private fpsLine(): string {
     const gpu = this.gpuTimer?.last;
 
@@ -1612,6 +1629,7 @@ export class SandboxScene extends Phaser.Scene {
       this.net?.eventLine(performance.now()) ?? '',
       this.netStatus(),
       this.squadronStatus(),
+      ...(this.diagnostics?.lines() ?? []),
     ]);
     this.layoutHud();
   }
