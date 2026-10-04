@@ -176,7 +176,8 @@ export function saveSeenSeason(season: string, store: Store | undefined = browse
   }
 }
 
-const BLOOM_BROKEN_KEY = 'voidmarch.bloomBroken';
+// Numbered: a phone that found the bloom black before the small blend (#180) tries it again.
+const BLOOM_BROKEN_KEY = 'voidmarch.bloomBroken.2';
 
 /** Whether this browser found the bloom draws the world black (#180). */
 export function loadBloomBroken(store: Store | undefined = browserStorage()): boolean {

@@ -91,6 +91,7 @@ import { Resample, registerResample } from './resample.ts';
 import { vignetteImage } from '../vignette.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
 import { TouchView } from './touchview.ts';
+import { registerSmallBlend } from './blend.ts';
 import { allBlack, blankSamples } from '../display.ts';
 import { loadBloomBroken, saveBloomBroken } from '../settings.ts';
 import { Diagnostics } from '../diag.ts';
@@ -618,6 +619,7 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     registerResample(this.renderer);
+    registerSmallBlend(this.renderer);
     // `?skip=resample,threshold,blur,blend,parallel` leaves parts out, to find what a GPU can't draw (#180).
     const skip = new Set((new URLSearchParams(window.location.search).get('skip') ?? '').split(','));
     if (skip.has('blend')) {

@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser11 from "./vendor/phaser.js";
+import Phaser12 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -825,7 +825,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser10 from "./vendor/phaser.js";
+import Phaser11 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -1376,7 +1376,7 @@ function saveSeenSeason(season, store = browserStorage()) {
   } catch {
   }
 }
-var BLOOM_BROKEN_KEY = "voidmarch.bloomBroken";
+var BLOOM_BROKEN_KEY = "voidmarch.bloomBroken.2";
 function loadBloomBroken(store = browserStorage()) {
   try {
     return store?.getItem(BLOOM_BROKEN_KEY) === "1";
@@ -5108,6 +5108,61 @@ var TouchView = class {
   }
 };
 
+// src/scenes/blend.ts
+import Phaser10 from "./vendor/phaser.js";
+var FRAGMENT2 = [
+  "#pragma phaserTemplate(shaderName)",
+  "precision mediump float;",
+  "uniform sampler2D uMainSampler;",
+  "uniform sampler2D uMainSampler2;",
+  "uniform float amount;",
+  "uniform vec4 color;",
+  "uniform float mode;",
+  "varying vec2 outTexCoord;",
+  "#pragma phaserTemplate(fragmentHeader)",
+  "void main ()",
+  "{",
+  "    vec4 base = texture2D(uMainSampler, outTexCoord);",
+  "    vec4 blend = texture2D(uMainSampler2, outTexCoord) * color;",
+  "    vec4 blended = blend + base * (1.0 - blend.a);",
+  "    if (mode > 1.5) {",
+  "        blended = blend;",
+  "    } else if (mode > 0.5) {",
+  "        blended = base + blend;",
+  "    }",
+  "    gl_FragColor = mix(base, blended, amount);",
+  "}"
+].join("\n");
+function modeOf(blendMode) {
+  if (blendMode === Phaser10.BlendModes.COPY) {
+    return 2;
+  }
+  return blendMode === Phaser10.BlendModes.ADD ? 1 : 0;
+}
+var SmallBlendNode = class extends Phaser10.Renderer.WebGL.RenderNodes.BaseFilterShader {
+  constructor(manager) {
+    super("FilterBlend", manager, void 0, FRAGMENT2);
+  }
+  setupTextures(controller, textures) {
+    textures[1] = controller.glTexture;
+  }
+  setupUniforms(controller) {
+    const blend = controller;
+    this.programManager.setUniform("uMainSampler2", 1);
+    this.programManager.setUniform("amount", blend.amount);
+    this.programManager.setUniform("color", blend.color);
+    this.programManager.setUniform("mode", modeOf(blend.blendMode));
+  }
+};
+var registered = /* @__PURE__ */ new WeakSet();
+function registerSmallBlend(renderer) {
+  if (registered.has(renderer)) {
+    return;
+  }
+  registered.add(renderer);
+  renderer.renderNodes.addNode("FilterBlend", new SmallBlendNode(renderer.renderNodes));
+}
+
 // src/diag.ts
 var KEEP = 4;
 var Diagnostics = class {
@@ -5217,7 +5272,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser10.Scene {
+var SandboxScene = class extends Phaser11.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -5322,11 +5377,11 @@ var SandboxScene = class extends Phaser10.Scene {
     }
     if (asked.get("diag") === "1") {
       const renderer = this.renderer;
-      this.diagnostics = new Diagnostics(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
     }
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser10.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser11.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -5541,7 +5596,7 @@ var SandboxScene = class extends Phaser10.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -5551,7 +5606,7 @@ var SandboxScene = class extends Phaser10.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -5584,7 +5639,7 @@ var SandboxScene = class extends Phaser10.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser10.BlendModes.ADD,
+      blendMode: Phaser11.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -5593,7 +5648,7 @@ var SandboxScene = class extends Phaser10.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser10.BlendModes.ADD,
+      blendMode: Phaser11.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -5603,10 +5658,11 @@ var SandboxScene = class extends Phaser10.Scene {
    * blur at half the screen's size between two smooth resamples (#143).
    */
   createBloom(main) {
-    if (!(this.renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+    if (!(this.renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     registerResample(this.renderer);
+    registerSmallBlend(this.renderer);
     const skip = new Set((new URLSearchParams(window.location.search).get("skip") ?? "").split(","));
     if (skip.has("blend")) {
       return;
@@ -5630,7 +5686,7 @@ var SandboxScene = class extends Phaser10.Scene {
     if (resample) {
       bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
     }
-    bloom.blend.blendMode = Phaser10.BlendModes.ADD;
+    bloom.blend.blendMode = Phaser11.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
   }
@@ -5644,7 +5700,7 @@ var SandboxScene = class extends Phaser10.Scene {
       canvas.width = VIGNETTE_SIZE;
       canvas.height = VIGNETTE_SIZE;
       canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
-      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser10.Textures.FilterMode.LINEAR);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser11.Textures.FilterMode.LINEAR);
     }
     return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
   }
@@ -5693,7 +5749,7 @@ var SandboxScene = class extends Phaser10.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser10.Input.Keyboard.KeyCodes;
+    const codes = Phaser11.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -5732,7 +5788,7 @@ var SandboxScene = class extends Phaser10.Scene {
     const onBlur = () => {
       this.closeOrderRing();
     };
-    this.input.on(Phaser10.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser11.Input.Events.POINTER_DOWN, (pointer) => {
       if (this.touchOn) {
         return;
       }
@@ -5744,7 +5800,7 @@ var SandboxScene = class extends Phaser10.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -6040,11 +6096,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser10.Math.Vector2(cx, cy)];
+    const points = [new Phaser11.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser10.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser11.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -6195,7 +6251,7 @@ ${modeName(info)}`,
       this.victoryScreen.hide();
     };
     victory?.addEventListener("click", closeVictory);
-    this.events.once(Phaser10.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
       canvas.removeEventListener("touchstart", onStart);
       canvas.removeEventListener("touchmove", onMove);
       canvas.removeEventListener("touchend", onEnd);
@@ -6521,7 +6577,7 @@ ${modeName(info)}`,
   /** Times the GPU's work for each frame, where the browser can (#143). */
   timeGpu() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer)) {
+    if (!(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     const timer = new GpuTimer(renderer.gl);
@@ -6529,10 +6585,10 @@ ${modeName(info)}`,
       return;
     }
     this.gpuTimer = timer;
-    renderer.on(Phaser10.Renderer.Events.PRE_RENDER, () => {
+    renderer.on(Phaser11.Renderer.Events.PRE_RENDER, () => {
       timer.begin();
     });
-    renderer.on(Phaser10.Renderer.Events.POST_RENDER, () => {
+    renderer.on(Phaser11.Renderer.Events.POST_RENDER, () => {
       timer.end();
     });
   }
@@ -6553,7 +6609,7 @@ ${modeName(info)}`,
    */
   checkBloom() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser10.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
+    if (!(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
       return;
     }
     if (loadBloomBroken()) {
@@ -6567,7 +6623,7 @@ ${modeName(info)}`,
       if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
         return;
       }
-      renderer.off(Phaser10.Renderer.Events.POST_RENDER, check);
+      renderer.off(Phaser11.Renderer.Events.POST_RENDER, check);
       const gl = renderer.gl;
       const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -6583,7 +6639,7 @@ ${modeName(info)}`,
         saveBloomBroken();
       }
     };
-    renderer.on(Phaser10.Renderer.Events.POST_RENDER, check);
+    renderer.on(Phaser11.Renderer.Events.POST_RENDER, check);
   }
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   fpsLine() {
@@ -6762,8 +6818,8 @@ async function start() {
   await loadSim("/static/wasm/sim.wasm");
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
-  const game = new Phaser11.Game({
-    type: Phaser11.AUTO,
+  const game = new Phaser12.Game({
+    type: Phaser12.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -6772,7 +6828,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser11.Scale.NONE,
+      mode: Phaser12.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom
