@@ -438,8 +438,10 @@ var MISSION_BANNER_ALPHA = 0.6;
 var MISSION_BANNER_BORDER_PX = 1;
 var EVENT_COLOR = 16734794;
 var EVENT_CSS = "#ff5a4a";
-var FONT_NAME = "Orbitron";
-var UI_FONT = `${FONT_NAME}, monospace`;
+var UI_FONT_NAME = "Exo 2";
+var HEADING_FONT_NAME = "Orbitron";
+var UI_FONT = `'${UI_FONT_NAME}', sans-serif`;
+var HEADING_FONT = `${HEADING_FONT_NAME}, sans-serif`;
 var MINIMAP_WIDTH_PX = 170;
 var MINIMAP_INSET_PX = 96;
 var FULL_MAP_HEIGHT_PX = 470;
@@ -3505,7 +3507,7 @@ var BossBarView = class {
   scale = 1;
   constructor(scene, hide) {
     const style = { fontFamily: UI_FONT, fontSize: `${String(FONT_PX2)}px` };
-    this.name = scene.add.text(0, 0, "", { ...style, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    this.name = scene.add.text(0, 0, "", { ...style, fontFamily: HEADING_FONT, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.text = scene.add.text(0, 0, "", { ...style, color: TEXT_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bars = scene.add.graphics();
     for (const object of [this.name, this.text, this.bars]) {
@@ -6107,7 +6109,7 @@ var SandboxScene = class extends Phaser11.Scene {
     main.ignore(this.downPanel);
     this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add.text(0, 0, "", {
-      fontFamily: UI_FONT,
+      fontFamily: HEADING_FONT,
       fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
       color: MISSION_CSS,
       align: "center"
@@ -7303,7 +7305,7 @@ async function start() {
   }
   await Promise.all([
     loadSim("/static/wasm/sim.wasm"),
-    document.fonts.load(`16px ${FONT_NAME}`).catch(() => [])
+    ...[UI_FONT_NAME, HEADING_FONT_NAME].map(async (name) => document.fonts.load(`16px '${name}'`).catch(() => []))
   ]);
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));

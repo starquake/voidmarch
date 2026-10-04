@@ -148,19 +148,26 @@ func TestWebClient_Assets(t *testing.T) {
 	}
 }
 
-func TestWebClient_Font(t *testing.T) {
+func TestWebClient_Fonts(t *testing.T) {
 	t.Parallel()
 
 	baseURL := startServer(t, nil)
 
-	resp := get(t, baseURL+"/static/fonts/orbitron.woff2")
-	if got, want := resp.status, http.StatusOK; got != want {
-		t.Errorf("status = %d, want %d", got, want)
-	}
-	if got, want := resp.header.Get("Content-Type"), "font/woff2"; got != want {
-		t.Errorf("Content-Type = %q, want %q", got, want)
-	}
-	if got, want := resp.body, "wOF2"; !strings.HasPrefix(got, want) {
-		t.Errorf("body starts %q, want the woff2 signature %q", got[:min(len(got), 4)], want)
+	for _, name := range []string{"orbitron.woff2", "exo2.woff2"} {
+		resp := get(t, baseURL+"/static/fonts/"+name)
+		if got, want := resp.status, http.StatusOK; got != want {
+			t.Errorf("GET %s status = %d, want %d", name, got, want)
+		}
+		if got, want := resp.header.Get("Content-Type"), "font/woff2"; got != want {
+			t.Errorf("GET %s Content-Type = %q, want %q", name, got, want)
+		}
+		if got, want := resp.body, "wOF2"; !strings.HasPrefix(got, want) {
+			t.Errorf(
+				"GET %s body starts %q, want the woff2 signature %q",
+				name,
+				got[:min(len(got), 4)],
+				want,
+			)
+		}
 	}
 }

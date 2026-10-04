@@ -73,6 +73,7 @@ import {
   MINIMAP_REDRAW_MS,
   FPS_CAP,
   TOUCH_AIM_REACH,
+  HEADING_FONT,
   UI_FONT,
 } from '../sim/tuning.ts';
 import { fieldColor, fieldSides, nearestSide, sparks, zapVolume, type Side } from '../sim/forcefield.ts';
@@ -715,7 +716,7 @@ export class SandboxScene extends Phaser.Scene {
     this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add
       .text(0, 0, '', {
-        fontFamily: UI_FONT,
+        fontFamily: HEADING_FONT,
         fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
         color: MISSION_CSS,
         align: 'center',

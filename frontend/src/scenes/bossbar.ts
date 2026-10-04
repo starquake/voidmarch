@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import type { BossBar } from '../net/boss.ts';
-import { UI_FONT } from '../sim/tuning.ts';
+import { HEADING_FONT, UI_FONT } from '../sim/tuning.ts';
 
 /** The bar's look from the mockup (#89): enemy coral, the shield in blue under it. */
 const NAME_COLOR = '#ff9a8a';
@@ -29,7 +29,7 @@ export class BossBarView {
 
   constructor(scene: Phaser.Scene, hide: (object: Phaser.GameObjects.GameObject) => void) {
     const style = { fontFamily: UI_FONT, fontSize: `${String(FONT_PX)}px` };
-    this.name = scene.add.text(0, 0, '', { ...style, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, '#000000', 0);
+    this.name = scene.add.text(0, 0, '', { ...style, fontFamily: HEADING_FONT, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, '#000000', 0);
     this.text = scene.add.text(0, 0, '', { ...style, color: TEXT_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, '#000000', 0);
     this.bars = scene.add.graphics();
     for (const object of [this.name, this.text, this.bars]) {

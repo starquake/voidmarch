@@ -1,4 +1,4 @@
-/* Orbitron (SIL OFL 1.1, fonts/OFL.txt) for every text in the game (#170). */
+/* The game's two fonts (#170), both SIL OFL 1.1 (fonts/*-OFL.txt): Orbitron for titles and announcements, Exo 2 for the rest. */
 @font-face {
   font-family: Orbitron;
   font-style: normal;
@@ -7,8 +7,29 @@
   src: url("../fonts/orbitron.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "Exo 2";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url("../fonts/exo2.woff2") format("woff2");
+}
+
 :root {
-  --ui-font: Orbitron, monospace;
+  --ui-font: "Exo 2", sans-serif;
+  --heading-font: Orbitron, sans-serif;
+}
+
+/* Titles in Orbitron, and the small notes beside them back in the UI font. */
+.name-screen h1,
+.name-screen h2,
+.standings h3 {
+  font-family: var(--heading-font);
+}
+
+.name-screen h2 span,
+.standings h3 span {
+  font-family: var(--ui-font);
 }
 
 html,
