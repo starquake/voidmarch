@@ -19,3 +19,6 @@ frontend/playwright-report/
 
 # The development database (DB_PATH) and its WAL files.
 voidmarch.db*
+
+# The local distrobox definition; distrobox.ini.example is the shared one.
+distrobox.ini
