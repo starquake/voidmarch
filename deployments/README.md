@@ -66,9 +66,9 @@ ssh -i voidmarch-production voidmarch-production@zoot.linuxeverywhere.link docke
 
 ### 1. DNS
 
-Three CNAMEs in `bananajuice.net`, pointing at the VPS like mediumrogue's:
-`voidmarch`, `voidmarch-staging` and `voidmarch-development`. Wait until all
-three resolve before step 2:
+Three records in `bananajuice.net` for the VPS (`195.201.237.218`), A records
+or CNAMEs: `voidmarch`, `voidmarch-staging` and `voidmarch-development`. Wait
+until all three resolve to it before step 2:
 
 ```bash
 dig +short voidmarch.bananajuice.net voidmarch-staging.bananajuice.net voidmarch-development.bananajuice.net
