@@ -2732,6 +2732,9 @@ function integerZoom(viewportWidth, viewportHeight, targetWidth, targetHeight) {
   const fit = Math.floor(Math.min(viewportWidth / targetWidth, viewportHeight / targetHeight));
   return Math.max(MIN_ZOOM, fit);
 }
+function backgroundScale(viewWidth, viewHeight, tileWidth, tileHeight) {
+  return Math.max(1, Math.ceil(Math.max(viewWidth / tileWidth, viewHeight / tileHeight)));
+}
 
 // src/squadrons.ts
 var SQUADRON_CAP = 4;
@@ -5276,6 +5279,8 @@ var SandboxScene = class extends Phaser11.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
+  /** How much the background tiles are scaled up, so one covers the view (#163). */
+  backgroundScale = 1;
   backgroundFrame = 0;
   /** The background's tint now, fading toward the ring the ship is in (#136). */
   backgroundTint = 16777215;
@@ -6182,8 +6187,11 @@ ${modeName(info)}`,
     this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
     this.missionBanner.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * MISSION_BANNER_Y);
     this.drawMissionFrame();
+    const viewWidth = Math.ceil(width / zoom);
+    const viewHeight = Math.ceil(height / zoom);
+    this.backgroundScale = backgroundScale(viewWidth, viewHeight, VIEW_WIDTH, VIEW_HEIGHT);
     for (const { sprite } of this.backgrounds) {
-      sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
+      sprite.setPosition(width / 2, height / 2).setSize(viewWidth, viewHeight).setTileScale(this.backgroundScale);
     }
   }
   /** Turns the touch controls on (#180): screen-relative sticks, their view, and the canvas's touches. */
@@ -6545,7 +6553,7 @@ ${modeName(info)}`,
     const tintChanged = tint !== this.backgroundTint;
     this.backgroundTint = tint;
     for (const { sprite, factor } of this.backgrounds) {
-      sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
+      sprite.setTilePosition(camera.scrollX * factor / this.backgroundScale, camera.scrollY * factor / this.backgroundScale);
       if (frameChanged) {
         sprite.setFrame(frame);
       }

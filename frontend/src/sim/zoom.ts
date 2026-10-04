@@ -16,3 +16,13 @@ export function integerZoom(
 
   return Math.max(MIN_ZOOM, fit);
 }
+
+/**
+ * Returns the whole-number scale at which one background tile of tileWidth
+ * by tileHeight covers a view of viewWidth by viewHeight art pixels, so no
+ * view shows the same part of the tile twice (#163). Whole numbers keep the
+ * tile's pixels even.
+ */
+export function backgroundScale(viewWidth: number, viewHeight: number, tileWidth: number, tileHeight: number): number {
+  return Math.max(1, Math.ceil(Math.max(viewWidth / tileWidth, viewHeight / tileHeight)));
+}

@@ -79,7 +79,7 @@ import {
   sectorOpen,
 } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
-import { integerZoom } from '../sim/zoom.ts';
+import { backgroundScale, integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { bossBar } from '../net/boss.ts';
@@ -206,6 +206,8 @@ export class SandboxScene extends Phaser.Scene {
   private readonly sim = sandbox();
   private world!: Phaser.GameObjects.Layer;
   private backgrounds: Background[] = [];
+  /** How much the background tiles are scaled up, so one covers the view (#163). */
+  private backgroundScale = 1;
   private backgroundFrame = 0;
   /** The background's tint now, fading toward the ring the ship is in (#136). */
   private backgroundTint = 0xffffff;
@@ -1223,8 +1225,14 @@ export class SandboxScene extends Phaser.Scene {
       .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
       .setPosition(width / 2, height * MISSION_BANNER_Y);
     this.drawMissionFrame();
+    const viewWidth = Math.ceil(width / zoom);
+    const viewHeight = Math.ceil(height / zoom);
+    this.backgroundScale = backgroundScale(viewWidth, viewHeight, VIEW_WIDTH, VIEW_HEIGHT);
     for (const { sprite } of this.backgrounds) {
-      sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
+      sprite
+        .setPosition(width / 2, height / 2)
+        .setSize(viewWidth, viewHeight)
+        .setTileScale(this.backgroundScale);
     }
   }
 
@@ -1631,7 +1639,8 @@ export class SandboxScene extends Phaser.Scene {
     const tintChanged = tint !== this.backgroundTint;
     this.backgroundTint = tint;
     for (const { sprite, factor } of this.backgrounds) {
-      sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
+      // The tile position is in the tile's own pixels, so scaled tiles scroll as far on screen.
+      sprite.setTilePosition((camera.scrollX * factor) / this.backgroundScale, (camera.scrollY * factor) / this.backgroundScale);
       if (frameChanged) {
         sprite.setFrame(frame);
       }
