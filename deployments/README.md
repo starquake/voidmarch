@@ -27,12 +27,14 @@ the image digest, pulls and runs `docker compose up -d`
 
 ### 0. Deploy users
 
-One user per environment, in the `docker` group, which the deploy's
-`docker compose` needs. As root on the server:
+One user per environment, made like mediumrogue's, in the `docker` group,
+which the deploy's `docker compose` needs. `sshd` accepts passwords, so the
+users get none: they log in with their key only. As root on the server:
 
 ```bash
 for env in production staging development; do
-  useradd --create-home --shell /bin/bash --groups docker "voidmarch-$env"
+  adduser --disabled-password --comment "Voidmarch ($env)" "voidmarch-$env"
+  adduser "voidmarch-$env" docker
 done
 ```
 
@@ -93,10 +95,15 @@ docker logs --tail 50 -f swag   # wait for the certificate to be issued
 ```
 
 Copy `deployments/swag/voidmarch*.subdomain.conf` into SWAG's
-`proxy-confs/` and reload it:
+`proxy-confs/`, which is `/opt/docker/appdata/swag/nginx/proxy-confs/` on the
+host, and reload it:
 
 ```bash
-docker exec swag nginx -s reload
+scp deployments/swag/voidmarch*.subdomain.conf root@<SSH_HOST>:/opt/docker/appdata/swag/nginx/proxy-confs/
+```
+
+```bash
+docker exec swag nginx -t && docker exec swag nginx -s reload
 docker logs --tail 50 swag
 ```
 
