@@ -465,6 +465,8 @@ var FIELD_STRAND_ALPHA = 0.55;
 var FIELD_GLOW_ALPHA = 0.035;
 var FIELD_GLOW_RADIUS = 9;
 var FIELD_CORE_RADIUS = 4;
+var FIELD_ZAP_EVERY_MS = 600;
+var FIELD_ZAP_VOLUME = 0.35;
 var MAP_EDGE_COLOR = 1181712;
 var MAP_PANEL_COLOR = 328458;
 var MAP_PANEL_ALPHA = 0.82;
@@ -2749,6 +2751,12 @@ function fieldColor(flare) {
 }
 function sparks(i, t) {
   return Math.sin(i * 12.9898 + Math.floor(t * 20) * 78.233) > 0.93;
+}
+function zapVolume(distance) {
+  if (distance >= WORLD_EDGE_BAND) {
+    return 0;
+  }
+  return FIELD_ZAP_VOLUME * (0.4 + 0.6 * (1 - Math.max(0, distance) / WORLD_EDGE_BAND));
 }
 
 // src/sim/touch.ts
@@ -5538,6 +5546,7 @@ var SandboxScene = class extends Phaser11.Scene {
   /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
   closedSides = [];
   fieldLayer;
+  lastZap = Number.NEGATIVE_INFINITY;
   fieldZaps = 0;
   projectileSprites = [];
   /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
@@ -6073,7 +6082,7 @@ var SandboxScene = class extends Phaser11.Scene {
     }
     this.closedSides = closedEdges(frontier);
   }
-  /** Draws the force field along the closed sides near the ship (#127). */
+  /** Draws the force field along the closed sides near the ship, and zaps while the ship is in its push-back band (#127). */
   drawField(time) {
     const g = this.fieldLayer.clear();
     const ship = this.sim.ship;
@@ -6102,6 +6111,12 @@ var SandboxScene = class extends Phaser11.Scene {
           g.fillStyle(16765120, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
         }
       });
+    }
+    const volume = zapVolume(nearestSide(this.closedSides, ship));
+    if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
+      this.lastZap = time;
+      this.fieldZaps++;
+      this.audio.fieldZap(volume);
     }
   }
   /** Draws the maps, and hides the HUD's lines under the open full map (#100, decision 9). */

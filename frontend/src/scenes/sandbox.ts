@@ -65,12 +65,13 @@ import {
   FIELD_GLOW_ALPHA,
   FIELD_GLOW_RADIUS,
   FIELD_STRAND_ALPHA,
+  FIELD_ZAP_EVERY_MS,
   RING_TINT_FADE_MS,
   MINIMAP_REDRAW_MS,
   FPS_CAP,
   TOUCH_AIM_REACH,
 } from '../sim/tuning.ts';
-import { fieldColor, fieldSides, nearestSide, sparks, type Side } from '../sim/forcefield.ts';
+import { fieldColor, fieldSides, nearestSide, sparks, zapVolume, type Side } from '../sim/forcefield.ts';
 import { TouchControls, touchButtons, touchMode, touchUnit, type ButtonRect, type Point } from '../sim/touch.ts';
 import {
   ALL_OPEN,
@@ -243,6 +244,7 @@ export class SandboxScene extends Phaser.Scene {
   /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
   private closedSides: Side[] = [];
   private fieldLayer!: Phaser.GameObjects.Graphics;
+  private lastZap = Number.NEGATIVE_INFINITY;
   private fieldZaps = 0;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
   /** Enemy bullets fly on their own layer, above the players' shots, so enemy fire stands out (#36). */
@@ -841,7 +843,7 @@ export class SandboxScene extends Phaser.Scene {
     this.closedSides = closedEdges(frontier);
   }
 
-  /** Draws the force field along the closed sides near the ship (#127). */
+  /** Draws the force field along the closed sides near the ship, and zaps while the ship is in its push-back band (#127). */
   private drawField(time: number): void {
     const g = this.fieldLayer.clear();
     const ship = this.sim.ship;
@@ -870,6 +872,12 @@ export class SandboxScene extends Phaser.Scene {
           g.fillStyle(0xffd0c0, s.flare).fillRect(s.x + nx * jump, s.y + ny * jump, 1, 1);
         }
       });
+    }
+    const volume = zapVolume(nearestSide(this.closedSides, ship));
+    if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
+      this.lastZap = time;
+      this.fieldZaps++;
+      this.audio.fieldZap(volume);
     }
   }
 

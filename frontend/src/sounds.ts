@@ -41,6 +41,8 @@ export const ENEMY_EXPLOSION_SOUND = 'sfx-enemy-explosion';
 /** A laser of their own, so incoming fire doesn't sound like yours. */
 export const ENEMY_SHOT_SOUND = 'sfx-enemy-shot';
 export const PART_SWITCH_SOUND = 'sfx-part-switch';
+/** The force field's zaps (#127), played in turn. */
+export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
 /** Music tracks, played in turn. */
 export const MUSIC = ['music-explorer-theme-1', 'music-explorer-theme-2'] as const;
@@ -59,6 +61,7 @@ export function effectFiles(): SoundFile[] {
     both(ENEMY_SHOT_SOUND, 'sfx/enemy-shot'),
     both(SHIELD_SOUND, 'sfx/shield'),
     both(PART_SWITCH_SOUND, 'sfx/part-switch'),
+    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
     both('sfx-engine-base', 'sfx/engine-base'),
     both('sfx-engine-big-pulse', 'sfx/engine-big-pulse'),
     both('sfx-engine-burst', 'sfx/engine-burst'),

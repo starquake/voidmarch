@@ -10,6 +10,7 @@ import {
   ENEMY_EXPLOSION_SOUND,
   ENEMY_SHOT_SOUND,
   ENGINE_LOOPS,
+  FIELD_ZAP_SOUNDS,
   EXPIRE_SOUNDS,
   MUSIC,
   PART_SWITCH_SOUND,
@@ -41,6 +42,7 @@ export class ShipAudio {
   private musicIndex = 0;
   private musicLoaded = false;
   private shots = 0;
+  private zaps = 0;
   private readonly scene: Phaser.Scene;
   private readonly settings: AudioSettings;
 
@@ -135,6 +137,14 @@ export class ShipAudio {
 
   shieldSwitched(): void {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
+  }
+
+  /** A force field zap (#127), at a volume from 0 to 1. */
+  fieldZap(volume: number): void {
+    const key = nextVariant(FIELD_ZAP_SOUNDS, this.zaps++);
+    if (key !== undefined) {
+      this.scene.sound.play(key, { volume });
+    }
   }
 
   partSwitched(): void {
