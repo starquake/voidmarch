@@ -2,8 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Voidmarch</title>
+    <!-- Added to a phone's home screen, it opens fullscreen in landscape: an iPhone's Safari can't go fullscreen otherwise (#180). -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voidmarch">
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/wasm/wasm_exec.js"></script>
@@ -46,5 +52,6 @@
       <p class="loadout-keys"><b>O</b> opens and closes this · <b>Esc</b> closes · the world keeps playing behind it</p>
     </form>
     <div id="rotate-notice" class="rotate-notice">Turn your tablet sideways to play.</div>
+    <div id="safe-area" class="safe-area"></div>
   </body>
 </html>

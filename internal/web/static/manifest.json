@@ -1,0 +1,9 @@
+{
+  "name": "Voidmarch",
+  "short_name": "Voidmarch",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#05030a",
+  "theme_color": "#05030a"
+}

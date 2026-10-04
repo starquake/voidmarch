@@ -35,6 +35,7 @@ func TestWebClient_Embedded(t *testing.T) {
 			wantType:    "text/javascript",
 			wantContain: "globalThis.Go = class",
 		},
+		{path: "/static/manifest.json", wantType: "application/json", wantContain: `"fullscreen"`},
 		{path: "/healthz", wantType: "application/json", wantContain: `"status":"ok"`},
 		{path: "/version", wantType: "application/json", wantContain: `"env":"development"`},
 	}

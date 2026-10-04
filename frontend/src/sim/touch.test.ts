@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { TouchControls, buttonAt, touchButtons, touchMode, touchUnit, type TouchScreen } from './touch.ts';
 import { TOUCH_DEAD_ZONE, TOUCH_MIN_SCALE, TOUCH_STICK_RADIUS_PX } from './tuning.ts';
 
-const screen: TouchScreen = { width: 1000, height: 800, dpr: 1, atHome: false, down: false, canRespawn: false, beside: undefined };
+const screen: TouchScreen = { width: 1000, height: 800, dpr: 1, atHome: false, down: false, canRespawn: false, beside: undefined, fullscreen: undefined };
 
 test('the left half moves, the right half aims and fires, and each stick takes one touch', () => {
   const t = new TouchControls();
@@ -99,4 +99,19 @@ test('a touch that starts on the minimap and moves aims instead of opening the m
   t.moveTo(1, 900 + TOUCH_STICK_RADIUS_PX, 100);
   assert.deepEqual(t.aim(), { x: 1, y: 0 });
   assert.equal(t.end(1), 'aim');
+});
+
+test('the buttons keep clear of a notch', () => {
+  const plain = touchButtons({ ...screen, fullscreen: false });
+  const notched = touchButtons({ ...screen, fullscreen: false, insetLeft: 40, insetRight: 30 });
+  assert.equal((notched[0]?.x ?? 0) - (plain[0]?.x ?? 0), -30, 'Summon moves in from the right');
+  assert.equal((notched.at(-1)?.x ?? 0) - (plain.at(-1)?.x ?? 0), 40, 'the switch moves in from the left');
+});
+
+test('a switch in the top left turns fullscreen on and off, where the browser can', () => {
+  assert.equal(buttonAt(touchButtons(screen), 30, 30), undefined, 'none where the browser cannot switch');
+  const windowed = touchButtons({ ...screen, fullscreen: false });
+  assert.equal(buttonAt(windowed, 30, 30)?.label, 'Full screen');
+  assert.equal(buttonAt(touchButtons({ ...screen, fullscreen: true }), 30, 30)?.label, 'Windowed');
+  assert.equal(touchButtons({ ...screen, down: true, fullscreen: false }).at(-1)?.button, 'fullscreen', 'also while down');
 });

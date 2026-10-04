@@ -459,6 +459,7 @@ var TOUCH_EDGE_PX = 24;
 var TOUCH_BUTTONS_Y = 0.37;
 var TOUCH_RESPAWN_Y = 0.66;
 var TOUCH_FULL_HEIGHT_PX = 700;
+var TOUCH_SMALL_SHARE = 0.55;
 var TOUCH_MIN_SCALE = 0.6;
 
 // src/sim/parts.ts
@@ -2519,8 +2520,22 @@ function touchUnit(height, dpr) {
   return dpr * scale;
 }
 function touchButtons(screen) {
+  const dpr = touchUnit(screen.height, screen.dpr);
+  const switcher = screen.fullscreen === void 0 ? [] : [
+    {
+      button: "fullscreen",
+      label: screen.fullscreen ? "Windowed" : "Full screen",
+      x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
+      y: TOUCH_EDGE_PX * dpr,
+      width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
+      height: TOUCH_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
+      gold: false
+    }
+  ];
+  return [...playButtons(screen, dpr), ...switcher];
+}
+function playButtons(screen, dpr) {
   const { width, height } = screen;
-  const dpr = touchUnit(height, screen.dpr);
   const h = TOUCH_BUTTON_PX * dpr;
   const gap = TOUCH_BUTTON_GAP_PX * dpr;
   if (screen.down) {
@@ -2537,7 +2552,7 @@ function touchButtons(screen) {
     return respawns.map((r, i) => ({ ...r, x: left + i * (wide + gap), y: height * TOUCH_RESPAWN_Y, width: wide, height: h }));
   }
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
-  const right = width - TOUCH_EDGE_PX * dpr - w;
+  const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
   const top = height * TOUCH_BUTTONS_Y;
   const buttons = [
     { button: "summon", label: "Summon", x: right, y: top, width: w, height: h, gold: false },
@@ -5196,6 +5211,8 @@ var SandboxScene = class extends Phaser10.Scene {
   touchView;
   touchButtonRects = [];
   askedFullscreen = false;
+  /** The notch's safe area, read on resize (#180). */
+  insets = { insetLeft: 0, insetRight: 0 };
   maps;
   /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
   closedLayer;
@@ -6059,6 +6076,9 @@ ${modeName(info)}`,
     const { width, height } = this.scale;
     const zoom = integerZoom(width, height, VIEW_WIDTH, VIEW_HEIGHT);
     this.cameras.main.setZoom(zoom);
+    if (this.touchOn) {
+      this.insets = this.safeInsets();
+    }
     const effectScale = zoom / EFFECT_ZOOM;
     if (this.bloomBlur !== void 0) {
       this.bloomBlur.x = BLOOM_BLUR * effectScale * BLOOM_SCALE;
@@ -6092,7 +6112,6 @@ ${modeName(info)}`,
     };
     const onStart = (event) => {
       event.preventDefault();
-      this.askFullscreen();
       for (const t of event.changedTouches) {
         this.touchStart(t.identifier, at2(t));
       }
@@ -6106,6 +6125,7 @@ ${modeName(info)}`,
     };
     const onEnd = (event) => {
       event.preventDefault();
+      this.askFullscreen();
       for (const t of event.changedTouches) {
         this.touchEnd(t.identifier);
       }
@@ -6132,14 +6152,49 @@ ${modeName(info)}`,
       victory?.removeEventListener("click", closeVictory);
     });
   }
-  /** Asks for fullscreen on the first touch, where the browser has it. */
+  /** Asks for fullscreen once, on the first touch, where the browser has it. */
   askFullscreen() {
     if (this.askedFullscreen) {
       return;
     }
     this.askedFullscreen = true;
+    this.switchFullscreen(true);
+  }
+  /** Switches the page to fullscreen or back, where the browser can: iPadOS Safari only by its webkit names, an iPhone's not at all. */
+  switchFullscreen(on) {
     const page = document.documentElement;
-    page.requestFullscreen?.().catch(() => void 0);
+    const doc = document;
+    if (on) {
+      if (page.requestFullscreen !== void 0) {
+        page.requestFullscreen().catch(() => void 0);
+      } else {
+        page.webkitRequestFullscreen?.();
+      }
+    } else if (this.fullscreenState() === true) {
+      if (doc.exitFullscreen !== void 0) {
+        doc.exitFullscreen().catch(() => void 0);
+      } else {
+        doc.webkitExitFullscreen?.();
+      }
+    }
+  }
+  /** Whether the page is fullscreen, or undefined where the browser can't switch. */
+  fullscreenState() {
+    const doc = document;
+    if (doc.fullscreenEnabled !== true && doc.webkitFullscreenEnabled !== true) {
+      return void 0;
+    }
+    return (doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null) !== null;
+  }
+  /** The notch's safe area on the left and right, in canvas pixels, from the page's safe-area probe. */
+  safeInsets() {
+    const probe = document.querySelector("#safe-area");
+    if (probe === null) {
+      return { insetLeft: 0, insetRight: 0 };
+    }
+    const style = getComputedStyle(probe);
+    const toCanvas = this.scale.width / Math.max(1, window.innerWidth);
+    return { insetLeft: parseFloat(style.paddingLeft) * toCanvas || 0, insetRight: parseFloat(style.paddingRight) * toCanvas || 0 };
   }
   /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
@@ -6183,6 +6238,9 @@ ${modeName(info)}`,
       case "respawnBeside":
         this.respawn(true);
         break;
+      case "fullscreen":
+        this.switchFullscreen(this.fullscreenState() !== true);
+        break;
       case "map":
         if (this.canOpenMap()) {
           this.maps.toggle();
@@ -6225,7 +6283,9 @@ ${modeName(info)}`,
       atHome: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS,
       down: this.sim.downed,
       canRespawn: this.sim.canRespawn,
-      beside: this.net?.nearestSquadmate()?.name
+      beside: this.net?.nearestSquadmate()?.name,
+      fullscreen: this.fullscreenState(),
+      ...this.insets
     });
     this.touchView.draw(this.touch, this.touchButtonRects, this.dpr());
   }

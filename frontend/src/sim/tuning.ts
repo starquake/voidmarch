@@ -140,4 +140,6 @@ export const TOUCH_BUTTONS_Y = 0.37;
 export const TOUCH_RESPAWN_Y = 0.66;
 /** The screen height the touch UI is drawn full size for, and the smallest it shrinks to on a phone (#180). */
 export const TOUCH_FULL_HEIGHT_PX = 700;
+/** The fullscreen switch's size, as a share of a wide button's, in the top left corner. */
+export const TOUCH_SMALL_SHARE = 0.55;
 export const TOUCH_MIN_SCALE = 0.6;

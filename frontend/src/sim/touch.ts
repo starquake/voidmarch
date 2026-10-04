@@ -8,12 +8,13 @@ import {
   TOUCH_FULL_HEIGHT_PX,
   TOUCH_MIN_SCALE,
   TOUCH_RESPAWN_Y,
+  TOUCH_SMALL_SHARE,
   TOUCH_STICK_RADIUS_PX,
   TOUCH_WIDE_BUTTON_PX,
 } from './tuning.ts';
 
-/** The touch buttons (#180): what the keyboard's G, Q, L, H and J do. */
-export type TouchButton = 'summon' | 'orders' | 'loadout' | 'respawnHome' | 'respawnBeside';
+/** The touch buttons (#180): what the keyboard's G, Q, L, H and J do, and switching to fullscreen and back. */
+export type TouchButton = 'summon' | 'orders' | 'loadout' | 'respawnHome' | 'respawnBeside' | 'fullscreen';
 
 /** A touch button's place on the canvas, in device pixels, and its label. */
 export interface ButtonRect {
@@ -47,6 +48,11 @@ export interface TouchScreen {
   canRespawn: boolean;
   /** The squadmate to respawn beside, if one is up. */
   beside: string | undefined;
+  /** Whether the page is in fullscreen, or undefined where the browser can't switch (an iPhone's Safari). */
+  fullscreen: boolean | undefined;
+  /** The notch's safe area on the left and right, in device pixels, which the buttons keep clear of. */
+  insetLeft?: number;
+  insetRight?: number;
 }
 
 /**
@@ -54,8 +60,28 @@ export interface TouchScreen {
  * edge and Loadout beside them at home; while down, only the respawns.
  */
 export function touchButtons(screen: TouchScreen): ButtonRect[] {
+  const dpr = touchUnit(screen.height, screen.dpr);
+  const switcher: ButtonRect[] =
+    screen.fullscreen === undefined
+      ? []
+      : [
+          {
+            button: 'fullscreen',
+            label: screen.fullscreen ? 'Windowed' : 'Full screen',
+            x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
+            y: TOUCH_EDGE_PX * dpr,
+            width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
+            height: TOUCH_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
+            gold: false,
+          },
+        ];
+
+  return [...playButtons(screen, dpr), ...switcher];
+}
+
+/** The buttons for playing: Summon, Orders and Loadout, or while down the respawns. */
+function playButtons(screen: TouchScreen, dpr: number): ButtonRect[] {
   const { width, height } = screen;
-  const dpr = touchUnit(height, screen.dpr);
   const h = TOUCH_BUTTON_PX * dpr;
   const gap = TOUCH_BUTTON_GAP_PX * dpr;
   if (screen.down) {
@@ -73,7 +99,7 @@ export function touchButtons(screen: TouchScreen): ButtonRect[] {
     return respawns.map((r, i) => ({ ...r, x: left + i * (wide + gap), y: height * TOUCH_RESPAWN_Y, width: wide, height: h }));
   }
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
-  const right = width - TOUCH_EDGE_PX * dpr - w;
+  const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
   const top = height * TOUCH_BUTTONS_Y;
   const buttons: ButtonRect[] = [
     { button: 'summon', label: 'Summon', x: right, y: top, width: w, height: h, gold: false },
