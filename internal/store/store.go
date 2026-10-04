@@ -51,7 +51,10 @@ func Open(ctx context.Context, file string) (*sql.DB, error) {
 	for _, pragma := range []string{"busy_timeout(5000)", "foreign_keys(1)"} {
 		query.Add("_pragma", pragma)
 	}
-	db, err := sql.Open("sqlite", "file:"+file+"?"+query.Encode())
+	// The path is escaped: SQLite reads the name as a URI, where # and ?
+	// would cut it (#105).
+	escaped := (&url.URL{Path: file}).EscapedPath()
+	db, err := sql.Open("sqlite", "file:"+escaped+"?"+query.Encode())
 	if err != nil {
 		return nil, fmt.Errorf("error opening database %s: %w", file, err)
 	}

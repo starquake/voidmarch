@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -392,5 +393,21 @@ func TestNewSeason_ResetsTheWorldButKeepsThePlayers(t *testing.T) {
 	if len(found.Unlocks) != 0 || found.Loadout != (sim.Loadout{}) ||
 		found.Stats != (players.Stats{}) {
 		t.Errorf("player after a new season = %+v, want no unlocks, loadout or stats", found)
+	}
+}
+
+func TestOpen_OpensThePathAsGiven(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"a#b.db", "a?b.db", "a%23b.db", "a b.db"} {
+		path := filepath.Join(t.TempDir(), name)
+		db, err := Open(t.Context(), path)
+		if err != nil {
+			t.Fatalf("Open(%q) error = %v", path, err)
+		}
+		_ = db.Close()
+		if _, err = os.Stat(path); err != nil {
+			t.Errorf("Open(%q) left no file at that path: %v", path, err)
+		}
 	}
 }
