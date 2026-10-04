@@ -62,8 +62,13 @@ test('sparks are few, and change over time', () => {
 });
 
 test('a zap sounds only inside the push-back band, louder the deeper', () => {
-  assert.equal(zapVolume(WORLD_EDGE_BAND), 0);
-  assert.equal(zapVolume(WORLD_EDGE_BAND + 100), 0);
-  assert.equal(zapVolume(0), FIELD_ZAP_VOLUME);
-  assert.ok(zapVolume(50) > zapVolume(150) && zapVolume(150) > 0);
+  assert.equal(zapVolume(WORLD_EDGE_BAND, false), 0);
+  assert.equal(zapVolume(WORLD_EDGE_BAND + 100, false), 0);
+  assert.equal(zapVolume(0, false), FIELD_ZAP_VOLUME);
+  assert.ok(zapVolume(50, false) > zapVolume(150, false) && zapVolume(150, false) > 0);
+});
+
+test('a downed ship hears no zap, however deep in the band', () => {
+  assert.equal(zapVolume(0, true), 0);
+  assert.equal(zapVolume(100, true), 0);
 });

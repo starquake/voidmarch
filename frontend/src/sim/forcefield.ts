@@ -106,9 +106,13 @@ export function sparks(i: number, t: number): boolean {
   return Math.sin(i * 12.9898 + Math.floor(t * 20) * 78.233) > 0.93;
 }
 
-/** A zap's volume for a ship this far from the field: none outside the push-back band, louder the deeper in. */
-export function zapVolume(distance: number): number {
-  if (distance >= WORLD_EDGE_BAND) {
+/**
+ * A zap's volume for a ship this far from the field: none outside the
+ * push-back band, louder the deeper in. A downed ship only drifts there, so
+ * it hears none (#189).
+ */
+export function zapVolume(distance: number, downed: boolean): number {
+  if (downed || distance >= WORLD_EDGE_BAND) {
     return 0;
   }
 

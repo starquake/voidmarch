@@ -875,7 +875,7 @@ export class SandboxScene extends Phaser.Scene {
         }
       });
     }
-    const volume = zapVolume(nearestSide(this.closedSides, ship));
+    const volume = zapVolume(nearestSide(this.closedSides, ship), this.sim.downed);
     if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
       this.lastZap = time;
       this.fieldZaps++;

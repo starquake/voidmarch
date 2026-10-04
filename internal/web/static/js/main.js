@@ -2754,8 +2754,8 @@ function fieldColor(flare) {
 function sparks(i, t) {
   return Math.sin(i * 12.9898 + Math.floor(t * 20) * 78.233) > 0.93;
 }
-function zapVolume(distance) {
-  if (distance >= WORLD_EDGE_BAND) {
+function zapVolume(distance, downed) {
+  if (downed || distance >= WORLD_EDGE_BAND) {
     return 0;
   }
   return FIELD_ZAP_VOLUME * (0.4 + 0.6 * (1 - Math.max(0, distance) / WORLD_EDGE_BAND));
@@ -6114,7 +6114,7 @@ var SandboxScene = class extends Phaser11.Scene {
         }
       });
     }
-    const volume = zapVolume(nearestSide(this.closedSides, ship));
+    const volume = zapVolume(nearestSide(this.closedSides, ship), this.sim.downed);
     if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
       this.lastZap = time;
       this.fieldZaps++;
