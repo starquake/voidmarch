@@ -33,3 +33,16 @@ test('the client boots into the sandbox without errors', async ({ page }) => {
   test.info().annotations.push({ type: 'fps', description: line });
   console.log(`${test.info().project.name}: ${line}`);
 });
+
+test('the game\'s text is in Exo 2, with titles in Orbitron (#170)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+  // check() alone also passes for a font the page never declared, so look for the loaded faces themselves.
+  const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')));
+  expect(loaded).toEqual(expect.arrayContaining(['Orbitron', 'Exo 2']));
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#settings-form')).toBeVisible();
+  const family = async (selector: string): Promise<string> => page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(await family('#settings-form .settings-row')).toMatch(/^"Exo 2"/);
+  expect(await family('#settings-form h2')).toMatch(/^Orbitron/);
+});

@@ -438,6 +438,10 @@ var MISSION_BANNER_ALPHA = 0.6;
 var MISSION_BANNER_BORDER_PX = 1;
 var EVENT_COLOR = 16734794;
 var EVENT_CSS = "#ff5a4a";
+var UI_FONT_NAME = "Exo 2";
+var HEADING_FONT_NAME = "Orbitron";
+var UI_FONT = `'${UI_FONT_NAME}', sans-serif`;
+var HEADING_FONT = `${HEADING_FONT_NAME}, sans-serif`;
 var MINIMAP_WIDTH_PX = 170;
 var MINIMAP_INSET_PX = 96;
 var FULL_MAP_HEIGHT_PX = 470;
@@ -2203,7 +2207,7 @@ var MapView = class {
   scene;
   hideFromWorld;
   constructor(scene, hideFromWorld) {
-    const text = (size) => scene.add.text(0, 0, "", { fontFamily: "monospace", fontSize: `${String(size)}px`, color: "#d8f8ff", align: "center" }).setShadow(1, 1, "#000000", 0);
+    const text = (size) => scene.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: `${String(size)}px`, color: "#d8f8ff", align: "center" }).setShadow(1, 1, "#000000", 0);
     this.mini = scene.add.graphics();
     this.miniLabel = text(SMALL_FONT_PX).setOrigin(0.5, 0);
     this.full = scene.add.graphics();
@@ -2322,7 +2326,7 @@ var MapView = class {
   }
   drawNames(drawn) {
     while (this.names.length < drawn.sectors.length) {
-      const text = this.scene.add.text(0, 0, "", { fontFamily: "monospace", fontSize: `${String(SMALL_FONT_PX * this.dpr)}px`, color: "#d8f8ff" }).setOrigin(0.5).setDepth(MAP_DEPTH + 1).setShadow(1, 1, "#000000", 0);
+      const text = this.scene.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: `${String(SMALL_FONT_PX * this.dpr)}px`, color: "#d8f8ff" }).setOrigin(0.5).setDepth(MAP_DEPTH + 1).setShadow(1, 1, "#000000", 0);
       this.hideFromWorld([text]);
       this.names.push(text);
     }
@@ -3502,8 +3506,8 @@ var BossBarView = class {
   width = 0;
   scale = 1;
   constructor(scene, hide) {
-    const style = { fontFamily: "monospace", fontSize: `${String(FONT_PX2)}px` };
-    this.name = scene.add.text(0, 0, "", { ...style, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    const style = { fontFamily: UI_FONT, fontSize: `${String(FONT_PX2)}px` };
+    this.name = scene.add.text(0, 0, "", { ...style, fontFamily: HEADING_FONT, color: NAME_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.text = scene.add.text(0, 0, "", { ...style, color: TEXT_COLOR }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bars = scene.add.graphics();
     for (const object of [this.name, this.text, this.bars]) {
@@ -3963,7 +3967,7 @@ var ShipView = class {
   setLabel(scene, layer, name, color, resolution) {
     this.label?.destroy();
     this.label = scene.add.text(this.root.x, this.root.y + LABEL_OFFSET, name, {
-      fontFamily: "monospace",
+      fontFamily: UI_FONT,
       fontSize: "8px",
       color: `#${color.toString(16).padStart(6, "0")}`,
       resolution
@@ -3977,7 +3981,7 @@ var ShipView = class {
     }
     this.partLabel?.destroy();
     this.partLabel = this.scene.add.text(this.root.x, this.root.y + LABEL_OFFSET + LABEL_LINE, text, {
-      fontFamily: "monospace",
+      fontFamily: UI_FONT,
       fontSize: "8px",
       color,
       resolution
@@ -4078,7 +4082,7 @@ var ShipView = class {
       return;
     }
     if (this.downLabel === void 0) {
-      this.downLabel = this.scene.add.text(0, 0, "DOWN", { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+      this.downLabel = this.scene.add.text(0, 0, "DOWN", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
       this.reviveBar = this.scene.add.graphics();
       this.layer.add([this.downLabel, this.reviveBar]);
       this.place(this.root.x, this.root.y, this.root.rotation - SPRITE_FACING);
@@ -4225,7 +4229,7 @@ var DerelictView = class {
   fill = -1;
   constructor(scene, layer, x, y, angle, resolution) {
     this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser7.TintModes.MULTIPLY);
-    this.label = scene.add.text(x, y + DOWN_OFFSET, "", { fontFamily: "monospace", fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    this.label = scene.add.text(x, y + DOWN_OFFSET, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
     layer.add([this.hull, this.label, this.bar]);
   }
@@ -5462,7 +5466,7 @@ var TouchView = class {
       g.lineStyle(LINE_PX * unit, color, 1).strokeCircle(s.knob.x, s.knob.y, KNOB_RADIUS * unit);
     }
     while (this.labels.length < buttons.length) {
-      const label = this.scene.add.text(0, 0, "", { fontFamily: "monospace" }).setOrigin(0.5).setDepth(1001);
+      const label = this.scene.add.text(0, 0, "", { fontFamily: UI_FONT }).setOrigin(0.5).setDepth(1001);
       this.hide(label);
       this.labels.push(label);
     }
@@ -6088,15 +6092,15 @@ var SandboxScene = class extends Phaser11.Scene {
     this.createBloom(main);
     this.vignette = this.createVignette();
     main.ignore(this.vignette);
-    this.hud = this.add.text(8, 8, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
+    this.hud = this.add.text(8, 8, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
     this.partsLine = Array.from({ length: 4 }, () => {
-      const text = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
+      const text = this.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
       main.ignore(text);
       return text;
     });
     this.downPanel = this.add.text(0, 0, "", {
-      fontFamily: "monospace",
+      fontFamily: UI_FONT,
       fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
       color: "#d8f8ff",
       align: "center",
@@ -6105,7 +6109,7 @@ var SandboxScene = class extends Phaser11.Scene {
     main.ignore(this.downPanel);
     this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add.text(0, 0, "", {
-      fontFamily: "monospace",
+      fontFamily: HEADING_FONT,
       fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
       color: MISSION_CSS,
       align: "center"
@@ -6113,8 +6117,8 @@ var SandboxScene = class extends Phaser11.Scene {
     main.ignore([this.missionFrame, this.missionBanner]);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
-    this.missionLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
-    this.eventLabel = this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: EVENT_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+    this.missionLabel = this.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
+    this.eventLabel = this.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: "12px", color: EVENT_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
     main.ignore([this.missionArrow, this.missionLabel, this.eventLabel]);
     this.maps = new MapView(this, (objects) => main.ignore(objects));
     this.hudCamera = this.cameras.add(0, 0, this.scale.width, this.scale.height);
@@ -6516,7 +6520,7 @@ var SandboxScene = class extends Phaser11.Scene {
   /** Lays out the ring: a label and its pack icon per order, and the wing's mode in the center. */
   openOrderRing(press) {
     const dpr = this.dpr();
-    const style = { fontFamily: "monospace", fontSize: `${String(HUD_FONT_PX * dpr)}px` };
+    const style = { fontFamily: UI_FONT, fontSize: `${String(HUD_FONT_PX * dpr)}px` };
     const info = this.net?.squadronInfo;
     const mode = info === void 0 ? void 0 : fromCompanionMode(info.mode) ?? "escort";
     press.backdrop = this.add.graphics();
@@ -7299,7 +7303,10 @@ async function start() {
       saveToken(token);
     }
   }
-  await loadSim("/static/wasm/sim.wasm");
+  await Promise.all([
+    loadSim("/static/wasm/sim.wasm"),
+    ...[UI_FONT_NAME, HEADING_FONT_NAME].map(async (name) => document.fonts.load(`16px '${name}'`).catch(() => []))
+  ]);
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
   const game = new Phaser12.Game({

@@ -260,6 +260,7 @@ are committed, so `go build` needs neither Node.js nor TinyGo.
 - Art: the Void asset packs by [Foozle](https://foozlecc.itch.io/), CC0.
 - Music: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music) by Foozle, CC0.
 - Sound effects: [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) by Kenney, CC0.
+- Fonts: [Orbitron](https://github.com/theleagueof/orbitron) by The League of Moveable Type and [Exo 2](https://github.com/googlefonts/Exo-2.0) by Natanael Gama, both SIL Open Font License 1.1 (`internal/web/static/fonts/*-OFL.txt`).
 
 ## License
 

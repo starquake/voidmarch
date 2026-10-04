@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { keys } from '../sprites.ts';
 import { damageState, type Loadout } from '../sim/loadout.ts';
 import { tierColor } from '../sim/parts.ts';
+import { UI_FONT } from '../sim/tuning.ts';
 
 /** Sprites face up; Phaser's rotation 0 faces right. */
 export const SPRITE_FACING = Math.PI / 2;
@@ -73,7 +74,7 @@ export class ShipView {
     this.label?.destroy();
     this.label = scene.add
       .text(this.root.x, this.root.y + LABEL_OFFSET, name, {
-        fontFamily: 'monospace',
+        fontFamily: UI_FONT,
         fontSize: '8px',
         color: `#${color.toString(16).padStart(6, '0')}`,
         resolution,
@@ -91,7 +92,7 @@ export class ShipView {
     this.partLabel?.destroy();
     this.partLabel = this.scene.add
       .text(this.root.x, this.root.y + LABEL_OFFSET + LABEL_LINE, text, {
-        fontFamily: 'monospace',
+        fontFamily: UI_FONT,
         fontSize: '8px',
         color,
         resolution,
@@ -207,7 +208,7 @@ export class ShipView {
     }
     if (this.downLabel === undefined) {
       this.downLabel = this.scene.add
-        .text(0, 0, 'DOWN', { fontFamily: 'monospace', fontSize: '8px', color: DOWN_COLOR, resolution })
+        .text(0, 0, 'DOWN', { fontFamily: UI_FONT, fontSize: '8px', color: DOWN_COLOR, resolution })
         .setOrigin(0.5, 0)
         .setShadow(1, 1, '#000000', 0);
       this.reviveBar = this.scene.add.graphics();

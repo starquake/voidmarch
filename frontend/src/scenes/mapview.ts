@@ -28,6 +28,7 @@ import {
   MAP_PANEL_COLOR,
   MAP_YOU_COLOR,
   MINIMAP_WIDTH_PX,
+  UI_FONT,
 } from '../sim/tuning.ts';
 
 const FONT_PX = 12;
@@ -70,7 +71,7 @@ export class MapView {
   constructor(scene: Phaser.Scene, hideFromWorld: (objects: Phaser.GameObjects.GameObject[]) => void) {
     const text = (size: number): Phaser.GameObjects.Text =>
       scene.add
-        .text(0, 0, '', { fontFamily: 'monospace', fontSize: `${String(size)}px`, color: '#d8f8ff', align: 'center' })
+        .text(0, 0, '', { fontFamily: UI_FONT, fontSize: `${String(size)}px`, color: '#d8f8ff', align: 'center' })
         .setShadow(1, 1, '#000000', 0);
     this.mini = scene.add.graphics();
     this.miniLabel = text(SMALL_FONT_PX).setOrigin(0.5, 0);
@@ -205,7 +206,7 @@ export class MapView {
   private drawNames(drawn: DrawnMap): void {
     while (this.names.length < drawn.sectors.length) {
       const text = this.scene.add
-        .text(0, 0, '', { fontFamily: 'monospace', fontSize: `${String(SMALL_FONT_PX * this.dpr)}px`, color: '#d8f8ff' })
+        .text(0, 0, '', { fontFamily: UI_FONT, fontSize: `${String(SMALL_FONT_PX * this.dpr)}px`, color: '#d8f8ff' })
         .setOrigin(0.5)
         .setDepth(MAP_DEPTH + 1)
         .setShadow(1, 1, '#000000', 0);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { UI_FONT } from '../sim/tuning.ts';
 import { keys } from '../sprites.ts';
 import { DOWN_COLOR, DOWN_OFFSET, REVIVE_BAR_BELOW, REVIVE_BAR_WIDTH, SPRITE_FACING, drawReviveBar, type ShipParent } from './shipview.ts';
 
@@ -25,7 +26,7 @@ export class DerelictView {
       .setTint(DERELICT_TINT)
       .setTintMode(Phaser.TintModes.MULTIPLY);
     this.label = scene.add
-      .text(x, y + DOWN_OFFSET, '', { fontFamily: 'monospace', fontSize: '8px', color: DOWN_COLOR, resolution })
+      .text(x, y + DOWN_OFFSET, '', { fontFamily: UI_FONT, fontSize: '8px', color: DOWN_COLOR, resolution })
       .setOrigin(0.5, 0)
       .setShadow(1, 1, '#000000', 0);
     this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);

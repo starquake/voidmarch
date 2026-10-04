@@ -1,3 +1,37 @@
+/* The game's two fonts (#170), both SIL OFL 1.1 (fonts/*-OFL.txt): Orbitron for titles and announcements, Exo 2 for the rest. */
+@font-face {
+  font-family: Orbitron;
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url("../fonts/orbitron.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Exo 2";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url("../fonts/exo2.woff2") format("woff2");
+}
+
+:root {
+  --ui-font: "Exo 2", sans-serif;
+  --heading-font: Orbitron, sans-serif;
+}
+
+/* Titles in Orbitron, and the small notes beside them back in the UI font. */
+.name-screen h1,
+.name-screen h2,
+.standings h3 {
+  font-family: var(--heading-font);
+}
+
+.name-screen h2 span,
+.standings h3 span {
+  font-family: var(--ui-font);
+}
+
 html,
 body {
   height: 100%;
@@ -30,7 +64,7 @@ body {
   background: rgb(5 3 10 / 92%);
   border: 1px solid #8fd8ff;
   color: #d8f8ff;
-  font: 16px/1.4 monospace;
+  font: 16px/1.4 var(--ui-font);
 }
 
 .name-screen[hidden] {
@@ -401,7 +435,7 @@ body.touch {
     text-align: center;
     background: rgb(5 3 10 / 92%);
     color: #d8f8ff;
-    font: 16px/1.4 monospace;
+    font: 16px/1.4 var(--ui-font);
   }
 }
 
@@ -410,7 +444,7 @@ body.touch {
   border: 1px solid #3a2f55;
   background: #120c1f;
   padding: 0.4rem 0.6rem;
-  font: 13px/1.4 monospace;
+  font: 13px/1.4 var(--ui-font);
   color: #d8f8ff;
 }
 

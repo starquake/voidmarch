@@ -83,6 +83,12 @@ export const MISSION_BANNER_BORDER_PX = 1;
 export const EVENT_COLOR = 0xff5a4a;
 export const EVENT_CSS = '#ff5a4a';
 
+/** The game's two fonts (#170): Exo 2 for its text, Orbitron for titles and announcements. */
+export const UI_FONT_NAME = 'Exo 2';
+export const HEADING_FONT_NAME = 'Orbitron';
+export const UI_FONT = `'${UI_FONT_NAME}', sans-serif`;
+export const HEADING_FONT = `${HEADING_FONT_NAME}, sans-serif`;
+
 /** The maps (#100): the minimap's width and the full map's height, in CSS pixels. */
 export const MINIMAP_WIDTH_PX = 170;
 /** How far the minimap sits in from the top and right: inside the edge arrows' track and their labels (#100). */
