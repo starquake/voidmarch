@@ -149,6 +149,16 @@ export class MapView {
     this.legend.setText(mapLegend(state.missions, state.dreadnoughts.length > 0).join('\n')).setPosition(this.fullLayout.x, legendY);
   }
 
+  /** Whether (x, y) is on the minimap, which a tap opens the full map from (#180). */
+  onMinimap(x: number, y: number): boolean {
+    return within(this.miniLayout, x, y);
+  }
+
+  /** Whether (x, y) is on the open full map's grid, so a tap beside it closes it (#180). */
+  onFull(x: number, y: number): boolean {
+    return this.open && within(this.fullLayout, x, y);
+  }
+
   /** The sector a click on the open full map picks as the mission, if it can be picked. */
   pick(x: number, y: number, cleared: ReadonlySet<string>, frontier: Frontier): string | undefined {
     if (!this.open) {
@@ -228,4 +238,11 @@ function polygon(g: Phaser.GameObjects.Graphics, corners: readonly { x: number; 
     g.lineTo(c.x, c.y);
   }
   g.closePath();
+}
+
+/** Whether (x, y) is within the grid drawn at layout. */
+function within(layout: MapLayout, x: number, y: number): boolean {
+  const size = mapSize(layout);
+
+  return Math.abs(x - layout.x) <= size.width / 2 && Math.abs(y - layout.y) <= size.height / 2;
 }

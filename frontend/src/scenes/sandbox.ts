@@ -63,7 +63,9 @@ import {
   RING_TINT_FADE_MS,
   MINIMAP_REDRAW_MS,
   FPS_CAP,
+  TOUCH_AIM_REACH,
 } from '../sim/tuning.ts';
+import { TouchControls, touchButtons, touchMode, touchUnit, type ButtonRect, type Point } from '../sim/touch.ts';
 import {
   ALL_OPEN,
   fadeColor,
@@ -88,6 +90,7 @@ import { PickupsView } from './pickups.ts';
 import { Resample, registerResample } from './resample.ts';
 import { vignetteImage } from '../vignette.ts';
 import { SPRITE_FACING, ShipView } from './shipview.ts';
+import { TouchView } from './touchview.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -128,6 +131,9 @@ const DOWN_PANEL_FONT_PX = 14;
 const DOWN_PANEL_PADDING_X = 12;
 const DOWN_PANEL_PADDING_Y = 8;
 const DOWN_PANEL_Y = 0.8;
+/** The HUD's two lines of keys. */
+const KEY_HELP_MOVE = 'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home';
+const KEY_HELP_MORE = 'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects · V 60 fps cap · P resolution';
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
 /** The order ring's height radius and its dead center, in CSS pixels. */
@@ -164,6 +170,8 @@ const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
 /** Q held down: where the pointer was. */
 interface OrderPress {
   downAt: number;
+  /** Set when the Orders touch button opened it (#180): the ring follows that touch, not the mouse. */
+  touch: boolean;
   screenX: number;
   screenY: number;
   worldX: number;
@@ -205,6 +213,12 @@ export class SandboxScene extends Phaser.Scene {
   /** The loadout screen at the home planet (#78). */
   private readonly loadoutScreen = new LoadoutScreen();
   private readonly victoryScreen = new VictoryScreen();
+  /** Twin-stick touch controls on a tablet (#180). */
+  private readonly touchOn = touchMode((query) => window.matchMedia(query).matches, window.location.search);
+  private readonly touch = new TouchControls();
+  private touchView: TouchView | undefined;
+  private touchButtonRects: ButtonRect[] = [];
+  private askedFullscreen = false;
   private maps!: MapView;
   /** The closed sectors' shade and edge (#123), and the frontier it was drawn for. */
   private closedLayer!: Phaser.GameObjects.Graphics;
@@ -271,6 +285,9 @@ export class SandboxScene extends Phaser.Scene {
     this.createCameras();
     this.timeGpu();
     this.createInput();
+    if (this.touchOn) {
+      this.createTouch();
+    }
     this.applyLoadout();
     this.resize();
     this.scale.on(Phaser.Scale.Events.RESIZE, () => {
@@ -325,6 +342,10 @@ export class SandboxScene extends Phaser.Scene {
       squadronScreen: false,
       loadoutScreen: false,
       victoryScreen: false,
+      touch: this.touchOn,
+      touchButtons: [],
+      touchSticks: [],
+      touchFiring: false,
       mapOpen: false,
       openRings: 0,
       openedSectors: [],
@@ -353,6 +374,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     this.updateLoadoutScreen();
     this.openVictoryIfDue();
+    this.drawTouch();
     this.drawShip(events);
     this.countRevive();
     this.updateDownPanel();
@@ -710,6 +732,10 @@ export class SandboxScene extends Phaser.Scene {
     };
     // A click on the open full map sends the squadron there (#100, decision 10).
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      if (this.touchOn) {
+        // Touches are the touch controls' own (#180).
+        return;
+      }
       const sector = this.maps.pick(pointer.x, pointer.y, this.net?.clearedSectors ?? new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== undefined) {
         this.net?.pickMission(sector);
@@ -948,14 +974,16 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   /** Q down: remember where the pointer is. */
-  private pressOrders(): void {
+  private pressOrders(at?: Point): void {
     this.closeOrderRing();
     const pointer = this.input.activePointer;
-    const world = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    const screen = at ?? { x: pointer.x, y: pointer.y };
+    const world = this.cameras.main.getWorldPoint(screen.x, screen.y);
     this.orderPress = {
       downAt: this.time.now,
-      screenX: pointer.x,
-      screenY: pointer.y,
+      touch: at !== undefined,
+      screenX: screen.x,
+      screenY: screen.y,
       worldX: world.x,
       worldY: world.y,
       labels: undefined,
@@ -1058,7 +1086,7 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private pickedOrder(press: OrderPress): number | undefined {
-    const pointer = this.input.activePointer;
+    const pointer = press.touch ? (this.touch.position('orders') ?? { x: press.screenX, y: press.screenY }) : this.input.activePointer;
 
     return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
   }
@@ -1079,7 +1107,7 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     if (press.labels === undefined) {
-      const world = this.input.activePointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+      const world = press.touch ? { x: press.worldX, y: press.worldY } : (this.input.activePointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2);
       if (this.lastOrder === undefined) {
         this.net?.say('no order to repeat yet: hold Q');
       } else {
@@ -1126,7 +1154,10 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   private dpr(): number {
-    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
+    const ratio = renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
+
+    // On a phone the drawn UI shrinks with the touch controls, to leave room to play (#180, decision 7).
+    return this.touchOn ? touchUnit(this.scale.height, ratio) : ratio;
   }
 
   /** Fits a loadout, each part at the tier this player owns it at. */
@@ -1176,9 +1207,178 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
+  /** Turns the touch controls on (#180): screen-relative sticks, their view, and the canvas's touches. */
+  private createTouch(): void {
+    this.sim.controlMode = 'screen';
+    document.body.classList.add('touch');
+    this.touchView = new TouchView(this, (object) => {
+      this.cameras.main.ignore(object);
+    });
+    const canvas = this.game.canvas;
+    const at = (t: Touch): Point => {
+      const r = canvas.getBoundingClientRect();
+
+      return { x: ((t.clientX - r.left) * canvas.width) / r.width, y: ((t.clientY - r.top) * canvas.height) / r.height };
+    };
+    const onStart = (event: TouchEvent): void => {
+      event.preventDefault();
+      this.askFullscreen();
+      for (const t of event.changedTouches) {
+        this.touchStart(t.identifier, at(t));
+      }
+    };
+    const onMove = (event: TouchEvent): void => {
+      event.preventDefault();
+      for (const t of event.changedTouches) {
+        const p = at(t);
+        this.touch.moveTo(t.identifier, p.x, p.y);
+      }
+    };
+    const onEnd = (event: TouchEvent): void => {
+      event.preventDefault();
+      for (const t of event.changedTouches) {
+        this.touchEnd(t.identifier);
+      }
+    };
+    const onBlur = (): void => {
+      this.touch.clear();
+    };
+    canvas.addEventListener('touchstart', onStart, { passive: false });
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    canvas.addEventListener('touchend', onEnd, { passive: false });
+    canvas.addEventListener('touchcancel', onEnd, { passive: false });
+    window.addEventListener('blur', onBlur);
+    // A tap on the victory screen closes it; it has nothing else to tap.
+    const victory = document.querySelector('#victory-form');
+    const closeVictory = (): void => {
+      this.victoryScreen.hide();
+    };
+    victory?.addEventListener('click', closeVictory);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      canvas.removeEventListener('touchstart', onStart);
+      canvas.removeEventListener('touchmove', onMove);
+      canvas.removeEventListener('touchend', onEnd);
+      canvas.removeEventListener('touchcancel', onEnd);
+      window.removeEventListener('blur', onBlur);
+      victory?.removeEventListener('click', closeVictory);
+    });
+  }
+
+  /** Asks for fullscreen on the first touch, where the browser has it. */
+  private askFullscreen(): void {
+    if (this.askedFullscreen) {
+      return;
+    }
+    this.askedFullscreen = true;
+    // Safari on iPad and iPhone has no requestFullscreen on the page.
+    const page: { requestFullscreen?: () => Promise<void> } = document.documentElement;
+    page.requestFullscreen?.().catch(() => undefined);
+  }
+
+  /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
+  private touchStart(id: number, p: Point): void {
+    if (this.victoryScreen.open) {
+      this.victoryScreen.hide();
+
+      return;
+    }
+    if (this.loadoutScreen.open) {
+      this.loadoutScreen.hide();
+
+      return;
+    }
+    if (this.maps.open) {
+      const sector = this.maps.pick(p.x, p.y, this.net?.clearedSectors ?? new Set(), this.net?.frontier ?? ALL_OPEN);
+      if (sector !== undefined) {
+        this.net?.pickMission(sector);
+      } else if (!this.maps.onFull(p.x, p.y)) {
+        this.maps.close();
+      }
+
+      return;
+    }
+    const role = this.touch.start(id, p.x, p.y, this.scale.width, this.touchButtonRects, this.maps.onMinimap(p.x, p.y), this.dpr());
+    if (role === 'orders') {
+      this.pressOrders(p);
+    }
+  }
+
+  /** A touch lifts: a button does its job on release, like its key. */
+  private touchEnd(id: number): void {
+    switch (this.touch.end(id)) {
+      case 'orders':
+        this.releaseOrders();
+        break;
+      case 'summon':
+        this.net?.summon();
+        break;
+      case 'loadout':
+        this.openLoadout();
+        break;
+      case 'respawnHome':
+        this.respawn(false);
+        break;
+      case 'respawnBeside':
+        this.respawn(true);
+        break;
+      case 'map':
+        if (this.canOpenMap()) {
+          this.maps.toggle();
+        }
+        break;
+      case 'move':
+      case 'aim':
+      case undefined:
+        break;
+    }
+  }
+
+  /** The touch sticks as input (#180): the left one moves, and the right one aims and fires while pushed. */
+  private readTouch(): InputSnapshot {
+    const { x, y, angle } = this.sim.ship;
+    const move = this.touch.stick('move');
+    const aim = this.touch.aim() ?? { x: Math.cos(angle), y: Math.sin(angle) };
+
+    return {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      moveX: move.x,
+      moveY: move.y,
+      pointerX: x + aim.x * TOUCH_AIM_REACH,
+      pointerY: y + aim.y * TOUCH_AIM_REACH,
+      fire: this.touch.firing,
+    };
+  }
+
+  /** Lays out and draws the touch buttons and sticks; none over a screen or the full map. */
+  private drawTouch(): void {
+    if (this.touchView === undefined) {
+      return;
+    }
+    const ship = this.sim.ship;
+    const covered = this.loadoutScreen.open || this.maps.open || this.victoryScreen.open;
+    this.touchButtonRects = covered
+      ? []
+      : touchButtons({
+          width: this.scale.width,
+          height: this.scale.height,
+          dpr: renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels),
+          atHome: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS,
+          down: this.sim.downed,
+          canRespawn: this.sim.canRespawn,
+          beside: this.net?.nearestSquadmate()?.name,
+        });
+    this.touchView.draw(this.touch, this.touchButtonRects, this.dpr());
+  }
+
   private readInput(): InputSnapshot {
     const pointer = this.input.activePointer;
     const aim = pointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2;
+    if (this.touchOn && !(this.loadoutScreen.open || this.maps.open || this.victoryScreen.open)) {
+      return this.readTouch();
+    }
     if (this.loadoutScreen.open || this.maps.open || this.victoryScreen.open) {
       // The ship holds still under the screen or the map, still facing where it was (#78 and #100).
       const { x, y, angle } = this.sim.ship;
@@ -1223,8 +1423,11 @@ export class SandboxScene extends Phaser.Scene {
       return;
     }
     const beside = this.net?.nearestSquadmate();
+    const keys = `[H] respawn at home${beside === undefined ? '' : `      [J] respawn beside ${beside.name}`}`;
     const choices = this.sim.canRespawn
-      ? `[H] respawn at home${beside === undefined ? '' : `      [J] respawn beside ${beside.name}`}`
+      ? this.touchOn
+        ? 'respawn with a button above'
+        : keys
       : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
     const text = ["You're down", '', choices, 'or stay: a friend close by revives you'].join('\n');
     if (this.downPanel.text !== text) {
@@ -1402,8 +1605,8 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setText([
       `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
       `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? 'on' : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : 'off'}  resolution ${this.displaySettings.cssPixels ? 'low' : 'full'}  ${this.fpsLine()}`,
-      'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home',
-      'hold Q orders, tap to repeat · C controls · M sound · N music · 1/2/3 parts · R rotation · F effects · V 60 fps cap · P resolution',
+      // The key lines are about keys, so a tablet goes without them (#180, decision 6).
+      ...(this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE]),
       sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),
       this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
       this.net?.eventLine(performance.now()) ?? '',
@@ -1544,6 +1747,9 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
+    this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
+    this.debug.touchSticks = this.touch.sticks().map((s) => s.role);
+    this.debug.touchFiring = this.touch.firing;
     this.debug.mapOpen = this.maps.open;
     this.debug.openRings = this.net?.frontier.openRings ?? 0;
     this.debug.openedSectors = [...(this.net?.frontier.opened ?? [])];

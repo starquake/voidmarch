@@ -324,3 +324,32 @@ body {
   color: #8fd8ff;
   border-bottom: none;
 }
+
+/* Touch controls (#180): the canvas takes every touch, and key hints go. */
+body.touch #game canvas {
+  touch-action: none;
+}
+
+body.touch .loadout-keys {
+  display: none;
+}
+
+.rotate-notice {
+  display: none;
+}
+
+@media (orientation: portrait) {
+  body.touch .rotate-notice {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    background: rgb(5 3 10 / 92%);
+    color: #d8f8ff;
+    font: 16px/1.4 monospace;
+  }
+}
