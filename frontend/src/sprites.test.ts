@@ -43,6 +43,22 @@ test("every faction's Scouts and Fighters, and every enemy bullet, have their sh
   }
 });
 
+test("every faction's Bombers and Torpedo Ships have their sheets, the Torpedo Ship's warning as long in each", () => {
+  const loaded = new Map(sheets().map((s) => [s.key, s]));
+  const nairan = loaded.get(keys.enemyWeapons('nairan', 'torpedo'));
+  assert.ok(nairan !== undefined);
+  for (const faction of ENEMY_FACTIONS) {
+    for (const kind of ['bomber', 'torpedo'] as const) {
+      for (const key of [keys.enemyBase, keys.enemyEngine, keys.enemyDestruction]) {
+        assert.ok(loaded.has(key(faction, kind)), key(faction, kind));
+      }
+    }
+    const weapons = loaded.get(keys.enemyWeapons(faction, 'torpedo'));
+    assert.ok(weapons !== undefined, `${faction} torpedo weapons`);
+    assert.ok(Math.abs(weapons.frames / weapons.fps - nairan.frames / nairan.fps) < 0.02, `${faction}: ${String(weapons.frames / weapons.fps)} s`);
+  }
+});
+
 test("each faction's fodder telegraphs a volley for about as long as the Kla'ed", () => {
   const klaed = sheets().find((s) => s.key === keys.enemyWeapons('klaed', 'scout'));
   assert.ok(klaed !== undefined);

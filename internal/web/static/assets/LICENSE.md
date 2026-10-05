@@ -22,7 +22,9 @@ required; it is given here anyway.
 
 Files are renamed to kebab-case and otherwise unchanged. A fleet ship's parts
 are named by class and part: the Support Ships' (#184)
-`Kla'ed - Support ship - Base.png` is `klaed/support-base.png`, and the
+`Kla'ed - Support ship - Base.png` is `klaed/support-base.png`, the Torpedo
+Ships' (#185) `Kla'ed - Torpedo Ship - Weapons.png` is
+`klaed/torpedo-weapons.png`, and the
 Nautolan pack's `Nautolan Ship - Support.png`, its destruction strip, is
 `nautolan/support-destruction.png`. Some also come in
 recoloured variants beside the original: palette swaps made with

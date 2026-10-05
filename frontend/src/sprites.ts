@@ -50,6 +50,8 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
   klaed: {
     scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
     fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
+    bomber: { size: 64, engine: 10, destruction: 8 },
+    torpedo: { size: 64, engine: 10, weapons: 16, destruction: 10, weaponsFps: 21 },
     frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
     dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
     support: { size: 64, engine: 10, destruction: 10 },
