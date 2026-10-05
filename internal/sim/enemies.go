@@ -12,8 +12,8 @@ const (
 	EnemyFrigate EnemyKind = "frigate"
 	// EnemyDreadnought is the siege boss (#8).
 	EnemyDreadnought EnemyKind = "dreadnought"
-	// EnemyBomber and EnemyTorpedo, the Torpedo Ship, are the later
-	// factions' slow heavy hitters (#137).
+	// EnemyBomber and EnemyTorpedo, the Torpedo Ship, are the slow heavy
+	// hitters (#137), a few in ring 1 (#185) and more outward.
 	EnemyBomber  EnemyKind = "bomber"
 	EnemyTorpedo EnemyKind = "torpedo"
 	// EnemySupport is the Support Ship, which repairs its pack from behind
