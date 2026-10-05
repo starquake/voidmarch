@@ -193,15 +193,12 @@ var PART_SWITCH_SOUND = "sfx-part-switch";
 var TELEPORT_SOUND = "sfx-teleport";
 var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
 var MUSIC = {
-  home: ["music-eerie-1"],
-  dreadnought: ["music-eerie-2"],
-  battle: ["music-explorer-under-pressure-1", "music-explorer-under-pressure-2"],
-  elsewhere: ["music-explorer-theme-1", "music-explorer-theme-2"]
+  home: "music-title-screen",
+  ring1: "music-level-1",
+  ring2: "music-level-2",
+  ring3: "music-level-3",
+  ending: "music-ending"
 };
-function musicTrack(place, turn) {
-  const tracks = MUSIC[place];
-  return tracks[turn % tracks.length] ?? "";
-}
 function effectFiles() {
   const files = [
     ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
@@ -225,7 +222,7 @@ function effectFiles() {
   return files;
 }
 function musicFiles() {
-  return Object.values(MUSIC).flat().map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
+  return Object.values(MUSIC).map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
 }
 
 // src/sim/rules.gen.ts
@@ -418,8 +415,6 @@ var ASTEROID_COUNT = 60;
 var ASTEROID_CLEAR_RADIUS = 260;
 var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
-var BATTLE_MUSIC_RANGE = 400;
-var BATTLE_MUSIC_CALM_SECONDS = 5;
 var ENEMY_FIRE_GLOW_COLOR = 4172031;
 var BOMBER_WARN_TINT = 2053248;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
@@ -3504,21 +3499,20 @@ function touchMode(matches, search) {
 }
 
 // src/sim/music.ts
-function fighting(enemies, boss, x, y) {
-  return boss === "frigate" || enemies.some((e) => Math.hypot(e.x - x, e.y - y) <= BATTLE_MUSIC_RANGE);
-}
-function calmDown(fight, now2, lastFight) {
-  const last = fight ? now2 : lastFight;
-  return { lastFight: last, battle: last !== void 0 && now2 - last < BATTLE_MUSIC_CALM_SECONDS };
-}
-function musicPlace(sector, boss, battle) {
-  if (boss === "dreadnought") {
-    return "dreadnought";
+function musicPlace(sector, victory) {
+  if (victory) {
+    return "ending";
   }
-  if (battle) {
-    return "battle";
+  switch (sector === void 0 ? void 0 : sectorRing(sector)) {
+    case 0:
+      return "home";
+    case 1:
+      return "ring1";
+    case 2:
+      return "ring2";
+    default:
+      return "ring3";
   }
-  return sector === HOME_SECTOR ? "home" : "elsewhere";
 }
 
 // src/sim/world.ts
@@ -3765,7 +3759,6 @@ function bossBar(bosses, x, y) {
   const max = Math.round(nearest.maxHp);
   const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} online` : "";
   return {
-    kind: nearest.kind,
     name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
@@ -3822,9 +3815,8 @@ var ShipAudio = class {
   music;
   fading = /* @__PURE__ */ new Set();
   place = "home";
-  turns = { home: 0, dreadnought: 0, battle: 0, elsewhere: 0 };
   awaitingUnlock = false;
-  /** Whether the next track fades in: after a place change, not when one track follows another. */
+  /** Whether the next track fades in: after a place change, not at the start or when the music is switched on. */
   fadeInNext = false;
   musicLoaded = false;
   shots = 0;
@@ -3995,8 +3987,7 @@ var ShipAudio = class {
       }
       return;
     }
-    const place = this.place;
-    const key2 = musicTrack(place, this.turns[place]);
+    const key2 = MUSIC[this.place];
     const fading = [...this.fading].find((sound) => sound.key === key2);
     if (fading !== void 0) {
       this.fading.delete(fading);
@@ -4008,15 +3999,7 @@ var ShipAudio = class {
     if (!this.scene.cache.audio.exists(key2)) {
       return;
     }
-    const music = this.scene.sound.add(key2, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME });
-    music.once(Phaser3.Sound.Events.COMPLETE, () => {
-      this.discard(music);
-      if (this.music === music) {
-        this.music = void 0;
-        this.turns[place]++;
-        this.playMusic();
-      }
-    });
+    const music = this.scene.sound.add(key2, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME, loop: true });
     this.music = music;
     music.play();
     if (this.fadeInNext) {
@@ -4034,7 +4017,7 @@ var ShipAudio = class {
     this.scene.tweens.killTweensOf(music);
     this.scene.tweens.add({ targets: music, volume, duration: MUSIC_FADE_MS, onComplete: () => done?.() });
   }
-  /** Drops a track that has faded out, finished, or been switched off. */
+  /** Drops a track that has faded out or been switched off. */
   discard(music) {
     this.scene.tweens.killTweensOf(music);
     this.fading.delete(music);
@@ -6412,8 +6395,6 @@ var SandboxScene = class extends Phaser11.Scene {
   diagnostics;
   shotsFired = 0;
   hudUpdatedAt = 0;
-  /** When a fight was last on, in seconds, for the battle music's calm-down (#187). */
-  lastFight;
   debug;
   frameTimes = new FrameTimes();
   mapsDrawnAt = -Infinity;
@@ -6579,9 +6560,8 @@ var SandboxScene = class extends Phaser11.Scene {
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
-    const boss = bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y);
-    this.bossBar.show(boss);
-    this.updateMusic(time, boss?.kind);
+    this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), this.victoryScreen.open));
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
@@ -6624,13 +6604,6 @@ var SandboxScene = class extends Phaser11.Scene {
     const b = this.missionBanner.getBounds();
     const line = MISSION_BANNER_BORDER_PX * this.dpr();
     this.missionFrame.clear().fillStyle(0, MISSION_BANNER_ALPHA).fillRect(b.x, b.y, b.width, b.height).lineStyle(line, MISSION_COLOR, 1).strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
-  }
-  /** Picks the music's place: a Dreadnought fight, a battle and its calm-down, home or elsewhere (#187). */
-  updateMusic(time, boss) {
-    const { x, y } = this.sim.ship;
-    const calm = calmDown(fighting(this.net?.enemyList ?? [], boss, x, y), time / 1e3, this.lastFight);
-    this.lastFight = calm.lastFight;
-    this.audio.setMusicPlace(musicPlace(sectorName(x, y), boss, calm.battle));
   }
   /**
    * The arrows at the screen's edge: gold toward the squadron's mission (#101),

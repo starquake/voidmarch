@@ -18,6 +18,7 @@ test('the victory screen shows the season result, and O and Esc close and reopen
   await expect(screen.locator('h2')).toContainText('SEASON WON');
   await expect(page.locator('#victory-took')).toHaveText(/^in (\d+ h )?\d+ min$/);
   await expect(page.locator('#victory-totals td').first()).toHaveText('Everyone');
+  await expect.poll(async () => (await state(page)).audio.musicPlace, { message: 'Ending plays (#187)' }).toBe('ending');
 
   await page.keyboard.press('o');
   await expect.poll(async () => (await state(page)).victoryScreen).toBe(false);
@@ -25,4 +26,5 @@ test('the victory screen shows the season result, and O and Esc close and reopen
   await expect.poll(async () => (await state(page)).victoryScreen, { message: 'O reopens it' }).toBe(true);
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await state(page)).victoryScreen).toBe(false);
+  await expect.poll(async () => (await state(page)).audio.musicPlace, { message: 'the home track comes back' }).toBe('home');
 });

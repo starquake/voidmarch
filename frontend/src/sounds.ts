@@ -47,20 +47,14 @@ export const TELEPORT_SOUND = 'sfx-teleport';
 /** The force field's zaps (#127), played in random order. */
 export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
-/** Each place's music tracks (#187), played in turn: Eerie Space Music at home and against a Dreadnought, the Under Pressure themes in a battle. */
-export const MUSIC: Readonly<Record<MusicPlace, readonly string[]>> = {
-  home: ['music-eerie-1'],
-  dreadnought: ['music-eerie-2'],
-  battle: ['music-explorer-under-pressure-1', 'music-explorer-under-pressure-2'],
-  elsewhere: ['music-explorer-theme-1', 'music-explorer-theme-2'],
+/** Each place's music track (#187), looped: Juhani Junkala's 5 Action Chiptunes. */
+export const MUSIC: Readonly<Record<MusicPlace, string>> = {
+  home: 'music-title-screen',
+  ring1: 'music-level-1',
+  ring2: 'music-level-2',
+  ring3: 'music-level-3',
+  ending: 'music-ending',
 };
-
-/** The track a place plays on its turn-th go. */
-export function musicTrack(place: MusicPlace, turn: number): string {
-  const tracks = MUSIC[place];
-
-  return tracks[turn % tracks.length] ?? '';
-}
 
 /** Effects, small enough to load before the game starts. */
 export function effectFiles(): SoundFile[] {
@@ -89,7 +83,5 @@ export function effectFiles(): SoundFile[] {
 
 /** Music, loaded in the background once the game runs. */
 export function musicFiles(): SoundFile[] {
-  return Object.values(MUSIC)
-    .flat()
-    .map((key) => both(key, `music/${key.replace(/^music-/, '')}`));
+  return Object.values(MUSIC).map((key) => both(key, `music/${key.replace(/^music-/, '')}`));
 }

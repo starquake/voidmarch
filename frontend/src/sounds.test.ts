@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { CHARGE_SOUNDS, ENEMY_EXPLOSION_SOUND, ENEMY_SHOT_SOUND, ENGINE_LOOPS, EXPIRE_SOUNDS, MUSIC, PART_SWITCH_SOUND, SHIELD_SOUND, SHOT_SOUNDS, TELEPORT_SOUND, effectFiles, musicFiles, musicTrack } from './sounds.ts';
+import { CHARGE_SOUNDS, ENEMY_EXPLOSION_SOUND, ENEMY_SHOT_SOUND, ENGINE_LOOPS, EXPIRE_SOUNDS, MUSIC, PART_SWITCH_SOUND, SHIELD_SOUND, SHOT_SOUNDS, TELEPORT_SOUND, effectFiles, musicFiles } from './sounds.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
@@ -28,26 +28,19 @@ test('every sound the game plays is loaded', () => {
     ENEMY_SHOT_SOUND,
     PART_SWITCH_SOUND,
     TELEPORT_SOUND,
-    ...Object.values(MUSIC).flat(),
+    ...Object.values(MUSIC),
   ];
   for (const key of used) {
     assert.ok(loaded.has(key), key);
   }
 });
 
-test('each place has its own music: the Under Pressure themes in a battle, the Explorer themes everywhere else', () => {
+test('Title Screen plays at home, Level 1 to 3 in the rings, and Ending on the victory screen', () => {
   assert.deepEqual(MUSIC, {
-    home: ['music-eerie-1'],
-    dreadnought: ['music-eerie-2'],
-    battle: ['music-explorer-under-pressure-1', 'music-explorer-under-pressure-2'],
-    elsewhere: ['music-explorer-theme-1', 'music-explorer-theme-2'],
+    home: 'music-title-screen',
+    ring1: 'music-level-1',
+    ring2: 'music-level-2',
+    ring3: 'music-level-3',
+    ending: 'music-ending',
   });
-});
-
-test('a place plays its tracks in turn', () => {
-  assert.equal(musicTrack('elsewhere', 0), 'music-explorer-theme-1');
-  assert.equal(musicTrack('elsewhere', 1), 'music-explorer-theme-2');
-  assert.equal(musicTrack('elsewhere', 2), 'music-explorer-theme-1');
-  assert.equal(musicTrack('home', 3), 'music-eerie-1');
-  assert.equal(musicTrack('battle', 1), 'music-explorer-under-pressure-2');
 });

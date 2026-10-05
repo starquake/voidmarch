@@ -13,12 +13,12 @@ import {
   ENGINE_LOOPS,
   FIELD_ZAP_SOUNDS,
   EXPIRE_SOUNDS,
+  MUSIC,
   PART_SWITCH_SOUND,
   SHIELD_SOUND,
   SHOT_SOUNDS,
   TELEPORT_SOUND,
   musicFiles,
-  musicTrack,
 } from '../sounds.ts';
 
 type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound | Phaser.Sound.NoAudioSound;
@@ -47,9 +47,8 @@ export class ShipAudio {
   private music: Sound | undefined;
   private readonly fading = new Set<Sound>();
   private place: MusicPlace = 'home';
-  private readonly turns: Record<MusicPlace, number> = { home: 0, dreadnought: 0, battle: 0, elsewhere: 0 };
   private awaitingUnlock = false;
-  /** Whether the next track fades in: after a place change, not when one track follows another. */
+  /** Whether the next track fades in: after a place change, not at the start or when the music is switched on. */
   private fadeInNext = false;
   private musicLoaded = false;
   private shots = 0;
@@ -245,8 +244,7 @@ export class ShipAudio {
 
       return;
     }
-    const place = this.place;
-    const key = musicTrack(place, this.turns[place]);
+    const key = MUSIC[this.place];
     const fading = [...this.fading].find((sound) => sound.key === key);
     if (fading !== undefined) {
       this.fading.delete(fading);
@@ -259,15 +257,7 @@ export class ShipAudio {
     if (!this.scene.cache.audio.exists(key)) {
       return;
     }
-    const music = this.scene.sound.add(key, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME });
-    music.once(Phaser.Sound.Events.COMPLETE, () => {
-      this.discard(music);
-      if (this.music === music) {
-        this.music = undefined;
-        this.turns[place]++;
-        this.playMusic();
-      }
-    });
+    const music = this.scene.sound.add(key, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME, loop: true });
     this.music = music;
     music.play();
     if (this.fadeInNext) {
@@ -288,7 +278,7 @@ export class ShipAudio {
     this.scene.tweens.add({ targets: music, volume, duration: MUSIC_FADE_MS, onComplete: () => done?.() });
   }
 
-  /** Drops a track that has faded out, finished, or been switched off. */
+  /** Drops a track that has faded out or been switched off. */
   private discard(music: Sound): void {
     this.scene.tweens.killTweensOf(music);
     this.fading.delete(music);

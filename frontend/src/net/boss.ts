@@ -20,8 +20,6 @@ export interface DrawnBoss extends BossHealth {
 
 /** What the health bar at the top shows. */
 export interface BossBar {
-  /** Which boss it is, for the music (#187). */
-  kind: EnemyKind;
   name: string;
   /** The health and the shield, each from 0 to 1. */
   health: number;
@@ -55,7 +53,6 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} online` : '';
 
   return {
-    kind: nearest.kind,
     name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),

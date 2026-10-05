@@ -96,8 +96,7 @@ import {
   sectorState,
   sectorOpen,
 } from '../sim/sectors.ts';
-import type { EnemyKind } from '../sim/enemies.ts';
-import { calmDown, fighting, musicPlace } from '../sim/music.ts';
+import { musicPlace } from '../sim/music.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, modeName } from '../squadrons.ts';
@@ -306,8 +305,6 @@ export class SandboxScene extends Phaser.Scene {
   private diagnostics: Diagnostics | undefined;
   private shotsFired = 0;
   private hudUpdatedAt = 0;
-  /** When a fight was last on, in seconds, for the battle music's calm-down (#187). */
-  private lastFight: number | undefined;
   private debug!: DebugState;
   private readonly frameTimes = new FrameTimes();
   private mapsDrawnAt = -Infinity;
@@ -478,9 +475,8 @@ export class SandboxScene extends Phaser.Scene {
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
-    const boss = bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y);
-    this.bossBar.show(boss);
-    this.updateMusic(time, boss?.kind);
+    this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), this.victoryScreen.open));
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
@@ -530,14 +526,6 @@ export class SandboxScene extends Phaser.Scene {
       .fillRect(b.x, b.y, b.width, b.height)
       .lineStyle(line, MISSION_COLOR, 1)
       .strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
-  }
-
-  /** Picks the music's place: a Dreadnought fight, a battle and its calm-down, home or elsewhere (#187). */
-  private updateMusic(time: number, boss: EnemyKind | undefined): void {
-    const { x, y } = this.sim.ship;
-    const calm = calmDown(fighting(this.net?.enemyList ?? [], boss, x, y), time / 1000, this.lastFight);
-    this.lastFight = calm.lastFight;
-    this.audio.setMusicPlace(musicPlace(sectorName(x, y), boss, calm.battle));
   }
 
   /**
