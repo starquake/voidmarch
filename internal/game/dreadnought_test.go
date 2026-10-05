@@ -530,6 +530,28 @@ func TestDreadnought_TheNautolanOneIsTheFinale(t *testing.T) {
 	if fell.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAUTOLAN {
 		t.Errorf("BossFell %+v, want the Nautolan one fallen", fell)
 	}
+	// Its sector is cleared before the season is won, unless it was already.
+	s := dreadnoughtSector(t, d)
+	clearedAt, wonAt := -1, -1
+	for i, msg := range others {
+		if c := msg.GetSectorCleared(); c != nil && c.GetSector() == s.Name() {
+			clearedAt = i
+		}
+		if msg.GetSeasonWon() != nil {
+			wonAt = i
+		}
+	}
+	before := slices.Contains(finaleCleared(), s.Name())
+	if wonAt < 0 || (!before && (clearedAt < 0 || clearedAt > wonAt)) ||
+		(before && clearedAt >= 0) {
+		t.Errorf(
+			"%s cleared at message %d and the season won at %d (cleared before: %t), want it cleared once, first",
+			s.Name(),
+			clearedAt,
+			wonAt,
+			before,
+		)
+	}
 	deadline := time.Now().Add(time.Second)
 	for !won.Load() && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
@@ -680,7 +702,7 @@ func TestDreadnought_StandsDownAGarrisonOutWhenItWoke(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithDreadnoughtGarrisonOut())
+	hub, tick := testHub(t, WithMap(m), WithDreadnoughtGarrisonOut(0))
 	a, _ := join(t, hub, "a")
 	snap := must(latest(t, a, tick, 2, 0, 0))
 	if guards := guardsIn(snap, dreadnoughtSector(t, dreadnoughtIn(snap))); len(guards) > 0 {
@@ -710,6 +732,171 @@ func TestDreadnought_AnAttackOnItsSectorStillFights(t *testing.T) {
 		"no attack force came into %s, the Dreadnought's cleared sector, want it to fight",
 		s.Name(),
 	)
+}
+
+// sectorSaves collects the sectors a hub saves as cleared, off its tick
+// goroutine.
+type sectorSaves struct {
+	mu    sync.Mutex
+	names []string
+}
+
+func (s *sectorSaves) save(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.names = append(s.names, name)
+}
+
+// settle waits up to a second for name to be saved, and returns the saves.
+func (s *sectorSaves) settle(name string) []string {
+	deadline := time.Now().Add(time.Second)
+	for {
+		s.mu.Lock()
+		names := slices.Clone(s.names)
+		s.mu.Unlock()
+		if slices.Contains(names, name) || time.Now().After(deadline) {
+			return names
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// felled shoots down the Dreadnought d, at a sliver of its health, from
+// beside it, and returns the messages of the tick it fell in.
+func felled(t *testing.T, a *Session, tick func(int), d *pb.EnemyState) []*pb.ServerMessage {
+	t.Helper()
+
+	x, y := d.GetX(), d.GetY()+300
+	must(latest(t, a, tick, 1, x, y))
+	for shot := range uint32(sim.DreadnoughtShield/MaxHitDamage + 2) { //nolint:gosec // a few shots.
+		hitFrigate(a, d.GetEnemyId(), shot+1)
+	}
+	_, others := latest(t, a, tick, 1, x, y)
+
+	return others
+}
+
+// clearedIn are the sectors cleared among messages.
+func clearedIn(messages []*pb.ServerMessage) []string {
+	var out []string
+	for _, msg := range messages {
+		if c := msg.GetSectorCleared(); c != nil {
+			out = append(out, c.GetSector())
+		}
+	}
+
+	return out
+}
+
+func TestDreadnought_ItsFallClearsItsSectorTowardTheNextWake(t *testing.T) {
+	t.Parallel()
+
+	saves := &sectorSaves{}
+	hub, tick := testHub(
+		t,
+		WithClearedSectors(ringOne(4)),
+		WithClearedBesideDreadnought(sim.DreadnoughtWakesAt-1),
+		WithDreadnought(sim.Klaed, 0.0005),
+		WithSaveSector(saves.save),
+		WithPoolStart(3),
+		NoEvents,
+	)
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	s := dreadnoughtSector(t, d)
+	if got := clearedIn(felled(t, a, tick, d)); !slices.Equal(got, []string{s.Name()}) {
+		t.Errorf("sectors cleared as it fell = %v, want its own, %s", got, s.Name())
+	}
+	if got := saves.settle(s.Name()); !slices.Contains(got, s.Name()) {
+		t.Errorf("saved sectors %v, want %s", got, s.Name())
+	}
+	// Its sector makes 4 of ring 2 cleared, so the Nairan one wakes.
+	next := dreadnoughtIn(must(latest(t, a, tick, 2, 0, 0)))
+	if next.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAIRAN {
+		t.Errorf("Dreadnought %+v after the Kla'ed one fell, want the Nairan one awake", next)
+	}
+}
+
+func TestDreadnought_ItsFallClearsAGarrisonFoughtBefore(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(
+		t,
+		WithMap(m),
+		WithClearedSectors(ringOne(4)),
+		WithDreadnoughtGarrisonOut(2),
+		WithDreadnought(sim.Klaed, 0.0005),
+	)
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	s := dreadnoughtSector(t, d)
+	if got := clearedIn(felled(t, a, tick, d)); !slices.Equal(got, []string{s.Name()}) {
+		t.Errorf(
+			"sectors cleared as it fell = %v, want its own, %s, part of its garrison gone",
+			got,
+			s.Name(),
+		)
+	}
+	x, y := d.GetX(), d.GetY()+150
+	if guards := guardsIn(must(latest(t, a, tick, 2*TickRate, x, y)), s); len(guards) > 0 {
+		t.Errorf("%d of %s's garrison out once it was cleared, want none", len(guards), s.Name())
+	}
+}
+
+func TestDreadnought_ItsFallLeavesASectorClearedBeforeAsItIs(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(
+		t,
+		WithMap(m),
+		WithClearedSectors(ringOne(4)),
+		WithDreadnoughtInClearedSector(),
+		WithDreadnought(sim.Klaed, 0.0005),
+	)
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	if got := clearedIn(felled(t, a, tick, d)); len(got) != 0 {
+		t.Errorf("sectors cleared as it fell in a sector cleared before = %v, want none", got)
+	}
+}
+
+func TestDreadnought_ItsClearedSectorStaysClearedBehindAClosedRing(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(
+		t,
+		WithClearedSectors(ringOne(4)),
+		WithDreadnought(sim.Klaed, 0.0005),
+		WithDevelopment(),
+		WithEventTimes(1<<30, 40, 1<<30, 1<<30),
+	)
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	s := dreadnoughtSector(t, d)
+	if got := clearedIn(felled(t, a, tick, d)); !slices.Equal(got, []string{s.Name()}) {
+		t.Fatalf("sectors cleared as it fell = %v, want %s", got, s.Name())
+	}
+	// Ring 1 falls back: an attack nobody fights takes one of its sectors.
+	a.Send(devAttack(ringOne(1)[0]))
+	var frontier *pb.Frontier
+	for range 60 {
+		if f := frontierIn(must2(latest(t, a, tick, 1, 0, 0))); f != nil {
+			frontier = f
+		}
+	}
+	if frontier.GetOpenRings() != 1 {
+		t.Fatalf("frontier %+v once ring 1 fell back, want ring 2 closed", frontier)
+	}
+	_, w := join(t, hub, "b")
+	if !slices.Contains(w.GetClearedSectors(), s.Name()) {
+		t.Errorf(
+			"cleared sectors %v behind the closed ring, want %s kept cleared",
+			w.GetClearedSectors(),
+			s.Name(),
+		)
+	}
 }
 
 // damageLines are the "dreadnought damage" lines among logs.

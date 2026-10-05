@@ -354,9 +354,9 @@ func (h *Hub) shipLoadout(ship string) sim.Loadout {
 
 // dreadnoughtFallen rewards the players near e, releases its derelicts and
 // tells everyone (#125), opens the ring it guarded (#140, replacing #8
-// decision 12's "rings 2 and 3 together"), and saves a fresh Dreadnought's
-// health for the next time its faction's wakes. The finale's fall wins the
-// season (#153).
+// decision 12's "rings 2 and 3 together"), saves a fresh Dreadnought's
+// health for the next time its faction's wakes, and clears the sector it
+// held (#223). The finale's fall wins the season (#153).
 func (h *Hub) dreadnoughtFallen(e *enemy) {
 	var gains []*pb.PickupGain
 	for _, id := range slices.Sorted(maps.Keys(h.members)) {
@@ -386,6 +386,8 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 	h.dreadnoughtID = 0
 	h.dreadnoughtShares[e.faction] = 1
 	h.saveDreadnoughtShare(e.faction, 1)
+	// Before the finale's win, so the season's stats count the sector.
+	h.clearHeldSector(e.dread.sector)
 	if finale(e.faction) {
 		h.winSeason()
 	}
@@ -395,6 +397,22 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 		h.saves <- func() { h.saveOpenRings(opened) }
 	}
 	h.broadcastFrontier()
+}
+
+// clearHeldSector clears s, the sector a fallen Dreadnought held, its
+// garrison gone with it however much of it is left (#223); a sector cleared
+// before, when its ring was open the last time, stays as it is.
+func (h *Hub) clearHeldSector(s sim.Sector) {
+	if h.cleared[s] {
+		return
+	}
+	var mission []*pb.PlayerStats
+	if g := h.garrisons[s]; g != nil {
+		mission = h.missionStats(g)
+		h.standDown(g)
+		delete(h.garrisons, s)
+	}
+	h.clearSector(s, mission)
 }
 
 // saveDreadnoughtShare saves the share of faction's Dreadnought's health

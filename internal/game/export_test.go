@@ -154,13 +154,37 @@ func WithWokenThenLost(name string) HubOption {
 }
 
 // WithDreadnoughtGarrisonOut wakes the Dreadnought at the start with its
-// sector's garrison on the field, as if it was out before it woke.
-func WithDreadnoughtGarrisonOut() HubOption {
+// sector's garrison on the field, killed of it destroyed already, as if it
+// was fought before the Dreadnought woke.
+func WithDreadnoughtGarrisonOut(killed int) HubOption {
 	return func(o *hubOptions) {
 		o.setup = append(o.setup, func(h *Hub) {
 			h.wakeDreadnought()
 			if e, awake := h.enemies[h.dreadnoughtID]; awake {
-				h.fillGarrison(h.garrisons[e.dread.sector], nil)
+				g := h.garrisons[e.dread.sector]
+				g.killed = killed
+				h.fillGarrison(g, nil)
+			}
+		})
+	}
+}
+
+// WithClearedBesideDreadnought wakes the Dreadnought at the start, with n
+// other sectors of its ring cleared.
+func WithClearedBesideDreadnought(n int) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			e, awake := h.enemies[h.dreadnoughtID]
+			if !awake {
+				return
+			}
+			for _, s := range sim.Sectors() {
+				if n > 0 && s.Ring() == e.dread.sector.Ring() && s != e.dread.sector {
+					h.cleared[s] = true
+					delete(h.garrisons, s)
+					n--
+				}
 			}
 		})
 	}
