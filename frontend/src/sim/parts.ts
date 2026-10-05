@@ -28,6 +28,27 @@ export const PART_NAMES: Readonly<Record<PartId, string>> = {
   invincibility: 'Invincibility Shield',
 };
 
+/** What each part does, in a few words, for the gauge's drop-up (#191). */
+export const PART_HINTS: Readonly<Record<PartId, string>> = {
+  autoCannon: 'steady and precise',
+  rockets: 'seek the nearest enemy',
+  bigSpaceGun: 'charges, then bursts into shards',
+  zapper: 'a zigzag beam that pierces',
+  base: 'balanced',
+  bigPulse: 'fast, but drifts',
+  burst: 'snappy, but slow',
+  supercharged: 'quick and fast',
+  front: '3 charges, the front',
+  frontAndSide: '2 charges, front and sides',
+  round: '1 charge, all round',
+  invincibility: '3 charges all round, slow to recharge',
+};
+
+/** The parts a slot's drop-up offers (#191): the ones this player owns, or every part where anything goes. */
+export function ownedParts<T extends PartId>(parts: readonly T[], unlocks: Unlocks | undefined): T[] {
+  return unlocks === undefined ? [...parts] : parts.filter((p) => unlocks.has(p));
+}
+
 /** A part's name with its tier before it: "Mega Zapper", or "Zapper" when plain. */
 export function partLabel(part: PartId, tier: number): string {
   const name = TIER_NAMES[tier] ?? '';
@@ -75,3 +96,15 @@ export const defaultUnlocks = (): Map<PartId, number> =>
     [DEFAULT_LOADOUT.engine, 0],
     [DEFAULT_LOADOUT.shield, 0],
   ]);
+
+/**
+ * The part a slot's key fits next (#191): the next one this player owns,
+ * wrapping round, or the next of every part when unlocks is undefined (a
+ * development server, or playing alone).
+ */
+export function nextPart<T extends PartId>(parts: readonly T[], current: T, unlocks: Unlocks | undefined): T {
+  const choices = unlocks === undefined ? parts : parts.filter((p) => p === current || unlocks.has(p));
+  const next = choices[(choices.indexOf(current) + 1) % choices.length];
+
+  return next ?? current;
+}

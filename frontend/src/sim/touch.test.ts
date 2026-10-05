@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { TouchControls, buttonAt, touchButtons, touchMode, touchUnit, type ButtonRect, type TouchScreen } from './touch.ts';
 import { TOUCH_DEAD_ZONE, TOUCH_MIN_SCALE, TOUCH_STICK_RADIUS_PX } from './tuning.ts';
 
-const screen: TouchScreen = { width: 1000, height: 800, dpr: 1, atHome: false, down: false, canRespawn: false, beside: undefined, fullscreen: undefined };
+const screen: TouchScreen = { width: 1000, height: 800, dpr: 1, down: false, canRespawn: false, beside: undefined, fullscreen: undefined };
 
 test('the left half moves, the right half aims and fires, and each stick takes one touch', () => {
   const t = new TouchControls();
@@ -44,10 +44,10 @@ test('a knob is drawn within its stick reach', () => {
 const play = (s: TouchScreen): ButtonRect[] => touchButtons(s).filter((b) => b.button !== 'settings' && b.button !== 'fullscreen');
 
 test('buttons and the minimap take their touches before the sticks', () => {
-  const buttons = touchButtons({ ...screen, atHome: true });
+  const buttons = touchButtons(screen);
   assert.deepEqual(
     buttons.map((b) => b.button),
-    ['summon', 'orders', 'loadout', 'settings'],
+    ['summon', 'orders', 'settings'],
   );
   const orders = buttons[1];
   assert.ok(orders);
@@ -62,7 +62,7 @@ test('buttons and the minimap take their touches before the sticks', () => {
   assert.equal(t.position('aim'), undefined);
 });
 
-test('Loadout shows only at home, and while down only the respawns', () => {
+test('while down, only the respawns show', () => {
   assert.equal(play(screen).length, 2);
   assert.deepEqual(play({ ...screen, down: true }), [], 'not yet allowed to respawn');
   const respawns = play({ ...screen, down: true, canRespawn: true, beside: 'Mira' });

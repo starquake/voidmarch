@@ -69,6 +69,12 @@ test('a charging weapon reports the charge, then the shot', async () => {
   const s = await sim();
   s.setLoadout({ ...s.ship.loadout, weapon: 'bigSpaceGun' });
   assert.equal(s.ship.loadout.weapon, 'bigSpaceGun');
+  // A new weapon waits out the swap first (#191).
+  assert.ok(s.ship.cooldown > 0);
+  assert.deepEqual(s.advance(TICK_SECONDS, input({ fire: true })).charges, [], 'nothing during the swap');
+  while (s.ship.cooldown > 0) {
+    s.advance(TICK_SECONDS, input());
+  }
   assert.deepEqual(s.advance(TICK_SECONDS, input({ fire: true })).charges, ['bigSpaceGun']);
   let shots = 0;
   for (let t = 0; t < 1; t += TICK_SECONDS) {

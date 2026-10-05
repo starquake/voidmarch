@@ -282,14 +282,15 @@ func (b *Bridge) Respawn(x, y float64) bool {
 
 // SetLoadout fits the parts at the indexes of [sim.Weapons], [sim.Engines]
 // and [sim.Shields], at their tiers; an index out of range keeps that part,
-// and a tier is held to plain through Hyper. A new weapon starts ready.
+// and a tier is held to plain through Hyper. A new weapon fires after
+// [sim.WeaponSwapSeconds].
 func (b *Bridge) SetLoadout(weapon, engine, shield, weaponTier, engineTier, shieldTier int) {
 	s := b.sandbox.Ship
 	l := &s.Loadout
 	if next := pick(sim.Weapons(), weapon, l.Weapon); next != l.Weapon {
-		// A new weapon starts ready, from its first barrel.
+		// A new weapon waits out the swap, then fires from its first barrel.
 		l.Weapon = next
-		s.Cooldown, s.Charging, s.NextMuzzle = 0, 0, 0
+		s.Cooldown, s.Charging, s.NextMuzzle = sim.WeaponSwapSeconds, 0, 0
 	}
 	l.Engine = pick(sim.Engines(), engine, l.Engine)
 	l.Shield = pick(sim.Shields(), shield, l.Shield)

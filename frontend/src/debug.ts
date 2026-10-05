@@ -77,8 +77,6 @@ export interface DebugState {
   /** The player's squadron, "" before choosing, and whether the join screen is up. */
   squadron: string;
   squadronScreen: boolean;
-  /** Whether the loadout screen is open (#78). */
-  loadoutScreen: boolean;
   /** Whether the victory screen is open (#156). */
   victoryScreen: boolean;
   /** Whether the settings screen is open (#145). */

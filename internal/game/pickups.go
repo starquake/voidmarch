@@ -236,13 +236,12 @@ func WithSaveLoadout(save func(player string, l sim.Loadout)) HubOption {
 }
 
 // saveFittedLoadout saves the loadout m's ship reports, when it changed and
-// was fitted at home from parts the player owns (#78); tiers come from the
-// unlocks, so they aren't saved.
+// is made of parts the player owns, wherever it was fitted (#191); tiers
+// come from the unlocks, so they aren't saved.
 func (h *Hub) saveFittedLoadout(id string, m *member) {
 	l := simLoadout(m.state.GetLoadout())
 	l.WeaponTier, l.EngineTier, l.ShieldTier = 0, 0, 0
-	if l == m.loadout || !m.unlocks.Allows(l) ||
-		!sim.CanChangeLoadout(float64(m.state.GetX()), float64(m.state.GetY())) {
+	if l == m.loadout || !m.unlocks.Allows(l) {
 		return
 	}
 	m.loadout = l

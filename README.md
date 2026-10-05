@@ -50,7 +50,8 @@ From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
 | Mouse | Aim |
 | Left button (hold) | Fire |
 | G | Draw a companion from the hangar (at the home planet) |
-| L | Loadout screen: fit your parts (at the home planet); Esc closes it |
+| 1 / 2 / 3 | Cycle the weapon / engine / shield through the parts you own, anywhere; a new weapon fires after a half-second swap |
+| Click a part slot | Bottom left: a list of that slot's parts above it; click one to fit it, Esc or a click elsewhere closes it |
 | M | Full map: click an uncleared sector to send your squadron there; M or Esc closes it |
 | Tab (hold) | The season so far: the top players by kills, and you, while held |
 | O | Victory screen, once the season is won: everyone's kills, hit rate, deaths, rescues and sectors; O or Esc closes it |
@@ -67,8 +68,8 @@ still while it's open, and every choice is remembered in the browser. Sound star
 
 The HUD shows your ship bottom left: the three fitted parts as their icons,
 in their tier's color, and the hull and shield as pips. Top left, a panel
-names your squadron and its orders, the hangar at home, the sector you're
-in, your mission and any alert. Notices, and the connection while it isn't
+names your squadron and its orders, the hangar at home, how many of your
+companions are out, the sector you're in, your mission and any alert. Notices, and the connection while it isn't
 online, show as toasts at the top. The keys are listed bottom right. On a
 development server or offline, **F3** shows frames per second, with the
 worst frame of the last second.
@@ -85,7 +86,7 @@ turns them on anywhere, and `?touch=0` off. Play in landscape.
 | Right half | A stick where your thumb lands: aim that way and fire while pushed; let go to stop (the big space gun fires on release) |
 | Summon | Draw a companion from the hangar |
 | Orders (hold) | Order ring: slide to an order and let go; a tap repeats the last order |
-| Loadout | Loadout screen, at the home planet; a tap beside it closes it |
+| Part slots | Bottom left: tap one for its list of parts, and tap a part to fit it |
 | Minimap | Full map: tap a sector to send your squadron there, tap beside it to close |
 | Respawn buttons | When down, respawn at home or beside a squadmate |
 | Settings | Top left: the settings screen; tap a row to change it, tap beside it to close |
@@ -223,8 +224,11 @@ more often still near a player who's behind their squadron. Fly over one to
 collect it for your whole squadron, wherever they are. A part you don't have
 is yours for good; one you have goes up a tier, Super, Mega, then Hyper,
 each about 15% stronger, shown in blue, violet and gold. A pickup glows in the
-tier it would give you, blinks after 20 s and is gone at 30 s. Press **L** at
-the home planet to fit your parts; the server remembers what you fitted.
+tier it would give you, blinks after 20 s and is gone at 30 s. Switch parts
+anywhere, in a fight too: **1**, **2** and **3** cycle the weapon, engine and
+shield through the parts you own, or click a slot in the gauge for its list.
+A newly fitted weapon fires after a half-second swap. The server remembers
+what you fitted.
 
 Add `?wire=json` to the address to see the game's messages as readable JSON in
 the browser's network panel.

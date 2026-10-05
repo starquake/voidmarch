@@ -13,8 +13,8 @@ import {
   TOUCH_WIDE_BUTTON_PX,
 } from './tuning.ts';
 
-/** The touch buttons (#180): what the keyboard's G, Q, L, H, J and Esc do, and switching to fullscreen and back. */
-export type TouchButton = 'summon' | 'orders' | 'loadout' | 'respawnHome' | 'respawnBeside' | 'settings' | 'fullscreen';
+/** The touch buttons (#180): what the keyboard's G, Q, H, J and Esc do, and switching to fullscreen and back. */
+export type TouchButton = 'summon' | 'orders' | 'respawnHome' | 'respawnBeside' | 'settings' | 'fullscreen';
 
 /** A touch button's place on the canvas, in device pixels, and its label. */
 export interface ButtonRect {
@@ -43,7 +43,6 @@ export interface TouchScreen {
   width: number;
   height: number;
   dpr: number;
-  atHome: boolean;
   down: boolean;
   canRespawn: boolean;
   /** The squadmate to respawn beside, if one is up. */
@@ -57,7 +56,7 @@ export interface TouchScreen {
 
 /**
  * The buttons for screen, as mocked (#180): Summon and Orders on the right
- * edge and Loadout beside them at home; while down, only the respawns.
+ * edge; while down, only the respawns.
  */
 export function touchButtons(screen: TouchScreen): ButtonRect[] {
   const dpr = touchUnit(screen.height, screen.dpr);
@@ -85,7 +84,7 @@ export function touchButtons(screen: TouchScreen): ButtonRect[] {
   return [...playButtons(screen, dpr), settings, ...switcher];
 }
 
-/** The buttons for playing: Summon, Orders and Loadout, or while down the respawns. */
+/** The buttons for playing: Summon and Orders, or while down the respawns. */
 function playButtons(screen: TouchScreen, dpr: number): ButtonRect[] {
   const { width, height } = screen;
   const h = TOUCH_BUTTON_PX * dpr;
@@ -111,9 +110,6 @@ function playButtons(screen: TouchScreen, dpr: number): ButtonRect[] {
     { button: 'summon', label: 'Summon', x: right, y: top, width: w, height: h, gold: false },
     { button: 'orders', label: 'Orders', x: right, y: top + h + gap, width: w, height: h, gold: false },
   ];
-  if (screen.atHome) {
-    buttons.push({ button: 'loadout', label: 'Loadout', x: right - gap - w, y: top + h + gap, width: w, height: h, gold: true });
-  }
 
   return buttons;
 }

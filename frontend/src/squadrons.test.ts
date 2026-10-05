@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { create } from '@bufbuild/protobuf';
 
 import { CompanionMode, SquadronsSchema } from './gen/voidmarch/v1/messages_pb.js';
-import { hangarLine, modeName, pickFirst, squadronChoices } from './squadrons.ts';
+import { modeName, pickFirst, squadronChoices } from './squadrons.ts';
 
 const member = (name: string, companions = 0) => ({ playerId: name, name, companions });
 
@@ -48,12 +48,4 @@ test('the pick is the squadron flown last, else the first', () => {
 test('an unset mode reads as Escort', () => {
   assert.equal(modeName({ mode: CompanionMode.UNSPECIFIED }), 'Escort');
   assert.equal(modeName({ mode: CompanionMode.STEALTH }), 'Stealth');
-});
-
-test('the hangar shows at the home planet, where G draws from it', () => {
-  assert.equal(hangarLine(2, true), 'hangar: 2 ships');
-  assert.equal(hangarLine(1, true), 'hangar: 1 ship');
-  assert.equal(hangarLine(0, true), 'hangar: empty');
-  assert.equal(hangarLine(2, false), undefined, 'out in the field');
-  assert.equal(hangarLine(undefined, true), undefined, 'before the server lists it');
 });

@@ -32,6 +32,10 @@ const (
 	projectileMargin = 64
 )
 
+// WeaponSwapSeconds is how long a newly fitted weapon waits before it fires,
+// so switching mid-fight has a cost (#191, decision 5).
+const WeaponSwapSeconds = 0.5
+
 // Sizes and ranges in art pixels.
 const (
 	// SafeZoneRadius is the home planet's safe zone, where enemies never go

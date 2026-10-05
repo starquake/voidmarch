@@ -179,7 +179,7 @@ body {
   border: 1px dashed #8fd8ff;
 }
 
-/* The loadout screen (#78), in the squadron screen's style: the sketch in #78. */
+/* A screen's panel in the squadron screen's style, first drawn for the loadout screen (#78, gone with #191); the settings screen uses it. */
 .loadout-screen {
   width: min(46rem, calc(100% - 2rem));
   padding: 1.25rem 1.5rem;
@@ -200,81 +200,6 @@ body {
   font-size: 12px;
 }
 
-.loadout-slots {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-}
-
-.loadout-slot h3 {
-  margin: 0 0 0.4rem;
-  font-size: 12px;
-  font-weight: normal;
-  color: #8fd8ff;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
-
-.loadout-slot.picked h3 {
-  color: #fff08a;
-}
-
-.name-screen .loadout-part {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-bottom: 0.35rem;
-  padding: 0.25rem 0.4rem;
-  text-align: left;
-  font-size: 13px;
-  border: 1px solid #3a2f55;
-  background: #120c1f;
-}
-
-.name-screen .loadout-part.fitted {
-  border-color: #fff08a;
-}
-
-.name-screen .loadout-part.locked {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.loadout-part .icon {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  background-size: 480px 32px;
-  background-position: 0 0;
-  image-rendering: pixelated;
-}
-
-.loadout-part .hint {
-  display: block;
-  font-size: 11px;
-  color: #6d6488;
-}
-
-.loadout-part.fitted .hint {
-  color: #fff08a;
-}
-
-.loadout-hangar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem 0.6rem;
-  font-size: 13px;
-  border: 1px solid #3a2f55;
-  background: #120c1f;
-}
-
-.loadout-hangar button {
-  white-space: nowrap;
-}
-
 .loadout-keys {
   margin: 0;
   font-size: 12px;
@@ -284,11 +209,6 @@ body {
 .loadout-keys b {
   color: #d8f8ff;
   font-weight: normal;
-}
-
-/* A locked part can't be fitted, so it doesn't light up under the mouse. */
-.name-screen .loadout-part:disabled:hover {
-  outline: none;
 }
 
 /* The settings screen (#145), in the loadout screen's style. */
@@ -573,7 +493,84 @@ body.touch {
   place-items: center;
 }
 
-.hud-slot i {
+/* The slots and their drop-up take the pointer (#191); the rest of the HUD lets it through. */
+.hud-slot,
+.hud-drop {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.hud-slot {
+  position: relative;
+}
+
+.hud-slot .key {
+  position: absolute;
+  left: 2px;
+  top: 0;
+  font-size: 10px;
+  color: #8a80a8;
+}
+
+.hud-slot.open {
+  border-color: #fff08a;
+}
+
+.hud-drop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  background: rgb(5 3 10 / 82%);
+  border: 1px solid #8fd8ff;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hud-drop .title {
+  font: 11px var(--heading-font);
+  letter-spacing: 0.12em;
+  color: #8fd8ff;
+  padding: 2px 4px 4px;
+}
+
+.hud-drop .option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border: 1px solid #3a2f55;
+  background: rgb(18 12 31 / 60%);
+}
+
+.hud-drop .option:hover {
+  background: rgb(143 216 255 / 18%);
+}
+
+.hud-drop .option.fitted {
+  border-color: #fff08a;
+}
+
+.hud-drop .option.fitted .name::after {
+  content: " · fitted";
+  color: #fff08a;
+  font-size: 11px;
+}
+
+.hud-drop .option i {
+  flex: none;
+}
+
+.hud-drop .hint {
+  display: block;
+  color: #8a80a8;
+  font-size: 11px;
+}
+
+.hud-slot i,
+.hud-drop .option i {
   display: block;
   width: 32px;
   height: 32px;

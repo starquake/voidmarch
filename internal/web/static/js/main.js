@@ -399,13 +399,6 @@ var LAYOUT = {
 // src/sim/loadout.ts
 var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
 var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
-function nextInCycle(list, current) {
-  const next = list[(list.indexOf(current) + 1) % list.length];
-  if (next === void 0) {
-    throw new Error("nextInCycle: empty list");
-  }
-  return next;
-}
 
 // src/sim/tuning.ts
 var VIEW_WIDTH = 640;
@@ -528,6 +521,23 @@ var PART_NAMES = {
   round: "Round Shield",
   invincibility: "Invincibility Shield"
 };
+var PART_HINTS = {
+  autoCannon: "steady and precise",
+  rockets: "seek the nearest enemy",
+  bigSpaceGun: "charges, then bursts into shards",
+  zapper: "a zigzag beam that pierces",
+  base: "balanced",
+  bigPulse: "fast, but drifts",
+  burst: "snappy, but slow",
+  supercharged: "quick and fast",
+  front: "3 charges, the front",
+  frontAndSide: "2 charges, front and sides",
+  round: "1 charge, all round",
+  invincibility: "3 charges all round, slow to recharge"
+};
+function ownedParts(parts, unlocks) {
+  return unlocks === void 0 ? [...parts] : parts.filter((p) => unlocks.has(p));
+}
 function partLabel(part, tier) {
   const name = TIER_NAMES[tier] ?? "";
   return name === "" ? PART_NAMES[part] : `${name} ${PART_NAMES[part]}`;
@@ -557,6 +567,11 @@ var defaultUnlocks = () => /* @__PURE__ */ new Map([
   [DEFAULT_LOADOUT.engine, 0],
   [DEFAULT_LOADOUT.shield, 0]
 ]);
+function nextPart(parts, current, unlocks) {
+  const choices = unlocks === void 0 ? parts : parts.filter((p) => p === current || unlocks.has(p));
+  const next = choices[(choices.indexOf(current) + 1) % choices.length];
+  return next ?? current;
+}
 
 // src/sim/enemies.ts
 var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
@@ -1574,7 +1589,7 @@ var SettingsScreen = class {
 // src/hud.ts
 var ASSETS2 = "/static/assets";
 var TOAST_FADE_MS = 600;
-var HudView = class {
+var HudView = class _HudView {
   root;
   gauge;
   panel;
@@ -1582,11 +1597,47 @@ var HudView = class {
   gaugeKey = "";
   panelKey = "";
   toasts = /* @__PURE__ */ new Map();
-  constructor(doc = document) {
+  fit;
+  /** The slot whose drop-up is open (#191). */
+  open;
+  constructor(fit, doc = document) {
+    this.fit = fit;
     this.root = doc.querySelector("#hud");
     this.gauge = doc.querySelector("#hud-gauge");
     this.panel = doc.querySelector("#hud-panel");
     this.toastBox = doc.querySelector("#hud-toasts");
+    this.gauge?.addEventListener("pointerdown", (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const option = target?.closest("[data-part]");
+      const slot = target?.closest("[data-slot]");
+      event.preventDefault();
+      event.stopPropagation();
+      if (option !== null && option !== void 0 && this.open !== void 0) {
+        this.fit(this.open, option.dataset.part ?? "");
+        this.close();
+      } else if (slot !== null && slot !== void 0) {
+        const kind = slot.dataset.slot;
+        this.setOpen(this.open === kind ? void 0 : kind);
+      }
+    });
+    doc.addEventListener("pointerdown", () => {
+      this.close();
+    });
+  }
+  /** Whether a slot's drop-up is open, so the scene's Esc closes it first. */
+  get dropOpen() {
+    return this.open;
+  }
+  /** Closes the drop-up, if it's open. */
+  close() {
+    this.setOpen(void 0);
+  }
+  setOpen(kind) {
+    if (kind === this.open) {
+      return;
+    }
+    this.open = kind;
+    this.gaugeKey = "";
   }
   /** The panel's rows as "Label: value", for the E2E tests. */
   get rowTexts() {
@@ -1611,7 +1662,7 @@ var HudView = class {
     this.drawToasts(frame.toasts);
   }
   drawGauge(frame) {
-    const key = JSON.stringify([frame.slots, frame.hull, frame.shield]);
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
     if (this.gauge === null || key === this.gaugeKey) {
       return;
     }
@@ -1621,12 +1672,14 @@ var HudView = class {
     slots.className = "hud-slots";
     for (const slot of frame.slots) {
       const box = doc.createElement("div");
-      box.className = "hud-slot";
-      box.title = slot.name;
-      box.style.borderColor = slot.color;
-      const icon = doc.createElement("i");
-      icon.style.backgroundImage = `url(${ASSETS2}/pickups/${slot.file}.png)`;
-      box.append(icon);
+      box.className = slot.kind === this.open ? "hud-slot open" : "hud-slot";
+      box.title = `${slot.name} (${slot.key})`;
+      box.dataset.slot = slot.kind;
+      box.style.borderColor = slot.kind === this.open ? "" : slot.color;
+      const keyLabel = doc.createElement("span");
+      keyLabel.className = "key";
+      keyLabel.textContent = slot.key;
+      box.append(_HudView.icon(doc, slot.file), keyLabel);
       slots.append(box);
     }
     const bars = doc.createElement("div");
@@ -1647,6 +1700,50 @@ var HudView = class {
       bars.append(name, row);
     }
     this.gauge.replaceChildren(slots, bars);
+    const open = frame.slots.find((s) => s.kind === this.open);
+    if (open !== void 0) {
+      this.drawDrop(doc, open, slots);
+    }
+  }
+  /** The open slot's drop-up, above it, its icons in one column with the slot's (#191). */
+  drawDrop(doc, slot, slots) {
+    const drop = doc.createElement("div");
+    drop.className = "hud-drop";
+    const title = doc.createElement("div");
+    title.className = "title";
+    title.textContent = `${slot.kind.toUpperCase()} \xB7 ${slot.key} cycles`;
+    drop.append(title);
+    for (const option of slot.options) {
+      const row = doc.createElement("div");
+      row.className = option.part === slot.part ? "option fitted" : "option";
+      row.dataset.part = option.part;
+      const text = doc.createElement("span");
+      const name = doc.createElement("span");
+      name.className = "name";
+      name.textContent = option.name;
+      name.style.color = option.color;
+      const hint = doc.createElement("span");
+      hint.className = "hint";
+      hint.textContent = option.hint;
+      text.append(name, hint);
+      row.append(_HudView.icon(doc, option.file), text);
+      drop.append(row);
+    }
+    this.gauge?.append(drop);
+    const slotIcon = slots.querySelector(`[data-slot="${slot.kind}"] i`)?.getBoundingClientRect();
+    const listIcon = drop.querySelector(".option i")?.getBoundingClientRect();
+    if (slotIcon !== void 0 && listIcon !== void 0) {
+      drop.style.left = `${String(drop.offsetLeft + slotIcon.left - listIcon.left)}px`;
+    }
+  }
+  /** The texts of the open drop-up's parts, for the E2E tests. */
+  get dropParts() {
+    return [...this.gauge?.querySelectorAll(".hud-drop [data-part]") ?? []].map((el) => el.dataset.part ?? "");
+  }
+  static icon(doc, file) {
+    const icon = doc.createElement("i");
+    icon.style.backgroundImage = `url(${ASSETS2}/pickups/${file}.png)`;
+    return icon;
   }
   drawPanel(rows) {
     const key = JSON.stringify(rows);
@@ -1737,6 +1834,9 @@ function panelRows(state) {
   if (state.hangar !== void 0) {
     row("Hangar", state.hangar === 0 ? "empty" : `${String(state.hangar)} ship${state.hangar === 1 ? "" : "s"} to summon`);
   }
+  if (state.companions !== void 0 && state.companions.limit > 0) {
+    row("Companions", `${String(state.companions.out)} of ${String(state.companions.limit)} out`);
+  }
   if (state.sector !== void 0) {
     const { name, state: what } = state.sector;
     row("You're in", what === "home" ? `${name}, the home sector` : what === "unknown" ? name : `${name}, ${what}`);
@@ -1763,168 +1863,6 @@ function connectionToast(status) {
       return "Connecting";
   }
 }
-
-// src/loadout.ts
-var SLOTS = ["weapon", "engine", "shield"];
-var SLOT_PARTS = { weapon: WEAPONS, engine: ENGINES, shield: SHIELDS };
-var PART_HINTS = {
-  autoCannon: "steady and precise",
-  rockets: "seek their target",
-  bigSpaceGun: "bursts into a star",
-  zapper: "pierces",
-  base: "balanced",
-  bigPulse: "fast, drifts",
-  burst: "quick off the mark",
-  supercharged: "fast and quick",
-  front: "strong ahead",
-  frontAndSide: "wider cover",
-  round: "all around, one charge",
-  invincibility: "three charges, slow to recharge"
-};
-function loadoutEntries(slot, unlocks, fitted) {
-  return SLOT_PARTS[slot].map((part) => {
-    const tier = unlocks.get(part);
-    const locked = tier === void 0;
-    return {
-      part,
-      label: partLabel(part, tier ?? 0),
-      color: tierCss(tier ?? 0),
-      hint: locked ? "not found yet" : PART_HINTS[part],
-      locked,
-      fitted: fitted[slot] === part,
-      tier: tier ?? 0
-    };
-  });
-}
-function fitPart(loadout, slot, part, unlocks) {
-  const tier = unlocks.get(part) ?? 0;
-  switch (slot) {
-    case "weapon":
-      return { ...loadout, weapon: part, weaponTier: tier };
-    case "engine":
-      return { ...loadout, engine: part, engineTier: tier };
-    case "shield":
-      return { ...loadout, shield: part, shieldTier: tier };
-  }
-}
-function stepPart(slot, unlocks, fitted, step) {
-  const parts = SLOT_PARTS[slot];
-  const from = parts.indexOf(fitted[slot]);
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[(from + step * i + parts.length) % parts.length];
-    if (part !== void 0 && unlocks.has(part)) {
-      return part;
-    }
-  }
-  return void 0;
-}
-var LoadoutScreen = class {
-  form;
-  slots;
-  hangar;
-  slot = "weapon";
-  unlocks = /* @__PURE__ */ new Map();
-  loadout;
-  actions = { fit: () => void 0, summon: () => void 0 };
-  constructor(doc = document) {
-    this.form = doc.querySelector("#loadout-form");
-    this.slots = doc.querySelector("#loadout-slots");
-    this.hangar = doc.querySelector("#loadout-hangar");
-    this.form?.addEventListener("submit", (event) => {
-      event.preventDefault();
-    });
-    doc.querySelector("#loadout-summon")?.addEventListener("click", () => {
-      this.actions.summon();
-    });
-  }
-  get open() {
-    return this.form !== null && !this.form.hidden;
-  }
-  show(actions) {
-    this.actions = actions;
-    if (this.form !== null) {
-      this.form.hidden = false;
-    }
-  }
-  hide() {
-    if (this.form !== null) {
-      this.form.hidden = true;
-    }
-  }
-  /** Redraws the parts and the hangar line when anything changed. */
-  update(unlocks, loadout, hangar) {
-    this.unlocks = unlocks;
-    const changed = this.loadout === void 0 || JSON.stringify(this.loadout) !== JSON.stringify(loadout);
-    this.loadout = { ...loadout };
-    if (this.hangar !== null && this.hangar.textContent !== hangar) {
-      this.hangar.textContent = hangar;
-    }
-    if (changed || this.slots?.childElementCount === 0) {
-      this.slots?.replaceChildren(...SLOTS.map((slot) => this.column(slot)));
-    }
-  }
-  /** Handles a key while the screen is open, and reports whether it was the screen's. */
-  key(code) {
-    const slot = { Digit1: "weapon", Digit2: "engine", Digit3: "shield" }[code];
-    if (slot !== void 0) {
-      this.slot = slot;
-      this.redraw();
-      return true;
-    }
-    const step = code === "ArrowDown" ? 1 : code === "ArrowUp" ? -1 : 0;
-    if (step === 0 || this.loadout === void 0) {
-      return false;
-    }
-    const part = stepPart(this.slot, this.unlocks, this.loadout, step);
-    if (part !== void 0) {
-      this.actions.fit(fitPart(this.loadout, this.slot, part, this.unlocks));
-    }
-    return true;
-  }
-  redraw() {
-    this.slots?.replaceChildren(...SLOTS.map((slot) => this.column(slot)));
-  }
-  column(slot) {
-    const doc = this.slots?.ownerDocument ?? document;
-    const column = doc.createElement("div");
-    column.className = slot === this.slot ? "loadout-slot picked" : "loadout-slot";
-    const title = doc.createElement("h3");
-    title.textContent = slot;
-    column.append(title);
-    const fitted = this.loadout;
-    if (fitted === void 0) {
-      return column;
-    }
-    for (const entry of loadoutEntries(slot, this.unlocks, fitted)) {
-      column.append(this.row(doc, slot, entry, fitted));
-    }
-    return column;
-  }
-  row(doc, slot, entry, fitted) {
-    const row = doc.createElement("button");
-    row.type = "button";
-    row.className = `loadout-part${entry.locked ? " locked" : ""}${entry.fitted ? " fitted" : ""}`;
-    row.disabled = entry.locked;
-    row.dataset.part = entry.part;
-    const icon = doc.createElement("span");
-    icon.className = "icon";
-    icon.style.backgroundImage = `url(${ASSETS}/pickups/${pickupFile(entry.part)}.png)`;
-    const name = doc.createElement("span");
-    name.className = "label";
-    name.textContent = entry.label;
-    name.style.color = entry.locked ? "" : entry.color;
-    const hint = doc.createElement("span");
-    hint.className = "hint";
-    hint.textContent = entry.fitted ? `fitted \xB7 ${entry.hint}` : entry.hint;
-    name.append(hint);
-    row.append(icon, name);
-    row.addEventListener("click", () => {
-      this.slot = slot;
-      this.actions.fit(fitPart(fitted, slot, entry.part, this.unlocks));
-    });
-    return row;
-  }
-};
 
 // src/sim/standings.ts
 var PERCENT = 100;
@@ -3128,9 +3066,6 @@ function playButtons(screen, dpr) {
     { button: "summon", label: "Summon", x: right, y: top, width: w, height: h, gold: false },
     { button: "orders", label: "Orders", x: right, y: top + h + gap, width: w, height: h, gold: false }
   ];
-  if (screen.atHome) {
-    buttons.push({ button: "loadout", label: "Loadout", x: right - gap - w, y: top + h + gap, width: w, height: h, gold: true });
-  }
   return buttons;
 }
 function buttonAt(buttons, x, y) {
@@ -3306,12 +3241,6 @@ function squadronChoices(list) {
     });
   }
   return { choices, full };
-}
-function hangarLine(hangar, atHome) {
-  if (!atHome || hangar === void 0) {
-    return void 0;
-  }
-  return hangar === 0 ? "hangar: empty" : `hangar: ${String(hangar)} ship${hangar === 1 ? "" : "s"}`;
 }
 function pickFirst(choices, last) {
   return choices.find((c) => c.name === last)?.name ?? choices[0]?.name;
@@ -5943,7 +5872,7 @@ var DOWN_PANEL_PADDING_X = 12;
 var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
-var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home";
+var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion";
 var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 M map \xB7 hold Tab standings \xB7 1/2/3 parts \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
@@ -5982,7 +5911,9 @@ var SandboxScene = class extends Phaser11.Scene {
   ships;
   pickups;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  hudView = new HudView();
+  hudView = new HudView((kind, part) => {
+    this.fitPart(kind, part);
+  });
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -5990,7 +5921,6 @@ var SandboxScene = class extends Phaser11.Scene {
   ship;
   net;
   /** The loadout screen at the home planet (#78). */
-  loadoutScreen = new LoadoutScreen();
   victoryScreen = new VictoryScreen();
   settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
@@ -6149,7 +6079,6 @@ var SandboxScene = class extends Phaser11.Scene {
       orderMenuOpen: false,
       squadron: "",
       squadronScreen: false,
-      loadoutScreen: false,
       victoryScreen: false,
       settingsScreen: false,
       standings: { join: 0, down: 0 },
@@ -6185,7 +6114,6 @@ var SandboxScene = class extends Phaser11.Scene {
     if (loadoutKey(this.sim.ship.loadout) !== this.shownLoadout) {
       this.applyLoadout();
     }
-    this.updateLoadoutScreen();
     this.openVictoryIfDue();
     this.updateStandings();
     this.drawTouch();
@@ -6469,21 +6397,19 @@ var SandboxScene = class extends Phaser11.Scene {
         }
         return;
       }
-      if (this.settingsScreen.open) {
+      if (this.hudView.dropOpen !== void 0 && event.code === "Escape") {
+        this.hudView.close();
+      } else if (this.settingsScreen.open) {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
         this.victoryKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
-      } else if (this.loadoutScreen.open) {
-        this.loadoutKey(event);
       } else if (event.code === "KeyM" && this.canOpenMap()) {
         this.maps.toggle();
       } else if (event.code === "Tab" && !this.joinScreenOpen()) {
         event.preventDefault();
         this.standingsHeld = true;
-      } else if (event.code === "KeyL") {
-        this.openLoadout();
       } else if (event.code === "KeyO") {
         this.openVictory();
       } else if (event.code === "KeyQ") {
@@ -6613,14 +6539,13 @@ var SandboxScene = class extends Phaser11.Scene {
       o.setAlpha(alpha);
     }
   }
-  /** Opens the victory screen once the season is won (#156), over the map or the loadout screen. */
+  /** Opens the victory screen once the season is won (#156), over the map. */
   openVictory() {
     const result = this.net?.seasonResult;
     if (result === void 0) {
       return;
     }
     this.maps.close();
-    this.loadoutScreen.hide();
     this.victoryScreen.show(result, this.net?.playerId);
   }
   /** Opens the victory screen when the season is won, or for a joiner seeing a won season the first time (#156). */
@@ -6649,7 +6574,7 @@ var SandboxScene = class extends Phaser11.Scene {
   }
   /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
   get screenOpen() {
-    return this.loadoutScreen.open || this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
   }
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
   openSettings() {
@@ -6718,62 +6643,34 @@ var SandboxScene = class extends Phaser11.Scene {
     this.settingsScreen.update(optionRows(this.options()));
     this.updateHud();
   }
-  /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
-  openLoadout() {
-    const ship = this.sim.ship;
-    const squadronScreen = document.querySelector("#squadron-form");
-    const busy = this.orderPress !== void 0 || squadronScreen?.hidden === false;
-    if (busy || this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
+  /** The parts 1/2/3 and the drop-ups choose from (#191): the player's own, or undefined for every part where anything goes. */
+  get ownedUnlocks() {
+    return this.partKeys ? void 0 : this.net?.unlocks ?? defaultUnlocks();
+  }
+  /** Fits a part picked from a slot's drop-up (#191). */
+  fitPart(kind, part) {
+    const { loadout } = this.sim.ship;
+    if (loadout[kind] === part || this.sim.downed) {
       return;
     }
-    this.loadoutScreen.show({
-      fit: (loadout) => {
-        this.fit(loadout);
-        this.applyLoadout();
-        this.audio.partSwitched();
-      },
-      summon: () => this.net?.summon()
-    });
-    this.updateLoadoutScreen();
-  }
-  /** A key while the loadout screen is open: L and Esc close it, and the rest are its own. */
-  loadoutKey(event) {
-    if (event.code === "KeyL" || event.code === "Escape") {
-      this.loadoutScreen.hide();
-    } else if (event.code === "KeyG") {
-      this.net?.summon();
-    } else if (this.loadoutScreen.key(event.code)) {
-      event.preventDefault();
+    this.fit({ ...loadout, [kind]: part });
+    this.applyLoadout();
+    if (kind === "shield") {
+      this.audio.shieldSwitched();
+    } else {
+      this.audio.partSwitched();
     }
   }
-  /** Keeps the open screen current, and closes it once the ship is away from home or down. */
-  updateLoadoutScreen() {
-    if (!this.loadoutScreen.open) {
-      return;
-    }
-    const ship = this.sim.ship;
-    if (this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
-      this.loadoutScreen.hide();
-      return;
-    }
-    const net = this.net;
-    const hangar = net === void 0 ? "Hangar: offline" : hangarLine(net.hangar, true) ?? "Hangar: \u2026";
-    const out = net === void 0 ? "" : ` \xB7 ${String(net.companionCount)} of ${String(net.companionLimit)} companions out`;
-    this.loadoutScreen.update(
-      this.net?.unlocks ?? defaultUnlocks(),
-      ship.loadout,
-      `${hangar}${out} \xB7 they pick from your parts, spread across the squadron`
-    );
-  }
-  /** The 1/2/3 keys fit any part, and F3 shows frames per second, in development and offline (#78, #91). */
+  /** Anything goes in development and offline: 1/2/3 cycle every part, and F3 shows frames per second (#91, #191). */
   get partKeys() {
     return this.net?.status !== "online" || this.net.development;
   }
   handleDebugKey(code) {
     const ship = this.sim.ship;
-    if (!this.partKeys && (code === "Digit1" || code === "Digit2" || code === "Digit3" || code === "F3")) {
+    if (!this.partKeys && code === "F3") {
       return;
     }
+    const owned = this.ownedUnlocks;
     switch (code) {
       case "KeyK":
         this.net?.devStartAttack();
@@ -6786,17 +6683,17 @@ var SandboxScene = class extends Phaser11.Scene {
         this.updateHud();
         break;
       case "Digit1":
-        this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
+        this.fit({ ...ship.loadout, weapon: nextPart(WEAPONS, ship.loadout.weapon, owned) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case "Digit2":
-        this.fit({ ...ship.loadout, engine: nextInCycle(ENGINES, ship.loadout.engine) });
+        this.fit({ ...ship.loadout, engine: nextPart(ENGINES, ship.loadout.engine, owned) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case "Digit3":
-        this.fit({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
+        this.fit({ ...ship.loadout, shield: nextPart(SHIELDS, ship.loadout.shield, owned) });
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
@@ -7121,10 +7018,6 @@ ${modeName(info)}`,
       this.victoryScreen.hide();
       return;
     }
-    if (this.loadoutScreen.open) {
-      this.loadoutScreen.hide();
-      return;
-    }
     if (this.maps.open) {
       const sector = this.maps.pick(p.x, p.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
@@ -7147,9 +7040,6 @@ ${modeName(info)}`,
         break;
       case "summon":
         this.net?.summon();
-        break;
-      case "loadout":
-        this.openLoadout();
         break;
       case "settings":
         this.openSettings();
@@ -7196,12 +7086,10 @@ ${modeName(info)}`,
     if (this.touchView === void 0) {
       return;
     }
-    const ship = this.sim.ship;
     this.touchButtonRects = this.screenOpen ? [] : touchButtons({
       width: this.scale.width,
       height: this.scale.height,
       dpr: renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels),
-      atHome: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS,
       down: this.sim.downed,
       canRespawn: this.sim.canRespawn,
       beside: this.net?.nearestSquadmate()?.name,
@@ -7479,13 +7367,25 @@ ${modeName(info)}`,
     const { loadout } = ship;
     const net = this.net;
     const online = net?.status === "online";
-    const slot = (part, tier) => ({ file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier) });
+    const owned = this.ownedUnlocks;
+    const unlocks = this.net?.unlocks ?? defaultUnlocks();
+    const view = (part, tier) => ({ part, file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier), hint: PART_HINTS[part] });
+    const slot = (kind, key, parts, part, tier) => ({
+      ...view(part, tier),
+      kind,
+      key,
+      options: ownedParts(parts, owned).map((p) => view(p, unlocks.get(p) ?? 0))
+    });
     const info = net?.squadronInfo;
     const here = sectorName(ship.x, ship.y);
     const toasts = [connectionToast(net?.status), net?.noticeText].filter((t) => t !== void 0);
     this.hudView.update({
       shown: !this.maps.open,
-      slots: [slot(loadout.weapon, loadout.weaponTier), slot(loadout.engine, loadout.engineTier), slot(loadout.shield, loadout.shieldTier)],
+      slots: [
+        slot("weapon", "1", WEAPONS, loadout.weapon, loadout.weaponTier),
+        slot("engine", "2", ENGINES, loadout.engine, loadout.engineTier),
+        slot("shield", "3", SHIELDS, loadout.shield, loadout.shieldTier)
+      ],
       hull: hullPips(ship.damage),
       shield: shieldPips(ship.shield, SHIELD_STATS[loadout.shield].strength),
       rows: panelRows({
@@ -7497,6 +7397,8 @@ ${modeName(info)}`,
           mode: fromCompanionMode(info.mode) ?? "escort"
         },
         hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : void 0,
+        // How many of your companions are out, which the loadout screen showed until #191.
+        companions: online ? { out: net.companionCount, limit: net.companionLimit } : void 0,
         sector: here === void 0 ? void 0 : { name: here, state: sectorState(here, online ? net.clearedSectors : void 0, net?.frontier) },
         mission: net?.mission,
         event: net?.eventLine(performance.now()) ?? ""
@@ -7561,7 +7463,6 @@ ${modeName(info)}`,
     this.debug.squadron = this.net?.squadron ?? "";
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
-    this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.standings = { join: this.standingsJoin.rows, down: this.standingsDown.rows };
