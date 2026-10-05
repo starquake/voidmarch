@@ -6166,6 +6166,7 @@ var SandboxScene = class extends Phaser11.Scene {
       mission: void 0,
       worldEvent: void 0,
       lastClear: void 0,
+      clearedSectors: [],
       missionBanner: void 0,
       derelicts: [],
       rescues: 0,
@@ -7574,6 +7575,7 @@ ${modeName(info)}`,
     this.debug.boss = this.bossBar.current;
     this.debug.mission = this.net?.mission;
     this.debug.lastClear = this.net?.lastClear;
+    this.debug.clearedSectors = this.net?.status === "online" ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);

@@ -45,7 +45,7 @@ async function clear(page: Page, cleared: string): Promise<'cleared' | 'down'> {
 }
 
 // The e2e map gives E4 and C4 a garrison of 2, one sector per browser: a
-// cleared sector stays cleared on the shared server.
+// cleared sector stays cleared on the shared server, so each server runs this once.
 test('destroying a sector\'s garrison clears it, and its clear gives this player a part', async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   const east = testInfo.project.name !== 'firefox';
@@ -53,15 +53,18 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   expect((await state(page)).sector).toBe('Sector D4 · home');
+  expect((await state(page)).clearedSectors, `no one cleared ${sector} on this server before`).not.toContain(sector);
   // A squadron starts with a mission in ring 1 (#101).
   await expect.poll(async () => (await state(page)).mission).toMatch(/^[C-E][3-5]$/);
   // and it is announced in the middle of the screen, with the way to it.
   await expect.poll(async () => (await state(page)).missionBanner).toMatch(/^New mission: sector [C-E][3-5]\n.*\nFollow the gold arrow/);
   await fitRockets(page);
   await flyInto(page, east);
-  expect((await state(page)).sector).toBe(`Sector ${sector} · hostile`);
-
   const cleared = `Sector ${sector} · cleared`;
+  // The garrison comes out to meet the ship, and rams on the way in can clear it already (#195).
+  const arrived = await state(page);
+  expect(arrived.sector).toBe(arrived.clearedSectors.includes(sector) ? cleared : `Sector ${sector} · hostile`);
+
   for (let tries = 1; (await state(page)).sector !== cleared; tries++) {
     if ((await clear(page, cleared)) === 'down') {
       expect(tries, 'went down five times before clearing the sector').toBeLessThan(TRIES);
@@ -72,6 +75,7 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
     }
   }
   expect((await state(page)).sector).toBe(cleared);
+  expect((await state(page)).clearedSectors).toContain(sector);
   // The clear gave this player a part; the notice naming it can be gone already.
   const last = (await state(page)).lastClear;
   expect(last?.sector).toBe(sector);
