@@ -67,7 +67,9 @@ directions), effects, a 60 fps frame rate cap and a lower render resolution
 and change it with Enter, Space, left or right, or click it. The ship holds
 still while it's open, and every choice is remembered in the browser. Sound starts after the first click or key press.
 The music follows the ship: Eerie Space Music at the home planet and while a
-Dreadnought's health bar shows, the Explorer Chiptunes everywhere else, with a
+Dreadnought's health bar shows, the Explorer pack's Under Pressure themes in a
+fight (an enemy close by, or the Frigate's health bar showing, until 5 s after
+the last enemy leaves), the Explorer Chiptunes everywhere else, with a
 crossfade between them.
 
 The HUD shows your ship bottom left: the three fitted parts as their icons,

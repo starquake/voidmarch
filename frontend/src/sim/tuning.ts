@@ -40,6 +40,14 @@ export const ASTEROID_CLEAR_RADIUS = 260;
 export const ENEMY_VOLLEY_RANGE = 800;
 /** Enemies explode audibly only this close to the ship, about the view. */
 export const ENEMY_SOUND_RANGE = 400;
+/**
+ * An enemy this close to the ship is a fight, and the battle music plays
+ * (#187): the smallest view's corner is 367 px from its center, so any enemy
+ * on screen counts, and one just past the edge.
+ */
+export const BATTLE_MUSIC_RANGE = 400;
+/** The battle music plays on this long after the last enemy leaves range, so it doesn't flip at the edge. */
+export const BATTLE_MUSIC_CALM_SECONDS = 5;
 
 /**
  * Enemy bullets fly on a layer with one glow in this color (0xRRGGBB), so

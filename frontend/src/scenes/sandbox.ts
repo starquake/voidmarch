@@ -96,7 +96,8 @@ import {
   sectorState,
   sectorOpen,
 } from '../sim/sectors.ts';
-import { musicPlace } from '../sim/music.ts';
+import type { EnemyKind } from '../sim/enemies.ts';
+import { calmDown, fighting, musicPlace } from '../sim/music.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, modeName } from '../squadrons.ts';
@@ -305,6 +306,8 @@ export class SandboxScene extends Phaser.Scene {
   private diagnostics: Diagnostics | undefined;
   private shotsFired = 0;
   private hudUpdatedAt = 0;
+  /** When a fight was last on, in seconds, for the battle music's calm-down (#187). */
+  private lastFight: number | undefined;
   private debug!: DebugState;
   private readonly frameTimes = new FrameTimes();
   private mapsDrawnAt = -Infinity;
@@ -390,7 +393,17 @@ export class SandboxScene extends Phaser.Scene {
       cssPixels: false,
       gpuMs: undefined,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null, musicVolume: 0, fadingMusic: 0 },
+      audio: {
+        muted: false,
+        music: false,
+        locked: true,
+        backend: 'none',
+        musicLoaded: false,
+        musicPlace: 'home',
+        playingMusic: null,
+        musicVolume: 0,
+        fadingMusic: 0,
+      },
       net: { status: 'offline', playerId: undefined, others: [] },
       enemies: [],
       enemiesDestroyed: 0,
@@ -467,7 +480,7 @@ export class SandboxScene extends Phaser.Scene {
     this.scrollBackgrounds(time, deltaMs);
     const boss = bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y);
     this.bossBar.show(boss);
-    this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), boss?.kind));
+    this.updateMusic(time, boss?.kind);
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
@@ -517,6 +530,14 @@ export class SandboxScene extends Phaser.Scene {
       .fillRect(b.x, b.y, b.width, b.height)
       .lineStyle(line, MISSION_COLOR, 1)
       .strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
+  }
+
+  /** Picks the music's place: a Dreadnought fight, a battle and its calm-down, home or elsewhere (#187). */
+  private updateMusic(time: number, boss: EnemyKind | undefined): void {
+    const { x, y } = this.sim.ship;
+    const calm = calmDown(fighting(this.net?.enemyList ?? [], boss, x, y), time / 1000, this.lastFight);
+    this.lastFight = calm.lastFight;
+    this.audio.setMusicPlace(musicPlace(sectorName(x, y), boss, calm.battle));
   }
 
   /**
@@ -1986,6 +2007,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.audio.muted = this.audioSettings.muted;
     this.debug.audio.music = this.audioSettings.music;
     this.debug.audio.locked = this.sound.locked;
+    this.debug.audio.musicPlace = this.audio.musicPlace;
     this.debug.audio.playingMusic = this.audio.playingMusic;
     this.debug.audio.musicVolume = this.audio.musicVolume;
     this.debug.audio.fadingMusic = this.audio.fadingMusic;

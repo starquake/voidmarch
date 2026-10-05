@@ -35,10 +35,11 @@ test('every sound the game plays is loaded', () => {
   }
 });
 
-test('each place has its own music, and the Explorer themes play everywhere else', () => {
+test('each place has its own music: the Under Pressure themes in a battle, the Explorer themes everywhere else', () => {
   assert.deepEqual(MUSIC, {
     home: ['music-eerie-1'],
     dreadnought: ['music-eerie-2'],
+    battle: ['music-explorer-under-pressure-1', 'music-explorer-under-pressure-2'],
     elsewhere: ['music-explorer-theme-1', 'music-explorer-theme-2'],
   });
 });
@@ -48,4 +49,5 @@ test('a place plays its tracks in turn', () => {
   assert.equal(musicTrack('elsewhere', 1), 'music-explorer-theme-2');
   assert.equal(musicTrack('elsewhere', 2), 'music-explorer-theme-1');
   assert.equal(musicTrack('home', 3), 'music-eerie-1');
+  assert.equal(musicTrack('battle', 1), 'music-explorer-under-pressure-2');
 });

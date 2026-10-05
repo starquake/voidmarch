@@ -47,7 +47,7 @@ export class ShipAudio {
   private music: Sound | undefined;
   private readonly fading = new Set<Sound>();
   private place: MusicPlace = 'home';
-  private readonly turns: Record<MusicPlace, number> = { home: 0, dreadnought: 0, elsewhere: 0 };
+  private readonly turns: Record<MusicPlace, number> = { home: 0, dreadnought: 0, battle: 0, elsewhere: 0 };
   private awaitingUnlock = false;
   /** Whether the next track fades in: after a place change, not when one track follows another. */
   private fadeInNext = false;
@@ -83,6 +83,11 @@ export class ShipAudio {
   /** The key of the playing track, or null. */
   get playingMusic(): string | null {
     return this.music?.isPlaying === true ? this.music.key : null;
+  }
+
+  /** Where the music thinks the ship is. */
+  get musicPlace(): MusicPlace {
+    return this.place;
   }
 
   /** The playing track's volume, 0 with none. */

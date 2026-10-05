@@ -47,10 +47,11 @@ export const TELEPORT_SOUND = 'sfx-teleport';
 /** The force field's zaps (#127), played in random order. */
 export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
-/** Each place's music tracks (#187), played in turn: Eerie Space Music at home and against a Dreadnought. */
+/** Each place's music tracks (#187), played in turn: Eerie Space Music at home and against a Dreadnought, the Under Pressure themes in a battle. */
 export const MUSIC: Readonly<Record<MusicPlace, readonly string[]>> = {
   home: ['music-eerie-1'],
   dreadnought: ['music-eerie-2'],
+  battle: ['music-explorer-under-pressure-1', 'music-explorer-under-pressure-2'],
   elsewhere: ['music-explorer-theme-1', 'music-explorer-theme-2'],
 };
 
