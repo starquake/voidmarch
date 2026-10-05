@@ -153,6 +153,33 @@ func WithWokenThenLost(name string) HubOption {
 	}
 }
 
+// WithDreadnoughtGarrisonOut wakes the Dreadnought at the start with its
+// sector's garrison on the field, as if it was out before it woke.
+func WithDreadnoughtGarrisonOut() HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if e, awake := h.enemies[h.dreadnoughtID]; awake {
+				h.fillGarrison(h.garrisons[e.dread.sector], nil)
+			}
+		})
+	}
+}
+
+// WithDreadnoughtInClearedSector wakes the Dreadnought at the start in a
+// sector cleared before, as when its ring closed and opened again.
+func WithDreadnoughtInClearedSector() HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if e, awake := h.enemies[h.dreadnoughtID]; awake {
+				h.cleared[e.dread.sector] = true
+				delete(h.garrisons, e.dread.sector)
+			}
+		})
+	}
+}
+
 // DreadnoughtGap exposes dreadnoughtGap for tests.
 var DreadnoughtGap = dreadnoughtGap
 

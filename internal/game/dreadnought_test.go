@@ -629,6 +629,89 @@ func TestDreadnoughtGap_TheLaterFactionsFireMoreOften(t *testing.T) {
 	}
 }
 
+// guardsIn are the enemies in s other than the bosses: its garrison, or an
+// attack's force.
+func guardsIn(snap *pb.Snapshot, s sim.Sector) []*pb.EnemyState {
+	var out []*pb.EnemyState
+	for _, e := range snap.GetEnemies() {
+		boss := e.GetKind() == pb.EnemyKind_ENEMY_KIND_DREADNOUGHT ||
+			e.GetKind() == pb.EnemyKind_ENEMY_KIND_FRIGATE
+		if !boss && s.Contains(float64(e.GetX()), float64(e.GetY())) {
+			out = append(out, e)
+		}
+	}
+
+	return out
+}
+
+// dreadnoughtSector is the sector the snapshot's Dreadnought holds.
+func dreadnoughtSector(t *testing.T, d *pb.EnemyState) sim.Sector {
+	t.Helper()
+
+	s, ok := sim.SectorAt(float64(d.GetX()), float64(d.GetY()))
+	if !ok {
+		t.Fatalf("Dreadnought %+v off the grid", d)
+	}
+
+	return s
+}
+
+func TestDreadnought_ItsSectorsGarrisonStaysOffTheFieldWhileItsAwake(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m))
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	s := dreadnoughtSector(t, d)
+	x, y := d.GetX(), d.GetY()+150
+	for range 5 * TickRate {
+		if guards := guardsIn(must(latest(t, a, tick, 1, x, y)), s); len(guards) > 0 {
+			t.Fatalf(
+				"%d of %s's garrison out with a ship in it while the Dreadnought is awake, want none",
+				len(guards),
+				s.Name(),
+			)
+		}
+	}
+}
+
+func TestDreadnought_StandsDownAGarrisonOutWhenItWoke(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m), WithDreadnoughtGarrisonOut())
+	a, _ := join(t, hub, "a")
+	snap := must(latest(t, a, tick, 2, 0, 0))
+	if guards := guardsIn(snap, dreadnoughtSector(t, dreadnoughtIn(snap))); len(guards) > 0 {
+		t.Errorf(
+			"%d of its sector's garrison still out once the Dreadnought woke, want it stood down",
+			len(guards),
+		)
+	}
+}
+
+func TestDreadnought_AnAttackOnItsSectorStillFights(t *testing.T) {
+	t.Parallel()
+
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := testHub(t, WithMap(m), WithDevelopment(), WithDreadnoughtInClearedSector())
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	s := dreadnoughtSector(t, d)
+	a.Send(devAttack(s.Name()))
+	x, y := d.GetX(), d.GetY()+150
+	for range 5 * TickRate {
+		if len(guardsIn(must(latest(t, a, tick, 1, x, y)), s)) > 0 {
+			return
+		}
+	}
+	t.Errorf(
+		"no attack force came into %s, the Dreadnought's cleared sector, want it to fight",
+		s.Name(),
+	)
+}
+
 // damageLines are the "dreadnought damage" lines among logs.
 func damageLines(logs *syncBuffer) []string {
 	var out []string

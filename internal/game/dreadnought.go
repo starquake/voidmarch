@@ -39,6 +39,8 @@ const (
 // maximum left and the weight of the players online that the maximum
 // follows (#132).
 type dreadnoughtFight struct {
+	// sector is the sector it holds.
+	sector  sim.Sector
 	shield  int
 	lastHit uint32
 	next    sim.DreadnoughtVolley
@@ -159,6 +161,7 @@ func (h *Hub) wakeDreadnought() {
 		angle:    quarterTurn,
 		lastNear: h.tick,
 		dread: &dreadnoughtFight{
+			sector: s,
 			shield: sim.DreadnoughtShield,
 			share:  h.dreadnoughtShare(faction),
 			weight: h.onlineWeight(),

@@ -195,13 +195,31 @@ func (h *Hub) stepGarrisons(ships []upShip) {
 				near = true
 			}
 		}
-		if near {
+		switch {
+		case h.heldByDreadnought(g):
+			if g.field > 0 {
+				h.standDown(g)
+			}
+		case near:
 			g.lastNear = h.tick
 			h.fillGarrison(g, ships)
-		} else if g.field > 0 && h.tick-g.lastNear > garrisonIdle {
+		case g.field > 0 && h.tick-g.lastNear > garrisonIdle:
 			h.standDown(g)
+		default:
 		}
 	}
+}
+
+// heldByDreadnought reports whether g is the own garrison of the sector an
+// awake Dreadnought holds, which stays off the field while it's awake
+// (#223); an attack's force there still fights.
+func (h *Hub) heldByDreadnought(g *garrison) bool {
+	e, awake := h.enemies[h.dreadnoughtID]
+	if !awake || e.dread.sector != g.sector {
+		return false
+	}
+
+	return h.event == nil || h.event.force != g
 }
 
 // fillGarrison brings the garrison's reserve onto the field, up to
