@@ -323,7 +323,7 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1rem 1.5rem 1.25rem;
-  gap: 0.7rem;
+  gap: 0.6rem;
   font-size: 14px;
   line-height: 1.4;
 }
@@ -339,6 +339,7 @@ body {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 600;
+  text-transform: uppercase;
 }
 
 .intro-hint {
@@ -374,8 +375,8 @@ body {
 
 .intro-grid {
   display: grid;
-  grid-template-columns: 1fr 22rem;
-  gap: 0.7rem;
+  grid-template-columns: 1fr 21rem;
+  gap: 0.6rem;
 }
 
 .intro-panel {
@@ -395,8 +396,8 @@ body {
 
 .intro-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem 1.2rem;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 0.4rem 1rem;
 }
 
 .intro-columns h3 {
@@ -411,20 +412,21 @@ body {
 .intro-rows {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.2rem 0.6rem;
+  gap: 0.15rem 0.6rem;
   font-size: 13px;
 }
 
 .intro-keys {
   justify-self: end;
+  align-self: start;
   display: flex;
   gap: 3px;
   white-space: nowrap;
 }
 
 .intro-keys kbd {
-  min-width: 1.3em;
-  padding: 0 0.3em;
+  min-width: 1.1em;
+  padding: 0 0.25em;
   font: 600 12px/1.5 var(--ui-font);
   text-align: center;
   color: #fff08a;
@@ -459,12 +461,13 @@ body {
 }
 
 .intro-extras {
-  columns: 2;
-  column-gap: 2.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 2.5rem;
 }
 
-.intro-extras li {
-  break-inside: avoid;
+.intro-list.intro-extras li {
+  margin: 0;
 }
 
 .intro-friends {
@@ -472,10 +475,14 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
   gap: 0.6rem 1rem;
   padding: 0.5rem 0.8rem;
   border: 1px dashed #8fd8ff;
+}
+
+.intro-friends-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .intro-friends h2 {
@@ -489,6 +496,7 @@ body {
 }
 
 .intro-friends-buttons {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -537,16 +545,19 @@ body {
   }
 
   .intro-extras {
-    columns: 1;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .intro-head,
+  .intro-friends,
+  .intro-friends-buttons {
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 560px) {
-  .intro-head,
-  .intro-friends-buttons {
-    flex-wrap: wrap;
-  }
-
   .intro-columns {
     grid-template-columns: 1fr;
   }

@@ -54,7 +54,10 @@ export class IntroScreen {
     }
     this.form.hidden = false;
     this.form.scrollTop = 0;
-    this.doc.querySelector<HTMLButtonElement>('#intro-play')?.focus({ preventScroll: true });
+    if (!touch) {
+      // Enter plays.
+      this.doc.querySelector<HTMLButtonElement>('#intro-play')?.focus({ preventScroll: true });
+    }
   }
 
   hide(): void {

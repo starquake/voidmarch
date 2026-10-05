@@ -19,11 +19,13 @@ import {
   loadAudioSettings,
   loadControlMode,
   loadDisplaySettings,
+  loadIntroSeen,
   loadToken,
   loadViewSettings,
   saveAudioSettings,
   saveControlMode,
   saveDisplaySettings,
+  saveIntroSeen,
   saveViewSettings,
   type AudioSettings,
   type DisplaySettings,
@@ -32,6 +34,7 @@ import { keys, pickupFile, weaponTiming } from '../sprites.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
+import { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
 import { connectionToast, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
@@ -236,10 +239,18 @@ export class SandboxScene extends Phaser.Scene {
   private shownLoadout = '';
   private ship!: ShipView;
   private net: NetPlay | undefined;
-  /** The loadout screen at the home planet (#78). */
   private readonly victoryScreen = new VictoryScreen();
   private readonly settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
+  });
+  private readonly squadronScreen = new SquadronScreen();
+  /** The intro screen (#193), on the first visit and from F1; it saves itself as seen when closed. */
+  private readonly introScreen = new IntroScreen(() => {
+    saveIntroSeen();
+    // On a first visit the join screen waited behind it; Enter joins again.
+    if (this.squadronScreen.open) {
+      this.squadronScreen.focusPick();
+    }
   });
   /** The season so far on the join screen, and above the down panel while down or while Tab is held (#167). */
   private readonly standingsJoin = new StandingsPanel('#standings-join');
@@ -351,6 +362,9 @@ export class SandboxScene extends Phaser.Scene {
       this.resize();
     });
     this.startNetPlay();
+    if (!loadIntroSeen()) {
+      this.introScreen.show(this.touchOn);
+    }
 
     this.debug = {
       ready: true,
@@ -401,6 +415,7 @@ export class SandboxScene extends Phaser.Scene {
       squadronScreen: false,
       victoryScreen: false,
       settingsScreen: false,
+      introScreen: false,
       standings: { join: 0, down: 0 },
       touch: this.touchOn,
       touchButtons: [],
@@ -585,7 +600,7 @@ export class SandboxScene extends Phaser.Scene {
         clearToken();
         window.location.reload();
       },
-      squadronScreen: new SquadronScreen(),
+      squadronScreen: this.squadronScreen,
       pickups: this.pickups,
     });
     this.net.start();
@@ -769,7 +784,13 @@ export class SandboxScene extends Phaser.Scene {
 
         return;
       }
-      if (this.hudView.dropOpen !== undefined && event.code === 'Escape') {
+      if (event.code === 'F1') {
+        // Some browsers open their own help on F1.
+        event.preventDefault();
+        this.toggleIntro();
+      } else if (this.introScreen.open) {
+        this.introKey(event);
+      } else if (this.hudView.dropOpen !== undefined && event.code === 'Escape') {
         this.hudView.close();
       } else if (this.settingsScreen.open) {
         this.settingsKey(event);
@@ -961,7 +982,32 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
   private get screenOpen(): boolean {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open;
+  }
+
+  /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
+  private toggleIntro(): void {
+    if (this.introScreen.open) {
+      this.introScreen.hide();
+
+      return;
+    }
+    if (this.orderPress !== undefined) {
+      return;
+    }
+    this.settingsScreen.hide();
+    this.victoryScreen.hide();
+    this.maps.close();
+    this.hudView.close();
+    this.standingsHeld = false;
+    this.introScreen.show(this.touchOn);
+  }
+
+  /** A key while the intro screen is open: Esc closes it, and the rest wait. */
+  private introKey(event: KeyboardEvent): void {
+    if (event.code === 'Escape') {
+      this.introScreen.hide();
+    }
   }
 
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
@@ -1960,6 +2006,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
+    this.debug.introScreen = this.introScreen.open;
     this.debug.standings = { join: this.standingsJoin.rows, down: this.standingsDown.rows };
     this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
     this.debug.touchSticks = this.touch.sticks().map((s) => s.role);

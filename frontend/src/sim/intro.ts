@@ -73,12 +73,12 @@ const KEYBOARD: ControlColumn = {
     { keys: ['W', 'A', 'S', 'D'], text: 'move' },
     { keys: ['G'], text: 'draw a companion, at home' },
     { keys: ['Q'], text: 'hold for orders, tap to repeat' },
-    { keys: ['1', '2', '3'], text: 'switch the weapon, engine or shield' },
+    { keys: ['1', '2', '3'], text: 'switch weapon, engine, shield' },
     { keys: ['M'], text: 'map' },
     { keys: ['Tab'], text: 'hold for the standings' },
     { keys: ['H', 'J'], text: 'when down: respawn home, or by a squadmate' },
-    { keys: ['O'], text: 'the victory screen, once the season is won' },
-    { keys: ['Esc'], text: 'settings; closes any screen' },
+    { keys: ['O'], text: "the season's victory screen" },
+    { keys: ['Esc'], text: 'settings, or close a screen' },
     { keys: ['F1'], text: 'this screen' },
   ],
 };
@@ -142,8 +142,8 @@ function extras(touch: boolean): Line[] {
     [
       blue('Parts'),
       plain(
-        ` drop from destroyed enemies: fly over one to take it for your squadron. A second drop raises a part's tier. Switch parts anywhere, ${
-          touch ? 'with the slots bottom left' : 'with 1, 2 and 3 or the slots bottom left'
+        ` drop from enemies: fly over one to take it for your squadron, or raise its tier. Switch anywhere with ${
+          touch ? 'the slots bottom left' : '1, 2, 3 or the slots'
         }.`,
       ),
     ],
