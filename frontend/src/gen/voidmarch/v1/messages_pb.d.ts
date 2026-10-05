@@ -1184,6 +1184,13 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
    * @generated from field: voidmarch.v1.EnemyFaction faction = 12;
    */
   faction: EnemyFaction;
+
+  /**
+   * The enemy a Support Ship is repairing now (#184); 0 for none.
+   *
+   * @generated from field: uint32 repairing = 13;
+   */
+  repairing: number;
 };
 
 /**
@@ -2203,6 +2210,13 @@ export enum EnemyKind {
    * @generated from enum value: ENEMY_KIND_TORPEDO = 6;
    */
   TORPEDO = 6,
+
+  /**
+   * A Support Ship repairs its pack from behind it, with no guns (#184).
+   *
+   * @generated from enum value: ENEMY_KIND_SUPPORT = 7;
+   */
+  SUPPORT = 7,
 }
 
 /**

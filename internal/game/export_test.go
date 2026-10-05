@@ -162,3 +162,6 @@ func KillsCounted(shooters ...string) players.Stats {
 
 	return *h.stats["a"]
 }
+
+// SupportBehind exposes supportBehind for tests.
+const SupportBehind = supportBehind

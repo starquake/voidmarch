@@ -88,6 +88,9 @@ func TestEnemyRadius_FollowsEachFactionsHull(t *testing.T) {
 		{EnemyFrigate, Klaed, 19},
 		{EnemyFrigate, Nairan, 21},
 		{EnemyFrigate, Nautolan, 20},
+		{EnemySupport, Klaed, 14},
+		{EnemySupport, Nairan, 15},
+		{EnemySupport, Nautolan, 16},
 	}
 	for _, tc := range tests {
 		if got := EnemyRadius(tc.kind, tc.faction); got != tc.want {

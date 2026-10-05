@@ -20,7 +20,11 @@ required; it is given here anyway.
   commissioned from Baldur, distributed by Foozle. Named by slot and part
   (`weapon-zapper.png`); the pack's "All around shield" is `shield-round.png`.
 
-Files are renamed to kebab-case and otherwise unchanged. Some also come in
+Files are renamed to kebab-case and otherwise unchanged. A fleet ship's parts
+are named by class and part: the Support Ships' (#184)
+`Kla'ed - Support ship - Base.png` is `klaed/support-base.png`, and the
+Nautolan pack's `Nautolan Ship - Support.png`, its destruction strip, is
+`nautolan/support-destruction.png`. Some also come in
 recoloured variants beside the original: palette swaps made with
 `tools/recolor.py`, which turns every pixel's hue and keeps its brightness and
 shading.

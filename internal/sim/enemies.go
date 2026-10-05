@@ -16,6 +16,9 @@ const (
 	// factions' slow heavy hitters (#137).
 	EnemyBomber  EnemyKind = "bomber"
 	EnemyTorpedo EnemyKind = "torpedo"
+	// EnemySupport is the Support Ship, which repairs its pack from behind
+	// it and has no guns (#184).
+	EnemySupport EnemyKind = "support"
 )
 
 // EnemyFaction is the alien fleet an enemy belongs to, one per ring (#9):
@@ -78,6 +81,7 @@ const (
 func EnemyKinds() []EnemyKind {
 	return []EnemyKind{
 		EnemyScout, EnemyFighter, EnemyFrigate, EnemyDreadnought, EnemyBomber, EnemyTorpedo,
+		EnemySupport,
 	}
 }
 
@@ -120,6 +124,8 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 		nairanFrigate, nautolanFrigate       = 21, 20
 	)
 	switch {
+	case kind == EnemySupport:
+		return supportRadius(faction)
 	case kind == EnemyBomber && faction == Nautolan:
 		return nautolanBomber
 	case kind == EnemyBomber:
@@ -144,6 +150,21 @@ func EnemyRadius(kind EnemyKind, faction EnemyFaction) float64 {
 		return fighter
 	default:
 		return scout
+	}
+}
+
+// supportRadius is a Support Ship's hit circle in faction.
+func supportRadius(faction EnemyFaction) float64 {
+	const klaed, nairan, nautolan = 14, 15, 16
+	switch faction {
+	case Nairan:
+		return nairan
+	case Nautolan:
+		return nautolan
+	case Klaed:
+		fallthrough
+	default:
+		return klaed
 	}
 }
 
@@ -184,8 +205,10 @@ func LeadAngle(x, y, tx, ty, vx, vy, speed, delay float64) float64 {
 // EnemyHP is an enemy's hit points, as the server has them, for picking the
 // weakest target; a Frigate's is its least, for one player.
 func EnemyHP(kind EnemyKind) float64 {
-	const scout, fighter, bomber, torpedo = 2, 6, 10, 8
+	const scout, fighter, bomber, torpedo, support = 2, 6, 10, 8, 4
 	switch kind {
+	case EnemySupport:
+		return support
 	case EnemyFighter:
 		return fighter
 	case EnemyBomber:
@@ -226,7 +249,7 @@ func FrigateHP(weight float64) float64 {
 }
 
 // IsSupport reports whether an enemy is a Support Ship, which companions can
-// be told to go for first. None exist until that class arrives.
-func IsSupport(EnemyKind) bool {
-	return false
+// be told to go for first.
+func IsSupport(kind EnemyKind) bool {
+	return kind == EnemySupport
 }

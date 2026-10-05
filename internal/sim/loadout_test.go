@@ -34,7 +34,8 @@ func TestEnemies(t *testing.T) {
 	t.Parallel()
 
 	for _, kind := range EnemyKinds() {
-		if EnemyRadius(kind, Klaed) <= 0 || EnemyHP(kind) <= 0 || IsSupport(kind) {
+		if EnemyRadius(kind, Klaed) <= 0 || EnemyHP(kind) <= 0 ||
+			IsSupport(kind) != (kind == EnemySupport) {
 			t.Errorf(
 				"%s: radius %v, hp %v, support %t",
 				kind,

@@ -206,6 +206,8 @@ const (
 	// The later factions' slow heavy hitters (#137).
 	EnemyKind_ENEMY_KIND_BOMBER  EnemyKind = 5
 	EnemyKind_ENEMY_KIND_TORPEDO EnemyKind = 6
+	// A Support Ship repairs its pack from behind it, with no guns (#184).
+	EnemyKind_ENEMY_KIND_SUPPORT EnemyKind = 7
 )
 
 // Enum value maps for EnemyKind.
@@ -218,6 +220,7 @@ var (
 		4: "ENEMY_KIND_DREADNOUGHT",
 		5: "ENEMY_KIND_BOMBER",
 		6: "ENEMY_KIND_TORPEDO",
+		7: "ENEMY_KIND_SUPPORT",
 	}
 	EnemyKind_value = map[string]int32{
 		"ENEMY_KIND_UNSPECIFIED": 0,
@@ -227,6 +230,7 @@ var (
 		"ENEMY_KIND_DREADNOUGHT": 4,
 		"ENEMY_KIND_BOMBER":      5,
 		"ENEMY_KIND_TORPEDO":     6,
+		"ENEMY_KIND_SUPPORT":     7,
 	}
 )
 
@@ -2718,8 +2722,10 @@ type EnemyState struct {
 	// The shield's charge left, as damage it can still take.
 	Shield float32 `protobuf:"fixed32,10,opt,name=shield,proto3" json:"shield,omitempty"`
 	// The players online its health was scaled for, a companion counting half.
-	ScaledFor     float32      `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
-	Faction       EnemyFaction `protobuf:"varint,12,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
+	ScaledFor float32      `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
+	Faction   EnemyFaction `protobuf:"varint,12,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
+	// The enemy a Support Ship is repairing now (#184); 0 for none.
+	Repairing     uint32 `protobuf:"varint,13,opt,name=repairing,proto3" json:"repairing,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2836,6 +2842,13 @@ func (x *EnemyState) GetFaction() EnemyFaction {
 		return x.Faction
 	}
 	return EnemyFaction_ENEMY_FACTION_UNSPECIFIED
+}
+
+func (x *EnemyState) GetRepairing() uint32 {
+	if x != nil {
+		return x.Repairing
+	}
+	return 0
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.
@@ -4850,7 +4863,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x0fSquadronOrdered\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xba\x02\n" +
+	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xd8\x02\n" +
 	"\n" +
 	"EnemyState\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -4866,7 +4879,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	" \x01(\x02R\x06shield\x12\x1d\n" +
 	"\n" +
 	"scaled_for\x18\v \x01(\x02R\tscaledFor\x124\n" +
-	"\afaction\x18\f \x01(\x0e2\x1a.voidmarch.v1.EnemyFactionR\afaction\"\xc5\x01\n" +
+	"\afaction\x18\f \x01(\x0e2\x1a.voidmarch.v1.EnemyFactionR\afaction\x12\x1c\n" +
+	"\trepairing\x18\r \x01(\rR\trepairing\"\xc5\x01\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +
@@ -5021,7 +5035,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\fSHIELD_FRONT\x10\x01\x12\x19\n" +
 	"\x15SHIELD_FRONT_AND_SIDE\x10\x02\x12\x10\n" +
 	"\fSHIELD_ROUND\x10\x03\x12\x18\n" +
-	"\x14SHIELD_INVINCIBILITY\x10\x04*\xb8\x01\n" +
+	"\x14SHIELD_INVINCIBILITY\x10\x04*\xd0\x01\n" +
 	"\tEnemyKind\x12\x1a\n" +
 	"\x16ENEMY_KIND_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10ENEMY_KIND_SCOUT\x10\x01\x12\x16\n" +
@@ -5029,7 +5043,8 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x12ENEMY_KIND_FRIGATE\x10\x03\x12\x1a\n" +
 	"\x16ENEMY_KIND_DREADNOUGHT\x10\x04\x12\x15\n" +
 	"\x11ENEMY_KIND_BOMBER\x10\x05\x12\x16\n" +
-	"\x12ENEMY_KIND_TORPEDO\x10\x06*|\n" +
+	"\x12ENEMY_KIND_TORPEDO\x10\x06\x12\x16\n" +
+	"\x12ENEMY_KIND_SUPPORT\x10\a*|\n" +
 	"\fEnemyFaction\x12\x1d\n" +
 	"\x19ENEMY_FACTION_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13ENEMY_FACTION_KLAED\x10\x01\x12\x18\n" +

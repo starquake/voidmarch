@@ -45,6 +45,8 @@ enum EnemyKind {
   // The later factions' slow heavy hitters (#137).
   ENEMY_KIND_BOMBER = 5;
   ENEMY_KIND_TORPEDO = 6;
+  // A Support Ship repairs its pack from behind it, with no guns (#184).
+  ENEMY_KIND_SUPPORT = 7;
 }
 
 // The alien fleet an enemy belongs to, one per ring (#9): the kind says how
@@ -391,6 +393,8 @@ message EnemyState {
   // The players online its health was scaled for, a companion counting half.
   float scaled_for = 11;
   EnemyFaction faction = 12;
+  // The enemy a Support Ship is repairing now (#184); 0 for none.
+  uint32 repairing = 13;
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.

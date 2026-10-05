@@ -2,7 +2,6 @@ package sim_test
 
 import (
 	"math"
-	"reflect"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/sim"
@@ -321,16 +320,38 @@ func TestThink_HoldShootsInReach(t *testing.T) {
 	}
 }
 
-func TestThink_SupportFirstIsANoOpForNow(t *testing.T) {
+func TestThink_SupportFirstPicksASupportShipOverANearerFighter(t *testing.T) {
 	t.Parallel()
 
-	self, owner := facing(-40, 40, 100, -100)
-	fighter := enemy(2, -150, -100)
+	self, owner := facing(-40, 40, -150, -100)
+	fighter := enemy(1, -150, -100)
 	fighter.Kind = EnemyFighter
-	enemies := []BrainEnemy{enemy(1, 100, -100), fighter}
-	a := decide(self, owner, enemies, func(o *Orders) { o.SupportFirst = true })
-	if b := decide(self, owner, enemies, nil); !reflect.DeepEqual(a, b) {
-		t.Errorf("Support Ships first = %+v, without = %+v, want the same", a, b)
+	support := enemy(2, 200, -200)
+	support.Kind = EnemySupport
+	enemies := []BrainEnemy{fighter, support}
+	off := func(cmd Command, dy, dx float64) float64 {
+		return math.Abs(WrapAngle(aimAngle(self, cmd) - math.Atan2(dy, dx)))
+	}
+	first := decide(self, owner, enemies, func(o *Orders) { o.SupportFirst = true })
+	if got := off(first.Command, -240, 240); got > 0.3 {
+		t.Errorf("Support Ships first, aiming %.2f rad off the Support Ship, want at it", got)
+	}
+	if got := off(decide(self, owner, enemies, nil).Command, -140, -110); got > 0.3 {
+		t.Errorf("without the order, aiming %.2f rad off the nearer Fighter, want at it", got)
+	}
+}
+
+func TestThink_ConservingTheBigGunFiresAtASupportShip(t *testing.T) {
+	t.Parallel()
+
+	self, owner := facing(-40, 40, 40, -40)
+	self.Loadout.Weapon = WeaponBigSpaceGun
+	support := enemy(1, 40, -40)
+	support.Kind = EnemySupport
+	if !decide(self, owner, []BrainEnemy{support}, func(o *Orders) {
+		o.Resources = ResourcesConserve
+	}).Command.Fire {
+		t.Error("conserving, the big gun held its volley from a Support Ship")
 	}
 }
 
