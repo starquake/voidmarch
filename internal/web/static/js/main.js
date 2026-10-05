@@ -6435,6 +6435,7 @@ var SandboxScene = class extends Phaser11.Scene {
       this.standingsHeld = false;
     };
     this.input.on(Phaser11.Input.Events.POINTER_DOWN, (pointer) => {
+      this.hudView.close();
       if (this.touchOn) {
         return;
       }

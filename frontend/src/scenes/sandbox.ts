@@ -806,6 +806,8 @@ export class SandboxScene extends Phaser.Scene {
     };
     // A click on the open full map sends the squadron there (#100, decision 10).
     this.input.on(Phaser.Input.Events.POINTER_DOWN, (pointer: Phaser.Input.Pointer) => {
+      // A click or tap on the game closes a slot's drop-up (#191): Firefox doesn't pass it to the page.
+      this.hudView.close();
       if (this.touchOn) {
         // Touches are the touch controls' own (#180).
         return;
