@@ -57,6 +57,9 @@ import {
   ENEMY_VOLLEY_RANGE,
   MAX_DAMAGE,
   RAM_DAMAGE,
+  REPAIR_LINE_ALPHA,
+  REPAIR_LINE_COLOR,
+  REPAIR_LINE_WIDTH,
   SHARD_DAMAGE,
   SAFE_ZONE_RADIUS,
   SHIP_RADIUS,
@@ -70,6 +73,7 @@ import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, heldLabel, holders, rescueNotice } from '../net/derelict.ts';
 import { bossFellBanner, ringsClosedBanner } from '../net/frontier.ts';
+import { repairLines } from '../net/repair.ts';
 import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
@@ -142,6 +146,8 @@ interface Enemy {
   destroyedAt: number | undefined;
   /** A boss's health from the latest snapshot (#89). */
   health: BossHealth | undefined;
+  /** The enemy a Support Ship repairs, from the latest snapshot (#184); 0 for none. */
+  repairing: number;
 }
 
 /** Another player's shot that hit an enemy, waiting for the delayed timeline. */
@@ -190,6 +196,8 @@ export interface EnemyDebug {
   faction: EnemyFaction;
   x: number;
   y: number;
+  /** The enemy a Support Ship repairs (#184); 0 for none. */
+  repairing: number;
 }
 
 /** A remote player as the E2E tests see them. */
@@ -221,6 +229,8 @@ export class NetPlay {
   private readonly connection: Connection;
   private readonly remotes = new Map<string, Remote>();
   private readonly enemies = new Map<number, Enemy>();
+  /** The Support Ships' repair lines (#184), redrawn every frame. */
+  private readonly repairGraphics: Phaser.GameObjects.Graphics;
   private readonly derelicts = new Map<number, { view: DerelictView; state: DerelictState }>();
   /** Derelicts gone from the snapshots, teleporting away (#190). */
   private readonly departing = new Set<DerelictView>();
@@ -287,6 +297,9 @@ export class NetPlay {
 
   constructor(options: NetPlayOptions) {
     this.options = options;
+    this.repairGraphics = options.scene.add.graphics();
+    // Under the ships, so a line runs up to a hull rather than across it.
+    options.ships.addAt(this.repairGraphics, 0);
     this.connection = new Connection({
       url: options.url,
       token: options.token,
@@ -687,7 +700,14 @@ export class NetPlay {
 
   /** Enemies as drawn, for the E2E tests. */
   get enemyList(): EnemyDebug[] {
-    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, faction: e.view.faction, x: e.view.x, y: e.view.y }));
+    return [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      kind: e.view.kind,
+      faction: e.view.faction,
+      x: e.view.x,
+      y: e.view.y,
+      repairing: e.repairing,
+    }));
   }
 
   /**
@@ -841,6 +861,10 @@ export class NetPlay {
       if (pose !== undefined) {
         enemy.view.place(pose.x, pose.y, pose.angle);
       }
+    }
+    const g = this.repairGraphics.clear().lineStyle(REPAIR_LINE_WIDTH, REPAIR_LINE_COLOR, REPAIR_LINE_ALPHA);
+    for (const line of repairLines(this.enemies)) {
+      g.lineBetween(line.fromX, line.fromY, line.toX, line.toY);
     }
     for (const { item } of this.enemyWarnings.due(renderTick)) {
       this.enemies.get(item.enemyId)?.view.warn((item.warnTicks * 1000) / this.tickRate);
@@ -1247,10 +1271,12 @@ export class NetPlay {
           lastSeen: snapshot.tick,
           destroyedAt: undefined,
           health: undefined,
+          repairing: 0,
         };
         this.enemies.set(state.enemyId, enemy);
       }
       enemy.lastSeen = snapshot.tick;
+      enemy.repairing = state.repairing;
       if (state.maxHp > 0) {
         enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor };
         enemy.view.setShield(state.shield > 0);

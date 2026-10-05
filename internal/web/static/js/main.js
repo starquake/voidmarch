@@ -420,6 +420,9 @@ var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
 var ENEMY_FIRE_GLOW_COLOR = 4172031;
 var BOMBER_WARN_TINT = 2053248;
+var REPAIR_LINE_COLOR = 6217822;
+var REPAIR_LINE_ALPHA = 0.35;
+var REPAIR_LINE_WIDTH = 1;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
 var ENEMY_FIRE_GLOW_QUALITY = 3;
 var ENEMY_FIRE_GLOW_DISTANCE = 4;
@@ -602,7 +605,8 @@ var ENEMY_FILES = {
     scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
     fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
     frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
-    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 }
+    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
+    support: { size: 64, engine: 10, destruction: 10 }
   },
   nairan: {
     scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
@@ -610,7 +614,8 @@ var ENEMY_FILES = {
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
-    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 }
+    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 },
+    support: { size: 64, engine: 8, destruction: 16 }
   },
   nautolan: {
     scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
@@ -618,7 +623,8 @@ var ENEMY_FILES = {
     bomber: { size: 64, engine: 8, destruction: 10 },
     torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
     frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
-    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 }
+    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 },
+    support: { size: 64, engine: 8, destruction: 8 }
   }
 };
 var BULLET_VARIANT = "blue";
@@ -1120,6 +1126,8 @@ var fromEnemyKind = (kind) => {
       return "bomber";
     case EnemyKind.TORPEDO:
       return "torpedo";
+    case EnemyKind.SUPPORT:
+      return "support";
     default:
       return "scout";
   }
@@ -4693,7 +4701,7 @@ var EnemyView = class {
   faction;
   root;
   base;
-  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137). */
+  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137), nor a Support Ship (#184). */
   weapon;
   /** The shield bubble, for the kinds that have one (#89). */
   shield;
@@ -4936,6 +4944,18 @@ function ringsClosedBanner(before, after) {
   ];
 }
 
+// src/net/repair.ts
+function repairLines(enemies) {
+  const lines = [];
+  for (const e of enemies.values()) {
+    const target = e.repairing === 0 ? void 0 : enemies.get(e.repairing)?.drawn;
+    if (e.drawn !== void 0 && target !== void 0) {
+      lines.push({ fromX: e.drawn.x, fromY: e.drawn.y, toX: target.x, toY: target.y });
+    }
+  }
+  return lines;
+}
+
 // src/net/events.ts
 function timeLeft(endsTick, tick, tickRate) {
   const seconds = Math.max(0, Math.ceil((endsTick - tick) / tickRate));
@@ -4977,6 +4997,8 @@ var NetPlay = class {
   connection;
   remotes = /* @__PURE__ */ new Map();
   enemies = /* @__PURE__ */ new Map();
+  /** The Support Ships' repair lines (#184), redrawn every frame. */
+  repairGraphics;
   derelicts = /* @__PURE__ */ new Map();
   /** Derelicts gone from the snapshots, teleporting away (#190). */
   departing = /* @__PURE__ */ new Set();
@@ -5042,6 +5064,8 @@ var NetPlay = class {
   spawned = false;
   constructor(options) {
     this.options = options;
+    this.repairGraphics = options.scene.add.graphics();
+    options.ships.addAt(this.repairGraphics, 0);
     this.connection = new Connection({
       url: options.url,
       token: options.token,
@@ -5406,7 +5430,14 @@ var NetPlay = class {
   }
   /** Enemies as drawn, for the E2E tests. */
   get enemyList() {
-    return [...this.enemies.entries()].map(([id, e]) => ({ id, kind: e.view.kind, faction: e.view.faction, x: e.view.x, y: e.view.y }));
+    return [...this.enemies.entries()].map(([id, e]) => ({
+      id,
+      kind: e.view.kind,
+      faction: e.view.faction,
+      x: e.view.x,
+      y: e.view.y,
+      repairing: e.repairing
+    }));
   }
   /**
    * Once a frame: send the local ship, draw the others and the enemies, spawn
@@ -5545,6 +5576,10 @@ var NetPlay = class {
       if (pose !== void 0) {
         enemy.view.place(pose.x, pose.y, pose.angle);
       }
+    }
+    const g = this.repairGraphics.clear().lineStyle(REPAIR_LINE_WIDTH, REPAIR_LINE_COLOR, REPAIR_LINE_ALPHA);
+    for (const line of repairLines(this.enemies)) {
+      g.lineBetween(line.fromX, line.fromY, line.toX, line.toY);
     }
     for (const { item } of this.enemyWarnings.due(renderTick)) {
       this.enemies.get(item.enemyId)?.view.warn(item.warnTicks * 1e3 / this.tickRate);
@@ -5911,11 +5946,13 @@ var NetPlay = class {
           drawn: void 0,
           lastSeen: snapshot.tick,
           destroyedAt: void 0,
-          health: void 0
+          health: void 0,
+          repairing: 0
         };
         this.enemies.set(state.enemyId, enemy);
       }
       enemy.lastSeen = snapshot.tick;
+      enemy.repairing = state.repairing;
       if (state.maxHp > 0) {
         enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor };
         enemy.view.setShield(state.shield > 0);

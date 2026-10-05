@@ -14,7 +14,7 @@ export class EnemyView {
   readonly faction: EnemyFaction;
   private readonly root: Phaser.GameObjects.Container;
   private readonly base: Phaser.GameObjects.Image;
-  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137). */
+  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137), nor a Support Ship (#184). */
   private readonly weapon: Phaser.GameObjects.Sprite | undefined;
   /** The shield bubble, for the kinds that have one (#89). */
   private readonly shield: Phaser.GameObjects.Sprite | undefined;

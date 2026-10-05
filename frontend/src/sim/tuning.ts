@@ -49,6 +49,10 @@ export const ENEMY_SOUND_RANGE = 400;
 export const ENEMY_FIRE_GLOW_COLOR = 0x3fa8ff;
 /** What a Bomber's hull adds while it warns of a volley, having no weapons to animate (#137): half the enemy fire's blue. */
 export const BOMBER_WARN_TINT = 0x1f5480;
+/** A Support Ship's repair line (#184): thin, green, at the order ring's alpha. */
+export const REPAIR_LINE_COLOR = 0x5ee05e;
+export const REPAIR_LINE_ALPHA = 0.35;
+export const REPAIR_LINE_WIDTH = 1;
 export const ENEMY_FIRE_GLOW_STRENGTH = 6;
 export const ENEMY_FIRE_GLOW_QUALITY = 3;
 export const ENEMY_FIRE_GLOW_DISTANCE = 4;
