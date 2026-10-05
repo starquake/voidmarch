@@ -1761,9 +1761,12 @@ function missionCompleteBanner(sector, part, stats) {
 var WHITE = 16777215;
 var CHANNELS2 = [16, 8, 0];
 var CHANNEL_MAX = 255;
-function ringTint(x, y) {
+function ringAt(x, y) {
   const name = sectorName(x, y);
-  const ring2 = name === void 0 ? void 0 : sectorRing(name);
+  return name === void 0 ? void 0 : sectorRing(name);
+}
+function ringTint(x, y) {
+  const ring2 = ringAt(x, y);
   return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
 }
 function fadeColor(a, b, t) {

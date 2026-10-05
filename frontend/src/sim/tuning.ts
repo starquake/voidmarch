@@ -150,6 +150,12 @@ export const RING_TINTS: readonly number[] = [0xffffff, 0xffffff, 0x8fe0b0, 0x8f
 /** How long the background takes to fade to a new ring's tint. */
 export const RING_TINT_FADE_MS = 1500;
 
+/** The background layers only one ring draws (#186), named as their files in assets/environment without `background-`. */
+export const RING_LAYER_IDS = ['rotary-star', 'black-hole'] as const;
+export type RingLayerId = (typeof RING_LAYER_IDS)[number];
+/** The layer each ring adds, home outward (#95 decision 4): the Rotary Star in ring 2, the Black hole in ring 3. */
+export const RING_LAYERS: readonly (RingLayerId | undefined)[] = [undefined, undefined, 'rotary-star', 'black-hole'];
+
 /** How often the minimap redraws while the full map is closed (#143): it moves slowly, so every frame is wasted work. */
 export const MINIMAP_REDRAW_MS = 100;
 

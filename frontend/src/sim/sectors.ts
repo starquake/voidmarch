@@ -1,6 +1,6 @@
 import { GRID_RINGS, RING_FACTIONS, SECTOR_RADIUS, type EnemyFaction } from './rules.gen.ts';
 import { FACTION_NAMES } from './enemies.ts';
-import { RING_TINTS } from './tuning.ts';
+import { RING_LAYERS, RING_TINTS, type RingLayerId } from './tuning.ts';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const SQRT3 = Math.sqrt(3);
@@ -235,12 +235,24 @@ const WHITE = 0xffffff;
 const CHANNELS = [16, 8, 0] as const;
 const CHANNEL_MAX = 0xff;
 
+function ringAt(x: number, y: number): number | undefined {
+  const name = sectorName(x, y);
+
+  return name === undefined ? undefined : sectorRing(name);
+}
+
 /** The background's tint at (x, y): its ring's, white off the grid. */
 export function ringTint(x: number, y: number): number {
-  const name = sectorName(x, y);
-  const ring = name === undefined ? undefined : sectorRing(name);
+  const ring = ringAt(x, y);
 
   return (ring === undefined ? undefined : RING_TINTS[ring]) ?? WHITE;
+}
+
+/** The background layer only the ring at (x, y) draws, if it has one. */
+export function ringLayer(x: number, y: number): RingLayerId | undefined {
+  const ring = ringAt(x, y);
+
+  return ring === undefined ? undefined : RING_LAYERS[ring];
 }
 
 /** Color a faded toward b by t of the way, channel by channel; any t above 0 moves a channel at least one step, so a slow fade still arrives. */

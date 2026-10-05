@@ -10,6 +10,7 @@ import {
   sectorOpen,
   missionBanner,
   missionCompleteBanner,
+  ringLayer,
   ringTint,
   sectorFaction,
   SECTOR_NAMES,
@@ -156,6 +157,20 @@ test("the background takes each ring's tint, and white off the grid", () => {
     assert.equal(ringTint(c.x, c.y), RING_TINTS[ring], name);
   }
   assert.equal(ringTint(1e6, 1e6), 0xffffff);
+});
+
+test('ring 2 adds the Rotary Star layer and ring 3 the Black hole; home, ring 1 and off the grid add none (#186)', () => {
+  for (const [name, layer] of [
+    [HOME_SECTOR, undefined],
+    ['E4', undefined],
+    ['D2', 'rotary-star'],
+    ['D1', 'black-hole'],
+  ] as const) {
+    const c = sectorCenter(name);
+    assert.ok(c !== undefined, name);
+    assert.equal(ringLayer(c.x, c.y), layer, name);
+  }
+  assert.equal(ringLayer(1e6, 1e6), undefined);
 });
 
 test('a fade moves each channel toward the target and always arrives', () => {
