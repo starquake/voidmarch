@@ -27,8 +27,8 @@ func enemyByID(snap *pb.Snapshot, id uint32) *pb.EnemyState {
 	return nil
 }
 
-// idle is where the player waits in TestSupportShip tests: out of every
-// enemy's reach, so the ships placed below it hold still.
+// idleX and idleY are where the player waits in the repair tests: out of
+// every enemy's reach, so the ships placed below hold still.
 const idleX, idleY = 0, 300
 
 func TestSupportShip_RepairsAMateInRangeUpToItsStartingHP(t *testing.T) {
