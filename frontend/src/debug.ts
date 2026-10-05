@@ -106,6 +106,8 @@ export interface DebugState {
   departing: number;
   /** The last sector cleared and the part it gave this player (#101). */
   lastClear: { sector: string; reward: string | undefined } | undefined;
+  /** The cleared sectors, as the server says (#99), sorted; none offline. */
+  clearedSectors: string[];
   /** The world event running, as the HUD's line says it (#102). */
   worldEvent: string | undefined;
   /** The player's squadron's mission (#101), and its banner while it shows. */
