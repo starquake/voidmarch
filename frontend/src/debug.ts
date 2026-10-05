@@ -129,6 +129,10 @@ export interface DebugState {
     backend: string;
     musicLoaded: boolean;
     playingMusic: string | null;
+    /** The playing track's volume, rising as it fades in (#187); 0 with none. */
+    musicVolume: number;
+    /** Tracks still fading out. */
+    fadingMusic: number;
   };
 }
 

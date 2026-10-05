@@ -1,4 +1,5 @@
 import type { EngineId, WeaponId } from './sim/loadout.ts';
+import type { MusicPlace } from './sim/music.ts';
 
 const AUDIO = '/static/audio';
 
@@ -46,8 +47,19 @@ export const TELEPORT_SOUND = 'sfx-teleport';
 /** The force field's zaps (#127), played in random order. */
 export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
-/** Music tracks, played in turn. */
-export const MUSIC = ['music-explorer-theme-1', 'music-explorer-theme-2'] as const;
+/** Each place's music tracks (#187), played in turn: Eerie Space Music at home and against a Dreadnought. */
+export const MUSIC: Readonly<Record<MusicPlace, readonly string[]>> = {
+  home: ['music-eerie-1'],
+  dreadnought: ['music-eerie-2'],
+  elsewhere: ['music-explorer-theme-1', 'music-explorer-theme-2'],
+};
+
+/** The track a place plays on its turn-th go. */
+export function musicTrack(place: MusicPlace, turn: number): string {
+  const tracks = MUSIC[place];
+
+  return tracks[turn % tracks.length] ?? '';
+}
 
 /** Effects, small enough to load before the game starts. */
 export function effectFiles(): SoundFile[] {
@@ -76,5 +88,7 @@ export function effectFiles(): SoundFile[] {
 
 /** Music, loaded in the background once the game runs. */
 export function musicFiles(): SoundFile[] {
-  return MUSIC.map((key) => both(key, `music/${key.replace(/^music-/, '')}`));
+  return Object.values(MUSIC)
+    .flat()
+    .map((key) => both(key, `music/${key.replace(/^music-/, '')}`));
 }

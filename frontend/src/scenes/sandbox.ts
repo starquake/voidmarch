@@ -96,6 +96,7 @@ import {
   sectorState,
   sectorOpen,
 } from '../sim/sectors.ts';
+import { musicPlace } from '../sim/music.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, modeName } from '../squadrons.ts';
@@ -389,7 +390,7 @@ export class SandboxScene extends Phaser.Scene {
       cssPixels: false,
       gpuMs: undefined,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null },
+      audio: { muted: false, music: false, locked: true, backend: 'none', musicLoaded: false, playingMusic: null, musicVolume: 0, fadingMusic: 0 },
       net: { status: 'offline', playerId: undefined, others: [] },
       enemies: [],
       enemiesDestroyed: 0,
@@ -464,7 +465,9 @@ export class SandboxScene extends Phaser.Scene {
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
-    this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    const boss = bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y);
+    this.bossBar.show(boss);
+    this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), boss?.kind));
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
@@ -1984,6 +1987,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.audio.music = this.audioSettings.music;
     this.debug.audio.locked = this.sound.locked;
     this.debug.audio.playingMusic = this.audio.playingMusic;
+    this.debug.audio.musicVolume = this.audio.musicVolume;
+    this.debug.audio.fadingMusic = this.audio.fadingMusic;
     this.debug.audio.backend = this.audio.backend;
     this.debug.audio.musicLoaded = this.audio.musicReady;
     this.debug.net.status = this.net?.status ?? 'offline';

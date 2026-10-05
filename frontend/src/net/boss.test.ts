@@ -23,6 +23,7 @@ test("the bar names a boss by its faction", () => {
 
 test('the bar names the Frigate and shows its health, shield and the players it was scaled for', () => {
   assert.deepEqual(bossBar([frigate()], 100, 0), {
+    kind: 'frigate',
     name: "KLA'ED FRIGATE",
     health: 96 / 130,
     shield: 0.5,
@@ -34,6 +35,7 @@ test('the bar names the Dreadnought and fills its shield against its own size', 
   const max = DREADNOUGHT_BASE_HP * 4;
   const dreadnought = frigate({ kind: 'dreadnought', hp: max / 2, maxHp: max, shield: DREADNOUGHT_SHIELD / 4, scaledFor: 3 });
   assert.deepEqual(bossBar([dreadnought], 0, 0), {
+    kind: 'dreadnought',
     name: "KLA'ED DREADNOUGHT",
     health: 0.5,
     shield: 0.25,

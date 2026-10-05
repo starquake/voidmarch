@@ -192,7 +192,15 @@ var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
 var TELEPORT_SOUND = "sfx-teleport";
 var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
-var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
+var MUSIC = {
+  home: ["music-eerie-1"],
+  dreadnought: ["music-eerie-2"],
+  elsewhere: ["music-explorer-theme-1", "music-explorer-theme-2"]
+};
+function musicTrack(place, turn) {
+  const tracks = MUSIC[place];
+  return tracks[turn % tracks.length] ?? "";
+}
 function effectFiles() {
   const files = [
     ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
@@ -216,7 +224,7 @@ function effectFiles() {
   return files;
 }
 function musicFiles() {
-  return MUSIC.map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
+  return Object.values(MUSIC).flat().map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
 }
 
 // src/sim/rules.gen.ts
@@ -3492,6 +3500,14 @@ function touchMode(matches, search) {
   return matches("(pointer: coarse)") && !matches("(any-pointer: fine)");
 }
 
+// src/sim/music.ts
+function musicPlace(sector, boss) {
+  if (boss === "dreadnought") {
+    return "dreadnought";
+  }
+  return sector === HOME_SECTOR ? "home" : "elsewhere";
+}
+
 // src/sim/world.ts
 function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
   const random = seededRandom(seed);
@@ -3736,6 +3752,7 @@ function bossBar(bosses, x, y) {
   const max = Math.round(nearest.maxHp);
   const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} online` : "";
   return {
+    kind: nearest.kind,
     name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
@@ -3784,11 +3801,18 @@ var EXPIRE_VOLUME = 0.3;
 var UI_VOLUME = 0.3;
 var TELEPORT_VOLUME = 0.3;
 var MUSIC_VOLUME = 0.3;
+var MUSIC_FADE_MS = 2e3;
 var ShipAudio = class {
   engine;
   engineId;
+  /** The track playing or fading in, and those fading out. */
   music;
-  musicIndex = 0;
+  fading = /* @__PURE__ */ new Set();
+  place = "home";
+  turns = { home: 0, dreadnought: 0, elsewhere: 0 };
+  awaitingUnlock = false;
+  /** Whether the next track fades in: after a place change, not when one track follows another. */
+  fadeInNext = false;
   musicLoaded = false;
   shots = 0;
   lastZap;
@@ -3816,6 +3840,14 @@ var ShipAudio = class {
   /** The key of the playing track, or null. */
   get playingMusic() {
     return this.music?.isPlaying === true ? this.music.key : null;
+  }
+  /** The playing track's volume, 0 with none. */
+  get musicVolume() {
+    return this.music?.isPlaying === true ? this.music.volume : 0;
+  }
+  /** How many tracks are still fading out. */
+  get fadingMusic() {
+    return this.fading.size;
   }
   /** Swaps the engine loop to match the fitted engine. */
   setEngine(id) {
@@ -3899,39 +3931,106 @@ var ShipAudio = class {
     if (this.settings.music) {
       this.playMusic();
     } else {
-      this.music?.stop();
+      this.stopMusic();
     }
   }
-  /** Loads the music after the game has started, so it never delays the first frame. */
+  /** Crossfades to the place's music when the ship moves to another place (#187). */
+  setMusicPlace(place) {
+    if (place === this.place) {
+      return;
+    }
+    this.place = place;
+    this.fadeInNext = true;
+    if (this.music !== void 0) {
+      this.fadeOut(this.music);
+      this.music = void 0;
+    }
+    this.playMusic();
+  }
+  /** Loads the music after the game has started, so it never delays the first frame; each track plays once it's in. */
   loadMusic() {
     const loader = this.scene.load;
     for (const file of musicFiles()) {
       loader.audio(file.key, file.urls);
     }
+    const loaded2 = () => {
+      this.playMusic();
+    };
+    loader.on(Phaser3.Loader.Events.FILE_COMPLETE, loaded2);
     loader.once(Phaser3.Loader.Events.COMPLETE, () => {
+      loader.off(Phaser3.Loader.Events.FILE_COMPLETE, loaded2);
       this.musicLoaded = true;
       this.playMusic();
     });
     loader.start();
   }
   playMusic() {
-    if (!this.musicLoaded || !this.settings.music || this.music?.isPlaying === true) {
+    if (!this.settings.music || this.music !== void 0) {
       return;
     }
     if (this.scene.sound.locked) {
-      this.scene.sound.once(Phaser3.Sound.Events.UNLOCKED, () => {
-        this.playMusic();
-      });
+      if (!this.awaitingUnlock) {
+        this.awaitingUnlock = true;
+        this.scene.sound.once(Phaser3.Sound.Events.UNLOCKED, () => {
+          this.awaitingUnlock = false;
+          this.playMusic();
+        });
+      }
       return;
     }
-    const key2 = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
-    this.music?.destroy();
-    this.music = this.scene.sound.add(key2, { volume: MUSIC_VOLUME });
-    this.music.once(Phaser3.Sound.Events.COMPLETE, () => {
-      this.musicIndex++;
-      this.playMusic();
+    const place = this.place;
+    const key2 = musicTrack(place, this.turns[place]);
+    const fading = [...this.fading].find((sound) => sound.key === key2);
+    if (fading !== void 0) {
+      this.fading.delete(fading);
+      this.music = fading;
+      this.fadeInNext = false;
+      this.fadeTo(fading, MUSIC_VOLUME);
+      return;
+    }
+    if (!this.scene.cache.audio.exists(key2)) {
+      return;
+    }
+    const music = this.scene.sound.add(key2, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME });
+    music.once(Phaser3.Sound.Events.COMPLETE, () => {
+      this.discard(music);
+      if (this.music === music) {
+        this.music = void 0;
+        this.turns[place]++;
+        this.playMusic();
+      }
     });
-    this.music.play();
+    this.music = music;
+    music.play();
+    if (this.fadeInNext) {
+      this.fadeInNext = false;
+      this.fadeTo(music, MUSIC_VOLUME);
+    }
+  }
+  fadeOut(music) {
+    this.fading.add(music);
+    this.fadeTo(music, 0, () => {
+      this.discard(music);
+    });
+  }
+  fadeTo(music, volume, done) {
+    this.scene.tweens.killTweensOf(music);
+    this.scene.tweens.add({ targets: music, volume, duration: MUSIC_FADE_MS, onComplete: () => done?.() });
+  }
+  /** Drops a track that has faded out, finished, or been switched off. */
+  discard(music) {
+    this.scene.tweens.killTweensOf(music);
+    this.fading.delete(music);
+    music.destroy();
+  }
+  stopMusic() {
+    for (const music of this.fading) {
+      this.discard(music);
+    }
+    if (this.music !== void 0) {
+      this.discard(this.music);
+      this.music = void 0;
+    }
   }
 };
 
@@ -6377,7 +6476,7 @@ var SandboxScene = class extends Phaser11.Scene {
       cssPixels: false,
       gpuMs: void 0,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
+      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null, musicVolume: 0, fadingMusic: 0 },
       net: { status: "offline", playerId: void 0, others: [] },
       enemies: [],
       enemiesDestroyed: 0,
@@ -6451,7 +6550,9 @@ var SandboxScene = class extends Phaser11.Scene {
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
-    this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    const boss = bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y);
+    this.bossBar.show(boss);
+    this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), boss?.kind));
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
@@ -7794,6 +7895,8 @@ ${modeName(info)}`,
     this.debug.audio.music = this.audioSettings.music;
     this.debug.audio.locked = this.sound.locked;
     this.debug.audio.playingMusic = this.audio.playingMusic;
+    this.debug.audio.musicVolume = this.audio.musicVolume;
+    this.debug.audio.fadingMusic = this.audio.fadingMusic;
     this.debug.audio.backend = this.audio.backend;
     this.debug.audio.musicLoaded = this.audio.musicReady;
     this.debug.net.status = this.net?.status ?? "offline";

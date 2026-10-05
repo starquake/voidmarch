@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { engineMix, nextVariant, randomVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
 import type { EngineId, WeaponId } from '../sim/loadout.ts';
+import type { MusicPlace } from '../sim/music.ts';
 import { isWeapon, type FrameEvents, type Ship } from '../simwasm.ts';
 import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
 import {
@@ -12,12 +13,12 @@ import {
   ENGINE_LOOPS,
   FIELD_ZAP_SOUNDS,
   EXPIRE_SOUNDS,
-  MUSIC,
   PART_SWITCH_SOUND,
   SHIELD_SOUND,
   SHOT_SOUNDS,
   TELEPORT_SOUND,
   musicFiles,
+  musicTrack,
 } from '../sounds.ts';
 
 type Sound = Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound | Phaser.Sound.NoAudioSound;
@@ -35,13 +36,21 @@ const EXPIRE_VOLUME = 0.3;
 const UI_VOLUME = 0.3;
 const TELEPORT_VOLUME = 0.3;
 const MUSIC_VOLUME = 0.3;
+/** How long one place's music takes to fade into the next's. */
+const MUSIC_FADE_MS = 2000;
 
 /** Plays the ship's sounds and the music, driven by the sim's frame events. */
 export class ShipAudio {
   private engine: Sound | undefined;
   private engineId: EngineId | undefined;
+  /** The track playing or fading in, and those fading out. */
   private music: Sound | undefined;
-  private musicIndex = 0;
+  private readonly fading = new Set<Sound>();
+  private place: MusicPlace = 'home';
+  private readonly turns: Record<MusicPlace, number> = { home: 0, dreadnought: 0, elsewhere: 0 };
+  private awaitingUnlock = false;
+  /** Whether the next track fades in: after a place change, not when one track follows another. */
+  private fadeInNext = false;
   private musicLoaded = false;
   private shots = 0;
   private lastZap: string | undefined;
@@ -74,6 +83,16 @@ export class ShipAudio {
   /** The key of the playing track, or null. */
   get playingMusic(): string | null {
     return this.music?.isPlaying === true ? this.music.key : null;
+  }
+
+  /** The playing track's volume, 0 with none. */
+  get musicVolume(): number {
+    return this.music?.isPlaying === true ? this.music.volume : 0;
+  }
+
+  /** How many tracks are still fading out. */
+  get fadingMusic(): number {
+    return this.fading.size;
   }
 
   /** Swaps the engine loop to match the fitted engine. */
@@ -169,17 +188,36 @@ export class ShipAudio {
     if (this.settings.music) {
       this.playMusic();
     } else {
-      this.music?.stop();
+      this.stopMusic();
     }
   }
 
-  /** Loads the music after the game has started, so it never delays the first frame. */
+  /** Crossfades to the place's music when the ship moves to another place (#187). */
+  setMusicPlace(place: MusicPlace): void {
+    if (place === this.place) {
+      return;
+    }
+    this.place = place;
+    this.fadeInNext = true;
+    if (this.music !== undefined) {
+      this.fadeOut(this.music);
+      this.music = undefined;
+    }
+    this.playMusic();
+  }
+
+  /** Loads the music after the game has started, so it never delays the first frame; each track plays once it's in. */
   private loadMusic(): void {
     const loader = this.scene.load;
     for (const file of musicFiles()) {
       loader.audio(file.key, file.urls);
     }
+    const loaded = (): void => {
+      this.playMusic();
+    };
+    loader.on(Phaser.Loader.Events.FILE_COMPLETE, loaded);
     loader.once(Phaser.Loader.Events.COMPLETE, () => {
+      loader.off(Phaser.Loader.Events.FILE_COMPLETE, loaded);
       this.musicLoaded = true;
       this.playMusic();
     });
@@ -187,24 +225,78 @@ export class ShipAudio {
   }
 
   private playMusic(): void {
-    if (!this.musicLoaded || !this.settings.music || this.music?.isPlaying === true) {
+    if (!this.settings.music || this.music !== undefined) {
       return;
     }
     // Browsers keep audio locked until the first click or key press.
     if (this.scene.sound.locked) {
-      this.scene.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
-        this.playMusic();
-      });
+      if (!this.awaitingUnlock) {
+        this.awaitingUnlock = true;
+        this.scene.sound.once(Phaser.Sound.Events.UNLOCKED, () => {
+          this.awaitingUnlock = false;
+          this.playMusic();
+        });
+      }
 
       return;
     }
-    const key = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
-    this.music?.destroy();
-    this.music = this.scene.sound.add(key, { volume: MUSIC_VOLUME });
-    this.music.once(Phaser.Sound.Events.COMPLETE, () => {
-      this.musicIndex++;
-      this.playMusic();
+    const place = this.place;
+    const key = musicTrack(place, this.turns[place]);
+    const fading = [...this.fading].find((sound) => sound.key === key);
+    if (fading !== undefined) {
+      this.fading.delete(fading);
+      this.music = fading;
+      this.fadeInNext = false;
+      this.fadeTo(fading, MUSIC_VOLUME);
+
+      return;
+    }
+    if (!this.scene.cache.audio.exists(key)) {
+      return;
+    }
+    const music = this.scene.sound.add(key, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME });
+    music.once(Phaser.Sound.Events.COMPLETE, () => {
+      this.discard(music);
+      if (this.music === music) {
+        this.music = undefined;
+        this.turns[place]++;
+        this.playMusic();
+      }
     });
-    this.music.play();
+    this.music = music;
+    music.play();
+    if (this.fadeInNext) {
+      this.fadeInNext = false;
+      this.fadeTo(music, MUSIC_VOLUME);
+    }
+  }
+
+  private fadeOut(music: Sound): void {
+    this.fading.add(music);
+    this.fadeTo(music, 0, () => {
+      this.discard(music);
+    });
+  }
+
+  private fadeTo(music: Sound, volume: number, done?: () => void): void {
+    this.scene.tweens.killTweensOf(music);
+    this.scene.tweens.add({ targets: music, volume, duration: MUSIC_FADE_MS, onComplete: () => done?.() });
+  }
+
+  /** Drops a track that has faded out, finished, or been switched off. */
+  private discard(music: Sound): void {
+    this.scene.tweens.killTweensOf(music);
+    this.fading.delete(music);
+    music.destroy();
+  }
+
+  private stopMusic(): void {
+    for (const music of this.fading) {
+      this.discard(music);
+    }
+    if (this.music !== undefined) {
+      this.discard(this.music);
+      this.music = undefined;
+    }
   }
 }

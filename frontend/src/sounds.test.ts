@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { CHARGE_SOUNDS, ENEMY_EXPLOSION_SOUND, ENEMY_SHOT_SOUND, ENGINE_LOOPS, EXPIRE_SOUNDS, MUSIC, PART_SWITCH_SOUND, SHIELD_SOUND, SHOT_SOUNDS, TELEPORT_SOUND, effectFiles, musicFiles } from './sounds.ts';
+import { CHARGE_SOUNDS, ENEMY_EXPLOSION_SOUND, ENEMY_SHOT_SOUND, ENGINE_LOOPS, EXPIRE_SOUNDS, MUSIC, PART_SWITCH_SOUND, SHIELD_SOUND, SHOT_SOUNDS, TELEPORT_SOUND, effectFiles, musicFiles, musicTrack } from './sounds.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
@@ -28,9 +28,24 @@ test('every sound the game plays is loaded', () => {
     ENEMY_SHOT_SOUND,
     PART_SWITCH_SOUND,
     TELEPORT_SOUND,
-    ...MUSIC,
+    ...Object.values(MUSIC).flat(),
   ];
   for (const key of used) {
     assert.ok(loaded.has(key), key);
   }
+});
+
+test('each place has its own music, and the Explorer themes play everywhere else', () => {
+  assert.deepEqual(MUSIC, {
+    home: ['music-eerie-1'],
+    dreadnought: ['music-eerie-2'],
+    elsewhere: ['music-explorer-theme-1', 'music-explorer-theme-2'],
+  });
+});
+
+test('a place plays its tracks in turn', () => {
+  assert.equal(musicTrack('elsewhere', 0), 'music-explorer-theme-1');
+  assert.equal(musicTrack('elsewhere', 1), 'music-explorer-theme-2');
+  assert.equal(musicTrack('elsewhere', 2), 'music-explorer-theme-1');
+  assert.equal(musicTrack('home', 3), 'music-eerie-1');
 });
