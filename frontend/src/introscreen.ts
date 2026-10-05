@@ -6,8 +6,9 @@ const COPIED_MS = 2000;
 /**
  * The intro screen (#193): the premise, the controls of the device, the
  * sectors and what else is good to know, and the game's link to share. It
- * shows on the first visit and again from F1 or the Help button, over the
- * running game and over the squadron join screen.
+ * shows on the first visit, while the game loads (#227), and again from F1 or
+ * the Help button, over the running game. The screens behind it hide until it
+ * closes.
  */
 export class IntroScreen {
   private readonly doc: Document;
@@ -15,17 +16,20 @@ export class IntroScreen {
   private readonly link: HTMLInputElement | null;
   private readonly copy: HTMLButtonElement | null;
   private readonly share: HTMLButtonElement | null;
-  private readonly closed: () => void;
+  private readonly play: HTMLButtonElement | null;
+  private readonly closed: (() => void)[] = [];
   private copiedTimer: number | undefined;
+  private touch = false;
+  /** While the game loads behind it, Play waits and the screen stays (#227, decision 5). */
+  private loading = false;
 
-  /** closed runs each time the screen closes. */
-  constructor(closed: () => void, doc: Document = document) {
-    this.closed = closed;
+  constructor(doc: Document = document) {
     this.doc = doc;
     this.form = doc.querySelector<HTMLFormElement>('#intro-form');
     this.link = doc.querySelector<HTMLInputElement>('#intro-link');
     this.copy = doc.querySelector<HTMLButtonElement>('#intro-copy');
     this.share = doc.querySelector<HTMLButtonElement>('#intro-share');
+    this.play = doc.querySelector<HTMLButtonElement>('#intro-play');
     // Play is the form's submit button, so Enter plays too.
     this.form?.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -43,38 +47,68 @@ export class IntroScreen {
     return this.form !== null && !this.form.hidden;
   }
 
-  /** Opens the screen with the controls of the device, keeping the screens behind it from taking focus or clicks. */
-  show(touch: boolean): void {
+  /** listener runs each time the screen closes. */
+  onClose(listener: () => void): void {
+    this.closed.push(listener);
+  }
+
+  /**
+   * Opens the screen with the controls of the device, keeping the screens
+   * behind it hidden and from taking focus or clicks. While loading, Play
+   * waits until ready.
+   */
+  show(touch: boolean, loading = false): void {
     if (this.form === null) {
       return;
     }
-    this.fill(touch);
+    this.touch = touch;
+    this.loading = loading;
+    this.fill();
     for (const other of this.doc.querySelectorAll<HTMLElement>('.name-screen')) {
       other.inert = other !== this.form;
     }
     this.form.hidden = false;
     this.form.scrollTop = 0;
-    if (!touch) {
-      // Enter plays.
-      this.doc.querySelector<HTMLButtonElement>('#intro-play')?.focus({ preventScroll: true });
+    this.focusPlay();
+  }
+
+  /** The game is up behind the screen: Play plays, and the screen closes. */
+  ready(): void {
+    if (!this.loading) {
+      return;
+    }
+    this.loading = false;
+    this.fillLoading();
+    if (this.open) {
+      this.focusPlay();
     }
   }
 
   hide(): void {
-    if (!this.open || this.form === null) {
+    if (!this.open || this.loading || this.form === null) {
       return;
     }
     this.form.hidden = true;
     for (const other of this.doc.querySelectorAll<HTMLElement>('.name-screen')) {
       other.inert = false;
     }
-    this.closed();
+    for (const listener of this.closed) {
+      listener();
+    }
   }
 
-  private fill(touch: boolean): void {
-    const content = introContent(touch);
+  /** Enter plays, once it can; on touch there's no keyboard to press it. */
+  private focusPlay(): void {
+    if (!this.touch && !this.loading) {
+      this.play?.focus({ preventScroll: true });
+    }
+  }
+
+  private fill(): void {
+    const touch = this.touch;
+    const content = introContent(touch, this.loading);
     const location = this.doc.defaultView?.location;
-    this.text('#intro-hint', content.hint);
+    this.fillLoading();
     this.text('#intro-premise', content.premise);
     this.doc.querySelector('#intro-friends')?.replaceChildren(content.friends);
     if (this.link !== null && location !== undefined) {
@@ -88,6 +122,14 @@ export class IntroScreen {
     this.doc.querySelector('#intro-controls')?.replaceChildren(...content.controls.map((column) => this.column(column)));
     this.list('#intro-sectors', content.sectors);
     this.list('#intro-extras', content.extras);
+  }
+
+  /** What changes once the game is up: the hint, and Play. */
+  private fillLoading(): void {
+    this.text('#intro-hint', introContent(this.touch, this.loading).hint);
+    if (this.play !== null) {
+      this.play.disabled = this.loading;
+    }
   }
 
   /** Copies the link and says so for a moment; where the clipboard is out of reach, selects it to copy by hand. */
