@@ -71,3 +71,18 @@ test('a click on a slot opens its drop-up, and a click on a part fits it (#191)'
   await page.mouse.click(640, 300);
   await expect(drop).toBeHidden();
 });
+
+test('a newly fitted weapon waits out the swap before it fires (#191)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const view = page.viewportSize() ?? { width: 640, height: 360 };
+  await page.mouse.move(view.width / 2 + 100, view.height / 2);
+  await page.keyboard.press('1');
+  await expect.poll(async () => (await state(page)).loadout.weapon).not.toBe('autoCannon');
+  const before = (await state(page)).shotsFired;
+  await page.mouse.down();
+  await page.waitForTimeout(200);
+  expect((await state(page)).shotsFired, 'nothing fires during the half-second swap').toBe(before);
+  await expect.poll(async () => (await state(page)).shotsFired, { timeout: 5_000 }).toBeGreaterThan(before);
+  await page.mouse.up();
+});
