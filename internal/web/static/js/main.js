@@ -1620,15 +1620,9 @@ var HudView = class _HudView {
         this.setOpen(this.open === kind ? void 0 : kind);
       }
     });
-    doc.addEventListener(
-      "pointerdown",
-      (event) => {
-        if (!(event.target instanceof Node && this.gauge?.contains(event.target) === true)) {
-          this.close();
-        }
-      },
-      true
-    );
+    doc.addEventListener("pointerdown", () => {
+      this.close();
+    });
   }
   /** Whether a slot's drop-up is open, so the scene's Esc closes it first. */
   get dropOpen() {
@@ -6435,7 +6429,6 @@ var SandboxScene = class extends Phaser11.Scene {
       this.standingsHeld = false;
     };
     this.input.on(Phaser11.Input.Events.POINTER_DOWN, (pointer) => {
-      this.hudView.close();
       if (this.touchOn) {
         return;
       }
