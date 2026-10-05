@@ -38,7 +38,7 @@ Everything is pixel art at native resolution. Render with nearest-neighbor scali
 
 - **The HUD** (#91): see-through panels in the page, never taking the pointer, so ships behind them stay visible.
   - **The gauge, bottom left:** the three fitted parts as their Pickups pack icons, each bordered in its tier's color; hull pips (one per hit the ship can still take); shield charges.
-  - **The panel, top left,** as far in from the edges as the minimap: labelled rows for the squadron and who's in it, its orders and what they do, the hangar (at home), the sector you're in, the mission and a world event's alert.
+  - **The panel, top left,** as far in from the edges as the minimap: labelled rows for the squadron and who's in it, its orders and what they do, the hangar (at home), your companions out of the most you may have (#191), the sector you're in, the mission and a world event's alert.
   - **Toasts at the top:** each notice, fading when it ends; the connection, while it isn't online.
   - **The key lines** stay as text, bottom right, until the F1 help overlay (#193) replaces them. On a development server or offline, F3 adds frames per second.
   - The minimap's sectors are see-through too (`MINIMAP_FILL_ALPHA`); the full map keeps its fill, since it covers the screen and the ship holds still under it.

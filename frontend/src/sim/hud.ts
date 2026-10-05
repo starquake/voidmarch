@@ -39,6 +39,8 @@ export interface PanelState {
     | undefined;
   /** The ships in the hangar, shown at home where G draws one. */
   hangar: number | undefined;
+  /** This player's companions out, of the most they may have (#191). */
+  companions: { out: number; limit: number } | undefined;
   /** The sector the ship is in, and what it is: "D4", "home". */
   sector: { name: string; state: string } | undefined;
   mission: string | undefined;
@@ -80,6 +82,9 @@ export function panelRows(state: PanelState): PanelRow[] {
   }
   if (state.hangar !== undefined) {
     row('Hangar', state.hangar === 0 ? 'empty' : `${String(state.hangar)} ship${state.hangar === 1 ? '' : 's'} to summon`);
+  }
+  if (state.companions !== undefined && state.companions.limit > 0) {
+    row('Companions', `${String(state.companions.out)} of ${String(state.companions.limit)} out`);
   }
   if (state.sector !== undefined) {
     const { name, state: what } = state.sector;

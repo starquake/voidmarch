@@ -28,6 +28,7 @@ test('names join as a sentence', () => {
 const FULL: PanelState = {
   squadron: { name: 'Alpha', others: ['Mira', 'Jo'], companions: 0, order: 'Escort', mode: 'escort' },
   hangar: 13,
+  companions: { out: 2, limit: 3 },
   sector: { name: 'D4', state: 'home' },
   mission: 'C3',
   event: 'E4 under attack · 6:34',
@@ -40,6 +41,7 @@ test('the panel labels every row, as mocked', () => {
       'Squadron: Alpha, with Mira and Jo',
       'Orders: Escort: companions fly with you',
       'Hangar: 13 ships to summon',
+      'Companions: 2 of 3 out',
       "You're in: D4, the home sector",
       'Mission: Clear sector C3',
       'Alert: E4 under attack · 6:34 (alert)',
@@ -51,6 +53,7 @@ test('the panel leaves out what is not there, and words the rest to fit', () => 
   const alone = panelRows({
     squadron: { name: 'Beta', others: [], companions: 1, order: 'Hold here', mode: 'hold' },
     hangar: 1,
+    companions: { out: 0, limit: 0 },
     sector: { name: 'E3', state: 'hostile' },
     mission: '',
     event: '',
@@ -60,10 +63,10 @@ test('the panel leaves out what is not there, and words the rest to fit', () => 
     ['Squadron: Beta, with 1 companion', 'Orders: Hold here: companions hold their spot', 'Hangar: 1 ship to summon', "You're in: E3, hostile"],
   );
   assert.deepEqual(
-    panelRows({ squadron: undefined, hangar: 0, sector: { name: 'D1', state: 'unknown' }, mission: undefined, event: '' }).map((r) => r.value),
+    panelRows({ squadron: undefined, hangar: 0, companions: undefined, sector: { name: 'D1', state: 'unknown' }, mission: undefined, event: '' }).map((r) => r.value),
     ['empty', 'D1'],
   );
-  assert.deepEqual(panelRows({ squadron: undefined, hangar: undefined, sector: undefined, mission: undefined, event: '' }), []);
+  assert.deepEqual(panelRows({ squadron: undefined, hangar: undefined, companions: undefined, sector: undefined, mission: undefined, event: '' }), []);
   const unknownMode = panelRows({ ...FULL, squadron: { name: 'A', others: [], companions: 2, order: 'Odd', mode: 'odd' } });
   assert.equal(unknownMode[0]?.value, 'A, with 2 companions');
   assert.equal(unknownMode[1]?.value, 'Odd');

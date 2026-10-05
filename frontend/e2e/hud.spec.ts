@@ -17,6 +17,7 @@ test('the HUD shows the fitted parts, the hull and shield, and a labelled panel 
   await expect(page.locator('#hud-gauge .hud-pips.hull .pip.on')).toHaveCount(3);
 
   await expect.poll(async () => (await state(page)).hud.panel).toContain("You're in: D4, the home sector");
+  await expect.poll(async () => (await state(page)).hud.panel.some((row) => /^Companions: \d of 3 out$/.test(row))).toBe(true);
   await expect.poll(async () => (await state(page)).hud.panel.some((row) => row.startsWith('Squadron: '))).toBe(true);
   await expect.poll(async () => (await state(page)).hud.panel.some((row) => /^Mission: Clear sector [A-G]\d$/.test(row))).toBe(true);
   // Online, nothing about the connection.

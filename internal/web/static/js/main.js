@@ -1834,6 +1834,9 @@ function panelRows(state) {
   if (state.hangar !== void 0) {
     row("Hangar", state.hangar === 0 ? "empty" : `${String(state.hangar)} ship${state.hangar === 1 ? "" : "s"} to summon`);
   }
+  if (state.companions !== void 0 && state.companions.limit > 0) {
+    row("Companions", `${String(state.companions.out)} of ${String(state.companions.limit)} out`);
+  }
   if (state.sector !== void 0) {
     const { name, state: what } = state.sector;
     row("You're in", what === "home" ? `${name}, the home sector` : what === "unknown" ? name : `${name}, ${what}`);
@@ -7394,6 +7397,8 @@ ${modeName(info)}`,
           mode: fromCompanionMode(info.mode) ?? "escort"
         },
         hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : void 0,
+        // How many of your companions are out, which the loadout screen showed until #191.
+        companions: online ? { out: net.companionCount, limit: net.companionLimit } : void 0,
         sector: here === void 0 ? void 0 : { name: here, state: sectorState(here, online ? net.clearedSectors : void 0, net?.frontier) },
         mission: net?.mission,
         event: net?.eventLine(performance.now()) ?? ""

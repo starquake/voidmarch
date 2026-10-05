@@ -1889,6 +1889,8 @@ export class SandboxScene extends Phaser.Scene {
                 mode: fromCompanionMode(info.mode) ?? 'escort',
               },
         hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : undefined,
+        // How many of your companions are out, which the loadout screen showed until #191.
+        companions: online ? { out: net.companionCount, limit: net.companionLimit } : undefined,
         sector: here === undefined ? undefined : { name: here, state: sectorState(here, online ? net.clearedSectors : undefined, net?.frontier) },
         mission: net?.mission,
         event: net?.eventLine(performance.now()) ?? '',
