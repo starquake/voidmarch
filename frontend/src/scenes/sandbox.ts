@@ -74,6 +74,10 @@ import {
   FIELD_STRAND_ALPHA,
   FIELD_ZAP_EVERY_MS,
   RING_TINT_FADE_MS,
+  RING_LAYER_FADE_MS,
+  RING_LAYER_IDS,
+  RING_LAYER_PARALLAX,
+  type RingLayerId,
   MINIMAP_REDRAW_MS,
   FPS_CAP,
   TOUCH_AIM_REACH,
@@ -84,10 +88,12 @@ import { fieldColor, fieldSides, nearestSide, sparks, zapVolume, type Side } fro
 import { TouchControls, touchButtons, touchMode, touchUnit, type ButtonRect, type Point } from '../sim/touch.ts';
 import {
   ALL_OPEN,
+  fadeAlpha,
   fadeColor,
   closedEdges,
   missionArrow,
   missionBanner,
+  ringLayer,
   ringTint,
   SECTOR_NAMES,
   sectorCorners,
@@ -217,6 +223,8 @@ function destroyRing(press: OrderPress): void {
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
   factor: number;
+  /** Set on a layer only that ring draws (#186), which fades with the ship's ring. */
+  ring?: RingLayerId;
 }
 
 /** The single-player sandbox: fly, aim and shoot around the home planet. */
@@ -402,6 +410,7 @@ export class SandboxScene extends Phaser.Scene {
         fadingMusic: 0,
       },
       net: { status: 'offline', playerId: undefined, others: [] },
+      ringLayers: [],
       enemies: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: undefined,
@@ -559,12 +568,23 @@ export class SandboxScene extends Phaser.Scene {
       .setPosition(at.x - Math.cos(at.angle) * size * MISSION_LABEL_OFFSET, at.y - Math.sin(at.angle) * size * MISSION_LABEL_OFFSET);
   }
 
+  /** The parallax layers, back to front: the void, the ring layers this GPU could load (#186), then the stars. */
   private createBackgrounds(): void {
-    this.backgrounds = keys.background.map((key, i) => {
+    const [voidKey, ...starKeys] = keys.background;
+    const layers: { key: string; factor: number; ring?: RingLayerId }[] = [
+      { key: voidKey, factor: PARALLAX[0] },
+      ...RING_LAYER_IDS.filter((id) => this.textures.exists(keys.ringLayer(id))).map((id) => ({ key: keys.ringLayer(id), factor: RING_LAYER_PARALLAX[id], ring: id })),
+      ...starKeys.map((key, i) => ({ key, factor: PARALLAX[i + 1] ?? 0 })),
+    ];
+    this.backgrounds = layers.map(({ key, factor, ring }) => {
       const sprite = this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key, 0).setScrollFactor(0);
       this.world.add(sprite);
+      if (ring === undefined) {
+        return { sprite, factor };
+      }
+      sprite.setAlpha(0).setVisible(false);
 
-      return { sprite, factor: PARALLAX[i] ?? 0 };
+      return { sprite, factor, ring };
     });
   }
 
@@ -1799,7 +1819,7 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
+  /** Scrolls each layer at its parallax factor, tints it and fades the ring layers for the ship's ring; TileSprites cannot play animations, so frames step here. */
   private scrollBackgrounds(time: number, deltaMs: number): void {
     const camera = this.cameras.main;
     const frame = Math.floor((time / 1000) * BACKGROUND_FPS) % BACKGROUND_FRAMES;
@@ -1808,7 +1828,12 @@ export class SandboxScene extends Phaser.Scene {
     const tint = fadeColor(this.backgroundTint, ringTint(this.sim.ship.x, this.sim.ship.y), deltaMs / RING_TINT_FADE_MS);
     const tintChanged = tint !== this.backgroundTint;
     this.backgroundTint = tint;
-    for (const { sprite, factor } of this.backgrounds) {
+    const ring = ringLayer(this.sim.ship.x, this.sim.ship.y);
+    for (const { sprite, factor, ring: only } of this.backgrounds) {
+      if (only !== undefined) {
+        const alpha = fadeAlpha(sprite.alpha, only === ring ? 1 : 0, deltaMs / RING_LAYER_FADE_MS);
+        sprite.setAlpha(alpha).setVisible(alpha > 0);
+      }
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
       if (frameChanged) {
         sprite.setFrame(frame);
@@ -2043,6 +2068,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.clearedSectors = this.net?.status === 'online' ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === undefined ? undefined : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
+    this.debug.ringLayers = this.backgrounds.flatMap(({ sprite, ring }) => (ring === undefined ? [] : [{ id: ring, alpha: sprite.alpha }]));
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;

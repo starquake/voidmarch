@@ -3,6 +3,7 @@ import type { DerelictDebug, EnemyDebug, NetStatus, RemoteDebug } from './scenes
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
 import type { MusicPlace } from './sim/music.ts';
+import type { RingLayerId } from './sim/tuning.ts';
 
 /** One of the player's companions as drawn: the hub flies it. */
 export interface CompanionDebug {
@@ -116,6 +117,8 @@ export interface DebugState {
   missionBanner: string | undefined;
   /** The HUD's sector line: "Sector B3 · hostile" (#99). */
   sector: string;
+  /** The layers only one ring draws that this GPU loaded, and how far each has faded in (#186). */
+  ringLayers: { id: RingLayerId; alpha: number }[];
   /** The boss health bar at the top, while it's shown (#89). */
   boss: BossBar | undefined;
   /** Companion ships waiting in the shared hangar, once the server has listed them. */

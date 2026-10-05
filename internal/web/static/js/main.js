@@ -484,6 +484,10 @@ var MAP_YOU_COLOR = 16777215;
 var MAP_FLASH_MS = 300;
 var RING_TINTS = [16777215, 16777215, 9429168, 9417983];
 var RING_TINT_FADE_MS = 1500;
+var RING_LAYER_IDS = ["rotary-star", "black-hole"];
+var RING_LAYERS = [void 0, void 0, "rotary-star", "black-hole"];
+var RING_LAYER_PARALLAX = { "rotary-star": 0.1, "black-hole": 0.1 };
+var RING_LAYER_FADE_MS = 1e3;
 var MINIMAP_REDRAW_MS = 100;
 var FPS_CAP = 60;
 var TOUCH_STICK_RADIUS_PX = 75;
@@ -716,6 +720,8 @@ var keys = {
   weapon: (id) => `weapon-${id}`,
   projectile: (id) => `projectile-${id}`,
   background: ["background-void", "background-stars", "background-big-stars"],
+  /** A layer only one ring draws (#186). */
+  ringLayer: (id) => `background-${id}`,
   planet: "planet",
   asteroid: "asteroid",
   enemyBase: (faction, kind) => `${faction}-${kind}-base`,
@@ -730,6 +736,18 @@ var keys = {
 };
 var pickupFile = (part) => `${WEAPONS.includes(part) ? "weapon" : ENGINES.includes(part) ? "engine" : "shield"}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 var PICKUP_FRAMES = 15;
+var backgroundSheet = (key2) => ({
+  key: key2,
+  url: `${ASSETS}/environment/${key2}.png`,
+  frameWidth: 640,
+  frameHeight: 360,
+  frames: 9,
+  fps: 6,
+  loop: true
+});
+function loadableSheets(maxTextureSize) {
+  return sheets().filter((s) => s.optional !== true || s.frameWidth * s.frames <= maxTextureSize);
+}
 function sheets() {
   const ship = `${ASSETS}/mainship`;
   const env = `${ASSETS}/environment`;
@@ -752,15 +770,8 @@ function sheets() {
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12)
       ];
     }),
-    ...keys.background.map((key2) => ({
-      key: key2,
-      url: `${env}/${key2}.png`,
-      frameWidth: 640,
-      frameHeight: 360,
-      frames: 9,
-      fps: 6,
-      loop: true
-    })),
+    ...keys.background.map((key2) => backgroundSheet(key2)),
+    ...RING_LAYER_IDS.map((id) => ({ ...backgroundSheet(keys.ringLayer(id)), optional: true })),
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
@@ -837,8 +848,13 @@ var BootScene = class extends Phaser.Scene {
   constructor() {
     super("boot");
   }
+  /** The sheets this renderer can hold: a canvas renderer has no texture limit. */
+  sheets() {
+    const renderer = this.renderer;
+    return loadableSheets(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer.getMaxTextureSize() : Infinity);
+  }
   preload() {
-    for (const sheet of sheets()) {
+    for (const sheet of this.sheets()) {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight
@@ -868,7 +884,7 @@ var BootScene = class extends Phaser.Scene {
     }
   }
   create() {
-    for (const sheet of sheets()) {
+    for (const sheet of this.sheets()) {
       if (sheet.fps > 0) {
         this.anims.create({
           key: sheet.key,
@@ -1768,6 +1784,14 @@ function ringAt(x, y) {
 function ringTint(x, y) {
   const ring2 = ringAt(x, y);
   return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
+}
+function ringLayer(x, y) {
+  const ring2 = ringAt(x, y);
+  return ring2 === void 0 ? void 0 : RING_LAYERS[ring2];
+}
+function fadeAlpha(alpha, target, t) {
+  const step = Math.max(0, t);
+  return target > alpha ? Math.min(target, alpha + step) : Math.max(target, alpha - step);
 }
 function fadeColor(a, b, t) {
   const share = Math.min(1, Math.max(0, t));
@@ -6491,6 +6515,7 @@ var SandboxScene = class extends Phaser11.Scene {
         fadingMusic: 0
       },
       net: { status: "offline", playerId: void 0, others: [] },
+      ringLayers: [],
       enemies: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
@@ -6634,11 +6659,22 @@ var SandboxScene = class extends Phaser11.Scene {
     g.fillStyle(color, 1).fillTriangle(tip.x, tip.y, left.x, left.y, right.x, right.y);
     label.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * MISSION_LABEL_OFFSET, at2.y - Math.sin(at2.angle) * size * MISSION_LABEL_OFFSET);
   }
+  /** The parallax layers, back to front: the void, the ring layers this GPU could load (#186), then the stars. */
   createBackgrounds() {
-    this.backgrounds = keys.background.map((key2, i) => {
+    const [voidKey, ...starKeys] = keys.background;
+    const layers = [
+      { key: voidKey, factor: PARALLAX[0] },
+      ...RING_LAYER_IDS.filter((id) => this.textures.exists(keys.ringLayer(id))).map((id) => ({ key: keys.ringLayer(id), factor: RING_LAYER_PARALLAX[id], ring: id })),
+      ...starKeys.map((key2, i) => ({ key: key2, factor: PARALLAX[i + 1] ?? 0 }))
+    ];
+    this.backgrounds = layers.map(({ key: key2, factor, ring: ring2 }) => {
       const sprite = this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key2, 0).setScrollFactor(0);
       this.world.add(sprite);
-      return { sprite, factor: PARALLAX[i] ?? 0 };
+      if (ring2 === void 0) {
+        return { sprite, factor };
+      }
+      sprite.setAlpha(0).setVisible(false);
+      return { sprite, factor, ring: ring2 };
     });
   }
   createScenery() {
@@ -7725,7 +7761,7 @@ ${modeName(info)}`,
       this.shakeFor(weapon);
     }
   }
-  /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
+  /** Scrolls each layer at its parallax factor, tints it and fades the ring layers for the ship's ring; TileSprites cannot play animations, so frames step here. */
   scrollBackgrounds(time, deltaMs) {
     const camera = this.cameras.main;
     const frame = Math.floor(time / 1e3 * BACKGROUND_FPS) % BACKGROUND_FRAMES;
@@ -7734,7 +7770,12 @@ ${modeName(info)}`,
     const tint = fadeColor(this.backgroundTint, ringTint(this.sim.ship.x, this.sim.ship.y), deltaMs / RING_TINT_FADE_MS);
     const tintChanged = tint !== this.backgroundTint;
     this.backgroundTint = tint;
-    for (const { sprite, factor } of this.backgrounds) {
+    const ring2 = ringLayer(this.sim.ship.x, this.sim.ship.y);
+    for (const { sprite, factor, ring: only } of this.backgrounds) {
+      if (only !== void 0) {
+        const alpha = fadeAlpha(sprite.alpha, only === ring2 ? 1 : 0, deltaMs / RING_LAYER_FADE_MS);
+        sprite.setAlpha(alpha).setVisible(alpha > 0);
+      }
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
       if (frameChanged) {
         sprite.setFrame(frame);
@@ -7952,6 +7993,7 @@ ${modeName(info)}`,
     this.debug.clearedSectors = this.net?.status === "online" ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
+    this.debug.ringLayers = this.backgrounds.flatMap(({ sprite, ring: ring2 }) => ring2 === void 0 ? [] : [{ id: ring2, alpha: sprite.alpha }]);
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;

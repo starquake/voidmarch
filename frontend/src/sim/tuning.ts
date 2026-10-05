@@ -155,6 +155,10 @@ export const RING_LAYER_IDS = ['rotary-star', 'black-hole'] as const;
 export type RingLayerId = (typeof RING_LAYER_IDS)[number];
 /** The layer each ring adds, home outward (#95 decision 4): the Rotary Star in ring 2, the Black hole in ring 3. */
 export const RING_LAYERS: readonly (RingLayerId | undefined)[] = [undefined, undefined, 'rotary-star', 'black-hole'];
+/** How far each ring layer moves relative to the camera: behind the stars (0.15), in front of the void (0.05). */
+export const RING_LAYER_PARALLAX: Record<RingLayerId, number> = { 'rotary-star': 0.1, 'black-hole': 0.1 };
+/** How long a ring layer takes to fade in or out as the ship crosses into another ring. */
+export const RING_LAYER_FADE_MS = 1000;
 
 /** How often the minimap redraws while the full map is closed (#143): it moves slowly, so every frame is wasted work. */
 export const MINIMAP_REDRAW_MS = 100;

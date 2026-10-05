@@ -8,7 +8,13 @@ required; it is given here anyway.
 - `mainship/`: [Void - Main Ship](https://foozlecc.itch.io/void-main-ship),
   commissioned from Baldur, distributed by Foozle.
 - `environment/`: [Void - Environment Pack](https://foozlecc.itch.io/void-environment-pack),
-  commissioned from Baldur, distributed by Foozle.
+  commissioned from Baldur, distributed by Foozle. The backgrounds are the
+  pack's "Condensed" layers 01 (`background-void.png`) and 03
+  (`background-big-stars.png`), and from its "Split up" layers the Rotary Star
+  (`background-rotary-star.png`) and the Black hole
+  (`background-black-hole.png`), which only rings 2 and 3 draw (#186).
+  `background-stars.png` is the Condensed layer 02 without those two: the
+  Split up layers Stars, Stars 2 and Rotary Star 2 stacked into one image.
 
 - `klaed/`: [Void - Fleet Pack 1 (Kla'ed)](https://foozlecc.itch.io/void-fleet-pack-1),
   distributed by Foozle.

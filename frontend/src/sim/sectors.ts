@@ -255,6 +255,13 @@ export function ringLayer(x: number, y: number): RingLayerId | undefined {
   return ring === undefined ? undefined : RING_LAYERS[ring];
 }
 
+/** Alpha moved toward target by t, a share of the whole fade, without passing it. */
+export function fadeAlpha(alpha: number, target: number, t: number): number {
+  const step = Math.max(0, t);
+
+  return target > alpha ? Math.min(target, alpha + step) : Math.max(target, alpha - step);
+}
+
 /** Color a faded toward b by t of the way, channel by channel; any t above 0 moves a channel at least one step, so a slow fade still arrives. */
 export function fadeColor(a: number, b: number, t: number): number {
   const share = Math.min(1, Math.max(0, t));

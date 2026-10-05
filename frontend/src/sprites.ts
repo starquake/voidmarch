@@ -1,7 +1,7 @@
 import { DAMAGE_STATES, ENGINES, SHIELDS, WEAPONS, type DamageState, type EngineId, type ShieldId, type WeaponId } from './sim/loadout.ts';
 import { PARTS, type PartId } from './sim/parts.ts';
 import { ENEMY_FACTIONS, ENEMY_KINDS, type EnemyBulletId, type EnemyFaction, type EnemyKind } from './sim/enemies.ts';
-import { WEAPON_STATS } from './sim/tuning.ts';
+import { RING_LAYER_IDS, WEAPON_STATS, type RingLayerId } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
 
 export const ASSETS = '/static/assets';
@@ -16,6 +16,8 @@ export interface Sheet {
   /** Animation speed; 0 for a still image. */
   fps: number;
   loop: boolean;
+  /** Left out where the strip is wider than the GPU's largest texture: the game draws on without it (#186). */
+  optional?: boolean;
 }
 
 const still = (key: string, url: string, size: number): Sheet => ({
@@ -195,6 +197,8 @@ export const keys = {
   weapon: (id: WeaponId): string => `weapon-${id}`,
   projectile: (id: WeaponId): string => `projectile-${id}`,
   background: ['background-void', 'background-stars', 'background-big-stars'] as const,
+  /** A layer only one ring draws (#186). */
+  ringLayer: (id: RingLayerId): string => `background-${id}`,
   planet: 'planet',
   asteroid: 'asteroid',
   enemyBase: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-base`,
@@ -214,6 +218,22 @@ export const pickupFile = (part: PartId): string =>
 
 /** The Pickups Pack's strips: 15 frames of 32 px, a wipe that blinks the icon out and back. */
 const PICKUP_FRAMES = 15;
+
+/** An Environment Pack background layer: 9 frames of 640 by 360. */
+const backgroundSheet = (key: string): Sheet => ({
+  key,
+  url: `${ASSETS}/environment/${key}.png`,
+  frameWidth: 640,
+  frameHeight: 360,
+  frames: 9,
+  fps: 6,
+  loop: true,
+});
+
+/** The sheets a GPU whose largest texture is maxTextureSize wide can hold: all but the optional ones too wide for it. */
+export function loadableSheets(maxTextureSize: number): Sheet[] {
+  return sheets().filter((s) => s.optional !== true || s.frameWidth * s.frames <= maxTextureSize);
+}
 
 /** Every sheet the client loads, with its frame layout from the Void packs. */
 export function sheets(): Sheet[] {
@@ -241,15 +261,8 @@ export function sheets(): Sheet[] {
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12),
       ];
     }),
-    ...keys.background.map((key) => ({
-      key,
-      url: `${env}/${key}.png`,
-      frameWidth: 640,
-      frameHeight: 360,
-      frames: 9,
-      fps: 6,
-      loop: true,
-    })),
+    ...keys.background.map((key) => backgroundSheet(key)),
+    ...RING_LAYER_IDS.map((id) => ({ ...backgroundSheet(keys.ringLayer(id)), optional: true })),
     strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),

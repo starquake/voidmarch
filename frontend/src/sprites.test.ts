@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import { ENEMY_FACTIONS } from './sim/enemies.ts';
 import { WEAPONS } from './sim/loadout.ts';
 import { PROJECTILE_KINDS } from './sim/rules.gen.ts';
-import { keys, sheets, weaponTiming } from './sprites.ts';
+import { RING_LAYER_IDS } from './sim/tuning.ts';
+import { keys, loadableSheets, sheets, weaponTiming } from './sprites.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
@@ -53,6 +54,23 @@ test("each faction's fodder telegraphs a volley for about as long as the Kla'ed"
       assert.ok(Math.abs(sheet.frames / sheet.fps - klaed.frames / klaed.fps) < 0.01, `${faction} ${kind}: ${String(sheet.frames / sheet.fps)} s`);
     }
   }
+});
+
+test("the ring layers load where the GPU holds their strip, and only they are left out where it can't (#186)", () => {
+  const ringKeys = RING_LAYER_IDS.map((id) => keys.ringLayer(id));
+  const all = sheets().map((s) => s.key);
+  for (const key of ringKeys) {
+    assert.ok(all.includes(key), key);
+  }
+  assert.deepEqual(
+    loadableSheets(16384).map((s) => s.key),
+    all,
+  );
+  const small = loadableSheets(4096).map((s) => s.key);
+  assert.deepEqual(
+    small,
+    all.filter((key) => !ringKeys.includes(key)),
+  );
 });
 
 test('sheet keys are unique', () => {

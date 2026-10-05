@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   ALL_OPEN,
   closedEdges,
+  fadeAlpha,
   fadeColor,
   HOME_SECTOR,
   missionArrow,
@@ -171,6 +172,21 @@ test('ring 2 adds the Rotary Star layer and ring 3 the Black hole; home, ring 1 
     assert.equal(ringLayer(c.x, c.y), layer, name);
   }
   assert.equal(ringLayer(1e6, 1e6), undefined);
+});
+
+test("a ring's layer fades in and out over the fade time, and stops at the target", () => {
+  assert.equal(fadeAlpha(0, 1, 0.25), 0.25);
+  assert.equal(fadeAlpha(1, 0, 0.25), 0.75);
+  assert.equal(fadeAlpha(0.9, 1, 0.25), 1);
+  assert.equal(fadeAlpha(0.1, 0, 0.25), 0);
+  assert.equal(fadeAlpha(0.5, 1, 0), 0.5);
+  assert.equal(fadeAlpha(0.5, 1, -1), 0.5);
+  let alpha = 0;
+  let frames = 0;
+  for (; alpha < 1; frames++) {
+    alpha = fadeAlpha(alpha, 1, 16 / 1000);
+  }
+  assert.equal(frames, Math.ceil(1000 / 16));
 });
 
 test('a fade moves each channel toward the target and always arrives', () => {

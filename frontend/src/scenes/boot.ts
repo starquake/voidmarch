@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { bakeGlow, double, type Pixels } from '../glow.ts';
 import { effectFiles } from '../sounds.ts';
-import { glowSheets, sheets, type GlowSheet } from '../sprites.ts';
+import { glowSheets, loadableSheets, type GlowSheet, type Sheet } from '../sprites.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
   ENEMY_FIRE_GLOW_DISTANCE,
@@ -51,8 +51,15 @@ export class BootScene extends Phaser.Scene {
     super('boot');
   }
 
+  /** The sheets this renderer can hold: a canvas renderer has no texture limit. */
+  private sheets(): Sheet[] {
+    const renderer = this.renderer;
+
+    return loadableSheets(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer.getMaxTextureSize() : Infinity);
+  }
+
   preload(): void {
-    for (const sheet of sheets()) {
+    for (const sheet of this.sheets()) {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight,
@@ -84,7 +91,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    for (const sheet of sheets()) {
+    for (const sheet of this.sheets()) {
       if (sheet.fps > 0) {
         this.anims.create({
           key: sheet.key,

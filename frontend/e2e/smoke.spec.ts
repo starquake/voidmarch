@@ -46,3 +46,23 @@ test('the game\'s text is in Exo 2, with titles in Orbitron (#170)', async ({ pa
   expect(await family('#settings-form .settings-row')).toMatch(/^"Exo 2"/);
   expect(await family('#settings-form h2')).toMatch(/^Orbitron/);
 });
+
+test('the ring layers load, and stay hidden at home (#186)', async ({ page }) => {
+  const layers: string[] = [];
+  page.on('response', (res) => {
+    const file = /background-(?:rotary-star|black-hole)\.png$/.exec(res.url());
+    if (file !== null) {
+      layers.push(`${String(res.status())} ${file[0]}`);
+    }
+  });
+
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+
+  expect(layers.sort()).toEqual(['200 background-black-hole.png', '200 background-rotary-star.png']);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => window.voidmarch?.ringLayers)).toEqual([
+    { id: 'rotary-star', alpha: 0 },
+    { id: 'black-hole', alpha: 0 },
+  ]);
+});
