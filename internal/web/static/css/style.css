@@ -620,7 +620,7 @@ body {
   color: #6d6488;
 }
 
-.loading .name-screen.intro-screen {
+:root.loading .name-screen.intro-screen {
   bottom: calc(var(--strip-height) + 0.5rem);
   max-height: calc(100% - var(--strip-height) - 1.5rem);
 }
