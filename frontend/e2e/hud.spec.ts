@@ -42,3 +42,32 @@ test('without the server, the connection and a notice show as toasts, and the no
   await expect(page.locator('#hud-toasts .hud-toast', { hasText: 'companions need the server' })).toBeVisible();
   await expect.poll(async () => (await state(page)).hud.toasts, { timeout: 15_000 }).not.toContain('companions need the server');
 });
+
+test('a click on a slot opens its drop-up, and a click on a part fits it (#191)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const weapon = page.locator('#hud-gauge [data-slot="weapon"]');
+  await expect(weapon.locator('.key')).toHaveText('1');
+
+  await weapon.click();
+  const drop = page.locator('#hud-gauge .hud-drop');
+  await expect(drop).toBeVisible();
+  // A development server offers every part, as its 1/2/3 keys cycle every part.
+  await expect(drop.locator('[data-part]')).toHaveCount(4);
+  await expect(drop.locator('.option.fitted')).toHaveAttribute('data-part', (await state(page)).loadout.weapon);
+
+  await drop.locator('[data-part="rockets"]').click();
+  await expect.poll(async () => (await state(page)).loadout.weapon).toBe('rockets');
+  await expect(drop).toBeHidden();
+
+  await weapon.click();
+  await expect(drop).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(drop).toBeHidden();
+  expect((await state(page)).settingsScreen, 'Esc closed the drop-up, not opened the settings').toBe(false);
+
+  await page.locator('#hud-gauge [data-slot="engine"]').click();
+  await expect(drop).toBeVisible();
+  await page.mouse.click(640, 300);
+  await expect(drop).toBeHidden();
+});

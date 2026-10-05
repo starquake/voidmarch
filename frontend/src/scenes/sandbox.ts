@@ -32,10 +32,10 @@ import { keys, pickupFile, weaponTiming } from '../sprites.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
-import { HudView, type GaugeSlot } from '../hud.ts';
+import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
 import { connectionToast, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
-import { defaultUnlocks, nextPart, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
+import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { LoadoutScreen } from '../loadout.ts';
 import { VictoryScreen } from '../victory.ts';
 import { StandingsPanel } from '../standings.ts';
@@ -228,7 +228,9 @@ export class SandboxScene extends Phaser.Scene {
   private ships!: Phaser.GameObjects.Container;
   private pickups!: PickupsView;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  private readonly hudView = new HudView();
+  private readonly hudView = new HudView((kind, part) => {
+    this.fitPart(kind, part);
+  });
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   private showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -771,7 +773,9 @@ export class SandboxScene extends Phaser.Scene {
 
         return;
       }
-      if (this.settingsScreen.open) {
+      if (this.hudView.dropOpen !== undefined && event.code === 'Escape') {
+        this.hudView.close();
+      } else if (this.settingsScreen.open) {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
         this.victoryKey(event);
@@ -1093,6 +1097,26 @@ export class SandboxScene extends Phaser.Scene {
     );
   }
 
+  /** The parts 1/2/3 and the drop-ups choose from (#191): the player's own, or undefined for every part where anything goes. */
+  private get ownedUnlocks(): ReadonlyMap<PartId, number> | undefined {
+    return this.partKeys ? undefined : (this.net?.unlocks ?? defaultUnlocks());
+  }
+
+  /** Fits a part picked from a slot's drop-up (#191). */
+  private fitPart(kind: SlotKind, part: string): void {
+    const { loadout } = this.sim.ship;
+    if (loadout[kind] === part || this.sim.downed) {
+      return;
+    }
+    this.fit({ ...loadout, [kind]: part });
+    this.applyLoadout();
+    if (kind === 'shield') {
+      this.audio.shieldSwitched();
+    } else {
+      this.audio.partSwitched();
+    }
+  }
+
   /** Anything goes in development and offline: 1/2/3 cycle every part, and F3 shows frames per second (#91, #191). */
   private get partKeys(): boolean {
     return this.net?.status !== 'online' || this.net.development;
@@ -1103,8 +1127,7 @@ export class SandboxScene extends Phaser.Scene {
     if (!this.partKeys && code === 'F3') {
       return;
     }
-    // 1/2/3 cycle the parts a player owns (#191), or every part where anything goes.
-    const owned = this.partKeys ? undefined : (this.net?.unlocks ?? defaultUnlocks());
+    const owned = this.ownedUnlocks;
     switch (code) {
       case 'KeyK':
         this.net?.devStartAttack();
@@ -1904,13 +1927,25 @@ export class SandboxScene extends Phaser.Scene {
     const { loadout } = ship;
     const net = this.net;
     const online = net?.status === 'online';
-    const slot = (part: PartId, tier: number): GaugeSlot => ({ file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier) });
+    const owned = this.ownedUnlocks;
+    const unlocks = this.net?.unlocks ?? defaultUnlocks();
+    const view = (part: PartId, tier: number): PartView => ({ part, file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier), hint: PART_HINTS[part] });
+    const slot = (kind: SlotKind, key: string, parts: readonly PartId[], part: PartId, tier: number): GaugeSlot => ({
+      ...view(part, tier),
+      kind,
+      key,
+      options: ownedParts(parts, owned).map((p) => view(p, unlocks.get(p) ?? 0)),
+    });
     const info = net?.squadronInfo;
     const here = sectorName(ship.x, ship.y);
     const toasts = [connectionToast(net?.status), net?.noticeText].filter((t): t is string => t !== undefined);
     this.hudView.update({
       shown: !this.maps.open,
-      slots: [slot(loadout.weapon, loadout.weaponTier), slot(loadout.engine, loadout.engineTier), slot(loadout.shield, loadout.shieldTier)],
+      slots: [
+        slot('weapon', '1', WEAPONS, loadout.weapon, loadout.weaponTier),
+        slot('engine', '2', ENGINES, loadout.engine, loadout.engineTier),
+        slot('shield', '3', SHIELDS, loadout.shield, loadout.shieldTier),
+      ],
       hull: hullPips(ship.damage),
       shield: shieldPips(ship.shield, SHIELD_STATS[loadout.shield].strength),
       rows: panelRows({

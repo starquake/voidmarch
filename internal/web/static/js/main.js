@@ -521,6 +521,23 @@ var PART_NAMES = {
   round: "Round Shield",
   invincibility: "Invincibility Shield"
 };
+var PART_HINTS = {
+  autoCannon: "steady and precise",
+  rockets: "seek the nearest enemy",
+  bigSpaceGun: "charges, then bursts into shards",
+  zapper: "a zigzag beam that pierces",
+  base: "balanced",
+  bigPulse: "fast, but drifts",
+  burst: "snappy, but slow",
+  supercharged: "quick and fast",
+  front: "3 charges, the front",
+  frontAndSide: "2 charges, front and sides",
+  round: "1 charge, all round",
+  invincibility: "3 charges all round, slow to recharge"
+};
+function ownedParts(parts, unlocks) {
+  return unlocks === void 0 ? [...parts] : parts.filter((p) => unlocks.has(p));
+}
 function partLabel(part, tier) {
   const name = TIER_NAMES[tier] ?? "";
   return name === "" ? PART_NAMES[part] : `${name} ${PART_NAMES[part]}`;
@@ -1572,7 +1589,7 @@ var SettingsScreen = class {
 // src/hud.ts
 var ASSETS2 = "/static/assets";
 var TOAST_FADE_MS = 600;
-var HudView = class {
+var HudView = class _HudView {
   root;
   gauge;
   panel;
@@ -1580,11 +1597,47 @@ var HudView = class {
   gaugeKey = "";
   panelKey = "";
   toasts = /* @__PURE__ */ new Map();
-  constructor(doc = document) {
+  fit;
+  /** The slot whose drop-up is open (#191). */
+  open;
+  constructor(fit, doc = document) {
+    this.fit = fit;
     this.root = doc.querySelector("#hud");
     this.gauge = doc.querySelector("#hud-gauge");
     this.panel = doc.querySelector("#hud-panel");
     this.toastBox = doc.querySelector("#hud-toasts");
+    this.gauge?.addEventListener("pointerdown", (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const option = target?.closest("[data-part]");
+      const slot = target?.closest("[data-slot]");
+      event.preventDefault();
+      event.stopPropagation();
+      if (option !== null && option !== void 0 && this.open !== void 0) {
+        this.fit(this.open, option.dataset.part ?? "");
+        this.close();
+      } else if (slot !== null && slot !== void 0) {
+        const kind = slot.dataset.slot;
+        this.setOpen(this.open === kind ? void 0 : kind);
+      }
+    });
+    doc.addEventListener("pointerdown", () => {
+      this.close();
+    });
+  }
+  /** Whether a slot's drop-up is open, so the scene's Esc closes it first. */
+  get dropOpen() {
+    return this.open;
+  }
+  /** Closes the drop-up, if it's open. */
+  close() {
+    this.setOpen(void 0);
+  }
+  setOpen(kind) {
+    if (kind === this.open) {
+      return;
+    }
+    this.open = kind;
+    this.gaugeKey = "";
   }
   /** The panel's rows as "Label: value", for the E2E tests. */
   get rowTexts() {
@@ -1609,7 +1662,7 @@ var HudView = class {
     this.drawToasts(frame.toasts);
   }
   drawGauge(frame) {
-    const key = JSON.stringify([frame.slots, frame.hull, frame.shield]);
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
     if (this.gauge === null || key === this.gaugeKey) {
       return;
     }
@@ -1619,12 +1672,14 @@ var HudView = class {
     slots.className = "hud-slots";
     for (const slot of frame.slots) {
       const box = doc.createElement("div");
-      box.className = "hud-slot";
-      box.title = slot.name;
-      box.style.borderColor = slot.color;
-      const icon = doc.createElement("i");
-      icon.style.backgroundImage = `url(${ASSETS2}/pickups/${slot.file}.png)`;
-      box.append(icon);
+      box.className = slot.kind === this.open ? "hud-slot open" : "hud-slot";
+      box.title = `${slot.name} (${slot.key})`;
+      box.dataset.slot = slot.kind;
+      box.style.borderColor = slot.kind === this.open ? "" : slot.color;
+      const keyLabel = doc.createElement("span");
+      keyLabel.className = "key";
+      keyLabel.textContent = slot.key;
+      box.append(_HudView.icon(doc, slot.file), keyLabel);
       slots.append(box);
     }
     const bars = doc.createElement("div");
@@ -1645,6 +1700,50 @@ var HudView = class {
       bars.append(name, row);
     }
     this.gauge.replaceChildren(slots, bars);
+    const open = frame.slots.find((s) => s.kind === this.open);
+    if (open !== void 0) {
+      this.drawDrop(doc, open, slots);
+    }
+  }
+  /** The open slot's drop-up, above it, its icons in one column with the slot's (#191). */
+  drawDrop(doc, slot, slots) {
+    const drop = doc.createElement("div");
+    drop.className = "hud-drop";
+    const title = doc.createElement("div");
+    title.className = "title";
+    title.textContent = `${slot.kind.toUpperCase()} \xB7 ${slot.key} cycles`;
+    drop.append(title);
+    for (const option of slot.options) {
+      const row = doc.createElement("div");
+      row.className = option.part === slot.part ? "option fitted" : "option";
+      row.dataset.part = option.part;
+      const text = doc.createElement("span");
+      const name = doc.createElement("span");
+      name.className = "name";
+      name.textContent = option.name;
+      name.style.color = option.color;
+      const hint = doc.createElement("span");
+      hint.className = "hint";
+      hint.textContent = option.hint;
+      text.append(name, hint);
+      row.append(_HudView.icon(doc, option.file), text);
+      drop.append(row);
+    }
+    this.gauge?.append(drop);
+    const slotIcon = slots.querySelector(`[data-slot="${slot.kind}"] i`)?.getBoundingClientRect();
+    const listIcon = drop.querySelector(".option i")?.getBoundingClientRect();
+    if (slotIcon !== void 0 && listIcon !== void 0) {
+      drop.style.left = `${String(drop.offsetLeft + slotIcon.left - listIcon.left)}px`;
+    }
+  }
+  /** The texts of the open drop-up's parts, for the E2E tests. */
+  get dropParts() {
+    return [...this.gauge?.querySelectorAll(".hud-drop [data-part]") ?? []].map((el) => el.dataset.part ?? "");
+  }
+  static icon(doc, file) {
+    const icon = doc.createElement("i");
+    icon.style.backgroundImage = `url(${ASSETS2}/pickups/${file}.png)`;
+    return icon;
   }
   drawPanel(rows) {
     const key = JSON.stringify(rows);
@@ -1765,7 +1864,7 @@ function connectionToast(status) {
 // src/loadout.ts
 var SLOTS = ["weapon", "engine", "shield"];
 var SLOT_PARTS = { weapon: WEAPONS, engine: ENGINES, shield: SHIELDS };
-var PART_HINTS = {
+var PART_HINTS2 = {
   autoCannon: "steady and precise",
   rockets: "seek their target",
   bigSpaceGun: "bursts into a star",
@@ -1787,7 +1886,7 @@ function loadoutEntries(slot, unlocks, fitted) {
       part,
       label: partLabel(part, tier ?? 0),
       color: tierCss(tier ?? 0),
-      hint: locked ? "not found yet" : PART_HINTS[part],
+      hint: locked ? "not found yet" : PART_HINTS2[part],
       locked,
       fitted: fitted[slot] === part,
       tier: tier ?? 0
@@ -5980,7 +6079,9 @@ var SandboxScene = class extends Phaser11.Scene {
   ships;
   pickups;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  hudView = new HudView();
+  hudView = new HudView((kind, part) => {
+    this.fitPart(kind, part);
+  });
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -6467,7 +6568,9 @@ var SandboxScene = class extends Phaser11.Scene {
         }
         return;
       }
-      if (this.settingsScreen.open) {
+      if (this.hudView.dropOpen !== void 0 && event.code === "Escape") {
+        this.hudView.close();
+      } else if (this.settingsScreen.open) {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
         this.victoryKey(event);
@@ -6763,6 +6866,24 @@ var SandboxScene = class extends Phaser11.Scene {
       `${hangar}${out} \xB7 they pick from your parts, spread across the squadron`
     );
   }
+  /** The parts 1/2/3 and the drop-ups choose from (#191): the player's own, or undefined for every part where anything goes. */
+  get ownedUnlocks() {
+    return this.partKeys ? void 0 : this.net?.unlocks ?? defaultUnlocks();
+  }
+  /** Fits a part picked from a slot's drop-up (#191). */
+  fitPart(kind, part) {
+    const { loadout } = this.sim.ship;
+    if (loadout[kind] === part || this.sim.downed) {
+      return;
+    }
+    this.fit({ ...loadout, [kind]: part });
+    this.applyLoadout();
+    if (kind === "shield") {
+      this.audio.shieldSwitched();
+    } else {
+      this.audio.partSwitched();
+    }
+  }
   /** Anything goes in development and offline: 1/2/3 cycle every part, and F3 shows frames per second (#91, #191). */
   get partKeys() {
     return this.net?.status !== "online" || this.net.development;
@@ -6772,7 +6893,7 @@ var SandboxScene = class extends Phaser11.Scene {
     if (!this.partKeys && code === "F3") {
       return;
     }
-    const owned = this.partKeys ? void 0 : this.net?.unlocks ?? defaultUnlocks();
+    const owned = this.ownedUnlocks;
     switch (code) {
       case "KeyK":
         this.net?.devStartAttack();
@@ -7478,13 +7599,25 @@ ${modeName(info)}`,
     const { loadout } = ship;
     const net = this.net;
     const online = net?.status === "online";
-    const slot = (part, tier) => ({ file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier) });
+    const owned = this.ownedUnlocks;
+    const unlocks = this.net?.unlocks ?? defaultUnlocks();
+    const view = (part, tier) => ({ part, file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier), hint: PART_HINTS[part] });
+    const slot = (kind, key, parts, part, tier) => ({
+      ...view(part, tier),
+      kind,
+      key,
+      options: ownedParts(parts, owned).map((p) => view(p, unlocks.get(p) ?? 0))
+    });
     const info = net?.squadronInfo;
     const here = sectorName(ship.x, ship.y);
     const toasts = [connectionToast(net?.status), net?.noticeText].filter((t) => t !== void 0);
     this.hudView.update({
       shown: !this.maps.open,
-      slots: [slot(loadout.weapon, loadout.weaponTier), slot(loadout.engine, loadout.engineTier), slot(loadout.shield, loadout.shieldTier)],
+      slots: [
+        slot("weapon", "1", WEAPONS, loadout.weapon, loadout.weaponTier),
+        slot("engine", "2", ENGINES, loadout.engine, loadout.engineTier),
+        slot("shield", "3", SHIELDS, loadout.shield, loadout.shieldTier)
+      ],
       hull: hullPips(ship.damage),
       shield: shieldPips(ship.shield, SHIELD_STATS[loadout.shield].strength),
       rows: panelRows({

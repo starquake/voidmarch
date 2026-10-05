@@ -4,11 +4,23 @@ const ASSETS = '/static/assets';
 /** How long a toast takes to fade out, matching the CSS transition. */
 const TOAST_FADE_MS = 600;
 
-/** One of the gauge's part slots: its pickup icon file, name and tier color. */
-export interface GaugeSlot {
+/** A slot of the gauge, and the key that cycles it (#191). */
+export type SlotKind = 'weapon' | 'engine' | 'shield';
+
+/** A part as the gauge and its drop-up show it: icon file, name, tier color and what it does. */
+export interface PartView {
+  part: string;
   file: string;
   name: string;
   color: string;
+  hint: string;
+}
+
+/** One of the gauge's part slots: the fitted part, its key, and the parts its drop-up offers. */
+export interface GaugeSlot extends PartView {
+  kind: SlotKind;
+  key: string;
+  options: readonly PartView[];
 }
 
 /** Everything the HUD shows in one frame. */
@@ -34,12 +46,53 @@ export class HudView {
   private gaugeKey = '';
   private panelKey = '';
   private readonly toasts = new Map<string, HTMLElement>();
+  private readonly fit: (kind: SlotKind, part: string) => void;
+  /** The slot whose drop-up is open (#191). */
+  private open: SlotKind | undefined;
 
-  constructor(doc: Document = document) {
+  constructor(fit: (kind: SlotKind, part: string) => void, doc: Document = document) {
+    this.fit = fit;
     this.root = doc.querySelector<HTMLElement>('#hud');
     this.gauge = doc.querySelector<HTMLElement>('#hud-gauge');
     this.panel = doc.querySelector<HTMLElement>('#hud-panel');
     this.toastBox = doc.querySelector<HTMLElement>('#hud-toasts');
+    // A tap or click on a slot opens its drop-up, and one on a part fits it.
+    this.gauge?.addEventListener('pointerdown', (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const option = target?.closest<HTMLElement>('[data-part]');
+      const slot = target?.closest<HTMLElement>('[data-slot]');
+      event.preventDefault();
+      event.stopPropagation();
+      if (option !== null && option !== undefined && this.open !== undefined) {
+        this.fit(this.open, option.dataset.part ?? '');
+        this.close();
+      } else if (slot !== null && slot !== undefined) {
+        const kind = slot.dataset.slot as SlotKind;
+        this.setOpen(this.open === kind ? undefined : kind);
+      }
+    });
+    // Anywhere else closes it.
+    doc.addEventListener('pointerdown', () => {
+      this.close();
+    });
+  }
+
+  /** Whether a slot's drop-up is open, so the scene's Esc closes it first. */
+  get dropOpen(): SlotKind | undefined {
+    return this.open;
+  }
+
+  /** Closes the drop-up, if it's open. */
+  close(): void {
+    this.setOpen(undefined);
+  }
+
+  private setOpen(kind: SlotKind | undefined): void {
+    if (kind === this.open) {
+      return;
+    }
+    this.open = kind;
+    this.gaugeKey = '';
   }
 
   /** The panel's rows as "Label: value", for the E2E tests. */
@@ -69,7 +122,7 @@ export class HudView {
   }
 
   private drawGauge(frame: HudFrame): void {
-    const key = JSON.stringify([frame.slots, frame.hull, frame.shield]);
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
     if (this.gauge === null || key === this.gaugeKey) {
       return;
     }
@@ -79,12 +132,14 @@ export class HudView {
     slots.className = 'hud-slots';
     for (const slot of frame.slots) {
       const box = doc.createElement('div');
-      box.className = 'hud-slot';
-      box.title = slot.name;
-      box.style.borderColor = slot.color;
-      const icon = doc.createElement('i');
-      icon.style.backgroundImage = `url(${ASSETS}/pickups/${slot.file}.png)`;
-      box.append(icon);
+      box.className = slot.kind === this.open ? 'hud-slot open' : 'hud-slot';
+      box.title = `${slot.name} (${slot.key})`;
+      box.dataset.slot = slot.kind;
+      box.style.borderColor = slot.kind === this.open ? '' : slot.color;
+      const keyLabel = doc.createElement('span');
+      keyLabel.className = 'key';
+      keyLabel.textContent = slot.key;
+      box.append(HudView.icon(doc, slot.file), keyLabel);
       slots.append(box);
     }
     const bars = doc.createElement('div');
@@ -105,6 +160,54 @@ export class HudView {
       bars.append(name, row);
     }
     this.gauge.replaceChildren(slots, bars);
+    const open = frame.slots.find((s) => s.kind === this.open);
+    if (open !== undefined) {
+      this.drawDrop(doc, open, slots);
+    }
+  }
+
+  /** The open slot's drop-up, above it, its icons in one column with the slot's (#191). */
+  private drawDrop(doc: Document, slot: GaugeSlot, slots: HTMLElement): void {
+    const drop = doc.createElement('div');
+    drop.className = 'hud-drop';
+    const title = doc.createElement('div');
+    title.className = 'title';
+    title.textContent = `${slot.kind.toUpperCase()} · ${slot.key} cycles`;
+    drop.append(title);
+    for (const option of slot.options) {
+      const row = doc.createElement('div');
+      row.className = option.part === slot.part ? 'option fitted' : 'option';
+      row.dataset.part = option.part;
+      const text = doc.createElement('span');
+      const name = doc.createElement('span');
+      name.className = 'name';
+      name.textContent = option.name;
+      name.style.color = option.color;
+      const hint = doc.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = option.hint;
+      text.append(name, hint);
+      row.append(HudView.icon(doc, option.file), text);
+      drop.append(row);
+    }
+    this.gauge?.append(drop);
+    const slotIcon = slots.querySelector(`[data-slot="${slot.kind}"] i`)?.getBoundingClientRect();
+    const listIcon = drop.querySelector('.option i')?.getBoundingClientRect();
+    if (slotIcon !== undefined && listIcon !== undefined) {
+      drop.style.left = `${String(drop.offsetLeft + slotIcon.left - listIcon.left)}px`;
+    }
+  }
+
+  /** The texts of the open drop-up's parts, for the E2E tests. */
+  get dropParts(): string[] {
+    return [...(this.gauge?.querySelectorAll<HTMLElement>('.hud-drop [data-part]') ?? [])].map((el) => el.dataset.part ?? '');
+  }
+
+  private static icon(doc: Document, file: string): HTMLElement {
+    const icon = doc.createElement('i');
+    icon.style.backgroundImage = `url(${ASSETS}/pickups/${file}.png)`;
+
+    return icon;
   }
 
   private drawPanel(rows: readonly PanelRow[]): void {

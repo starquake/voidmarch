@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { PARTS, PART_NAMES, nextPart, partLabel, tierCss, tierColor, tierFromPickup, withTiers, type PartId } from './parts.ts';
+import { PARTS, PART_HINTS, PART_NAMES, nextPart, ownedParts, partLabel, tierCss, tierColor, tierFromPickup, withTiers, type PartId } from './parts.ts';
 import { DEFAULT_LOADOUT, MAX_TIER, SHIELDS, WEAPONS } from './rules.gen.ts';
 
 test('every part has a name, and the ids are unique', () => {
@@ -65,4 +65,16 @@ test("a slot's key fits the next owned part, wrapping round (#191)", () => {
   assert.equal(nextPart(SHIELDS, 'front', owned), 'front', 'one owned part stays put');
   assert.equal(nextPart(WEAPONS, 'rockets', owned), 'bigSpaceGun', 'a fitted part not owned still moves on');
   assert.equal(nextPart(WEAPONS, 'autoCannon', undefined), 'rockets', 'every part where anything goes');
+});
+
+test('every part has a hint, and the drop-up offers the owned parts in order (#191)', () => {
+  for (const part of PARTS) {
+    assert.ok(PART_HINTS[part].length > 0, part);
+  }
+  const owned = new Map<PartId, number>([
+    ['zapper', 0],
+    ['autoCannon', 2],
+  ]);
+  assert.deepEqual(ownedParts(WEAPONS, owned), ['autoCannon', 'zapper']);
+  assert.deepEqual(ownedParts(WEAPONS, undefined), [...WEAPONS]);
 });
