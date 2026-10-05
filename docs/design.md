@@ -26,7 +26,7 @@
 | Void – Fleet Pack 1 (Kla'ed) | 8 ships: Scout, Fighter, Support Ship, Bomber, Torpedo Ship, Frigate, Battlecruiser, Dreadnought. Animated engines, shields, weapons, destruction. 5 projectiles | Faction 1 enemies |
 | Void – Fleet Pack 2 (Nairan) | Same 8 classes, different faction look | Faction 2 enemies |
 | Void – Fleet Pack 3 (Nautolan) | Same 8 classes, different faction look | Faction 3 enemies |
-| Void – Environment Pack | Layered parallax backgrounds, animated planet, asteroid | World, home planet, asteroids |
+| Void – Environment Pack | Layered parallax backgrounds, animated planet, asteroid | World, home planet, asteroids. Every ring draws the void, stars and big stars layers; ring 2 adds the Rotary Star layer and ring 3 the Black hole (#186), which the stars layer leaves out |
 
 Everything is pixel art at native resolution. Render with nearest-neighbor scaling (e.g. 2× or 3×). Aseprite sources are included if re-exporting is needed.
 
@@ -283,7 +283,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
   1. Kla'ed space: the 6 sectors around home
   2. Nairan space: the next 12
   3. Nautolan space (the third pack): the outer 18
-- Each ring gets its own **tinted background** so it feels distinct (recoloring allowed). As built (#136): ring 2 green (`0x8fe0b0`) and ring 3 blue (`0x8fb4ff`), the background layers fading to the ring the ship is in over 1.5 s.
+- Each ring gets its own **tinted background** so it feels distinct (recoloring allowed). As built (#136): ring 2 green (`0x8fe0b0`) and ring 3 blue (`0x8fb4ff`), the background layers fading to the ring the ship is in over 1.5 s. Ring 2 also draws the Rotary Star layer and ring 3 the Black hole (#186), fading in and out over 1 s as the ship crosses rings; a GPU whose largest texture can't hold their 5760 px strips draws without them.
 - **Closed rings** (#123, #140): only home and ring 1 are open until the Kla'ed Dreadnought falls, which opens ring 2; the Nairan Dreadnought's fall opens ring 3. The server keeps the open rings in its database and sends them, with any sector opened on its own (the Dreadnought's while it's awake), as the `Frontier`.
   - A closed sector pushes a ship back like the world's edge, in a 200 px band, and stops it at its side. The browser's sim and the server's companions both apply it (`sim.ApplyFrontier`).
   - Nothing happens in one: no garrison wakes, no straggler, attack or distress call comes, and no mission goes there; a pick of one is refused.
