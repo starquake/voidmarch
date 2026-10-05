@@ -310,14 +310,3 @@ func TestUnlocks_Allows(t *testing.T) {
 		t.Error("a loadout with an unlocked zapper isn't allowed")
 	}
 }
-
-func TestCanChangeLoadout(t *testing.T) {
-	t.Parallel()
-
-	if !CanChangeLoadout(0, SafeZoneRadius) {
-		t.Error("can't change parts at the edge of the safe zone")
-	}
-	if CanChangeLoadout(SafeZoneRadius, 1) {
-		t.Error("can change parts outside the safe zone")
-	}
-}

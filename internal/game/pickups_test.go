@@ -241,7 +241,7 @@ func stateWith(y float32, l *pb.Loadout) *pb.ClientMessage {
 	}
 }
 
-func TestLoadouts_OnlyOwnedPartsFittedAtHomeAreSaved(t *testing.T) {
+func TestLoadouts_OnlyOwnedChangedLoadoutsAreSaved(t *testing.T) {
 	t.Parallel()
 
 	saved := make(chan sim.Loadout, 8)
@@ -249,11 +249,17 @@ func TestLoadouts_OnlyOwnedPartsFittedAtHomeAreSaved(t *testing.T) {
 	hub, _ := testHub(t, WithSaveLoadout(save))
 	unlocks := sim.DefaultUnlocks()
 	unlocks[sim.Part(sim.WeaponZapper)] = sim.TierMega
+	unlocks[sim.Part(sim.EngineBurst)] = sim.TierPlain
 	a, _ := joinWith(t, hub, "a", unlocks)
 
 	zapper := &pb.Loadout{
 		Weapon: pb.Weapon_WEAPON_ZAPPER,
 		Engine: pb.Engine_ENGINE_BASE,
+		Shield: pb.Shield_SHIELD_FRONT,
+	}
+	zapperFast := &pb.Loadout{
+		Weapon: pb.Weapon_WEAPON_ZAPPER,
+		Engine: pb.Engine_ENGINE_BURST,
 		Shield: pb.Shield_SHIELD_FRONT,
 	}
 	locked := &pb.Loadout{
@@ -268,25 +274,31 @@ func TestLoadouts_OnlyOwnedPartsFittedAtHomeAreSaved(t *testing.T) {
 	a.Send(
 		stateWith(180, locked),
 	) // a part a doesn't own
-	a.Send(stateWith(1000, &pb.Loadout{Weapon: pb.Weapon_WEAPON_AUTO_CANNON})) // away from home
+	// Away from home counts too: parts switch anywhere (#191, decision 1).
+	a.Send(stateWith(1000, zapperFast))
 
-	select {
-	case got := <-saved:
-		if want := (sim.Loadout{Weapon: sim.WeaponZapper, Engine: sim.EngineBase, Shield: sim.ShieldFront}); got != want {
-			t.Errorf("saved %+v, want %+v", got, want)
+	for _, want := range []sim.Loadout{
+		{Weapon: sim.WeaponZapper, Engine: sim.EngineBase, Shield: sim.ShieldFront},
+		{Weapon: sim.WeaponZapper, Engine: sim.EngineBurst, Shield: sim.ShieldFront},
+	} {
+		select {
+		case got := <-saved:
+			if got != want {
+				t.Errorf("saved %+v, want %+v", got, want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("the fitted loadout %+v was never saved", want)
 		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("the fitted loadout was never saved")
 	}
 	// A reconnect gets it back, at a's tiers.
 	_, w := join(t, hub, "a")
-	if got := w.GetLoadout(); got.GetWeapon() != pb.Weapon_WEAPON_ZAPPER ||
+	if got := w.GetLoadout(); got.GetEngine() != pb.Engine_ENGINE_BURST ||
 		got.GetWeaponTier() != uint32(sim.TierMega) {
-		t.Errorf("welcome loadout = %v, want the Mega zapper", got)
+		t.Errorf("welcome loadout = %v, want the Mega zapper on the burst engine", got)
 	}
 	select {
 	case got := <-saved:
-		t.Errorf("saved %+v too: only an owned loadout fitted at home counts", got)
+		t.Errorf("saved %+v too: only an owned, changed loadout counts", got)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

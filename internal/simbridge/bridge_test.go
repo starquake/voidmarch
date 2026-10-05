@@ -70,6 +70,10 @@ func TestAdvance_ReportsChargesAndExpiries(t *testing.T) {
 
 	b := New()
 	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponBigSpaceGun), -1, -1, 0, 0, 0)
+	// Past the swap (#191), so the charge starts on the next tick.
+	for b.State[HeaderShipCooldown] > 0 {
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
+	}
 	b.Advance(
 		sim.TickSeconds,
 		sim.Command{AimY: -1000, Fire: true},
@@ -207,7 +211,7 @@ func TestEnemyPattern(t *testing.T) {
 	}
 }
 
-func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
+func TestSetLoadout_ANewWeaponFiresAfterTheSwap(t *testing.T) {
 	t.Parallel()
 
 	b := New()
@@ -225,12 +229,18 @@ func TestSetLoadout_ANewWeaponStartsReady(t *testing.T) {
 		)
 	}
 	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponRockets), -1, -1, 0, 0, 0)
-	if b.State[HeaderShipCooldown] != 0 || b.State[HeaderShipNextMuzzle] != 0 {
+	if b.State[HeaderShipCooldown] != sim.WeaponSwapSeconds || b.State[HeaderShipNextMuzzle] != 0 {
 		t.Errorf(
-			"new weapon: cooldown %v, next muzzle %v, want ready",
+			"new weapon: cooldown %v, next muzzle %v, want the swap's %v from its first barrel (#191)",
 			b.State[HeaderShipCooldown],
 			b.State[HeaderShipNextMuzzle],
+			sim.WeaponSwapSeconds,
 		)
+	}
+	// The same weapon again isn't a swap.
+	b.SetLoadout(slices.Index(sim.Weapons(), sim.WeaponRockets), -1, -1, 1, 0, 0)
+	if got, want := b.State[HeaderShipCooldown], sim.WeaponSwapSeconds; got != want {
+		t.Errorf("same weapon at a new tier: cooldown %v, want it left at %v", got, want)
 	}
 }
 

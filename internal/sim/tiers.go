@@ -1,9 +1,6 @@
 package sim
 
-import (
-	"math"
-	"slices"
-)
+import "slices"
 
 // Tier is a part's upgrade: plain, then Super, Mega and Hyper (#6, decision 5).
 type Tier int
@@ -251,10 +248,4 @@ func partsOf[T ~string](ids []T) []Part {
 	}
 
 	return parts
-}
-
-// CanChangeLoadout reports whether a ship at (x, y) can change its parts:
-// only at the home planet, inside the safe zone (#6, decision 3).
-func CanChangeLoadout(x, y float64) bool {
-	return math.Hypot(x, y) <= SafeZoneRadius
 }
