@@ -36,7 +36,6 @@ import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts
 import { connectionToast, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
-import { LoadoutScreen } from '../loadout.ts';
 import { VictoryScreen } from '../victory.ts';
 import { StandingsPanel } from '../standings.ts';
 import { MapView } from './mapview.ts';
@@ -96,7 +95,7 @@ import {
 } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
-import { SquadronScreen, hangarLine, modeName } from '../squadrons.ts';
+import { SquadronScreen, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { bossBar } from '../net/boss.ts';
 import { ShipAudio } from './audio.ts';
@@ -154,7 +153,7 @@ const DOWN_PANEL_Y = 0.8;
 /** How many frames in the bloom is checked for drawing the world black, once things have settled (#180). */
 const BLOOM_CHECK_FRAME = 30;
 /** The HUD's two lines of keys. */
-const KEY_HELP_MOVE = 'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion · L loadout at home';
+const KEY_HELP_MOVE = 'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion';
 const KEY_HELP_MORE = 'hold Q orders, tap to repeat · M map · hold Tab standings · 1/2/3 parts · Esc settings';
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
@@ -238,7 +237,6 @@ export class SandboxScene extends Phaser.Scene {
   private ship!: ShipView;
   private net: NetPlay | undefined;
   /** The loadout screen at the home planet (#78). */
-  private readonly loadoutScreen = new LoadoutScreen();
   private readonly victoryScreen = new VictoryScreen();
   private readonly settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
@@ -401,7 +399,6 @@ export class SandboxScene extends Phaser.Scene {
       orderMenuOpen: false,
       squadron: '',
       squadronScreen: false,
-      loadoutScreen: false,
       victoryScreen: false,
       settingsScreen: false,
       standings: { join: 0, down: 0 },
@@ -438,7 +435,6 @@ export class SandboxScene extends Phaser.Scene {
     if (loadoutKey(this.sim.ship.loadout) !== this.shownLoadout) {
       this.applyLoadout();
     }
-    this.updateLoadoutScreen();
     this.openVictoryIfDue();
     this.updateStandings();
     this.drawTouch();
@@ -781,15 +777,11 @@ export class SandboxScene extends Phaser.Scene {
         this.victoryKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
-      } else if (this.loadoutScreen.open) {
-        this.loadoutKey(event);
       } else if (event.code === 'KeyM' && this.canOpenMap()) {
         this.maps.toggle();
       } else if (event.code === 'Tab' && !this.joinScreenOpen()) {
         event.preventDefault();
         this.standingsHeld = true;
-      } else if (event.code === 'KeyL') {
-        this.openLoadout();
       } else if (event.code === 'KeyO') {
         this.openVictory();
       } else if (event.code === 'KeyQ') {
@@ -930,14 +922,13 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Opens the victory screen once the season is won (#156), over the map or the loadout screen. */
+  /** Opens the victory screen once the season is won (#156), over the map. */
   private openVictory(): void {
     const result = this.net?.seasonResult;
     if (result === undefined) {
       return;
     }
     this.maps.close();
-    this.loadoutScreen.hide();
     this.victoryScreen.show(result, this.net?.playerId);
   }
 
@@ -970,7 +961,7 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
   private get screenOpen(): boolean {
-    return this.loadoutScreen.open || this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
   }
 
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
@@ -1043,58 +1034,6 @@ export class SandboxScene extends Phaser.Scene {
     }
     this.settingsScreen.update(optionRows(this.options()));
     this.updateHud();
-  }
-
-  /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
-  private openLoadout(): void {
-    const ship = this.sim.ship;
-    const squadronScreen = document.querySelector<HTMLFormElement>('#squadron-form');
-    const busy = this.orderPress !== undefined || squadronScreen?.hidden === false;
-    if (busy || this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
-      return;
-    }
-    this.loadoutScreen.show({
-      fit: (loadout) => {
-        this.fit(loadout);
-        this.applyLoadout();
-        this.audio.partSwitched();
-      },
-      summon: () => this.net?.summon(),
-    });
-    this.updateLoadoutScreen();
-  }
-
-  /** A key while the loadout screen is open: L and Esc close it, and the rest are its own. */
-  private loadoutKey(event: KeyboardEvent): void {
-    if (event.code === 'KeyL' || event.code === 'Escape') {
-      this.loadoutScreen.hide();
-    } else if (event.code === 'KeyG') {
-      this.net?.summon();
-    } else if (this.loadoutScreen.key(event.code)) {
-      event.preventDefault();
-    }
-  }
-
-  /** Keeps the open screen current, and closes it once the ship is away from home or down. */
-  private updateLoadoutScreen(): void {
-    if (!this.loadoutScreen.open) {
-      return;
-    }
-    const ship = this.sim.ship;
-    if (this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
-      this.loadoutScreen.hide();
-
-      return;
-    }
-    const net = this.net;
-    const hangar = net === undefined ? 'Hangar: offline' : (hangarLine(net.hangar, true) ?? 'Hangar: …');
-    const out =
-      net === undefined ? '' : ` · ${String(net.companionCount)} of ${String(net.companionLimit)} companions out`;
-    this.loadoutScreen.update(
-      this.net?.unlocks ?? defaultUnlocks(),
-      ship.loadout,
-      `${hangar}${out} · they pick from your parts, spread across the squadron`,
-    );
   }
 
   /** The parts 1/2/3 and the drop-ups choose from (#191): the player's own, or undefined for every part where anything goes. */
@@ -1526,11 +1465,6 @@ export class SandboxScene extends Phaser.Scene {
 
       return;
     }
-    if (this.loadoutScreen.open) {
-      this.loadoutScreen.hide();
-
-      return;
-    }
     if (this.maps.open) {
       const sector = this.maps.pick(p.x, p.y, this.net?.clearedSectors ?? new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== undefined) {
@@ -1555,9 +1489,6 @@ export class SandboxScene extends Phaser.Scene {
         break;
       case 'summon':
         this.net?.summon();
-        break;
-      case 'loadout':
-        this.openLoadout();
         break;
       case 'settings':
         this.openSettings();
@@ -1607,14 +1538,12 @@ export class SandboxScene extends Phaser.Scene {
     if (this.touchView === undefined) {
       return;
     }
-    const ship = this.sim.ship;
     this.touchButtonRects = this.screenOpen
       ? []
       : touchButtons({
           width: this.scale.width,
           height: this.scale.height,
           dpr: renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels),
-          atHome: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS,
           down: this.sim.downed,
           canRespawn: this.sim.canRespawn,
           beside: this.net?.nearestSquadmate()?.name,
@@ -2027,7 +1956,6 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.squadron = this.net?.squadron ?? '';
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
-    this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.standings = { join: this.standingsJoin.rows, down: this.standingsDown.rows };

@@ -1861,168 +1861,6 @@ function connectionToast(status) {
   }
 }
 
-// src/loadout.ts
-var SLOTS = ["weapon", "engine", "shield"];
-var SLOT_PARTS = { weapon: WEAPONS, engine: ENGINES, shield: SHIELDS };
-var PART_HINTS2 = {
-  autoCannon: "steady and precise",
-  rockets: "seek their target",
-  bigSpaceGun: "bursts into a star",
-  zapper: "pierces",
-  base: "balanced",
-  bigPulse: "fast, drifts",
-  burst: "quick off the mark",
-  supercharged: "fast and quick",
-  front: "strong ahead",
-  frontAndSide: "wider cover",
-  round: "all around, one charge",
-  invincibility: "three charges, slow to recharge"
-};
-function loadoutEntries(slot, unlocks, fitted) {
-  return SLOT_PARTS[slot].map((part) => {
-    const tier = unlocks.get(part);
-    const locked = tier === void 0;
-    return {
-      part,
-      label: partLabel(part, tier ?? 0),
-      color: tierCss(tier ?? 0),
-      hint: locked ? "not found yet" : PART_HINTS2[part],
-      locked,
-      fitted: fitted[slot] === part,
-      tier: tier ?? 0
-    };
-  });
-}
-function fitPart(loadout, slot, part, unlocks) {
-  const tier = unlocks.get(part) ?? 0;
-  switch (slot) {
-    case "weapon":
-      return { ...loadout, weapon: part, weaponTier: tier };
-    case "engine":
-      return { ...loadout, engine: part, engineTier: tier };
-    case "shield":
-      return { ...loadout, shield: part, shieldTier: tier };
-  }
-}
-function stepPart(slot, unlocks, fitted, step) {
-  const parts = SLOT_PARTS[slot];
-  const from = parts.indexOf(fitted[slot]);
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[(from + step * i + parts.length) % parts.length];
-    if (part !== void 0 && unlocks.has(part)) {
-      return part;
-    }
-  }
-  return void 0;
-}
-var LoadoutScreen = class {
-  form;
-  slots;
-  hangar;
-  slot = "weapon";
-  unlocks = /* @__PURE__ */ new Map();
-  loadout;
-  actions = { fit: () => void 0, summon: () => void 0 };
-  constructor(doc = document) {
-    this.form = doc.querySelector("#loadout-form");
-    this.slots = doc.querySelector("#loadout-slots");
-    this.hangar = doc.querySelector("#loadout-hangar");
-    this.form?.addEventListener("submit", (event) => {
-      event.preventDefault();
-    });
-    doc.querySelector("#loadout-summon")?.addEventListener("click", () => {
-      this.actions.summon();
-    });
-  }
-  get open() {
-    return this.form !== null && !this.form.hidden;
-  }
-  show(actions) {
-    this.actions = actions;
-    if (this.form !== null) {
-      this.form.hidden = false;
-    }
-  }
-  hide() {
-    if (this.form !== null) {
-      this.form.hidden = true;
-    }
-  }
-  /** Redraws the parts and the hangar line when anything changed. */
-  update(unlocks, loadout, hangar) {
-    this.unlocks = unlocks;
-    const changed = this.loadout === void 0 || JSON.stringify(this.loadout) !== JSON.stringify(loadout);
-    this.loadout = { ...loadout };
-    if (this.hangar !== null && this.hangar.textContent !== hangar) {
-      this.hangar.textContent = hangar;
-    }
-    if (changed || this.slots?.childElementCount === 0) {
-      this.slots?.replaceChildren(...SLOTS.map((slot) => this.column(slot)));
-    }
-  }
-  /** Handles a key while the screen is open, and reports whether it was the screen's. */
-  key(code) {
-    const slot = { Digit1: "weapon", Digit2: "engine", Digit3: "shield" }[code];
-    if (slot !== void 0) {
-      this.slot = slot;
-      this.redraw();
-      return true;
-    }
-    const step = code === "ArrowDown" ? 1 : code === "ArrowUp" ? -1 : 0;
-    if (step === 0 || this.loadout === void 0) {
-      return false;
-    }
-    const part = stepPart(this.slot, this.unlocks, this.loadout, step);
-    if (part !== void 0) {
-      this.actions.fit(fitPart(this.loadout, this.slot, part, this.unlocks));
-    }
-    return true;
-  }
-  redraw() {
-    this.slots?.replaceChildren(...SLOTS.map((slot) => this.column(slot)));
-  }
-  column(slot) {
-    const doc = this.slots?.ownerDocument ?? document;
-    const column = doc.createElement("div");
-    column.className = slot === this.slot ? "loadout-slot picked" : "loadout-slot";
-    const title = doc.createElement("h3");
-    title.textContent = slot;
-    column.append(title);
-    const fitted = this.loadout;
-    if (fitted === void 0) {
-      return column;
-    }
-    for (const entry of loadoutEntries(slot, this.unlocks, fitted)) {
-      column.append(this.row(doc, slot, entry, fitted));
-    }
-    return column;
-  }
-  row(doc, slot, entry, fitted) {
-    const row = doc.createElement("button");
-    row.type = "button";
-    row.className = `loadout-part${entry.locked ? " locked" : ""}${entry.fitted ? " fitted" : ""}`;
-    row.disabled = entry.locked;
-    row.dataset.part = entry.part;
-    const icon = doc.createElement("span");
-    icon.className = "icon";
-    icon.style.backgroundImage = `url(${ASSETS}/pickups/${pickupFile(entry.part)}.png)`;
-    const name = doc.createElement("span");
-    name.className = "label";
-    name.textContent = entry.label;
-    name.style.color = entry.locked ? "" : entry.color;
-    const hint = doc.createElement("span");
-    hint.className = "hint";
-    hint.textContent = entry.fitted ? `fitted \xB7 ${entry.hint}` : entry.hint;
-    name.append(hint);
-    row.append(icon, name);
-    row.addEventListener("click", () => {
-      this.slot = slot;
-      this.actions.fit(fitPart(fitted, slot, entry.part, this.unlocks));
-    });
-    return row;
-  }
-};
-
 // src/sim/standings.ts
 var PERCENT = 100;
 var SECONDS_PER_HOUR = 3600;
@@ -3225,9 +3063,6 @@ function playButtons(screen, dpr) {
     { button: "summon", label: "Summon", x: right, y: top, width: w, height: h, gold: false },
     { button: "orders", label: "Orders", x: right, y: top + h + gap, width: w, height: h, gold: false }
   ];
-  if (screen.atHome) {
-    buttons.push({ button: "loadout", label: "Loadout", x: right - gap - w, y: top + h + gap, width: w, height: h, gold: true });
-  }
   return buttons;
 }
 function buttonAt(buttons, x, y) {
@@ -3403,12 +3238,6 @@ function squadronChoices(list) {
     });
   }
   return { choices, full };
-}
-function hangarLine(hangar, atHome) {
-  if (!atHome || hangar === void 0) {
-    return void 0;
-  }
-  return hangar === 0 ? "hangar: empty" : `hangar: ${String(hangar)} ship${hangar === 1 ? "" : "s"}`;
 }
 function pickFirst(choices, last) {
   return choices.find((c) => c.name === last)?.name ?? choices[0]?.name;
@@ -6040,7 +5869,7 @@ var DOWN_PANEL_PADDING_X = 12;
 var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
-var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion \xB7 L loadout at home";
+var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion";
 var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 M map \xB7 hold Tab standings \xB7 1/2/3 parts \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
@@ -6089,7 +5918,6 @@ var SandboxScene = class extends Phaser11.Scene {
   ship;
   net;
   /** The loadout screen at the home planet (#78). */
-  loadoutScreen = new LoadoutScreen();
   victoryScreen = new VictoryScreen();
   settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
@@ -6248,7 +6076,6 @@ var SandboxScene = class extends Phaser11.Scene {
       orderMenuOpen: false,
       squadron: "",
       squadronScreen: false,
-      loadoutScreen: false,
       victoryScreen: false,
       settingsScreen: false,
       standings: { join: 0, down: 0 },
@@ -6284,7 +6111,6 @@ var SandboxScene = class extends Phaser11.Scene {
     if (loadoutKey(this.sim.ship.loadout) !== this.shownLoadout) {
       this.applyLoadout();
     }
-    this.updateLoadoutScreen();
     this.openVictoryIfDue();
     this.updateStandings();
     this.drawTouch();
@@ -6576,15 +6402,11 @@ var SandboxScene = class extends Phaser11.Scene {
         this.victoryKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
-      } else if (this.loadoutScreen.open) {
-        this.loadoutKey(event);
       } else if (event.code === "KeyM" && this.canOpenMap()) {
         this.maps.toggle();
       } else if (event.code === "Tab" && !this.joinScreenOpen()) {
         event.preventDefault();
         this.standingsHeld = true;
-      } else if (event.code === "KeyL") {
-        this.openLoadout();
       } else if (event.code === "KeyO") {
         this.openVictory();
       } else if (event.code === "KeyQ") {
@@ -6714,14 +6536,13 @@ var SandboxScene = class extends Phaser11.Scene {
       o.setAlpha(alpha);
     }
   }
-  /** Opens the victory screen once the season is won (#156), over the map or the loadout screen. */
+  /** Opens the victory screen once the season is won (#156), over the map. */
   openVictory() {
     const result = this.net?.seasonResult;
     if (result === void 0) {
       return;
     }
     this.maps.close();
-    this.loadoutScreen.hide();
     this.victoryScreen.show(result, this.net?.playerId);
   }
   /** Opens the victory screen when the season is won, or for a joiner seeing a won season the first time (#156). */
@@ -6750,7 +6571,7 @@ var SandboxScene = class extends Phaser11.Scene {
   }
   /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
   get screenOpen() {
-    return this.loadoutScreen.open || this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
   }
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
   openSettings() {
@@ -6818,53 +6639,6 @@ var SandboxScene = class extends Phaser11.Scene {
     }
     this.settingsScreen.update(optionRows(this.options()));
     this.updateHud();
-  }
-  /** Opens the loadout screen, only at the home planet and with the ship up (#78, decisions 2 and 4). */
-  openLoadout() {
-    const ship = this.sim.ship;
-    const squadronScreen = document.querySelector("#squadron-form");
-    const busy = this.orderPress !== void 0 || squadronScreen?.hidden === false;
-    if (busy || this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
-      return;
-    }
-    this.loadoutScreen.show({
-      fit: (loadout) => {
-        this.fit(loadout);
-        this.applyLoadout();
-        this.audio.partSwitched();
-      },
-      summon: () => this.net?.summon()
-    });
-    this.updateLoadoutScreen();
-  }
-  /** A key while the loadout screen is open: L and Esc close it, and the rest are its own. */
-  loadoutKey(event) {
-    if (event.code === "KeyL" || event.code === "Escape") {
-      this.loadoutScreen.hide();
-    } else if (event.code === "KeyG") {
-      this.net?.summon();
-    } else if (this.loadoutScreen.key(event.code)) {
-      event.preventDefault();
-    }
-  }
-  /** Keeps the open screen current, and closes it once the ship is away from home or down. */
-  updateLoadoutScreen() {
-    if (!this.loadoutScreen.open) {
-      return;
-    }
-    const ship = this.sim.ship;
-    if (this.sim.downed || Math.hypot(ship.x, ship.y) > SAFE_ZONE_RADIUS) {
-      this.loadoutScreen.hide();
-      return;
-    }
-    const net = this.net;
-    const hangar = net === void 0 ? "Hangar: offline" : hangarLine(net.hangar, true) ?? "Hangar: \u2026";
-    const out = net === void 0 ? "" : ` \xB7 ${String(net.companionCount)} of ${String(net.companionLimit)} companions out`;
-    this.loadoutScreen.update(
-      this.net?.unlocks ?? defaultUnlocks(),
-      ship.loadout,
-      `${hangar}${out} \xB7 they pick from your parts, spread across the squadron`
-    );
   }
   /** The parts 1/2/3 and the drop-ups choose from (#191): the player's own, or undefined for every part where anything goes. */
   get ownedUnlocks() {
@@ -7241,10 +7015,6 @@ ${modeName(info)}`,
       this.victoryScreen.hide();
       return;
     }
-    if (this.loadoutScreen.open) {
-      this.loadoutScreen.hide();
-      return;
-    }
     if (this.maps.open) {
       const sector = this.maps.pick(p.x, p.y, this.net?.clearedSectors ?? /* @__PURE__ */ new Set(), this.net?.frontier ?? ALL_OPEN);
       if (sector !== void 0) {
@@ -7267,9 +7037,6 @@ ${modeName(info)}`,
         break;
       case "summon":
         this.net?.summon();
-        break;
-      case "loadout":
-        this.openLoadout();
         break;
       case "settings":
         this.openSettings();
@@ -7316,12 +7083,10 @@ ${modeName(info)}`,
     if (this.touchView === void 0) {
       return;
     }
-    const ship = this.sim.ship;
     this.touchButtonRects = this.screenOpen ? [] : touchButtons({
       width: this.scale.width,
       height: this.scale.height,
       dpr: renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels),
-      atHome: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS,
       down: this.sim.downed,
       canRespawn: this.sim.canRespawn,
       beside: this.net?.nearestSquadmate()?.name,
@@ -7693,7 +7458,6 @@ ${modeName(info)}`,
     this.debug.squadron = this.net?.squadron ?? "";
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
-    this.debug.loadoutScreen = this.loadoutScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.standings = { join: this.standingsJoin.rows, down: this.standingsDown.rows };
