@@ -214,16 +214,26 @@ Frigates patrol ring 2 and six Nautolan ones ring 3, once those rings are open,
 with a Bomber among their escorts and bigger rings of their own faction's shots.
 
 Once four of the six sectors around home are cleared, the Kla'ed Dreadnought
-wakes in one of the ring-2 sectors, which opens for it. Its health is 10,000
-plus 10,000 for every player online, sized for an evening's fight; the share
-left is kept between sessions and regenerates 1% an hour. It fires rings of big
-bullets, sweeping Ray beams and spreads of Waves from behind its shield.
-Destroying it opens ring 2, gives every player near it a part, and leaves 3
-derelicts by the wreck. Once four of ring 2's sectors are cleared, the Nairan
-Dreadnought wakes in ring 3 the same way, with its own health kept between
-sessions. It fires Ray sweeps, spreads of Rockets and fans of Torpedoes, and
-its fall opens ring 3. If a ring later falls back below four cleared sectors,
-every ring beyond it closes again until its Dreadnought is beaten anew.
+wakes in one of the ring-2 sectors, which opens for it. It guards that sector
+alone: the sector's garrison stays away while it's awake. Its health is 1,400
+plus 3,750 for every player online, about 20 minutes' fighting alone and 15 for
+twelve; the share left is kept between sessions and regenerates 1% an hour. It
+fires rings of big bullets, sweeping Ray beams and spreads of Waves from behind
+its shield. Destroying it opens ring 2, clears its sector, gives every player
+near it a part, and leaves 3 derelicts by the wreck.
+
+Before then it raids ring 1: once a sector there is cleared, every 10 to 15
+minutes it teleports into the hostile sector someone is in, out of sight, after
+a banner and a warning sound. Take a tenth of its health and it teleports away,
+leaving a part for everyone near; otherwise it leaves after two minutes, or
+once everyone near it is down. The damage stays on it for the real fight. The
+Nairan Dreadnought raids ring 2 the same way.
+
+Once four of ring 2's sectors are cleared, the Nairan Dreadnought wakes in
+ring 3 the same way, with its own health kept between sessions. It fires Ray
+sweeps, spreads of Rockets and fans of Torpedoes, and its fall opens ring 3.
+If a ring later falls back below four cleared sectors, every ring beyond it
+closes again until its Dreadnought is beaten anew.
 
 The Nautolan Dreadnought is the season's finale. It wakes in ring 3 once four
 of ring 3's sectors are cleared, and fires Ray sweeps, spreads of Waves and
