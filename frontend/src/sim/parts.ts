@@ -75,3 +75,15 @@ export const defaultUnlocks = (): Map<PartId, number> =>
     [DEFAULT_LOADOUT.engine, 0],
     [DEFAULT_LOADOUT.shield, 0],
   ]);
+
+/**
+ * The part a slot's key fits next (#191): the next one this player owns,
+ * wrapping round, or the next of every part when unlocks is undefined (a
+ * development server, or playing alone).
+ */
+export function nextPart<T extends PartId>(parts: readonly T[], current: T, unlocks: Unlocks | undefined): T {
+  const choices = unlocks === undefined ? parts : parts.filter((p) => p === current || unlocks.has(p));
+  const next = choices[(choices.indexOf(current) + 1) % choices.length];
+
+  return next ?? current;
+}

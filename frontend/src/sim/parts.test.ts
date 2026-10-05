@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { PARTS, PART_NAMES, partLabel, tierCss, tierColor, tierFromPickup, withTiers, type PartId } from './parts.ts';
-import { DEFAULT_LOADOUT, MAX_TIER } from './rules.gen.ts';
+import { PARTS, PART_NAMES, nextPart, partLabel, tierCss, tierColor, tierFromPickup, withTiers, type PartId } from './parts.ts';
+import { DEFAULT_LOADOUT, MAX_TIER, SHIELDS, WEAPONS } from './rules.gen.ts';
 
 test('every part has a name, and the ids are unique', () => {
   assert.equal(PARTS.length, 12);
@@ -50,4 +50,19 @@ test('a loadout takes the tiers the player owns', () => {
     engineTier: 0,
     shieldTier: 1,
   });
+});
+
+test("a slot's key fits the next owned part, wrapping round (#191)", () => {
+  const owned = new Map<PartId, number>([
+    ['autoCannon', 0],
+    ['zapper', 1],
+    ['bigSpaceGun', 0],
+  ]);
+  assert.deepEqual(WEAPONS, ['autoCannon', 'rockets', 'bigSpaceGun', 'zapper']);
+  assert.equal(nextPart(WEAPONS, 'autoCannon', owned), 'bigSpaceGun', 'rockets are skipped: not owned');
+  assert.equal(nextPart(WEAPONS, 'bigSpaceGun', owned), 'zapper');
+  assert.equal(nextPart(WEAPONS, 'zapper', owned), 'autoCannon', 'round to the first');
+  assert.equal(nextPart(SHIELDS, 'front', owned), 'front', 'one owned part stays put');
+  assert.equal(nextPart(WEAPONS, 'rockets', owned), 'bigSpaceGun', 'a fitted part not owned still moves on');
+  assert.equal(nextPart(WEAPONS, 'autoCannon', undefined), 'rockets', 'every part where anything goes');
 });

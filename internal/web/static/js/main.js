@@ -399,13 +399,6 @@ var LAYOUT = {
 // src/sim/loadout.ts
 var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
 var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
-function nextInCycle(list, current) {
-  const next = list[(list.indexOf(current) + 1) % list.length];
-  if (next === void 0) {
-    throw new Error("nextInCycle: empty list");
-  }
-  return next;
-}
 
 // src/sim/tuning.ts
 var VIEW_WIDTH = 640;
@@ -557,6 +550,11 @@ var defaultUnlocks = () => /* @__PURE__ */ new Map([
   [DEFAULT_LOADOUT.engine, 0],
   [DEFAULT_LOADOUT.shield, 0]
 ]);
+function nextPart(parts, current, unlocks) {
+  const choices = unlocks === void 0 ? parts : parts.filter((p) => p === current || unlocks.has(p));
+  const next = choices[(choices.indexOf(current) + 1) % choices.length];
+  return next ?? current;
+}
 
 // src/sim/enemies.ts
 var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
@@ -6765,15 +6763,16 @@ var SandboxScene = class extends Phaser11.Scene {
       `${hangar}${out} \xB7 they pick from your parts, spread across the squadron`
     );
   }
-  /** The 1/2/3 keys fit any part, and F3 shows frames per second, in development and offline (#78, #91). */
+  /** Anything goes in development and offline: 1/2/3 cycle every part, and F3 shows frames per second (#91, #191). */
   get partKeys() {
     return this.net?.status !== "online" || this.net.development;
   }
   handleDebugKey(code) {
     const ship = this.sim.ship;
-    if (!this.partKeys && (code === "Digit1" || code === "Digit2" || code === "Digit3" || code === "F3")) {
+    if (!this.partKeys && code === "F3") {
       return;
     }
+    const owned = this.partKeys ? void 0 : this.net?.unlocks ?? defaultUnlocks();
     switch (code) {
       case "KeyK":
         this.net?.devStartAttack();
@@ -6786,17 +6785,17 @@ var SandboxScene = class extends Phaser11.Scene {
         this.updateHud();
         break;
       case "Digit1":
-        this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
+        this.fit({ ...ship.loadout, weapon: nextPart(WEAPONS, ship.loadout.weapon, owned) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case "Digit2":
-        this.fit({ ...ship.loadout, engine: nextInCycle(ENGINES, ship.loadout.engine) });
+        this.fit({ ...ship.loadout, engine: nextPart(ENGINES, ship.loadout.engine, owned) });
         this.applyLoadout();
         this.audio.partSwitched();
         break;
       case "Digit3":
-        this.fit({ ...ship.loadout, shield: nextInCycle(SHIELDS, ship.loadout.shield) });
+        this.fit({ ...ship.loadout, shield: nextPart(SHIELDS, ship.loadout.shield, owned) });
         this.applyLoadout();
         this.audio.shieldSwitched();
         break;
