@@ -221,6 +221,10 @@ export class NetPlay {
   private readonly remotes = new Map<string, Remote>();
   private readonly enemies = new Map<number, Enemy>();
   private readonly derelicts = new Map<number, { view: DerelictView; state: DerelictState }>();
+  /** Derelicts gone from the snapshots, teleporting away (#190). */
+  private readonly departing = new Set<DerelictView>();
+  /** Derelicts seen to start teleporting away (#190). */
+  teleports = 0;
   /** Whether a snapshot came since connecting, so derelicts already there aren't announced. */
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
@@ -432,6 +436,10 @@ export class NetPlay {
 
   stop(): void {
     this.connection.stop();
+    for (const view of this.departing) {
+      view.destroy();
+    }
+    this.departing.clear();
   }
 
   /** Other players and their companions, for the HUD and the E2E tests. */
@@ -619,9 +627,16 @@ export class NetPlay {
     }));
   }
 
+  /** Derelicts still teleporting away, for the E2E tests (#190). */
+  get departingCount(): number {
+    return this.departing.size;
+  }
+
   /**
    * Draws the snapshot's derelicts and drops the ones no longer in it; a new
-   * one after the first snapshot is announced.
+   * one after the first snapshot is announced. One gone from a later
+   * snapshot was rescued or ran out of time, and teleports away either way
+   * (#190); a disconnect, at tick 0, drops them at once.
    */
   private syncDerelicts(states: readonly DerelictState[], tick: number): void {
     const seen = new Set<number>();
@@ -644,8 +659,14 @@ export class NetPlay {
     }
     for (const [id, drawn] of this.derelicts) {
       if (!seen.has(id)) {
-        drawn.view.destroy();
         this.derelicts.delete(id);
+        if (tick > 0) {
+          drawn.view.teleport(now() / 1000);
+          this.departing.add(drawn.view);
+          this.teleports++;
+        } else {
+          drawn.view.destroy();
+        }
       }
     }
     // A disconnect syncs to tick 0: the next connection's first derelicts aren't news.
@@ -675,6 +696,12 @@ export class NetPlay {
     this.connection.sendState(this.options.sim.ship, nowMs);
     for (const shot of events.shots) {
       this.connection.sendShot(shot);
+    }
+    for (const view of this.departing) {
+      if (view.step(seconds)) {
+        view.destroy();
+        this.departing.delete(view);
+      }
     }
 
     const serverTick = this.clock.tickAt(nowMs);

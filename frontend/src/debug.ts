@@ -101,6 +101,9 @@ export interface DebugState {
   /** The derelicts waiting to be rescued, and how many this player rescued (#52). */
   derelicts: DerelictDebug[];
   rescues: number;
+  /** Derelicts this client saw start teleporting away, and those still teleporting (#190). */
+  teleports: number;
+  departing: number;
   /** The last sector cleared and the part it gave this player (#101). */
   lastClear: { sector: string; reward: string | undefined } | undefined;
   /** The world event running, as the HUD's line says it (#102). */
