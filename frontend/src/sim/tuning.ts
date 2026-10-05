@@ -182,3 +182,18 @@ export const TOUCH_MIN_SCALE = 0.6;
 export const STANDINGS_TOP = 5;
 /** The shots a player needs in a mission to be named for the best aim, so one lucky shot isn't (#167). */
 export const MISSION_AIM_MIN_SHOTS = 10;
+
+/** A derelict teleporting away (#190): the shield closes in, holds, then hull and shield shrink into a flash that collapses, in seconds. */
+export const TELEPORT_CLOSE_S = 0.45;
+export const TELEPORT_HOLD_S = 0.15;
+export const TELEPORT_SHRINK_S = 0.35;
+export const TELEPORT_FLASH_S = 0.25;
+/** The Invincibility Shield's scale as it starts closing in; 1 is its own size round the hull. */
+export const TELEPORT_SHIELD_START_SCALE = 2.4;
+/** The flash's radius at its peak, in world px. */
+export const TELEPORT_FLASH_RADIUS = 14;
+/** The shield's fill, the Super tier's blue, and the light blue that hull, shield and the flash's core turn as they shrink. */
+export const TELEPORT_COLOR = 0x5ad1ff;
+export const TELEPORT_WHITE = 0xd8f8ff;
+/** A teleport is heard only this close to the ship, about the view, like an enemy exploding. */
+export const TELEPORT_SOUND_RANGE = 400;

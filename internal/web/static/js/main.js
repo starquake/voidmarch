@@ -190,6 +190,7 @@ var SHIELD_SOUND = "sfx-shield";
 var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
 var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
+var TELEPORT_SOUND = "sfx-teleport";
 var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
 var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
 function effectFiles() {
@@ -205,6 +206,7 @@ function effectFiles() {
     both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    both(TELEPORT_SOUND, "sfx/teleport"),
     ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
     both("sfx-engine-base", "sfx/engine-base"),
     both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
@@ -500,6 +502,15 @@ var TOUCH_SMALL_SHARE = 0.55;
 var TOUCH_MIN_SCALE = 0.6;
 var STANDINGS_TOP = 5;
 var MISSION_AIM_MIN_SHOTS = 10;
+var TELEPORT_CLOSE_S = 0.45;
+var TELEPORT_HOLD_S = 0.15;
+var TELEPORT_SHRINK_S = 0.35;
+var TELEPORT_FLASH_S = 0.25;
+var TELEPORT_SHIELD_START_SCALE = 2.4;
+var TELEPORT_FLASH_RADIUS = 14;
+var TELEPORT_COLOR = 5951999;
+var TELEPORT_WHITE = 14219519;
+var TELEPORT_SOUND_RANGE = 400;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -3530,6 +3541,7 @@ var CHARGE_VOLUME = 0.3;
 var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
 var UI_VOLUME = 0.3;
+var TELEPORT_VOLUME = 0.3;
 var MUSIC_VOLUME = 0.3;
 var ShipAudio = class {
   engine;
@@ -3618,6 +3630,10 @@ var ShipAudio = class {
   }
   enemyDestroyed() {
     this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+  }
+  /** A derelict teleporting away (#190). */
+  teleported() {
+    this.scene.sound.play(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
   }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
@@ -4414,14 +4430,60 @@ var EnemyView = class {
 
 // src/scenes/derelictview.ts
 import Phaser7 from "./vendor/phaser.js";
+
+// src/sim/teleport.ts
+var TELEPORT_DURATION_S = TELEPORT_CLOSE_S + TELEPORT_HOLD_S + TELEPORT_SHRINK_S + TELEPORT_FLASH_S;
+var clamp01 = (x) => Math.min(Math.max(x, 0), 1);
+function teleportFrame(elapsed) {
+  const t = Math.max(elapsed, 0);
+  const shrinking = TELEPORT_CLOSE_S + TELEPORT_HOLD_S;
+  const shrunk = shrinking + TELEPORT_SHRINK_S;
+  if (t >= TELEPORT_DURATION_S) {
+    return { shieldScale: 0, shieldAlpha: 0, hullScale: 0, white: true, flashRadius: 0, flashAlpha: 0, done: true };
+  }
+  if (t < shrinking) {
+    const eased = 1 - (1 - clamp01(t / TELEPORT_CLOSE_S)) ** 2;
+    return {
+      shieldScale: TELEPORT_SHIELD_START_SCALE + (1 - TELEPORT_SHIELD_START_SCALE) * eased,
+      shieldAlpha: eased,
+      hullScale: 1,
+      white: false,
+      flashRadius: 0,
+      flashAlpha: 0,
+      done: false
+    };
+  }
+  if (t < shrunk) {
+    const shrink = clamp01((t - shrinking) / TELEPORT_SHRINK_S);
+    return {
+      shieldScale: 1 - shrink,
+      shieldAlpha: 1,
+      hullScale: 1 - shrink,
+      white: true,
+      flashRadius: TELEPORT_FLASH_RADIUS * shrink,
+      flashAlpha: shrink,
+      done: false
+    };
+  }
+  const collapse = clamp01((t - shrunk) / TELEPORT_FLASH_S);
+  return { shieldScale: 0, shieldAlpha: 0, hullScale: 0, white: true, flashRadius: TELEPORT_FLASH_RADIUS * (1 - collapse), flashAlpha: 1, done: false };
+}
+
+// src/scenes/derelictview.ts
 var DERELICT_TINT = 9080729;
 var DERELICT_HELD_TINT = 4869724;
+var FLASH_CORE = 0.5;
 var DerelictView = class {
+  scene;
+  layer;
   hull;
   label;
   bar;
   fill = -1;
+  teleporting;
   constructor(scene, layer, x, y, angle, resolution) {
+    this.scene = scene;
+    this.layer = layer;
     this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser7.TintModes.MULTIPLY);
     this.label = scene.add.text(x, y + DOWN_OFFSET, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
@@ -4443,10 +4505,47 @@ var DerelictView = class {
       drawReviveBar(this.bar, fill);
     }
   }
+  /** Starts teleporting away at now, in seconds: the label and bar go, and the Invincibility Shield closes in (#190). */
+  teleport(now2) {
+    if (this.teleporting !== void 0) {
+      return;
+    }
+    this.label.setVisible(false);
+    this.bar.setVisible(false);
+    const shield = this.scene.add.sprite(this.hull.x, this.hull.y, keys.shield("invincibility")).setRotation(this.hull.rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser7.TintModes.FILL).setBlendMode(Phaser7.BlendModes.ADD);
+    shield.play(keys.shield("invincibility"));
+    const flash = this.scene.add.graphics().setPosition(this.hull.x, this.hull.y).setBlendMode(Phaser7.BlendModes.ADD);
+    this.layer.add([shield, flash]);
+    this.teleporting = { start: now2, shield, flash };
+    this.step(now2);
+  }
+  /** Draws the teleport at now, in seconds; true once it's over, false while it runs or before it starts. */
+  step(now2) {
+    const t = this.teleporting;
+    if (t === void 0) {
+      return false;
+    }
+    const f = teleportFrame(now2 - t.start);
+    if (f.white) {
+      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser7.TintModes.FILL);
+      t.shield.setTint(TELEPORT_WHITE);
+    }
+    this.hull.setScale(f.hullScale).setVisible(f.hullScale > 0);
+    t.shield.setScale(f.shieldScale).setAlpha(f.shieldAlpha).setVisible(f.shieldScale > 0 && f.shieldAlpha > 0);
+    t.flash.clear();
+    if (f.flashRadius > 0) {
+      t.flash.fillStyle(TELEPORT_COLOR, f.flashAlpha).fillCircle(0, 0, f.flashRadius);
+      t.flash.fillStyle(TELEPORT_WHITE, f.flashAlpha).fillCircle(0, 0, f.flashRadius * FLASH_CORE);
+    }
+    return f.done;
+  }
   destroy() {
     this.hull.destroy();
     this.label.destroy();
     this.bar.destroy();
+    this.teleporting?.shield.destroy();
+    this.teleporting?.flash.destroy();
+    this.teleporting = void 0;
   }
 };
 
@@ -4536,6 +4635,10 @@ var NetPlay = class {
   remotes = /* @__PURE__ */ new Map();
   enemies = /* @__PURE__ */ new Map();
   derelicts = /* @__PURE__ */ new Map();
+  /** Derelicts gone from the snapshots, teleporting away (#190). */
+  departing = /* @__PURE__ */ new Set();
+  /** Derelicts seen to start teleporting away (#190). */
+  teleports = 0;
   /** Whether a snapshot came since connecting, so derelicts already there aren't announced. */
   derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
@@ -4742,6 +4845,10 @@ var NetPlay = class {
   }
   stop() {
     this.connection.stop();
+    for (const view of this.departing) {
+      view.destroy();
+    }
+    this.departing.clear();
   }
   /** Other players and their companions, for the HUD and the E2E tests. */
   get others() {
@@ -4903,9 +5010,15 @@ var NetPlay = class {
       held: d.state.held
     }));
   }
+  /** Derelicts still teleporting away, for the E2E tests (#190). */
+  get departingCount() {
+    return this.departing.size;
+  }
   /**
    * Draws the snapshot's derelicts and drops the ones no longer in it; a new
-   * one after the first snapshot is announced.
+   * one after the first snapshot is announced. One gone from a later
+   * snapshot was rescued or ran out of time, and teleports away either way
+   * (#190); a disconnect, at tick 0, drops them at once.
    */
   syncDerelicts(states, tick) {
     const seen = /* @__PURE__ */ new Set();
@@ -4926,8 +5039,18 @@ var NetPlay = class {
     }
     for (const [id, drawn] of this.derelicts) {
       if (!seen.has(id)) {
-        drawn.view.destroy();
         this.derelicts.delete(id);
+        if (tick > 0) {
+          drawn.view.teleport(now() / 1e3);
+          this.departing.add(drawn.view);
+          this.teleports++;
+          const ship = this.options.sim.ship;
+          if (Math.hypot(drawn.state.x - ship.x, drawn.state.y - ship.y) <= TELEPORT_SOUND_RANGE) {
+            this.options.audio.teleported();
+          }
+        } else {
+          drawn.view.destroy();
+        }
       }
     }
     this.derelictsSeen = tick > 0;
@@ -4953,6 +5076,12 @@ var NetPlay = class {
     this.connection.sendState(this.options.sim.ship, nowMs);
     for (const shot of events.shots) {
       this.connection.sendShot(shot);
+    }
+    for (const view of this.departing) {
+      if (view.step(seconds)) {
+        view.destroy();
+        this.departing.delete(view);
+      }
     }
     const serverTick = this.clock.tickAt(nowMs);
     if (serverTick === void 0) {
@@ -6040,6 +6169,8 @@ var SandboxScene = class extends Phaser11.Scene {
       missionBanner: void 0,
       derelicts: [],
       rescues: 0,
+      teleports: 0,
+      departing: 0,
       hangar: void 0,
       squadronMode: void 0
     };
@@ -7448,6 +7579,8 @@ ${modeName(info)}`,
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
+    this.debug.teleports = this.net?.teleports ?? 0;
+    this.debug.departing = this.net?.departingCount ?? 0;
     publishDebugState(this.debug);
   }
 };

@@ -41,6 +41,8 @@ export const ENEMY_EXPLOSION_SOUND = 'sfx-enemy-explosion';
 /** A laser of their own, so incoming fire doesn't sound like yours. */
 export const ENEMY_SHOT_SOUND = 'sfx-enemy-shot';
 export const PART_SWITCH_SOUND = 'sfx-part-switch';
+/** A derelict teleporting away (#190). */
+export const TELEPORT_SOUND = 'sfx-teleport';
 /** The force field's zaps (#127), played in random order. */
 export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
@@ -61,6 +63,7 @@ export function effectFiles(): SoundFile[] {
     both(ENEMY_SHOT_SOUND, 'sfx/enemy-shot'),
     both(SHIELD_SOUND, 'sfx/shield'),
     both(PART_SWITCH_SOUND, 'sfx/part-switch'),
+    both(TELEPORT_SOUND, 'sfx/teleport'),
     ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
     both('sfx-engine-base', 'sfx/engine-base'),
     both('sfx-engine-big-pulse', 'sfx/engine-big-pulse'),

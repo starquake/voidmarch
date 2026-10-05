@@ -419,6 +419,8 @@ export class SandboxScene extends Phaser.Scene {
       missionBanner: undefined,
       derelicts: [],
       rescues: 0,
+      teleports: 0,
+      departing: 0,
       hangar: undefined,
       squadronMode: undefined,
     };
@@ -2006,6 +2008,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
+    this.debug.teleports = this.net?.teleports ?? 0;
+    this.debug.departing = this.net?.departingCount ?? 0;
     publishDebugState(this.debug);
   }
 }

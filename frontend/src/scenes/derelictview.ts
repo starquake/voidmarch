@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
-import { UI_FONT } from '../sim/tuning.ts';
+import { teleportFrame } from '../sim/teleport.ts';
+import { TELEPORT_COLOR, TELEPORT_WHITE, UI_FONT } from '../sim/tuning.ts';
 import { keys } from '../sprites.ts';
 import { DOWN_COLOR, DOWN_OFFSET, REVIVE_BAR_BELOW, REVIVE_BAR_WIDTH, SPRITE_FACING, drawReviveBar, type ShipParent } from './shipview.ts';
 
@@ -8,18 +9,33 @@ import { DOWN_COLOR, DOWN_OFFSET, REVIVE_BAR_BELOW, REVIVE_BAR_WIDTH, SPRITE_FAC
 const DERELICT_TINT = 0x8a8f99;
 /** Darker while enemies hold it (#114). */
 const DERELICT_HELD_TINT = 0x4a4e5c;
+/** The flash's white core, as a share of its radius. */
+const FLASH_CORE = 0.5;
+
+/** A teleport under way (#190): when it started, in seconds, and what it adds to the hull. */
+interface Teleport {
+  start: number;
+  shield: Phaser.GameObjects.Sprite;
+  flash: Phaser.GameObjects.Graphics;
+}
 
 /**
  * A derelict ship waiting to be rescued (#52): the hull alone, no engine,
- * weapon or shield, with its time left and a rescue bar under it.
+ * weapon or shield, with its time left and a rescue bar under it. Once it
+ * leaves, it teleports away (#190).
  */
 export class DerelictView {
+  private readonly scene: Phaser.Scene;
+  private readonly layer: ShipParent;
   private readonly hull: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
   private readonly bar: Phaser.GameObjects.Graphics;
   private fill = -1;
+  private teleporting: Teleport | undefined;
 
   constructor(scene: Phaser.Scene, layer: ShipParent, x: number, y: number, angle: number, resolution: number) {
+    this.scene = scene;
+    this.layer = layer;
     this.hull = scene.add
       .image(x, y, keys.hull('veryDamaged'))
       .setRotation(angle + SPRITE_FACING)
@@ -50,9 +66,54 @@ export class DerelictView {
     }
   }
 
+  /** Starts teleporting away at now, in seconds: the label and bar go, and the Invincibility Shield closes in (#190). */
+  teleport(now: number): void {
+    if (this.teleporting !== undefined) {
+      return;
+    }
+    this.label.setVisible(false);
+    this.bar.setVisible(false);
+    const shield = this.scene.add
+      .sprite(this.hull.x, this.hull.y, keys.shield('invincibility'))
+      .setRotation(this.hull.rotation)
+      .setTint(TELEPORT_COLOR)
+      .setTintMode(Phaser.TintModes.FILL)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    shield.play(keys.shield('invincibility'));
+    const flash = this.scene.add.graphics().setPosition(this.hull.x, this.hull.y).setBlendMode(Phaser.BlendModes.ADD);
+    this.layer.add([shield, flash]);
+    this.teleporting = { start: now, shield, flash };
+    this.step(now);
+  }
+
+  /** Draws the teleport at now, in seconds; true once it's over, false while it runs or before it starts. */
+  step(now: number): boolean {
+    const t = this.teleporting;
+    if (t === undefined) {
+      return false;
+    }
+    const f = teleportFrame(now - t.start);
+    if (f.white) {
+      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser.TintModes.FILL);
+      t.shield.setTint(TELEPORT_WHITE);
+    }
+    this.hull.setScale(f.hullScale).setVisible(f.hullScale > 0);
+    t.shield.setScale(f.shieldScale).setAlpha(f.shieldAlpha).setVisible(f.shieldScale > 0 && f.shieldAlpha > 0);
+    t.flash.clear();
+    if (f.flashRadius > 0) {
+      t.flash.fillStyle(TELEPORT_COLOR, f.flashAlpha).fillCircle(0, 0, f.flashRadius);
+      t.flash.fillStyle(TELEPORT_WHITE, f.flashAlpha).fillCircle(0, 0, f.flashRadius * FLASH_CORE);
+    }
+
+    return f.done;
+  }
+
   destroy(): void {
     this.hull.destroy();
     this.label.destroy();
     this.bar.destroy();
+    this.teleporting?.shield.destroy();
+    this.teleporting?.flash.destroy();
+    this.teleporting = undefined;
   }
 }

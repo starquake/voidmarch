@@ -405,6 +405,7 @@ Companions are AI-flown wingmates. They make playing alone, or with one friend, 
   - **Held:** while any enemy is within 600 px it is held: a darker hull, "DERELICT · HELD BY n" counting the enemies near, no timer and no rescue. The first time none is near it is freed, for good, and its 2 minutes start. A Frigate spot has one derelict at a time: a Frigate that comes back brings a new one only once the last is rescued or gone.
   - A player or companion hovering within 100 px for 5 s rescues it into the hangar, the way a revive works. Companions go to one within 400 px, except in Hold and Stealth. A bar under the label shows the progress, which drains when nobody is near.
   - An unrescued derelict drifts off 2 minutes after it was freed.
+  - **It teleports away** either way, rescued or drifting off (#190): the Main Ship's Invincibility Shield, tinted blue, closes round the hull, then hull and shield turn light blue and shrink into a flash that collapses to a point, over 1.2 s, with Kenney's `laserLarge_002` heard within about a view. The client needs no message for it: a derelict missing from a later snapshot has left.
   - The fleet (hangar plus companions out) is capped at 16, the server's seats. Derelicts still come while it's full: a rescue then counts (for the stats to come) but adds no ship, and says the hangar is full (@starquake, 2026-10-01).
   - A map can also mark derelict spots that always have one waiting; only the E2E map uses them today.
   - A won fight, a cleared sector or a finished world event, adds ships with #90.

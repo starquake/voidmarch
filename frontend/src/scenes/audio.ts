@@ -16,6 +16,7 @@ import {
   PART_SWITCH_SOUND,
   SHIELD_SOUND,
   SHOT_SOUNDS,
+  TELEPORT_SOUND,
   musicFiles,
 } from '../sounds.ts';
 
@@ -32,6 +33,7 @@ const CHARGE_VOLUME = 0.3;
 const CHARGE_DETUNE = 300;
 const EXPIRE_VOLUME = 0.3;
 const UI_VOLUME = 0.3;
+const TELEPORT_VOLUME = 0.3;
 const MUSIC_VOLUME = 0.3;
 
 /** Plays the ship's sounds and the music, driven by the sim's frame events. */
@@ -133,6 +135,11 @@ export class ShipAudio {
 
   enemyDestroyed(): void {
     this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+  }
+
+  /** A derelict teleporting away (#190). */
+  teleported(): void {
+    this.scene.sound.play(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
   }
 
   shieldSwitched(): void {
