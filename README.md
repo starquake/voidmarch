@@ -66,6 +66,9 @@ directions), effects, a 60 fps frame rate cap and a lower render resolution
 (CSS pixels), the last two for slower graphics. Pick a row with the arrow keys
 and change it with Enter, Space, left or right, or click it. The ship holds
 still while it's open, and every choice is remembered in the browser. Sound starts after the first click or key press.
+The music follows the ship: one looping track in the home sector, one for each
+ring (outside the map plays the third ring's), and one while the victory
+screen is open, with a crossfade between them.
 
 The HUD shows your ship bottom left: the three fitted parts as their icons,
 in their tier's color, and the hull and shield as pips. Top left, a panel
@@ -278,7 +281,7 @@ are in [THIRD-PARTY.md](THIRD-PARTY.md), which the Docker image carries too.
 
 
 - Art: the Void asset packs by [Foozle](https://foozlecc.itch.io/), CC0.
-- Music: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music) by Foozle, CC0.
+- Music: [5 Chiptunes (Action)](https://opengameart.org/content/5-chiptunes-action) by Juhani Junkala, CC0.
 - Sound effects: [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) by Kenney, CC0.
 - Fonts: [Orbitron](https://github.com/theleagueof/orbitron) by The League of Moveable Type and [Exo 2](https://github.com/googlefonts/Exo-2.0) by Natanael Gama, both SIL Open Font License 1.1 (`internal/web/static/fonts/*-OFL.txt`).
 

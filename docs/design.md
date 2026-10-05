@@ -30,6 +30,8 @@
 
 Everything is pixel art at native resolution. Render with nearest-neighbor scaling (e.g. 2× or 3×). Aseprite sources are included if re-exporting is needed.
 
+Sound comes from CC0 packs too: Kenney's Sci-Fi Sounds for effects, and Juhani Junkala's 5 Chiptunes (Action) for music. The music follows place, each place looping one track: Title Screen in the home sector, Level 1, 2 and 3 in rings 1, 2 and 3 (outside the map counts as ring 3), and Ending while the victory screen is open. It crossfades over 2 s as the place changes (#187).
+
 **Things intentionally NOT in the game (no art for them):** currency/scrap, space stations, outposts, base building, player ship explosion.
 
 **Future (allowed via reuse/recolor):** asteroid mining (Environment asteroid), escort missions (enemy ships recolored as friendly convoys).
@@ -385,7 +387,7 @@ if got, want := err.Error(), "error creating question"; !strings.Contains(got, w
 9. **Season end and reset.**
 10. **Later:** asteroid mining, escort missions.
 
-Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney's Sci-Fi Sounds for effects, Foozle's Explorer Chiptunes for music, with Eerie Space Music set aside for the home planet and the Dreadnought fights.
+Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney's Sci-Fi Sounds for effects and Foozle's Explorer Chiptunes for music. #187 replaced the music with Juhani Junkala's 5 Chiptunes (Action), one track for each place.
 
 ## 12. Open questions
 
@@ -393,7 +395,7 @@ Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney'
 - ~~Do personal unlocks reset at season end?~~ Yes, so a friend who missed a weekend isn't behind (#10 decision 6).
 - ~~Dreadnought health and regeneration numbers~~: sized for one evening, scaling with the players near it (#132).
 - Map size and how rings are separated.
-- ~~Sound and music~~: decided in #14 (Kenney Sci-Fi Sounds, Foozle Explorer Chiptunes and Eerie Space Music, all CC0).
+- ~~Sound and music~~: decided in #14 (Kenney Sci-Fi Sounds, Foozle Explorer Chiptunes and Eerie Space Music, all CC0); the music has been Juhani Junkala's 5 Chiptunes (Action), CC0, since #187.
 
 ## 13. Companions
 

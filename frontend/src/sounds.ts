@@ -1,4 +1,5 @@
 import type { EngineId, WeaponId } from './sim/loadout.ts';
+import type { MusicPlace } from './sim/music.ts';
 
 const AUDIO = '/static/audio';
 
@@ -46,8 +47,14 @@ export const TELEPORT_SOUND = 'sfx-teleport';
 /** The force field's zaps (#127), played in random order. */
 export const FIELD_ZAP_SOUNDS = ['sfx-field-zap-0', 'sfx-field-zap-1', 'sfx-field-zap-2'];
 
-/** Music tracks, played in turn. */
-export const MUSIC = ['music-explorer-theme-1', 'music-explorer-theme-2'] as const;
+/** Each place's music track (#187), looped: Juhani Junkala's 5 Action Chiptunes. */
+export const MUSIC: Readonly<Record<MusicPlace, string>> = {
+  home: 'music-title-screen',
+  ring1: 'music-level-1',
+  ring2: 'music-level-2',
+  ring3: 'music-level-3',
+  ending: 'music-ending',
+};
 
 /** Effects, small enough to load before the game starts. */
 export function effectFiles(): SoundFile[] {
@@ -76,5 +83,5 @@ export function effectFiles(): SoundFile[] {
 
 /** Music, loaded in the background once the game runs. */
 export function musicFiles(): SoundFile[] {
-  return MUSIC.map((key) => both(key, `music/${key.replace(/^music-/, '')}`));
+  return Object.values(MUSIC).map((key) => both(key, `music/${key.replace(/^music-/, '')}`));
 }

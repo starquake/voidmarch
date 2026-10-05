@@ -11,6 +11,6 @@ required; it is given here anyway.
   to `-2` are `forceField_001`, `_003` and `_004`, and `teleport` is
   `laserLarge_002`. Each sound also
   has an MP3 copy for browsers without Ogg support.
-- `music/`: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music),
-  commissioned from muresanradu, distributed by Foozle. Themes #1 and #2,
+- `music/`: [5 Chiptunes (Action)](https://opengameart.org/content/5-chiptunes-action)
+  by Juhani Junkala: Title Screen, Level 1 to 3 and Ending, renamed and
   re-encoded to Ogg Opus (96 kbit/s) and MP3 (112 kbit/s).

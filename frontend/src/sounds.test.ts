@@ -28,9 +28,19 @@ test('every sound the game plays is loaded', () => {
     ENEMY_SHOT_SOUND,
     PART_SWITCH_SOUND,
     TELEPORT_SOUND,
-    ...MUSIC,
+    ...Object.values(MUSIC),
   ];
   for (const key of used) {
     assert.ok(loaded.has(key), key);
   }
+});
+
+test('Title Screen plays at home, Level 1 to 3 in the rings, and Ending on the victory screen', () => {
+  assert.deepEqual(MUSIC, {
+    home: 'music-title-screen',
+    ring1: 'music-level-1',
+    ring2: 'music-level-2',
+    ring3: 'music-level-3',
+    ending: 'music-ending',
+  });
 });

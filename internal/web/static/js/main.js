@@ -192,7 +192,13 @@ var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
 var TELEPORT_SOUND = "sfx-teleport";
 var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
-var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
+var MUSIC = {
+  home: "music-title-screen",
+  ring1: "music-level-1",
+  ring2: "music-level-2",
+  ring3: "music-level-3",
+  ending: "music-ending"
+};
 function effectFiles() {
   const files = [
     ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
@@ -216,7 +222,7 @@ function effectFiles() {
   return files;
 }
 function musicFiles() {
-  return MUSIC.map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
+  return Object.values(MUSIC).map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
 }
 
 // src/sim/rules.gen.ts
@@ -3492,6 +3498,23 @@ function touchMode(matches, search) {
   return matches("(pointer: coarse)") && !matches("(any-pointer: fine)");
 }
 
+// src/sim/music.ts
+function musicPlace(sector, victory) {
+  if (victory) {
+    return "ending";
+  }
+  switch (sector === void 0 ? void 0 : sectorRing(sector)) {
+    case 0:
+      return "home";
+    case 1:
+      return "ring1";
+    case 2:
+      return "ring2";
+    default:
+      return "ring3";
+  }
+}
+
 // src/sim/world.ts
 function asteroidField(seed = ASTEROID_SEED, count = ASTEROID_COUNT) {
   const random = seededRandom(seed);
@@ -3784,11 +3807,17 @@ var EXPIRE_VOLUME = 0.3;
 var UI_VOLUME = 0.3;
 var TELEPORT_VOLUME = 0.3;
 var MUSIC_VOLUME = 0.3;
+var MUSIC_FADE_MS = 2e3;
 var ShipAudio = class {
   engine;
   engineId;
+  /** The track playing or fading in, and those fading out. */
   music;
-  musicIndex = 0;
+  fading = /* @__PURE__ */ new Set();
+  place = "home";
+  awaitingUnlock = false;
+  /** Whether the next track fades in: after a place change, not at the start or when the music is switched on. */
+  fadeInNext = false;
   musicLoaded = false;
   shots = 0;
   lastZap;
@@ -3816,6 +3845,18 @@ var ShipAudio = class {
   /** The key of the playing track, or null. */
   get playingMusic() {
     return this.music?.isPlaying === true ? this.music.key : null;
+  }
+  /** Where the music thinks the ship is. */
+  get musicPlace() {
+    return this.place;
+  }
+  /** The playing track's volume, 0 with none. */
+  get musicVolume() {
+    return this.music?.isPlaying === true ? this.music.volume : 0;
+  }
+  /** How many tracks are still fading out. */
+  get fadingMusic() {
+    return this.fading.size;
   }
   /** Swaps the engine loop to match the fitted engine. */
   setEngine(id) {
@@ -3899,39 +3940,97 @@ var ShipAudio = class {
     if (this.settings.music) {
       this.playMusic();
     } else {
-      this.music?.stop();
+      this.stopMusic();
     }
   }
-  /** Loads the music after the game has started, so it never delays the first frame. */
+  /** Crossfades to the place's music when the ship moves to another place (#187). */
+  setMusicPlace(place) {
+    if (place === this.place) {
+      return;
+    }
+    this.place = place;
+    this.fadeInNext = true;
+    if (this.music !== void 0) {
+      this.fadeOut(this.music);
+      this.music = void 0;
+    }
+    this.playMusic();
+  }
+  /** Loads the music after the game has started, so it never delays the first frame; each track plays once it's in. */
   loadMusic() {
     const loader = this.scene.load;
     for (const file of musicFiles()) {
       loader.audio(file.key, file.urls);
     }
+    const loaded2 = () => {
+      this.playMusic();
+    };
+    loader.on(Phaser3.Loader.Events.FILE_COMPLETE, loaded2);
     loader.once(Phaser3.Loader.Events.COMPLETE, () => {
+      loader.off(Phaser3.Loader.Events.FILE_COMPLETE, loaded2);
       this.musicLoaded = true;
       this.playMusic();
     });
     loader.start();
   }
   playMusic() {
-    if (!this.musicLoaded || !this.settings.music || this.music?.isPlaying === true) {
+    if (!this.settings.music || this.music !== void 0) {
       return;
     }
     if (this.scene.sound.locked) {
-      this.scene.sound.once(Phaser3.Sound.Events.UNLOCKED, () => {
-        this.playMusic();
-      });
+      if (!this.awaitingUnlock) {
+        this.awaitingUnlock = true;
+        this.scene.sound.once(Phaser3.Sound.Events.UNLOCKED, () => {
+          this.awaitingUnlock = false;
+          this.playMusic();
+        });
+      }
       return;
     }
-    const key2 = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
-    this.music?.destroy();
-    this.music = this.scene.sound.add(key2, { volume: MUSIC_VOLUME });
-    this.music.once(Phaser3.Sound.Events.COMPLETE, () => {
-      this.musicIndex++;
-      this.playMusic();
+    const key2 = MUSIC[this.place];
+    const fading = [...this.fading].find((sound) => sound.key === key2);
+    if (fading !== void 0) {
+      this.fading.delete(fading);
+      this.music = fading;
+      this.fadeInNext = false;
+      this.fadeTo(fading, MUSIC_VOLUME);
+      return;
+    }
+    if (!this.scene.cache.audio.exists(key2)) {
+      return;
+    }
+    const music = this.scene.sound.add(key2, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME, loop: true });
+    this.music = music;
+    music.play();
+    if (this.fadeInNext) {
+      this.fadeInNext = false;
+      this.fadeTo(music, MUSIC_VOLUME);
+    }
+  }
+  fadeOut(music) {
+    this.fading.add(music);
+    this.fadeTo(music, 0, () => {
+      this.discard(music);
     });
-    this.music.play();
+  }
+  fadeTo(music, volume, done) {
+    this.scene.tweens.killTweensOf(music);
+    this.scene.tweens.add({ targets: music, volume, duration: MUSIC_FADE_MS, onComplete: () => done?.() });
+  }
+  /** Drops a track that has faded out or been switched off. */
+  discard(music) {
+    this.scene.tweens.killTweensOf(music);
+    this.fading.delete(music);
+    music.destroy();
+  }
+  stopMusic() {
+    for (const music of this.fading) {
+      this.discard(music);
+    }
+    if (this.music !== void 0) {
+      this.discard(this.music);
+      this.music = void 0;
+    }
   }
 };
 
@@ -6377,7 +6476,17 @@ var SandboxScene = class extends Phaser11.Scene {
       cssPixels: false,
       gpuMs: void 0,
       weaponFrame: 0,
-      audio: { muted: false, music: false, locked: true, backend: "none", musicLoaded: false, playingMusic: null },
+      audio: {
+        muted: false,
+        music: false,
+        locked: true,
+        backend: "none",
+        musicLoaded: false,
+        musicPlace: "home",
+        playingMusic: null,
+        musicVolume: 0,
+        fadingMusic: 0
+      },
       net: { status: "offline", playerId: void 0, others: [] },
       enemies: [],
       enemiesDestroyed: 0,
@@ -6452,6 +6561,7 @@ var SandboxScene = class extends Phaser11.Scene {
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
     this.bossBar.show(bossBar(this.net?.bosses ?? [], this.sim.ship.x, this.sim.ship.y));
+    this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), this.victoryScreen.open));
     this.drawMissionArrow();
     this.drawMaps();
     this.drawClosed();
@@ -7793,7 +7903,10 @@ ${modeName(info)}`,
     this.debug.audio.muted = this.audioSettings.muted;
     this.debug.audio.music = this.audioSettings.music;
     this.debug.audio.locked = this.sound.locked;
+    this.debug.audio.musicPlace = this.audio.musicPlace;
     this.debug.audio.playingMusic = this.audio.playingMusic;
+    this.debug.audio.musicVolume = this.audio.musicVolume;
+    this.debug.audio.fadingMusic = this.audio.fadingMusic;
     this.debug.audio.backend = this.audio.backend;
     this.debug.audio.musicLoaded = this.audio.musicReady;
     this.debug.net.status = this.net?.status ?? "offline";

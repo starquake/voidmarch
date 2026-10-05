@@ -2,6 +2,7 @@ import type { BossBar } from './net/boss.ts';
 import type { DerelictDebug, EnemyDebug, NetStatus, RemoteDebug } from './scenes/netplay.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
+import type { MusicPlace } from './sim/music.ts';
 
 /** One of the player's companions as drawn: the hub flies it. */
 export interface CompanionDebug {
@@ -128,7 +129,13 @@ export interface DebugState {
     /** Which Phaser sound backend runs: webaudio, html5, or none. */
     backend: string;
     musicLoaded: boolean;
+    /** Where the music thinks the ship is (#187). */
+    musicPlace: MusicPlace;
     playingMusic: string | null;
+    /** The playing track's volume, rising as it fades in (#187); 0 with none. */
+    musicVolume: number;
+    /** Tracks still fading out. */
+    fadingMusic: number;
   };
 }
 
