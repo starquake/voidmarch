@@ -233,12 +233,16 @@ func TestEvents_AMapCanKeepThemAway(t *testing.T) {
 	drain(a)
 }
 
+// devAttack is K on a development server, in sector.
+func devAttack(sector string) *pb.ClientMessage {
+	return &pb.ClientMessage{
+		Kind: &pb.ClientMessage_DevStartAttack{DevStartAttack: &pb.DevStartAttack{Sector: sector}},
+	}
+}
+
 func TestEvents_ADevelopmentServerStartsAnAttackOnRequest(t *testing.T) {
 	t.Parallel()
 
-	start := &pb.ClientMessage{
-		Kind: &pb.ClientMessage_DevStartAttack{DevStartAttack: &pb.DevStartAttack{Sector: "E4"}},
-	}
 	for _, dev := range []bool{true, false} {
 		opts := []HubOption{WithClearedSectors([]string{"E4"}), NoEvents}
 		if dev {
@@ -246,9 +250,102 @@ func TestEvents_ADevelopmentServerStartsAnAttackOnRequest(t *testing.T) {
 		}
 		hub, tick := testHub(t, opts...)
 		a, _ := join(t, hub, "a")
-		a.Send(start)
+		a.Send(devAttack("E4"))
 		if started, _, _ := eventMessages(t, a, tick, 1, 0, 0); (len(started) == 1) != dev {
 			t.Errorf("development %t: %d attacks started on request", dev, len(started))
+		}
+	}
+}
+
+func TestEvents_ADevelopmentServerMovesARunningAttackOnRequest(t *testing.T) {
+	t.Parallel()
+
+	e4, _ := sim.ParseSector("E4")
+	frigatesInE4 := func(snap *pb.Snapshot) int {
+		n := 0
+		for _, e := range snap.GetEnemies() {
+			if e.GetKind() == pb.EnemyKind_ENEMY_KIND_FRIGATE &&
+				e4.Contains(float64(e.GetX()), float64(e.GetY())) {
+				n++
+			}
+		}
+
+		return n
+	}
+	hub, tick := testHub(t, WithDevelopment(), WithClearedSectors([]string{"E4", "C4"}), NoEvents)
+	a, _ := join(t, hub, "a")
+	a.Send(devAttack("E4"))
+	started, _, snap := eventMessages(t, a, tick, 1, 0, 0)
+	if len(started) != 1 || frigatesInE4(snap) != 1 {
+		t.Fatalf(
+			"started = %+v with %d Frigates in E4, want one attacking",
+			started,
+			frigatesInE4(snap),
+		)
+	}
+
+	a.Send(devAttack("C4"))
+	started, ended, snap := eventMessages(t, a, tick, 2, 0, 0)
+
+	if len(started) != 1 || started[0].GetEvent().GetSector() != "C4" {
+		t.Errorf("started = %+v, want the attack moved to C4", started)
+	}
+	// An attack's end tells clients its sector fell or held; this one did neither.
+	if len(ended) != 0 {
+		t.Errorf("ended = %+v, want none", ended)
+	}
+	if n := frigatesInE4(snap); n != 0 {
+		t.Errorf("%d Frigates in E4 after its attack moved, want 0", n)
+	}
+	_, w := join(t, hub, "b")
+	if got := w.GetWorldEvent().GetSector(); got != "C4" {
+		t.Errorf("world event in %q for a new player, want C4", got)
+	}
+	if got := w.GetClearedSectors(); !slices.Contains(got, "E4") || !slices.Contains(got, "C4") {
+		t.Errorf("cleared sectors = %v, want E4 and C4 kept", got)
+	}
+}
+
+func TestEvents_ADevelopmentServerAttacksInPlaceOfADistressCall(t *testing.T) {
+	t.Parallel()
+
+	all := make([]string, 0, len(sim.Sectors()))
+	for _, s := range sim.Sectors() {
+		all = append(all, s.Name())
+	}
+	// With nothing hostile left to attack from, the event on schedule is a distress call.
+	hub, tick := testHub(t,
+		WithDevelopment(),
+		WithPoolStart(3),
+		WithClearedSectors(all),
+		WithEventTimes(1, 1<<30, 1<<30, 1<<30),
+	)
+	a, _ := join(t, hub, "a")
+	started, _, snap := eventMessages(t, a, tick, 2, 0, 0)
+	if len(started) != 1 ||
+		started[0].GetEvent().GetKind() != pb.WorldEventKind_WORLD_EVENT_KIND_DISTRESS ||
+		len(snap.GetDerelicts()) != 1 {
+		t.Fatalf(
+			"started = %+v with %d derelicts, want a distress call",
+			started,
+			len(snap.GetDerelicts()),
+		)
+	}
+	held := snap.GetDerelicts()[0].GetDerelictId()
+
+	a.Send(devAttack("E4"))
+	started, ended, snap := eventMessages(t, a, tick, 2, 0, 0)
+
+	if len(started) != 1 ||
+		started[0].GetEvent().GetKind() != pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK {
+		t.Errorf("started = %+v, want an attack on E4", started)
+	}
+	if len(ended) != 0 {
+		t.Errorf("ended = %+v, want none", ended)
+	}
+	for _, d := range snap.GetDerelicts() {
+		if d.GetDerelictId() == held {
+			t.Errorf("derelict %d is still there after its call was replaced", held)
 		}
 	}
 }
