@@ -181,7 +181,10 @@ jobs:
   # Pushes and signs the image from main, once every check has passed. The
   # docker job above has filled the build cache, so this build is quick.
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # workflow_dispatch: the run dependabot-auto-merge.yml starts after a merge.
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main'
     needs: [lint, build, e2e, docker]
     runs-on: ubuntu-24.04
     permissions:
