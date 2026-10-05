@@ -17,13 +17,15 @@ export async function registerPlayer(request: APIRequestContext, name: string): 
 export type Controls = 'ship' | 'game';
 
 /**
- * Signs every page of target in as the player with token. With `ship`
- * controls it also saves ship-relative, unless a page already saved a mode.
+ * Signs every page of target in as the player with token, past the intro
+ * screen (#193). With `ship` controls it also saves ship-relative, unless a
+ * page already saved a mode.
  */
 export async function signIn(target: Page | BrowserContext, token: string, controls: Controls = 'ship'): Promise<void> {
   await target.addInitScript(
     ([t, c]) => {
       localStorage.setItem('voidmarch.token', t);
+      localStorage.setItem('voidmarch.introSeen', '1');
       if (c === 'ship' && localStorage.getItem('voidmarch.controlMode') === null) {
         localStorage.setItem('voidmarch.controlMode', 'ship');
       }

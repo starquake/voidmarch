@@ -7,6 +7,7 @@ import {
   loadBloomBroken,
   loadControlMode,
   loadDisplaySettings,
+  loadIntroSeen,
   loadLastSquadron,
   loadSeenSeason,
   loadToken,
@@ -15,6 +16,7 @@ import {
   saveBloomBroken,
   saveControlMode,
   saveDisplaySettings,
+  saveIntroSeen,
   saveLastSquadron,
   saveSeenSeason,
   saveToken,
@@ -176,4 +178,15 @@ test('a bloom found broken is remembered', () => {
     saveBloomBroken(brokenStore);
   });
   assert.equal(loadBloomBroken(brokenStore), false);
+});
+
+test('the intro screen, once closed, is remembered as seen (#193)', () => {
+  const store = memoryStore();
+  assert.equal(loadIntroSeen(store), false);
+  saveIntroSeen(store);
+  assert.equal(loadIntroSeen(store), true);
+  assert.doesNotThrow(() => {
+    saveIntroSeen(brokenStore);
+  });
+  assert.equal(loadIntroSeen(brokenStore), false, 'without storage it shows each visit');
 });
