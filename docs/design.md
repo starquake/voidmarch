@@ -188,7 +188,7 @@ Each faction uses its 8 ship classes in these roles:
 - Enemies use their pack's destruction animation when killed.
 - Killed enemies may drop part pickups (drop rate tunable; favor parts the nearby players don't own yet).
 
-As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 and by faction since #136:
+As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 and by faction since #136, with Bombers and Torpedo Ships since #137 and Support Ships since #184:
 
 - **Garrisons** (#99) replace the old spawning around players. Each sector but home holds one.
   - **Size:** 8 ships in ring 1, 12 in ring 2 and 16 in ring 3, with more Fighters outward (3, 6 and 10). That's for one player: each other player who enters adds half again, and each companion a quarter, counted once. Joiners add, and leavers take nothing away.
@@ -209,6 +209,11 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Bombers and Torpedo Ships** (#137), the later factions' slow heavy hitters: 20% of a ring-2 garrison and 30% of a ring-3 one, half each; the Kla'ed have none.
   - **Bomber**: 10 HP (15 Nairan, 20 Nautolan), slow (60 px/s), keeps 240 px from its target. It fires a pair of shots, Nairan Rockets (80 px/s) or Nautolan Bombs (100 px/s), that leave 0.4 rad either side of its aim and curve back in to cross 240 px down it, where the target was; every client draws the same curve from the spawn. No pack draws a Bomber's weapons, so its hull glows blue for the warning.
   - **Torpedo Ship**: 8 HP (12 Nairan, 16 Nautolan), keeps 260 px off, then lines up and holds still for a 0.75 s warning, its weapons animating, before one straight shot: a Nairan Torpedo (70 px/s) or a Nautolan Wave (88 px/s). A Torpedo takes two hull steps, or two shield charges; every other shot takes one.
+- **Support Ships** (#184), every faction's, in every ring: 1 in 8 of a garrison, the second of every eight in its line-up (`sim.GarrisonSupport`), so the first ships a garrison sends out bring one.
+  - **Stats:** 4 HP (6 Nairan, 8 Nautolan), slow (70 px/s), no guns.
+  - **Staying behind:** while its pack fights, it keeps 180 px past the middle of its pack, on the side away from the ship they fight. Its pack is its faction's other ships within 400 px of that ship, Support Ships aside. With no pack there it stays out of the fight, roaming its sector.
+  - **Repairing:** it repairs the most worn of the enemies within 200 px, a point a second, and stays on that one while it needs it and is in range. A Frigate's or Dreadnought's shield comes back first, then the hull, and nothing goes past where it started. Every client draws a thin green line from it to the ship it repairs (`EnemyState.repairing`).
+  - **Priority target:** the companions' "Support first" order goes for it first, and conserving, the big space gun saves its volleys for it.
 - **Enemy fire stands out** (#36): the Kla'ed bullets are drawn in a blue recolour of the pack's orange ones (`tools/recolor.py`, a palette swap), and they glow blue. Every faction's shots get the same blue (#136). Players' shots stay orange. The glow follows the F effects toggle. Since #143 the glow is baked once at boot into a glowing copy of each bullet sheet, the same math the old glow filter ran over a full-screen layer every frame.
 - **Death**: the pack's destruction animation, and an explosion sound when it happens in view. No drops yet (pickups are milestone 5).
 
