@@ -263,8 +263,9 @@ one.** The thread is the ticket's history. Nothing changed? Post nothing.
 Write it as a reply ("folded your answers in; the plan's in the body; one thing
 I didn't decide for you"), not a dashboard.
 
-**Posting an answer block IS a `Your input` move.** Set the state in the same
-step, never later.
+**Posting an answer block IS a `Your input` move.** Set the state, and add the
+`question` label, in the same step, never later. Folding in the last answer
+takes the label off in that same step (#228).
 
 Content by state (a state line, then "Next:" naming the action and who takes
 it):

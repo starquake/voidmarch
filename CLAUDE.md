@@ -237,6 +237,8 @@ answer given in chat is written back into the issue body before acting on it.
   **A card in a lane carries no route label**: the lane already says where it
   stands, so the label comes off in the same step as the move out of
   `Backlog` (@starquake, 2026-09-15). A parent carries none either.
+  `question` marks a ticket with an unanswered answer block in its body, in
+  any lane, `Backlog` included (#228).
 - **A ticket ported from a sibling repository goes in the lane its content puts
   it in**: open questions to `Your input`, a settled spec with a plan to
   `Your sign-off` and one without to `Plan`, a parent to `Backlog` with no
@@ -248,7 +250,10 @@ answer given in chat is written back into the issue body before acting on it.
 - **Questions go in a copy-paste answer block**: a fenced block headed
   `# keep your pick, delete the rest`, one line per question, every line
   carrying a `(rec)`, ending with `notes =`. Posting one moves the ticket to
-  `Your input` in the same step.
+  `Your input` and adds the `question` label in the same step; a ticket filed
+  straight into `Backlog` keeps its questions there, labeled, until it's
+  picked up. The label comes off in the same step as the last answer moves
+  into _Decisions_.
 - **Visual work gets a mockup approved before the real UI is built**
   (`mockup` skill): a real screenshot of the running game (Playwright, or the
   built-in browser pane on `make server`), a sketch only for UI that doesn't
