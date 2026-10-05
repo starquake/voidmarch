@@ -21,6 +21,7 @@ import {
   FULL_MAP_HEIGHT_PX,
   MAP_EDGE_COLOR,
   MAP_FILL_ALPHA,
+  MINIMAP_FILL_ALPHA,
   MAP_FLASH_MS,
   MAP_FRIGATE_COLOR,
   MAP_MARGIN_PX,
@@ -130,7 +131,7 @@ export class MapView {
       return;
     }
     const flash = Math.floor(nowMs / MAP_FLASH_MS) % 2 === 0;
-    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2);
+    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2, MINIMAP_FILL_ALPHA);
     this.miniLabel.setText(missionsLine(state.missions));
     if (!this.open) {
       return;
@@ -143,7 +144,7 @@ export class MapView {
     this.full
       .fillStyle(MAP_PANEL_COLOR, MAP_PANEL_ALPHA)
       .fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, PANEL_CORNER_PX * this.dpr);
-    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3);
+    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3, MAP_FILL_ALPHA);
     this.drawNames(drawn);
     this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
@@ -170,10 +171,10 @@ export class MapView {
     return canPick(name, cleared, frontier) ? name : undefined;
   }
 
-  private drawGrid(g: Phaser.GameObjects.Graphics, drawn: DrawnMap, layout: MapLayout, edge: number, outline: number): void {
+  private drawGrid(g: Phaser.GameObjects.Graphics, drawn: DrawnMap, layout: MapLayout, edge: number, outline: number, fill: number): void {
     const scale = this.dpr;
     for (const s of drawn.sectors) {
-      g.fillStyle(s.fill, MAP_FILL_ALPHA);
+      g.fillStyle(s.fill, fill);
       polygon(g, s.corners);
       g.fillPath();
       g.lineStyle(edge * scale, MAP_EDGE_COLOR, 1);

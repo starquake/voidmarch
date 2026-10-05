@@ -36,6 +36,13 @@ Everything is pixel art at native resolution. Render with nearest-neighbor scali
 
 ## 3. Controls & feel
 
+- **The HUD** (#91): see-through panels in the page, never taking the pointer, so ships behind them stay visible.
+  - **The gauge, bottom left:** the three fitted parts as their Pickups pack icons, each bordered in its tier's color; hull pips (one per hit the ship can still take); shield charges.
+  - **The panel, top left,** as far in from the edges as the minimap: labelled rows for the squadron and who's in it, its orders and what they do, the hangar (at home), the sector you're in, the mission and a world event's alert.
+  - **Toasts at the top:** each notice, fading when it ends; the connection, while it isn't online.
+  - **The key lines** stay as text, bottom right, until the F1 help overlay (#193) replaces them. On a development server or offline, F3 adds frames per second.
+  - The minimap's sectors are see-through too (`MINIMAP_FILL_ALPHA`); the full map keeps its fill, since it covers the screen and the ship holds still under it.
+
 - **Twin-stick:** WASD to move, mouse to aim, hold left mouse button to fire.
 - **On a tablet** (#180): floating touch sticks, each where a thumb lands. The left half moves, as far as it's pushed and up the screen as up; the right half aims and fires while pushed past a dead zone, so one thumb aims and shoots and letting go stops. Buttons stand in for Summon, Orders (hold and slide onto the ring), Loadout and the respawns; a tap on the minimap opens the full map. It turns on by itself on a touch screen with no mouse (`pointer: coarse`), with `?touch=1` / `?touch=0` to force it, and hides the HUD's key lines. Some phones' GPUs (a PowerVR D-Series in a recent Pixel) run Phaser's all-in-one blend shader without an error but draw the bloomed world black, so the bloom blends with a small shader of its own (`frontend/src/scenes/blend.ts`), and a check a moment after the start turns the bloom off if the middle of the screen still comes out pure black. A small switch in the top left turns fullscreen on and off, and the first tap asks for it (on the lift: browsers allow fullscreen only from a completed tap). Phones work too (@starquake: "Phone size should work too but things can be smaller for that if needed"): on a screen under 700 CSS pixels tall the sticks and buttons shrink, down to 0.6 of their size, and a touch that starts on the minimap and moves aims instead, since there the minimap covers much of where the aiming thumb lands; only a tap opens the map.
 - The ship sprite **rotates to face the mouse**. Pixel art may look jaggy at odd angles. Start with free rotation, fall back to snapping to 16 directions if it looks bad.
@@ -76,7 +83,7 @@ Decided in #6 (@starquake, 2026-09-29: "Should we consider upgrades. Doesn't it 
 - **A part grows through three tiers: Super, Mega and Hyper.** A part starts plain ("Auto Cannon"). Picking up a part you already own upgrades it one tier: Super Auto Cannon, Mega Auto Cannon, then Hyper Auto Cannon, the cap.
 - **Each tier adds about 15%** to that part's own strength: a weapon's fire rate, a shield's recharge, an engine's acceleration (tunable; @starquake picked 15 over 10: "Is the +10% enough? Shouldn't it be more?"). A Hyper part is about 1.45× a plain one, so each tier is felt in a fight. A veteran is stronger than a newcomer but never in a different league, and a newcomer with plain parts still pulls their weight.
 - **The parts stay sidegrades of each other**: a Hyper Zapper and a Hyper Rocket are equals, and so are two plain ones. Tiers reward playing, not a best loadout.
-- **Each tier has its own color**: Super blue, Mega violet, Hyper gold (#77's mockup). It tints the part on the ship, makes a pickup glow, and colors the part's name in the HUD's parts line and under a player's name (@starquake: "We could use colors and show super mega and hyper in front of the name"). The packs have one sprite per part and no tier art, so tier colors are recolors, which the art rule allows.
+- **Each tier has its own color**: Super blue, Mega violet, Hyper gold (#77's mockup). It tints the part on the ship, makes a pickup glow, and colors the part's slot in the HUD's gauge and its name under a player's name (@starquake: "We could use colors and show super mega and hyper in front of the name"). The packs have one sprite per part and no tier art, so tier colors are recolors, which the art rule allows.
 
 As built (#77):
 
@@ -219,7 +226,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Shield**: a bubble that takes 20 damage before the hull, and recharges all at once after 8 s without a hit.
 - **Reset**: once nobody within 800 px is up, it heals fully and its shield comes back.
 - **Destroyed**: it always drops a part for the players near it, and is back at its spot 5 minutes later.
-- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, its shield as a thin blue line, and the players online its health was scaled for. The HUD's text lines sit at the bottom left.
+- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, its shield as a thin blue line, and the players online its health was scaled for. The HUD's gauge sits bottom left and its panel top left, clear of it.
 
 ### Siege bosses (Dreadnought)
 
@@ -246,7 +253,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **37 hexagonal sectors**: home and three rings around it, flat-top hexagons 990 px from center to corner, about the area of the 1,600 px squares they replaced (#117, built after #99's 7 × 7 grid).
   - Sectors are named on a column-and-row grid with home in D4: ring 1 is D3 above home, E3, E4, D5, C4 and C3 clockwise. Columns run A to G, and the rows of the outer columns are shorter (A2 to A5).
   - The world's edge is a hexagon 5,445 px from home to each side, through the outer sectors' far corners.
-  - The HUD names the sector you're in, with its state ("Sector B3 · hostile", "cleared" or "home"), and faint lines outline each sector.
+  - The HUD's panel names the sector you're in, with its state ("B3, hostile", "cleared" or "the home sector"), and faint lines outline each sector.
   - The grid's geometry is a sim rule (`internal/sim/sectors.go`), shared by the server, the client and the WebAssembly sim.
   - The game map (`internal/world`, `MAP`) holds what's in each sector: boss sectors (the `frontier` map puts a Frigate in alternate sectors of ring 1: D3, E4 and C4), garrison overrides and derelict spots.
 - **A sector is cleared** once its garrison is destroyed, and its Frigate too in a boss sector.
@@ -263,10 +270,10 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Missions** (#101): each squadron has one, shown to everyone.
   - **The default:** the uncleared sector in the ring nearest home, nearest the squadron, so ring 1 comes first.
   - **Picking another:** a squadmate clicks another uncleared sector on the full map to send the squadron there (#100). When the sector clears, the squadron gets its next default.
-  - **On screen:** the HUD says "Mission: D5", and a gold arrow at the screen's edge points to it while you're elsewhere.
+  - **On screen:** the HUD's panel says "Mission: Clear sector D5", and a gold arrow at the screen's edge points to it while you're elsewhere.
 - **The maps** (#100), drawn from what the client already knows:
   - **The minimap** sits small in the top right, always: every sector, home blue, cleared green and hostile red darker by ring; a coral triangle for each Frigate still up; your squadron's mission outlined in gold and the others' in violet; a white dot for you and dots for your squadmates. A line under it names each squadron's mission. A sector under attack flashes on both maps.
-  - **The full map** toggles on M (Tab until #167 decision 7), with Esc closing it too. It adds the sector names, a title with ring 1's progress, and a legend. While it's open the world runs on, the ship holds still, and the HUD's text lines hide. A click on an uncleared sector sends your squadron there.
+  - **The full map** toggles on M (Tab until #167 decision 7), with Esc closing it too. It adds the sector names, a title with ring 1's progress, and a legend. While it's open the world runs on, the ship holds still, and the HUD hides. A click on an uncleared sector sends your squadron there.
 - Camera follows the player, parallax backgrounds from the Environment pack.
 - **Home planet** at the center of D4 (Environment planet). Spawn point, loadout changes, safe zone.
 - **The loadout screen** (#78): **L** opens it inside the safe zone, and L or Esc closes it. It shows three columns, weapon, engine and shield. Each part has its pickup icon, its name in its tier's color and a line on what it's good at. Parts not found yet are dimmed. A click, or 1/2/3 for a slot and the arrow keys, fits an owned part at its tier. The hangar line has a Summon button, and G still works. While it's open the world runs on and the ship holds still. It closes if the ship leaves home or goes down. The server saves a loadout fitted at home from owned parts, and a player's next visit starts with it. On a development server, and offline, the 1/2/3 keys still cycle every part without the screen.
@@ -469,4 +476,4 @@ As built (#27), single-player companions:
 - **On the wire** (#51): the hub flies each companion with its brain, following its owner's latest state, as the seat `<playerId>/<n>`. Everyone, its owner included, gets it in snapshots as a player with an `owner_id`, drawn on the delayed timeline like any other ship. The hub fires its shots as remote shots under the seat, tests them against its own enemies and credits a kill to the seat. Orders go to the hub, which gives them to every companion in the squadron after each one's reaction time. A dismissed companion leaves like a player, and a reconnect keeps them.
 - **The world counts them:** enemies target companions and spawn around them like players, and they count toward the 16 seats. A human joining a full world displaces the newest companion.
 - **Looks:** Main Ship parts tinted in the owner's colour, labelled "name n"; the hub counts enemy bullets against them like any ship's, shield first (#46). Their shots sound like other players'.
-- **Orders:** hold Q for a ring of the orders around the cursor, tap Q to repeat the last. The ring (#35) is a small circle on a dark disc: each order is its Void-pack icon with its label under it, modes in blue and one-shots in gold. The wing's mode is marked, the wing is named in the centre, and the pointed-at wedge is lit. The HUD shows the wing's mode, with the latest notice on its own line. Hold here takes the point under the cursor. Focus takes the enemy under the cursor, else the one the player last hit (within 3 s), else the nearest within 120 px: small ships move too fast to point at (#39).
+- **Orders:** hold Q for a ring of the orders around the cursor, tap Q to repeat the last. The ring (#35) is a small circle on a dark disc: each order is its Void-pack icon with its label under it, modes in blue and one-shots in gold. The wing's mode is marked, the wing is named in the centre, and the pointed-at wedge is lit. The HUD's panel shows the wing's orders, and each notice shows as a toast. Hold here takes the point under the cursor. Focus takes the enemy under the cursor, else the one the player last hit (within 3 s), else the nearest within 120 px: small ships move too fast to point at (#39).

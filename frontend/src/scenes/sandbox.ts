@@ -28,12 +28,14 @@ import {
   type AudioSettings,
   type DisplaySettings,
 } from '../settings.ts';
-import { keys, weaponTiming } from '../sprites.ts';
+import { keys, pickupFile, weaponTiming } from '../sprites.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
+import { HudView, type GaugeSlot } from '../hud.ts';
+import { connectionToast, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, nextInCycle, type Loadout, type WeaponId } from '../sim/loadout.ts';
-import { defaultUnlocks, partLabel, tierCss, withTiers } from '../sim/parts.ts';
+import { defaultUnlocks, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { LoadoutScreen } from '../loadout.ts';
 import { VictoryScreen } from '../victory.ts';
 import { StandingsPanel } from '../standings.ts';
@@ -88,6 +90,8 @@ import {
   SECTOR_NAMES,
   sectorCorners,
   sectorLine,
+  sectorName,
+  sectorState,
   sectorOpen,
 } from '../sim/sectors.ts';
 import { asteroidField } from '../sim/world.ts';
@@ -223,7 +227,10 @@ export class SandboxScene extends Phaser.Scene {
   private backgroundTint = 0xffffff;
   private ships!: Phaser.GameObjects.Container;
   private pickups!: PickupsView;
-  private partsLine: Phaser.GameObjects.Text[] = [];
+  /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
+  private readonly hudView = new HudView();
+  /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
+  private showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
   private shownLoadout = '';
   private ship!: ShipView;
@@ -388,6 +395,7 @@ export class SandboxScene extends Phaser.Scene {
       companions: [],
       companionKills: 0,
       notice: undefined,
+      hud: { panel: [], toasts: [] },
       orderMenuOpen: false,
       squadron: '',
       squadronScreen: false,
@@ -689,18 +697,12 @@ export class SandboxScene extends Phaser.Scene {
     this.vignette = this.createVignette();
     main.ignore(this.vignette);
 
+    // What's left of the text HUD (#91): the keys until F1 help (#193), frames per second, and ?diag=1.
     this.hud = this.add
-      .text(8, 8, '', { fontFamily: UI_FONT, fontSize: '12px', color: '#d8f8ff' })
-      .setOrigin(0, 1)
+      .text(8, 8, '', { fontFamily: UI_FONT, fontSize: '12px', color: '#d8f8ff', align: 'right' })
+      .setOrigin(1, 1)
       .setShadow(1, 1, '#000000', 0);
     main.ignore(this.hud);
-    // The parts line (#77): "parts", then each fitted part in its tier's color.
-    this.partsLine = Array.from({ length: 4 }, () => {
-      const text = this.add.text(0, 0, '', { fontFamily: UI_FONT, fontSize: '12px', color: '#d8f8ff' }).setShadow(1, 1, '#000000', 0);
-      main.ignore(text);
-
-      return text;
-    });
     this.downPanel = this.add
       .text(0, 0, '', {
         fontFamily: UI_FONT,
@@ -916,7 +918,7 @@ export class SandboxScene extends Phaser.Scene {
       this.maps.draw(state, net?.mapName ?? '', now);
     }
     const alpha = this.maps.open ? 0 : 1;
-    for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
+    for (const o of [this.hud, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
     }
   }
@@ -1088,14 +1090,14 @@ export class SandboxScene extends Phaser.Scene {
     );
   }
 
-  /** The 1/2/3 keys fit any part in development and offline; elsewhere the loadout screen does (#78). */
+  /** The 1/2/3 keys fit any part, and F3 shows frames per second, in development and offline (#78, #91). */
   private get partKeys(): boolean {
     return this.net?.status !== 'online' || this.net.development;
   }
 
   private handleDebugKey(code: string): void {
     const ship = this.sim.ship;
-    if (!this.partKeys && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3')) {
+    if (!this.partKeys && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'F3')) {
       return;
     }
     switch (code) {
@@ -1104,6 +1106,10 @@ export class SandboxScene extends Phaser.Scene {
         break;
       case 'KeyY':
         this.net?.devSeasonWon();
+        break;
+      case 'F3':
+        this.showFps = !this.showFps;
+        this.updateHud();
         break;
       case 'Digit1':
         this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
@@ -1872,93 +1878,54 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private updateHud(): void {
-    const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
-      `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === 'ship' ? 'ship-relative' : 'screen-relative'}  rotation ${rotationSnap === 0 ? 'free' : `${rotationSnap} directions`}  effects ${this.effects ? (this.bloomBroken ? 'on, no bloom' : 'on') : 'off'}  sound ${this.audioSettings.muted ? 'off' : 'on'}  music ${this.audioSettings.music ? 'on' : 'off'}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : 'off'}  resolution ${this.displaySettings.cssPixels ? 'low' : 'full'}  ${this.fpsLine()}`,
       // The key lines are about keys, so a tablet goes without them (#180, decision 6).
       ...(this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE]),
-      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier),
-      this.net?.mission === undefined ? '' : `Mission: ${this.net.mission}`,
-      this.net?.eventLine(performance.now()) ?? '',
-      this.netStatus(),
-      this.squadronStatus(),
+      ...(this.showFps ? [this.fpsLine()] : []),
       ...(this.diagnostics?.lines() ?? []),
     ]);
     this.layoutHud();
+    this.updateHudView();
   }
 
-  /**
-   * The HUD at the bottom left (#89): its lines, then the fitted parts under
-   * them, each named in its tier's color (#77, decision 12).
-   */
   private layoutHud(): void {
     const dpr = this.dpr();
-    const lineHeight = this.hud.height / Math.max(1, this.hud.text.split('\n').length);
-    const y = this.scale.height - HUD_MARGIN_PX * dpr - lineHeight;
-    this.hud.setPosition(HUD_MARGIN_PX * dpr, y);
-    const l = this.sim.ship.loadout;
-    const words: [string, string][] = [
-      ['parts', tierCss(0)],
-      [partLabel(l.weapon, l.weaponTier), tierCss(l.weaponTier)],
-      [partLabel(l.engine, l.engineTier), tierCss(l.engineTier)],
-      [partLabel(l.shield, l.shieldTier), tierCss(l.shieldTier)],
-    ];
-    let x = this.hud.x;
-    const gap = Number.parseFloat(String(this.hud.style.fontSize));
-    this.partsLine.forEach((text, i) => {
-      const [word, color] = words[i] ?? ['', tierCss(0)];
-      text.setFontSize(this.hud.style.fontSize).setColor(color).setText(word).setPosition(x, y);
-      x += text.width + gap;
-    });
+    this.hud.setPosition(this.scale.width - HUD_MARGIN_PX * dpr, this.scale.height - HUD_MARGIN_PX * dpr);
   }
 
-  /** The squadron, its players and companions and orders, then the latest notice on its own line. */
-  private squadronStatus(): string {
-    const net = this.net;
-    if (net === undefined) {
-      return '';
-    }
-    const info = net.squadronInfo;
-    const lines: string[] = [];
-    if (info === undefined) {
-      lines.push(net.squadron === '' ? 'no squadron yet' : net.squadron);
-    } else {
-      const companions = info.members.reduce((n, m) => n + m.companions, 0);
-      const ai = companions === 0 ? '' : ` · ${String(companions)} companion${companions === 1 ? '' : 's'}`;
-      lines.push(`${info.name}: ${info.members.map((m) => m.name).join(', ')}${ai} · ${modeName(info)}`);
-    }
+  /** Draws the gauge, the panel and the toasts (#91); hidden under the full map. */
+  private updateHudView(): void {
     const { ship } = this.sim;
-    const hangar = hangarLine(net.hangar, Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS);
-    if (hangar !== undefined) {
-      lines.push(hangar);
-    }
-    const notice = net.noticeText;
-    if (notice !== undefined) {
-      lines.push(`→ ${notice}`);
-    }
-
-    return lines.join('\n');
-  }
-
-  private netStatus(): string {
+    const { loadout } = ship;
     const net = this.net;
-    if (net === undefined) {
-      return 'playing alone';
-    }
-    switch (net.status) {
-      case 'online': {
-        const count = net.others.filter((o) => o.ownerId === '').length;
-
-        return `online · ${count === 0 ? 'nobody else here yet' : `${count} other${count === 1 ? '' : 's'} here`}`;
-      }
-      case 'full':
-        return 'the frontier is full, try again soon';
-      case 'offline':
-        return 'offline · reconnecting';
-      default:
-        return 'connecting';
-    }
+    const online = net?.status === 'online';
+    const slot = (part: PartId, tier: number): GaugeSlot => ({ file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier) });
+    const info = net?.squadronInfo;
+    const here = sectorName(ship.x, ship.y);
+    const toasts = [connectionToast(net?.status), net?.noticeText].filter((t): t is string => t !== undefined);
+    this.hudView.update({
+      shown: !this.maps.open,
+      slots: [slot(loadout.weapon, loadout.weaponTier), slot(loadout.engine, loadout.engineTier), slot(loadout.shield, loadout.shieldTier)],
+      hull: hullPips(ship.damage),
+      shield: shieldPips(ship.shield, SHIELD_STATS[loadout.shield].strength),
+      rows: panelRows({
+        squadron:
+          info === undefined
+            ? undefined
+            : {
+                name: info.name,
+                others: info.members.filter((m) => m.playerId !== net?.playerId).map((m) => m.name),
+                companions: info.members.reduce((n, m) => n + m.companions, 0),
+                order: modeName(info),
+                mode: fromCompanionMode(info.mode) ?? 'escort',
+              },
+        hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : undefined,
+        sector: here === undefined ? undefined : { name: here, state: sectorState(here, online ? net.clearedSectors : undefined, net?.frontier) },
+        mission: net?.mission,
+        event: net?.eventLine(performance.now()) ?? '',
+      }),
+      toasts,
+    });
   }
 
   private publish(): void {
@@ -1976,6 +1943,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.fpsCap = this.game.loop.hasFpsLimit;
     this.debug.cssPixels = this.displaySettings.cssPixels;
     this.debug.enemyFireGlow = this.effects;
+    this.debug.hud = { panel: this.hudView.rowTexts, toasts: this.hudView.toastTexts };
     const distance = nearestSide(this.closedSides, this.sim.ship);
     this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps };
     this.debug.projectiles = projectiles.activeCount;

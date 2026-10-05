@@ -450,6 +450,7 @@ var MAP_HOME_COLOR = 3108764;
 var MAP_CLEARED_COLOR = 2910780;
 var MAP_HOSTILE_COLORS = [9056304, 9056304, 7218726, 5643549];
 var MAP_FILL_ALPHA = 0.9;
+var MINIMAP_FILL_ALPHA = 0.45;
 var MAP_CLOSED_COLOR = 2763315;
 var CLOSED_SHADE_ALPHA = 0.45;
 var FIELD_COLOR = 16734794;
@@ -1559,6 +1560,199 @@ var SettingsScreen = class {
   }
 };
 
+// src/hud.ts
+var ASSETS2 = "/static/assets";
+var TOAST_FADE_MS = 600;
+var HudView = class {
+  root;
+  gauge;
+  panel;
+  toastBox;
+  gaugeKey = "";
+  panelKey = "";
+  toasts = /* @__PURE__ */ new Map();
+  constructor(doc = document) {
+    this.root = doc.querySelector("#hud");
+    this.gauge = doc.querySelector("#hud-gauge");
+    this.panel = doc.querySelector("#hud-panel");
+    this.toastBox = doc.querySelector("#hud-toasts");
+  }
+  /** The panel's rows as "Label: value", for the E2E tests. */
+  get rowTexts() {
+    const cells = [...this.panel?.children ?? []].map((el) => el.textContent);
+    const rows = [];
+    for (let i = 0; i + 1 < cells.length; i += 2) {
+      rows.push(`${cells[i] ?? ""}: ${cells[i + 1] ?? ""}`);
+    }
+    return rows;
+  }
+  /** The texts of the toasts on screen, fading ones excluded, for the E2E tests. */
+  get toastTexts() {
+    return [...this.toasts.entries()].filter(([, el]) => !el.classList.contains("gone")).map(([text]) => text);
+  }
+  update(frame) {
+    if (this.root === null) {
+      return;
+    }
+    this.root.hidden = !frame.shown;
+    this.drawGauge(frame);
+    this.drawPanel(frame.rows);
+    this.drawToasts(frame.toasts);
+  }
+  drawGauge(frame) {
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield]);
+    if (this.gauge === null || key === this.gaugeKey) {
+      return;
+    }
+    this.gaugeKey = key;
+    const doc = this.gauge.ownerDocument;
+    const slots = doc.createElement("div");
+    slots.className = "hud-slots";
+    for (const slot of frame.slots) {
+      const box = doc.createElement("div");
+      box.className = "hud-slot";
+      box.title = slot.name;
+      box.style.borderColor = slot.color;
+      const icon = doc.createElement("i");
+      icon.style.backgroundImage = `url(${ASSETS2}/pickups/${slot.file}.png)`;
+      box.append(icon);
+      slots.append(box);
+    }
+    const bars = doc.createElement("div");
+    bars.className = "hud-bars";
+    for (const [label, pips, kind] of [
+      ["HULL", frame.hull, "hull"],
+      ["SHIELD", frame.shield, "shield"]
+    ]) {
+      const name = doc.createElement("span");
+      name.textContent = label;
+      const row = doc.createElement("span");
+      row.className = `hud-pips ${kind}`;
+      for (let i = 0; i < pips.of; i++) {
+        const pip = doc.createElement("span");
+        pip.className = i < pips.on ? "pip on" : "pip";
+        row.append(pip);
+      }
+      bars.append(name, row);
+    }
+    this.gauge.replaceChildren(slots, bars);
+  }
+  drawPanel(rows) {
+    const key = JSON.stringify(rows);
+    if (this.panel === null || key === this.panelKey) {
+      return;
+    }
+    this.panelKey = key;
+    const doc = this.panel.ownerDocument;
+    this.panel.hidden = rows.length === 0;
+    this.panel.replaceChildren(
+      ...rows.flatMap((row) => {
+        const label = doc.createElement("span");
+        label.className = "k";
+        label.textContent = row.label;
+        const value = doc.createElement("span");
+        value.textContent = row.value;
+        if (row.alert) {
+          value.className = "alert";
+        }
+        return [label, value];
+      })
+    );
+  }
+  drawToasts(texts) {
+    if (this.toastBox === null) {
+      return;
+    }
+    const doc = this.toastBox.ownerDocument;
+    for (const [text, el] of this.toasts) {
+      if (!texts.includes(text) && !el.classList.contains("gone")) {
+        el.classList.add("gone");
+        setTimeout(() => {
+          el.remove();
+          if (this.toasts.get(text) === el) {
+            this.toasts.delete(text);
+          }
+        }, TOAST_FADE_MS);
+      }
+    }
+    for (const text of texts) {
+      const shown = this.toasts.get(text);
+      if (shown !== void 0 && !shown.classList.contains("gone")) {
+        continue;
+      }
+      shown?.remove();
+      const el = doc.createElement("div");
+      el.className = "hud-toast";
+      el.textContent = text;
+      this.toastBox.append(el);
+      this.toasts.set(text, el);
+    }
+  }
+};
+
+// src/sim/hud.ts
+function hullPips(damage) {
+  return { on: Math.min(MAX_DAMAGE, Math.max(0, MAX_DAMAGE - Math.floor(damage))), of: MAX_DAMAGE };
+}
+function shieldPips(shield, strength) {
+  return { on: Math.min(strength, Math.max(0, Math.floor(shield))), of: strength };
+}
+var ORDER_HINTS = {
+  escort: "companions fly with you",
+  attack: "companions hunt enemies near you",
+  guard: "companions shield you",
+  hold: "companions hold their spot",
+  stealth: "companions hold fire"
+};
+function joinNames(names) {
+  if (names.length <= 1) {
+    return names[0] ?? "";
+  }
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1) ?? ""}`;
+}
+function panelRows(state) {
+  const rows = [];
+  const row = (label, value, alert = false) => {
+    rows.push({ label, value, alert });
+  };
+  const { squadron } = state;
+  if (squadron !== void 0) {
+    const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? "" : "s"}`];
+    const others = [...squadron.others, ...companions];
+    row("Squadron", others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
+    const hint = ORDER_HINTS[squadron.mode];
+    row("Orders", hint === void 0 ? squadron.order : `${squadron.order}: ${hint}`);
+  }
+  if (state.hangar !== void 0) {
+    row("Hangar", state.hangar === 0 ? "empty" : `${String(state.hangar)} ship${state.hangar === 1 ? "" : "s"} to summon`);
+  }
+  if (state.sector !== void 0) {
+    const { name, state: what } = state.sector;
+    row("You're in", what === "home" ? `${name}, the home sector` : what === "unknown" ? name : `${name}, ${what}`);
+  }
+  if (state.mission !== void 0 && state.mission !== "") {
+    row("Mission", `Clear sector ${state.mission}`);
+  }
+  if (state.event !== "") {
+    row("Alert", state.event, true);
+  }
+  return rows;
+}
+function connectionToast(status) {
+  switch (status) {
+    case void 0:
+      return "Playing alone";
+    case "online":
+      return void 0;
+    case "full":
+      return "The frontier is full, try again soon";
+    case "offline":
+      return "Offline, reconnecting";
+    default:
+      return "Connecting";
+  }
+}
+
 // src/loadout.ts
 var SLOTS = ["weapon", "engine", "shield"];
 var SLOT_PARTS = { weapon: WEAPONS, engine: ENGINES, shield: SHIELDS };
@@ -2259,7 +2453,7 @@ var MapView = class {
       return;
     }
     const flash = Math.floor(nowMs / MAP_FLASH_MS) % 2 === 0;
-    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2);
+    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2, MINIMAP_FILL_ALPHA);
     this.miniLabel.setText(missionsLine(state.missions));
     if (!this.open) {
       return;
@@ -2270,7 +2464,7 @@ var MapView = class {
     const bottom = this.fullLayout.y + size.height / 2 + PANEL_PAD_BOTTOM_PX * this.dpr;
     const halfWidth = size.width / 2 + PANEL_PAD_X_PX * this.dpr;
     this.full.fillStyle(MAP_PANEL_COLOR, MAP_PANEL_ALPHA).fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, PANEL_CORNER_PX * this.dpr);
-    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3);
+    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3, MAP_FILL_ALPHA);
     this.drawNames(drawn);
     this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
@@ -2292,10 +2486,10 @@ var MapView = class {
     const name = sectorAtScreen(this.fullLayout, x, y);
     return canPick(name, cleared, frontier) ? name : void 0;
   }
-  drawGrid(g, drawn, layout, edge, outline) {
+  drawGrid(g, drawn, layout, edge, outline, fill) {
     const scale = this.dpr;
     for (const s of drawn.sectors) {
-      g.fillStyle(s.fill, MAP_FILL_ALPHA);
+      g.fillStyle(s.fill, fill);
       polygon(g, s.corners);
       g.fillPath();
       g.lineStyle(edge * scale, MAP_EDGE_COLOR, 1);
@@ -5658,7 +5852,10 @@ var SandboxScene = class extends Phaser11.Scene {
   backgroundTint = 16777215;
   ships;
   pickups;
-  partsLine = [];
+  /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
+  hudView = new HudView();
+  /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
+  showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
   shownLoadout = "";
   ship;
@@ -5819,6 +6016,7 @@ var SandboxScene = class extends Phaser11.Scene {
       companions: [],
       companionKills: 0,
       notice: void 0,
+      hud: { panel: [], toasts: [] },
       orderMenuOpen: false,
       squadron: "",
       squadronScreen: false,
@@ -6092,13 +6290,8 @@ var SandboxScene = class extends Phaser11.Scene {
     this.createBloom(main);
     this.vignette = this.createVignette();
     main.ignore(this.vignette);
-    this.hud = this.add.text(8, 8, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#d8f8ff" }).setOrigin(0, 1).setShadow(1, 1, "#000000", 0);
+    this.hud = this.add.text(8, 8, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#d8f8ff", align: "right" }).setOrigin(1, 1).setShadow(1, 1, "#000000", 0);
     main.ignore(this.hud);
-    this.partsLine = Array.from({ length: 4 }, () => {
-      const text = this.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: "12px", color: "#d8f8ff" }).setShadow(1, 1, "#000000", 0);
-      main.ignore(text);
-      return text;
-    });
     this.downPanel = this.add.text(0, 0, "", {
       fontFamily: UI_FONT,
       fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
@@ -6284,7 +6477,7 @@ var SandboxScene = class extends Phaser11.Scene {
       this.maps.draw(state, net?.mapName ?? "", now2);
     }
     const alpha = this.maps.open ? 0 : 1;
-    for (const o of [this.hud, ...this.partsLine, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
+    for (const o of [this.hud, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
     }
   }
@@ -6440,13 +6633,13 @@ var SandboxScene = class extends Phaser11.Scene {
       `${hangar}${out} \xB7 they pick from your parts, spread across the squadron`
     );
   }
-  /** The 1/2/3 keys fit any part in development and offline; elsewhere the loadout screen does (#78). */
+  /** The 1/2/3 keys fit any part, and F3 shows frames per second, in development and offline (#78, #91). */
   get partKeys() {
     return this.net?.status !== "online" || this.net.development;
   }
   handleDebugKey(code) {
     const ship = this.sim.ship;
-    if (!this.partKeys && (code === "Digit1" || code === "Digit2" || code === "Digit3")) {
+    if (!this.partKeys && (code === "Digit1" || code === "Digit2" || code === "Digit3" || code === "F3")) {
       return;
     }
     switch (code) {
@@ -6455,6 +6648,10 @@ var SandboxScene = class extends Phaser11.Scene {
         break;
       case "KeyY":
         this.net?.devSeasonWon();
+        break;
+      case "F3":
+        this.showFps = !this.showFps;
+        this.updateHud();
         break;
       case "Digit1":
         this.fit({ ...ship.loadout, weapon: nextInCycle(WEAPONS, ship.loadout.weapon) });
@@ -7131,88 +7328,49 @@ ${modeName(info)}`,
     return `${String(Math.round(this.game.loop.actualFps))} fps (worst ${this.frameTimes.worst.toFixed(1)} ms${gpu === void 0 ? "" : `, gpu ${gpu.toFixed(1)} ms`})`;
   }
   updateHud() {
-    const { loadout, rotationSnap, damage, shield } = this.sim.ship;
     this.hud.setText([
-      `weapon ${loadout.weapon}  engine ${loadout.engine}  shield ${loadout.shield} ${Math.floor(shield)}/${SHIELD_STATS[loadout.shield].strength}  hull ${damageState(damage)}`,
-      `controls ${this.sim.controlMode === "ship" ? "ship-relative" : "screen-relative"}  rotation ${rotationSnap === 0 ? "free" : `${rotationSnap} directions`}  effects ${this.effects ? this.bloomBroken ? "on, no bloom" : "on" : "off"}  sound ${this.audioSettings.muted ? "off" : "on"}  music ${this.audioSettings.music ? "on" : "off"}  cap ${this.displaySettings.fpsCap ? String(FPS_CAP) : "off"}  resolution ${this.displaySettings.cssPixels ? "low" : "full"}  ${this.fpsLine()}`,
       // The key lines are about keys, so a tablet goes without them (#180, decision 6).
       ...this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE],
-      sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier),
-      this.net?.mission === void 0 ? "" : `Mission: ${this.net.mission}`,
-      this.net?.eventLine(performance.now()) ?? "",
-      this.netStatus(),
-      this.squadronStatus(),
+      ...this.showFps ? [this.fpsLine()] : [],
       ...this.diagnostics?.lines() ?? []
     ]);
     this.layoutHud();
+    this.updateHudView();
   }
-  /**
-   * The HUD at the bottom left (#89): its lines, then the fitted parts under
-   * them, each named in its tier's color (#77, decision 12).
-   */
   layoutHud() {
     const dpr = this.dpr();
-    const lineHeight = this.hud.height / Math.max(1, this.hud.text.split("\n").length);
-    const y = this.scale.height - HUD_MARGIN_PX * dpr - lineHeight;
-    this.hud.setPosition(HUD_MARGIN_PX * dpr, y);
-    const l = this.sim.ship.loadout;
-    const words = [
-      ["parts", tierCss(0)],
-      [partLabel(l.weapon, l.weaponTier), tierCss(l.weaponTier)],
-      [partLabel(l.engine, l.engineTier), tierCss(l.engineTier)],
-      [partLabel(l.shield, l.shieldTier), tierCss(l.shieldTier)]
-    ];
-    let x = this.hud.x;
-    const gap = Number.parseFloat(String(this.hud.style.fontSize));
-    this.partsLine.forEach((text, i) => {
-      const [word, color] = words[i] ?? ["", tierCss(0)];
-      text.setFontSize(this.hud.style.fontSize).setColor(color).setText(word).setPosition(x, y);
-      x += text.width + gap;
-    });
+    this.hud.setPosition(this.scale.width - HUD_MARGIN_PX * dpr, this.scale.height - HUD_MARGIN_PX * dpr);
   }
-  /** The squadron, its players and companions and orders, then the latest notice on its own line. */
-  squadronStatus() {
-    const net = this.net;
-    if (net === void 0) {
-      return "";
-    }
-    const info = net.squadronInfo;
-    const lines = [];
-    if (info === void 0) {
-      lines.push(net.squadron === "" ? "no squadron yet" : net.squadron);
-    } else {
-      const companions = info.members.reduce((n, m) => n + m.companions, 0);
-      const ai = companions === 0 ? "" : ` \xB7 ${String(companions)} companion${companions === 1 ? "" : "s"}`;
-      lines.push(`${info.name}: ${info.members.map((m) => m.name).join(", ")}${ai} \xB7 ${modeName(info)}`);
-    }
+  /** Draws the gauge, the panel and the toasts (#91); hidden under the full map. */
+  updateHudView() {
     const { ship } = this.sim;
-    const hangar = hangarLine(net.hangar, Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS);
-    if (hangar !== void 0) {
-      lines.push(hangar);
-    }
-    const notice = net.noticeText;
-    if (notice !== void 0) {
-      lines.push(`\u2192 ${notice}`);
-    }
-    return lines.join("\n");
-  }
-  netStatus() {
+    const { loadout } = ship;
     const net = this.net;
-    if (net === void 0) {
-      return "playing alone";
-    }
-    switch (net.status) {
-      case "online": {
-        const count = net.others.filter((o) => o.ownerId === "").length;
-        return `online \xB7 ${count === 0 ? "nobody else here yet" : `${count} other${count === 1 ? "" : "s"} here`}`;
-      }
-      case "full":
-        return "the frontier is full, try again soon";
-      case "offline":
-        return "offline \xB7 reconnecting";
-      default:
-        return "connecting";
-    }
+    const online = net?.status === "online";
+    const slot = (part, tier) => ({ file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier) });
+    const info = net?.squadronInfo;
+    const here = sectorName(ship.x, ship.y);
+    const toasts = [connectionToast(net?.status), net?.noticeText].filter((t) => t !== void 0);
+    this.hudView.update({
+      shown: !this.maps.open,
+      slots: [slot(loadout.weapon, loadout.weaponTier), slot(loadout.engine, loadout.engineTier), slot(loadout.shield, loadout.shieldTier)],
+      hull: hullPips(ship.damage),
+      shield: shieldPips(ship.shield, SHIELD_STATS[loadout.shield].strength),
+      rows: panelRows({
+        squadron: info === void 0 ? void 0 : {
+          name: info.name,
+          others: info.members.filter((m) => m.playerId !== net?.playerId).map((m) => m.name),
+          companions: info.members.reduce((n, m) => n + m.companions, 0),
+          order: modeName(info),
+          mode: fromCompanionMode(info.mode) ?? "escort"
+        },
+        hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : void 0,
+        sector: here === void 0 ? void 0 : { name: here, state: sectorState(here, online ? net.clearedSectors : void 0, net?.frontier) },
+        mission: net?.mission,
+        event: net?.eventLine(performance.now()) ?? ""
+      }),
+      toasts
+    });
   }
   publish() {
     const { ship, projectiles } = this.sim;
@@ -7229,6 +7387,7 @@ ${modeName(info)}`,
     this.debug.fpsCap = this.game.loop.hasFpsLimit;
     this.debug.cssPixels = this.displaySettings.cssPixels;
     this.debug.enemyFireGlow = this.effects;
+    this.debug.hud = { panel: this.hudView.rowTexts, toasts: this.hudView.toastTexts };
     const distance = nearestSide(this.closedSides, this.sim.ship);
     this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps };
     this.debug.projectiles = projectiles.activeCount;
