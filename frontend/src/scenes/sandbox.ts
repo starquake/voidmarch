@@ -1501,6 +1501,11 @@ export class SandboxScene extends Phaser.Scene {
 
   /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
   private touchStart(id: number, p: Point): void {
+    if (this.introScreen.open) {
+      this.introScreen.hide();
+
+      return;
+    }
     if (this.settingsScreen.open) {
       this.settingsScreen.hide();
 
@@ -1538,6 +1543,9 @@ export class SandboxScene extends Phaser.Scene {
         break;
       case 'settings':
         this.openSettings();
+        break;
+      case 'help':
+        this.toggleIntro();
         break;
       case 'respawnHome':
         this.respawn(false);

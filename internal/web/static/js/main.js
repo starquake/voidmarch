@@ -3338,16 +3338,17 @@ function touchButtons(screen) {
     x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
     width: TOUCH_BUTTON_WIDTH_PX * dpr * TOUCH_SMALL_SHARE
   };
+  const help = { ...settings, button: "help", label: "Help", x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr };
   const switcher = screen.fullscreen === void 0 ? [] : [
     {
       ...small,
       button: "fullscreen",
       label: screen.fullscreen ? "Windowed" : "Full screen",
-      x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr,
+      x: help.x + help.width + TOUCH_BUTTON_GAP_PX * dpr,
       width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE
     }
   ];
-  return [...playButtons(screen, dpr), settings, ...switcher];
+  return [...playButtons(screen, dpr), settings, help, ...switcher];
 }
 function playButtons(screen, dpr) {
   const { width, height } = screen;
@@ -7359,6 +7360,10 @@ ${modeName(info)}`,
   }
   /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
+    if (this.introScreen.open) {
+      this.introScreen.hide();
+      return;
+    }
     if (this.settingsScreen.open) {
       this.settingsScreen.hide();
       return;
@@ -7392,6 +7397,9 @@ ${modeName(info)}`,
         break;
       case "settings":
         this.openSettings();
+        break;
+      case "help":
+        this.toggleIntro();
         break;
       case "respawnHome":
         this.respawn(false);
