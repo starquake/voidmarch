@@ -53,7 +53,7 @@ function numberWord(n: number, capital = false): string {
   return capital ? word.charAt(0).toUpperCase() + word.slice(1) : word;
 }
 
-// Decision 3, word for word.
+// #193's decision 3, word for word; pinned by intro.test.ts.
 const PREMISE: Line = [
   plain('The '),
   gold("Kla'ed"),
