@@ -387,6 +387,8 @@ func simEnemyKind(kind pb.EnemyKind) sim.EnemyKind {
 		return sim.EnemyBomber
 	case pb.EnemyKind_ENEMY_KIND_TORPEDO:
 		return sim.EnemyTorpedo
+	case pb.EnemyKind_ENEMY_KIND_SUPPORT:
+		return sim.EnemySupport
 	case pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, pb.EnemyKind_ENEMY_KIND_SCOUT:
 		fallthrough
 	default:

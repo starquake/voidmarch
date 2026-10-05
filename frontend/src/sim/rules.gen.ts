@@ -7,7 +7,7 @@ export const ENGINES = ['base', 'bigPulse', 'burst', 'supercharged'] as const;
 /** Shields in index order. */
 export const SHIELDS = ['front', 'frontAndSide', 'round', 'invincibility'] as const;
 /** Enemy classes in index order, matching the server's EnemyKind. */
-export const ENEMY_KINDS = ['scout', 'fighter', 'frigate', 'dreadnought', 'bomber', 'torpedo'] as const;
+export const ENEMY_KINDS = ['scout', 'fighter', 'frigate', 'dreadnought', 'bomber', 'torpedo', 'support'] as const;
 /** Enemy factions in index order, from home outward, matching the server's EnemyFaction. */
 export const ENEMY_FACTIONS = ['klaed', 'nairan', 'nautolan'] as const;
 /** Projectile kinds in index order: the weapons, then the enemy bullets. */
@@ -116,6 +116,7 @@ export const ENEMY_RADIUS = {
     dreadnought: 44,
     bomber: 16,
     torpedo: 20,
+    support: 14,
   },
   nairan: {
     scout: 11,
@@ -124,6 +125,7 @@ export const ENEMY_RADIUS = {
     dreadnought: 44,
     bomber: 16,
     torpedo: 20,
+    support: 15,
   },
   nautolan: {
     scout: 15,
@@ -132,6 +134,7 @@ export const ENEMY_RADIUS = {
     dreadnought: 44,
     bomber: 14,
     torpedo: 19,
+    support: 16,
   },
 } as const;
 

@@ -20,6 +20,7 @@ func TestSimEnemyKind(t *testing.T) {
 		{pb.EnemyKind_ENEMY_KIND_SCOUT, sim.EnemyScout},
 		{pb.EnemyKind_ENEMY_KIND_FIGHTER, sim.EnemyFighter},
 		{pb.EnemyKind_ENEMY_KIND_FRIGATE, sim.EnemyFrigate},
+		{pb.EnemyKind_ENEMY_KIND_SUPPORT, sim.EnemySupport},
 		{pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, sim.EnemyScout},
 	}
 	for _, tc := range tests {

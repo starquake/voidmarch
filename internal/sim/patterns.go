@@ -11,6 +11,9 @@ func EnemyPattern(
 	x, y, angle float64,
 	seed uint32,
 ) []ProjectileSpawn {
+	if kind == EnemySupport {
+		return nil
+	}
 	random := NewRandom(seed)
 	if kind == EnemyFrigate {
 		bullet, count := FrigateRing(faction)

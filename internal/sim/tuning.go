@@ -96,6 +96,29 @@ func GarrisonHeavyShare(ring int) float64 {
 	return ring2 + perRing*float64(ring-2)
 }
 
+// GarrisonSupportShare is the share of a garrison that are Support Ships,
+// by ring: 1 in 8 in every ring, none at home (#184).
+func GarrisonSupportShare(ring int) float64 {
+	const share = 1.0 / 8
+	if ring < 1 {
+		return 0
+	}
+
+	return share
+}
+
+// GarrisonSupport reports whether the ship at place in a ring's garrison
+// line-up, from 0, is a Support Ship: the second of every few, so a
+// garrison's first ships on the field bring theirs.
+func GarrisonSupport(ring, place int) bool {
+	share := GarrisonSupportShare(ring)
+	if share <= 0 {
+		return false
+	}
+
+	return place%int(math.Round(1/share)) == 1
+}
+
 // Derelicts and the fleet (#52).
 const (
 	// DerelictLifetime is the seconds a derelict waits to be rescued, once

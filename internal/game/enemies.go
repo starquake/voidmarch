@@ -128,7 +128,8 @@ func statsFor(kind pb.EnemyKind, faction sim.EnemyFaction) enemyStats {
 			keepDistance: torpedoKeepDistance,
 		}
 	case pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, pb.EnemyKind_ENEMY_KIND_SCOUT,
-		pb.EnemyKind_ENEMY_KIND_FRIGATE, pb.EnemyKind_ENEMY_KIND_DREADNOUGHT:
+		pb.EnemyKind_ENEMY_KIND_FRIGATE, pb.EnemyKind_ENEMY_KIND_DREADNOUGHT,
+		pb.EnemyKind_ENEMY_KIND_SUPPORT:
 		fallthrough
 	default:
 	}
