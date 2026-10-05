@@ -812,13 +812,13 @@ export class SandboxScene extends Phaser.Scene {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
         this.victoryKey(event);
-      } else if (this.squadronScreen.open) {
+      } else if (this.squadronScreen.reopened) {
         this.squadronKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
       } else if (event.code === 'KeyM' && this.canOpenMap()) {
         this.maps.toggle();
-      } else if (event.code === 'Tab') {
+      } else if (event.code === 'Tab' && !this.squadronScreen.open) {
         event.preventDefault();
         this.standingsHeld = true;
       } else if (event.code === 'KeyO') {
@@ -881,9 +881,9 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** A key while the join screen is open: reopened, C and Esc close it without moving; the rest wait, and the form has Tab and Enter. */
+  /** A key while the join screen is reopened: C and Esc close it without moving, the form has Tab and Enter, and the rest wait. */
   private squadronKey(event: KeyboardEvent): void {
-    if ((event.code === 'KeyC' || event.code === 'Escape') && this.squadronScreen.reopened) {
+    if (event.code === 'KeyC' || event.code === 'Escape') {
       this.squadronScreen.hide();
     }
   }
@@ -1012,9 +1012,13 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
+  /**
+   * Whether a screen or the full map covers the game, so the ship holds still
+   * and the touch controls hide. The join screen counts only when reopened:
+   * a joining ship flies while its player picks.
+   */
   private get screenOpen(): boolean {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened;
   }
 
   /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
