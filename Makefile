@@ -48,7 +48,7 @@ VERSION_LDFLAGS := -X $(VERSION_PKG).Version=$(shell cat VERSION 2>/dev/null) \
 	-X $(VERSION_PKG).Commit=$(shell git rev-parse HEAD 2>/dev/null)$(shell git diff --quiet HEAD 2>/dev/null || echo -dirty) \
 	-X $(VERSION_PKG).Date=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
-COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/cmd/thirdparty$$|/internal/testutil$$|/internal/gen/|/internal/db$$|/test/' | paste -sd "," -)
+COVERPKG := $(shell go list ./... | grep -v -E '/cmd/voidmarch$$|/cmd/thirdparty$$|/cmd/cutsheets$$|/internal/testutil$$|/internal/gen/|/internal/db$$|/test/' | paste -sd "," -)
 
 .PHONY: help
 help: ## Show this help
