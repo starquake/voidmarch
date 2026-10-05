@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 import { bakeGlow, double, type Pixels } from '../glow.ts';
-import { effectFiles } from '../sounds.ts';
 import { pieceFrames, type LayerLayout } from '../layers.ts';
+import { bootFiles } from '../preload.ts';
 import { glowSheets, keys, layerSheets, sheets, type GlowSheet } from '../sprites.ts';
 import { drawLayer } from './starlayer.ts';
 import {
@@ -54,7 +54,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    for (const sheet of sheets()) {
+    const files = bootFiles();
+    for (const sheet of files.sheets) {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight,
@@ -66,7 +67,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(layer.key, layer.url);
       this.load.json(keys.layerLayout(layer.key), layer.layoutUrl);
     }
-    for (const sound of effectFiles()) {
+    for (const sound of files.sounds) {
       this.load.audio(sound.key, sound.urls);
     }
   }

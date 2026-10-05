@@ -164,67 +164,6 @@ function bakeGlow(src, glow) {
   return { width, height, data };
 }
 
-// src/sounds.ts
-var AUDIO = "/static/audio";
-var both = (key2, path) => ({ key: key2, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
-var SHOT_SOUNDS = {
-  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
-  rockets: ["sfx-rocket-launch"],
-  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
-  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
-};
-var EXPIRE_SOUNDS = {
-  rockets: "sfx-rocket-blast",
-  bigSpaceGun: "sfx-big-blast"
-};
-var CHARGE_SOUNDS = {
-  bigSpaceGun: "sfx-charge"
-};
-var ENGINE_LOOPS = {
-  base: "sfx-engine-base",
-  bigPulse: "sfx-engine-big-pulse",
-  burst: "sfx-engine-burst",
-  supercharged: "sfx-engine-supercharged"
-};
-var SHIELD_SOUND = "sfx-shield";
-var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
-var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
-var PART_SWITCH_SOUND = "sfx-part-switch";
-var TELEPORT_SOUND = "sfx-teleport";
-var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
-var MUSIC = {
-  home: "music-title-screen",
-  ring1: "music-level-1",
-  ring2: "music-level-2",
-  ring3: "music-level-3",
-  ending: "music-ending"
-};
-function effectFiles() {
-  const files = [
-    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
-    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
-    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
-    both("sfx-rocket-launch", "sfx/rocket-launch"),
-    both("sfx-rocket-blast", "sfx/rocket-blast"),
-    both("sfx-big-blast", "sfx/big-blast"),
-    both("sfx-charge", "sfx/charge"),
-    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
-    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
-    both(SHIELD_SOUND, "sfx/shield"),
-    both(PART_SWITCH_SOUND, "sfx/part-switch"),
-    both(TELEPORT_SOUND, "sfx/teleport"),
-    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
-    both("sfx-engine-base", "sfx/engine-base"),
-    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
-    both("sfx-engine-burst", "sfx/engine-burst"),
-    both("sfx-engine-supercharged", "sfx/engine-supercharged")
-  ];
-  return files;
-}
-function musicFiles() {
-  return Object.values(MUSIC).map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
-}
-
 // src/layers.ts
 var frameName = (piece, frame) => `${String(piece)}/${String(frame)}`;
 function pieceFrames(layout) {
@@ -416,6 +355,94 @@ var LAYOUT = {
   scratchSize: 1024
 };
 
+// src/sim/enemies.ts
+var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
+
+// src/sim/loading.ts
+var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
+var SHIP_PREFIXES = ["hull-", "engine-", "flame-", "shield-", "weapon-", "projectile-", "pickup-"];
+var SPACE_KEYS = ["planet", "asteroid"];
+function loadCategory(key2) {
+  if (ENEMY_FACTIONS.some((faction) => key2.startsWith(`${faction}-`))) {
+    return "enemies";
+  }
+  if (SHIP_PREFIXES.some((prefix) => key2.startsWith(prefix))) {
+    return "ships";
+  }
+  if (key2.startsWith("background-") || SPACE_KEYS.includes(key2)) {
+    return "space";
+  }
+  if (key2.startsWith("sfx-")) {
+    return "sounds";
+  }
+  return void 0;
+}
+function loadRank(key2) {
+  const category = loadCategory(key2);
+  return category === void 0 ? LOAD_CATEGORIES.length : LOAD_CATEGORIES.indexOf(category);
+}
+
+// src/sounds.ts
+var AUDIO = "/static/audio";
+var both = (key2, path) => ({ key: key2, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
+var SHOT_SOUNDS = {
+  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
+  rockets: ["sfx-rocket-launch"],
+  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
+  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
+};
+var EXPIRE_SOUNDS = {
+  rockets: "sfx-rocket-blast",
+  bigSpaceGun: "sfx-big-blast"
+};
+var CHARGE_SOUNDS = {
+  bigSpaceGun: "sfx-charge"
+};
+var ENGINE_LOOPS = {
+  base: "sfx-engine-base",
+  bigPulse: "sfx-engine-big-pulse",
+  burst: "sfx-engine-burst",
+  supercharged: "sfx-engine-supercharged"
+};
+var SHIELD_SOUND = "sfx-shield";
+var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
+var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
+var PART_SWITCH_SOUND = "sfx-part-switch";
+var TELEPORT_SOUND = "sfx-teleport";
+var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
+var MUSIC = {
+  home: "music-title-screen",
+  ring1: "music-level-1",
+  ring2: "music-level-2",
+  ring3: "music-level-3",
+  ending: "music-ending"
+};
+function effectFiles() {
+  const files = [
+    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
+    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
+    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
+    both("sfx-rocket-launch", "sfx/rocket-launch"),
+    both("sfx-rocket-blast", "sfx/rocket-blast"),
+    both("sfx-big-blast", "sfx/big-blast"),
+    both("sfx-charge", "sfx/charge"),
+    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
+    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
+    both(SHIELD_SOUND, "sfx/shield"),
+    both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    both(TELEPORT_SOUND, "sfx/teleport"),
+    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
+    both("sfx-engine-base", "sfx/engine-base"),
+    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
+    both("sfx-engine-burst", "sfx/engine-burst"),
+    both("sfx-engine-supercharged", "sfx/engine-supercharged")
+  ];
+  return files;
+}
+function musicFiles() {
+  return Object.values(MUSIC).map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
+}
+
 // src/sim/loadout.ts
 var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
 var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
@@ -598,9 +625,6 @@ function nextPart(parts, current, unlocks) {
   const next = choices[(choices.indexOf(current) + 1) % choices.length];
   return next ?? current;
 }
-
-// src/sim/enemies.ts
-var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
@@ -844,6 +868,12 @@ function glowSheets() {
   }));
 }
 
+// src/preload.ts
+function bootFiles() {
+  const byRank = (files) => files.sort((a, b) => loadRank(a.key) - loadRank(b.key));
+  return { sheets: byRank(sheets()), sounds: byRank(effectFiles()) };
+}
+
 // src/scenes/starlayer.ts
 function drawLayer(texture, sheet, layout, frame) {
   texture.clear();
@@ -889,7 +919,8 @@ var BootScene = class extends Phaser.Scene {
     super("boot");
   }
   preload() {
-    for (const sheet of sheets()) {
+    const files = bootFiles();
+    for (const sheet of files.sheets) {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight,
@@ -901,7 +932,7 @@ var BootScene = class extends Phaser.Scene {
       this.load.image(layer.key, layer.url);
       this.load.json(keys.layerLayout(layer.key), layer.layoutUrl);
     }
-    for (const sound of effectFiles()) {
+    for (const sound of files.sounds) {
       this.load.audio(sound.key, sound.urls);
     }
   }
