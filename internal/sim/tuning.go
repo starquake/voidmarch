@@ -85,15 +85,15 @@ func GarrisonFighterShare(ring int) float64 {
 }
 
 // GarrisonHeavyShare is the share of a garrison that are Bombers and
-// Torpedo Ships, half each, by ring: none in ring 1, which the Kla'ed hold
-// with Scouts and Fighters only (#137).
+// Torpedo Ships, half each, by ring: a few in ring 1 (#185), more outward
+// (#137), none at home.
 func GarrisonHeavyShare(ring int) float64 {
-	const ring2, perRing = 0.2, 0.1
-	if ring < 2 {
+	const perRing = 0.1
+	if ring < 1 {
 		return 0
 	}
 
-	return ring2 + perRing*float64(ring-2)
+	return perRing * float64(ring)
 }
 
 // GarrisonSupportShare is the share of a garrison that are Support Ships,
@@ -483,7 +483,7 @@ const (
 // HitSteps is how many hull steps, or shield charges, a hit by kind takes:
 // one for every shot but a Torpedo's.
 func HitSteps(kind ProjectileKind) int {
-	if id := EnemyBulletID(kind); id == NairanTorpedo || id == NautolanWave {
+	if id := EnemyBulletID(kind); id == KlaedTorpedo || id == NairanTorpedo || id == NautolanWave {
 		return TorpedoHitSteps
 	}
 
@@ -551,7 +551,10 @@ func EnemyBulletStatsOf(id EnemyBulletID) ProjectileStats {
 	case NautolanSpinningBullet:
 		return ProjectileStats{Speed: 195, MaxSpeed: 195, Lifetime: 2}
 	// The heavy hitters' shots are slow (#9 decision 3), the Nautolan's a
-	// quarter faster than the Nairan's.
+	// quarter faster than the Nairan's and the Kla'ed Torpedo a fifth
+	// slower; all three Torpedoes reach as far.
+	case KlaedTorpedo:
+		return ProjectileStats{Speed: 56, MaxSpeed: 56, Lifetime: 7.5}
 	case NairanRocket:
 		return ProjectileStats{Speed: 80, MaxSpeed: 80, Lifetime: 4.5}
 	case NautolanBomb:

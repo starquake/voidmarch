@@ -604,6 +604,7 @@ func ProjectileKinds() []sim.ProjectileKind {
 		sim.ProjectileKind(sim.NautolanBomb),
 		sim.ProjectileKind(sim.NautolanWave),
 		sim.ProjectileKind(sim.NautolanRay),
+		sim.ProjectileKind(sim.KlaedTorpedo),
 		sim.ProjectileShard,
 	)
 }

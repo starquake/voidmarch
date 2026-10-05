@@ -225,8 +225,7 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 
 // garrisonKind is the class of the ship at place in ring's garrison line-up:
 // a Support Ship at its places (#184), else drawn, its share of Bombers and
-// Torpedo Ships first, then Fighters and Scouts. Ring 1 has no heavy share,
-// so it draws once.
+// Torpedo Ships first, then Fighters and Scouts.
 func (h *Hub) garrisonKind(ring, place int) pb.EnemyKind {
 	if sim.GarrisonSupport(ring, place) {
 		return pb.EnemyKind_ENEMY_KIND_SUPPORT

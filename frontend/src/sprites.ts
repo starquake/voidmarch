@@ -50,6 +50,8 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
   klaed: {
     scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
     fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
+    bomber: { size: 64, engine: 10, destruction: 8 },
+    torpedo: { size: 64, engine: 10, weapons: 16, destruction: 10, weaponsFps: 21 },
     frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
     dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
     support: { size: 64, engine: 10, destruction: 10 },
@@ -74,7 +76,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
   },
 };
 
-/** Enemy bullets are drawn in the blue recolor, apart from the players' orange shots (#36). */
+/** Enemy bullets are drawn in the blue recolor, apart from the players' orange shots (#36), unless plain. */
 const BULLET_VARIANT = 'blue';
 /** How fast enemy bullets animate. */
 const BULLET_FPS = 12;
@@ -82,8 +84,19 @@ const BULLET_FPS = 12;
 /** The fleets' bullets: every enemy bullet but a burst's shard, drawn from the player's own shot. */
 type FleetBulletId = Exclude<EnemyBulletId, 'shard'>;
 
+/** An enemy bullet's strip, in its faction's folder. */
+interface BulletFiles {
+  faction: EnemyFaction;
+  file: string;
+  width: number;
+  height: number;
+  frames: number;
+  /** Drawn in the pack's own colors, for a shot that isn't orange to begin with (#185). */
+  plain?: true;
+}
+
 /** Enemy bullet strips, each in its faction's folder. */
-const BULLET_FRAMES: Record<FleetBulletId, { faction: EnemyFaction; file: string; width: number; height: number; frames: number }> = {
+const BULLET_FRAMES: Record<FleetBulletId, BulletFiles> = {
   klaedBullet: { faction: 'klaed', file: 'bullet', width: 4, height: 16, frames: 4 },
   klaedBigBullet: { faction: 'klaed', file: 'big-bullet', width: 8, height: 16, frames: 4 },
   // The Dreadnought's (#124): a beam segment, and a wave arc.
@@ -96,6 +109,8 @@ const BULLET_FRAMES: Record<FleetBulletId, { faction: EnemyFaction; file: string
   // The heavy hitters' (#137): the Bombers' Rockets and Bombs, the Torpedo Ships' Torpedoes and Waves.
   nairanRocket: { faction: 'nairan', file: 'rocket', width: 9, height: 16, frames: 4 },
   nairanTorpedo: { faction: 'nairan', file: 'torpedo', width: 9, height: 24, frames: 3 },
+  // The Kla'ed Torpedo keeps the pack's colors: its teal exhaust already stands apart from the players' orange.
+  klaedTorpedo: { faction: 'klaed', file: 'torpedo', width: 11, height: 32, frames: 3, plain: true },
   nautolanBomb: { faction: 'nautolan', file: 'bomb', width: 16, height: 16, frames: 16 },
   nautolanWave: { faction: 'nautolan', file: 'wave', width: 64, height: 64, frames: 6 },
   // The Nautolan Dreadnought's beam (#153).
@@ -277,7 +292,7 @@ export function sheets(): Sheet[] {
     ),
     ...Object.values(BULLET_FRAMES).map((f) => ({
       key: `${f.faction}-${f.file}`,
-      url: `${ASSETS}/${f.faction}/${f.file}-${BULLET_VARIANT}.png`,
+      url: `${ASSETS}/${f.faction}/${f.file}${f.plain === true ? '' : `-${BULLET_VARIANT}`}.png`,
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,

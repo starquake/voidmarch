@@ -156,9 +156,10 @@ home and ring 1 are open at first: a red force field marks where the closed ring
 begin, and it zaps and pushes you back. The HUD names the sector you're in. Every other sector is held by a
 garrison of its ring's faction: the Kla'ed in ring 1, the Nairan in ring 2 and
 the Nautolan in ring 3. The later factions take more hits and fire faster,
-quicker shots, and each ring tints the background its own color. Out there
-Bombers fire pairs of slow shots that curve in to where you were, and Torpedo
-Ships line up and fire one slow Torpedo that takes two hull steps. In every
+quicker shots, and each ring tints the background its own color. Every
+garrison has a few Bombers, which fire pairs of slow shots that curve in to
+where you were, and Torpedo Ships, which line up and fire one slow Torpedo
+that takes two hull steps; there are more of them farther out. In every
 ring, Support Ships stay behind their pack and repair it, a thin green line
 showing which ship; they have no guns and few hit points. The Nairan
 lead their shots and spread out around you; the Nautolan also dodge your shots

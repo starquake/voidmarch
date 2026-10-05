@@ -12,8 +12,8 @@ const (
 	EnemyFrigate EnemyKind = "frigate"
 	// EnemyDreadnought is the siege boss (#8).
 	EnemyDreadnought EnemyKind = "dreadnought"
-	// EnemyBomber and EnemyTorpedo, the Torpedo Ship, are the later
-	// factions' slow heavy hitters (#137).
+	// EnemyBomber and EnemyTorpedo, the Torpedo Ship, are the slow heavy
+	// hitters (#137), a few in ring 1 (#185) and more outward.
 	EnemyBomber  EnemyKind = "bomber"
 	EnemyTorpedo EnemyKind = "torpedo"
 	// EnemySupport is the Support Ship, which repairs its pack from behind
@@ -75,6 +75,9 @@ const (
 	NautolanWave  EnemyBulletID = "nautolanWave"
 	// NautolanRay is the Nautolan Dreadnought's beam (#153).
 	NautolanRay EnemyBulletID = "nautolanRay"
+	// KlaedTorpedo is the Kla'ed Torpedo Ship's; the Kla'ed Bomber fires
+	// KlaedBigBullet, since the pack draws no Bomber weapon (#185).
+	KlaedTorpedo EnemyBulletID = "klaedTorpedo"
 )
 
 // EnemyKinds lists every enemy class.
@@ -86,18 +89,21 @@ func EnemyKinds() []EnemyKind {
 }
 
 // EnemyBullet is each enemy's bullet: its faction's small one for a Scout,
-// its big one for the rest.
+// its own for a Torpedo Ship and a later faction's Bomber, and its big one
+// for the rest.
 func EnemyBullet(kind EnemyKind, faction EnemyFaction) EnemyBulletID {
 	scout := kind == EnemyScout
 	switch {
 	case kind == EnemyBomber && faction == Nautolan:
 		return NautolanBomb
-	case kind == EnemyBomber:
+	case kind == EnemyBomber && faction == Nairan:
 		return NairanRocket
 	case kind == EnemyTorpedo && faction == Nautolan:
 		return NautolanWave
-	case kind == EnemyTorpedo:
+	case kind == EnemyTorpedo && faction == Nairan:
 		return NairanTorpedo
+	case kind == EnemyTorpedo:
+		return KlaedTorpedo
 	case faction == Nairan && scout:
 		return NairanBolt
 	case faction == Nairan:

@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"log/slog"
 	"math"
 	"testing"
 
@@ -90,14 +91,46 @@ func TestBomber_KeepsItsDistance(t *testing.T) {
 	}
 }
 
-func TestGarrison_LaterRingsMixInHeavies(t *testing.T) {
+func TestGarrison_Ring1DrawsItsHeavyShareAtKlaedStrength(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct {
-		sector string
-		heavy  bool
-	}{{"E4", false}, {"D2", true}, {"D1", true}} {
-		s, _ := sim.ParseSector(tc.sector)
+	const places = 4000
+	hub := NewHub(slog.New(slog.DiscardHandler), WithSeed(1))
+	count := map[pb.EnemyKind]int{}
+	for _, kind := range hub.GarrisonKinds(1, places) {
+		count[kind]++
+	}
+	bombers, torpedoes := count[pb.EnemyKind_ENEMY_KIND_BOMBER], count[pb.EnemyKind_ENEMY_KIND_TORPEDO]
+	drawn := places - count[pb.EnemyKind_ENEMY_KIND_SUPPORT]
+	share, want := float64(bombers+torpedoes)/float64(drawn), sim.GarrisonHeavyShare(1)
+	if math.Abs(share-want) > 0.02 {
+		t.Errorf("ring 1 draws %.3f Bombers and Torpedo Ships, want about %v", share, want)
+	}
+	if bombers == 0 || torpedoes == 0 ||
+		math.Abs(float64(bombers-torpedoes)) > float64(bombers+torpedoes)/4 {
+		t.Errorf("%d Bombers and %d Torpedo Ships, want about half each", bombers, torpedoes)
+	}
+	for _, kind := range []pb.EnemyKind{pb.EnemyKind_ENEMY_KIND_BOMBER, pb.EnemyKind_ENEMY_KIND_TORPEDO} {
+		klaed, klaedEvery := EnemyStatsFor(kind, sim.Klaed)
+		nairan, nairanEvery := EnemyStatsFor(kind, sim.Nairan)
+		if klaed >= nairan || klaedEvery <= nairanEvery {
+			t.Errorf(
+				"a Kla'ed %s has %d HP and fires every %d ticks, want fewer and slower than the Nairan's %d and %d",
+				kind,
+				klaed,
+				klaedEvery,
+				nairan,
+				nairanEvery,
+			)
+		}
+	}
+}
+
+func TestGarrison_EveryRingMixesInHeavies(t *testing.T) {
+	t.Parallel()
+
+	for _, sector := range []string{"E4", "D2", "D1"} {
+		s, _ := sim.ParseSector(sector)
 		c := s.Center()
 		hub, tick := testHub(t, WithOpenRings(3), NoEvents)
 		a, _ := join(t, hub, "a")
@@ -108,13 +141,8 @@ func TestGarrison_LaterRingsMixInHeavies(t *testing.T) {
 				heavies++
 			}
 		}
-		if got := heavies > 0; got != tc.heavy {
-			t.Errorf(
-				"%s: %d Bombers and Torpedo Ships, want some: %t",
-				tc.sector,
-				heavies,
-				tc.heavy,
-			)
+		if heavies == 0 {
+			t.Errorf("%s: no Bombers or Torpedo Ships, want some", sector)
 		}
 	}
 }

@@ -112,6 +112,17 @@ var NoEvents = WithEventTimes(1<<30, 1<<30, 1<<30, 1<<30)
 // EventEvery exposes eventEvery for tests.
 const EventEvery = eventEvery
 
+// GarrisonKinds draws the first n places of ring's garrison line-up, as
+// garrisonKind does.
+func (h *Hub) GarrisonKinds(ring, n int) []pb.EnemyKind {
+	kinds := make([]pb.EnemyKind, n)
+	for place := range n {
+		kinds[place] = h.garrisonKind(ring, place)
+	}
+
+	return kinds
+}
+
 // EnemyStatsFor exposes a kind's hit points and fire interval in its faction.
 func EnemyStatsFor(kind pb.EnemyKind, faction sim.EnemyFaction) (hp, fireEvery int) {
 	s := statsFor(kind, faction)
