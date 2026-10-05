@@ -76,6 +76,7 @@ const KEYBOARD: ControlColumn = {
     { keys: ['1', '2', '3'], text: 'switch weapon, engine, shield' },
     { keys: ['M'], text: 'map' },
     { keys: ['Tab'], text: 'hold for the standings' },
+    { keys: ['C'], text: 'switch squadrons' },
     { keys: ['H', 'J'], text: 'when down: respawn home, or by a squadmate' },
     { keys: ['O'], text: "the season's victory screen" },
     { keys: ['Esc'], text: 'settings, or close a screen' },
@@ -103,6 +104,7 @@ const THUMBS: ControlColumn = {
     { keys: ['right half'], text: 'a stick: aim that way and fire while pushed; the big space gun fires on release' },
     { keys: ['minimap'], text: 'the full map: tap a sector to send your squadron there' },
     { keys: ['a slot'], text: 'bottom left: tap it, then a part you own' },
+    { keys: ['Squadron row'], text: 'top left: switch squadrons' },
   ],
 };
 

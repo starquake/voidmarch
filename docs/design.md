@@ -436,6 +436,7 @@ As built (#42), from @starquake's "We need some more mechanics around the groups
 - **Everyone flies in a squadron** of at most 4 ships, companions included. On joining, a player picks a squadron with room on the join screen, or starts a new one. With nothing to pick, they start their own, so 16 solo players make 16 squadrons.
 - **Greek names**, the first free one: Alpha, Beta, Gamma… An emptied squadron frees its name.
 - **The join screen** lists the squadrons with room, the most players first, with seat marks and what joining means. A squadron at 4 ships means taking over its newest companion, and starting where it was. Full squadrons are only named. The last squadron flown is picked, and Enter joins it.
+- **Moving squadron** (#45): C, or a tap on the HUD panel's Squadron row, reopens the join screen in play. It lists the player's own squadron too, marked as theirs with Stay; Stay, Esc, C or a tap beside it closes it without moving, and the ship holds still under it. A move follows the joining rules, the mover's companions coming along as far as there's room, and a toast says where they moved.
 - **Orders are the squadron's.** Anyone's order is a callout for their squadmates, and every companion in the squadron follows it. The HUD names the squadron, its players, companions and mode, and players' labels show their squadron.
 - **Reasons to fly together** come with health and loadouts: shared part drops (#6); respawning next to a squadmate, faster revives between squadmates and a shield bonus flying together (#5).
 

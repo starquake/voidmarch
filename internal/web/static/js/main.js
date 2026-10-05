@@ -1826,6 +1826,7 @@ var KEYBOARD = {
     { keys: ["1", "2", "3"], text: "switch weapon, engine, shield" },
     { keys: ["M"], text: "map" },
     { keys: ["Tab"], text: "hold for the standings" },
+    { keys: ["C"], text: "switch squadrons" },
     { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
     { keys: ["O"], text: "the season's victory screen" },
     { keys: ["Esc"], text: "settings, or close a screen" },
@@ -1850,7 +1851,8 @@ var THUMBS = {
     { keys: ["left half"], text: "a stick where your thumb lands: move that way" },
     { keys: ["right half"], text: "a stick: aim that way and fire while pushed; the big space gun fires on release" },
     { keys: ["minimap"], text: "the full map: tap a sector to send your squadron there" },
-    { keys: ["a slot"], text: "bottom left: tap it, then a part you own" }
+    { keys: ["a slot"], text: "bottom left: tap it, then a part you own" },
+    { keys: ["Squadron row"], text: "top left: switch squadrons" }
   ]
 };
 var BUTTONS = {

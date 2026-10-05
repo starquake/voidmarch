@@ -54,6 +54,7 @@ From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
 | Click a part slot | Bottom left: a list of that slot's parts above it; click one to fit it, Esc or a click elsewhere closes it |
 | M | Full map: click an uncleared sector to send your squadron there; M or Esc closes it |
 | Tab (hold) | The season so far: the top players by kills, and you, while held |
+| C | The squadron screen, to move to another squadron or start one; C or Esc closes it and keeps you where you are |
 | O | Victory screen, once the season is won: everyone's kills, hit rate, deaths, rescues and sectors; O or Esc closes it |
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
@@ -91,6 +92,7 @@ turns them on anywhere, and `?touch=0` off. Play in landscape.
 | Summon | Draw a companion from the hangar |
 | Orders (hold) | Order ring: slide to an order and let go; a tap repeats the last order |
 | Part slots | Bottom left: tap one for its list of parts, and tap a part to fit it |
+| Squadron row | Top left, in the panel: the squadron screen, to move to another squadron; tap beside it to close |
 | Minimap | Full map: tap a sector to send your squadron there, tap beside it to close |
 | Respawn buttons | When down, respawn at home or beside a squadmate |
 | Settings | Top left: the settings screen; tap a row to change it, tap beside it to close |
@@ -148,6 +150,12 @@ server with squadrons that have room, you pick one or start your own (Alpha,
 Beta, Gamma…); alone, you just start one. Joining a squadron that is at 4
 ships takes over one of its companions. Orders are the squadron's: your
 squadmates see "you: Attack", and every companion in the squadron follows.
+
+**C** (or a tap on the panel's Squadron row) opens the squadron screen again
+to move: it lists your own squadron too, whose Stay keeps you there, as Esc
+does. A move takes over a companion in a squadron at 4 ships, as joining does,
+and your companions come along as far as there's room; the rest go home. A
+squadron that empties is gone, and a toast says where you moved.
 
 ## Enemies
 
