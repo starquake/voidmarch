@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"maps"
 	"math"
 	"slices"
 	"testing"
@@ -239,5 +240,117 @@ func TestSquadrons_OrdersReachEveryCompanion(t *testing.T) {
 	}
 	if len(snap.GetPlayers()) != 3 {
 		t.Errorf("a sees %d ships, want b, a/1 and b/1", len(snap.GetPlayers()))
+	}
+}
+
+func TestSquadrons_MovingLeavesTheOldOne(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name  string
+		stays bool
+		want  map[string][]string
+	}{
+		{name: "emptied, it goes", want: map[string][]string{"Beta": {"b", "a"}}},
+		{name: "with someone left, it stays", stays: true, want: map[string][]string{"Alpha": {"c"}, "Beta": {"b", "a"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hub, _ := testHub(t)
+			a, _ := pilot(t, hub, "a")
+			b, _ := pilot(t, hub, "b")
+			if tc.stays {
+				c, _ := join(t, hub, "c")
+				chooseAndWait(t, c, "Alpha")
+			}
+
+			if got, want := chooseAndWait(t, a, "Beta").GetName(), "Beta"; got != want {
+				t.Errorf("a's squadron = %q, want %q", got, want)
+			}
+			list := nextSquadrons(t, b)
+			for !slices.Contains(names(list)["Beta"], "a") {
+				list = nextSquadrons(t, b)
+			}
+			if got := names(list); !maps.EqualFunc(got, tc.want, slices.Equal) {
+				t.Errorf("squadrons = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSquadrons_MovingToAFullOneIsRefused(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
+	for _, id := range []string{"c", "d", "e"} {
+		s, _ := join(t, hub, id)
+		chooseAndWait(t, s, "Beta")
+	}
+
+	a.Send(chooseSquadron("Beta"))
+	for {
+		msg := next(t, a)
+		if r := msg.GetSquadronRefused(); r != nil {
+			if got, want := r.GetReason(), "Beta is full"; got != want {
+				t.Errorf("reason = %q, want %q", got, want)
+			}
+
+			break
+		}
+		if msg.GetSquadronJoined() != nil {
+			t.Fatal("moved into a squadron of four players")
+		}
+	}
+	a.Send(state(0, 180))
+	if got, want := snapshotPlayers(t, b, tick)["a"].GetSquadron(), "Alpha"; got != want {
+		t.Errorf("a's squadron after the refusal = %q, want %q", got, want)
+	}
+}
+
+func TestSquadrons_MovingBringsCompanionsAsFarAsThereIsRoom(t *testing.T) {
+	t.Parallel()
+
+	hub, _ := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	b, _ := pilot(t, hub, "b")
+	a.Send(state(0, 180))
+	b.Send(state(0, -180))
+	grant(t, a)
+	grant(t, a)
+	grant(t, b)
+
+	// Beta has b and a companion: a and one of a's two fit, and the newest goes home.
+	a.Send(chooseSquadron("Beta"))
+	var sentHome []uint32
+	for {
+		msg := next(t, a)
+		if d := msg.GetCompanionDismissed(); d != nil {
+			sentHome = append(sentHome, d.GetCompanion())
+		}
+		if j := msg.GetSquadronJoined(); j != nil {
+			if j.GetName() != "Beta" || j.GetTookOver() {
+				t.Errorf("joined = %v, want Beta without a takeover", j)
+			}
+
+			break
+		}
+	}
+	if want := []uint32{2}; !slices.Equal(sentHome, want) {
+		t.Errorf("companions sent home = %v, want %v", sentHome, want)
+	}
+	for {
+		for _, sq := range nextSquadrons(t, b).GetSquadrons() {
+			if sq.GetName() != "Beta" || len(sq.GetMembers()) < 2 {
+				continue
+			}
+			if got, want := sq.GetMembers()[1].GetCompanions(), uint32(1); got != want {
+				t.Errorf("a's companions in Beta = %d, want %d", got, want)
+			}
+
+			return
+		}
 	}
 }
