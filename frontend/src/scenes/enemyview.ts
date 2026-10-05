@@ -16,7 +16,7 @@ export class EnemyView {
   private readonly base: Phaser.GameObjects.Image;
   /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137), nor a Support Ship (#184). */
   private readonly weapon: Phaser.GameObjects.Sprite | undefined;
-  /** The shield bubble, for the kinds that have one (#89). */
+  /** The shield bubble, for the kinds whose pack draws one: a boss's (#89), a small ship's for its repairs (#188). */
   private readonly shield: Phaser.GameObjects.Sprite | undefined;
   private readonly scene: Phaser.Scene;
 
@@ -55,7 +55,7 @@ export class EnemyView {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
   }
 
-  /** Shows the shield bubble while the shield holds a charge. */
+  /** Shows or hides the shield bubble: a boss's while it holds a charge, a small ship's while it's repaired. */
   setShield(up: boolean): void {
     this.shield?.setVisible(up);
   }

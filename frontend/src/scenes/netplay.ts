@@ -73,7 +73,7 @@ import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, heldLabel, holders, rescueNotice } from '../net/derelict.ts';
 import { bossFellBanner, ringsClosedBanner } from '../net/frontier.ts';
-import { repairLines } from '../net/repair.ts';
+import { REPAIR_SHIELD_KINDS, repairLines, repairShields } from '../net/repair.ts';
 import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
 import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
@@ -136,6 +136,7 @@ interface EnemyPose extends Pose {
 }
 
 interface Enemy {
+  kind: EnemyKind;
   view: EnemyView;
   buffer: StateBuffer<EnemyPose>;
   /** Where it was drawn this frame, for bumping. */
@@ -198,6 +199,8 @@ export interface EnemyDebug {
   y: number;
   /** The enemy a Support Ship repairs (#184); 0 for none. */
   repairing: number;
+  /** Whether its shield shows: a boss's charge (#89), or a small ship's repair (#188). */
+  shielded: boolean;
 }
 
 /** A remote player as the E2E tests see them. */
@@ -707,6 +710,7 @@ export class NetPlay {
       x: e.view.x,
       y: e.view.y,
       repairing: e.repairing,
+      shielded: e.view.shieldShown,
     }));
   }
 
@@ -865,6 +869,12 @@ export class NetPlay {
     const g = this.repairGraphics.clear().lineStyle(REPAIR_LINE_WIDTH, REPAIR_LINE_COLOR, REPAIR_LINE_ALPHA);
     for (const line of repairLines(this.enemies)) {
       g.lineBetween(line.fromX, line.fromY, line.toX, line.toY);
+    }
+    const shielded = repairShields(this.enemies);
+    for (const [id, enemy] of this.enemies) {
+      if (REPAIR_SHIELD_KINDS.includes(enemy.kind)) {
+        enemy.view.setShield(shielded.has(id));
+      }
     }
     for (const { item } of this.enemyWarnings.due(renderTick)) {
       this.enemies.get(item.enemyId)?.view.warn((item.warnTicks * 1000) / this.tickRate);
@@ -1264,8 +1274,10 @@ export class NetPlay {
     for (const state of snapshot.enemies) {
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === undefined) {
+        const kind = fromEnemyKind(state.kind);
         enemy = {
-          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
+          kind,
+          view: new EnemyView(this.options.scene, this.options.ships, kind, fromEnemyFaction(state.faction)),
           buffer: new StateBuffer<EnemyPose>(),
           drawn: undefined,
           lastSeen: snapshot.tick,

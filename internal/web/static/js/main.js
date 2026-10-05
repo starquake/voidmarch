@@ -4707,7 +4707,7 @@ var EnemyView = class {
   base;
   /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137), nor a Support Ship (#184). */
   weapon;
-  /** The shield bubble, for the kinds that have one (#89). */
+  /** The shield bubble, for the kinds whose pack draws one: a boss's (#89), a small ship's for its repairs (#188). */
   shield;
   scene;
   constructor(scene, parent, kind, faction) {
@@ -4741,7 +4741,7 @@ var EnemyView = class {
   place(x, y, angle) {
     this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
   }
-  /** Shows the shield bubble while the shield holds a charge. */
+  /** Shows or hides the shield bubble: a boss's while it holds a charge, a small ship's while it's repaired. */
   setShield(up) {
     this.shield?.setVisible(up);
   }
@@ -4949,15 +4949,26 @@ function ringsClosedBanner(before, after) {
 }
 
 // src/net/repair.ts
-function repairLines(enemies) {
-  const lines = [];
+var REPAIR_SHIELD_KINDS = ["scout", "fighter", "bomber", "torpedo"];
+function drawnRepairs(enemies) {
+  const repairs = [];
   for (const e of enemies.values()) {
-    const target = e.repairing === 0 ? void 0 : enemies.get(e.repairing)?.drawn;
-    if (e.drawn !== void 0 && target !== void 0) {
-      lines.push({ fromX: e.drawn.x, fromY: e.drawn.y, toX: target.x, toY: target.y });
+    const target = e.repairing === 0 ? void 0 : enemies.get(e.repairing);
+    if (e.drawn !== void 0 && target?.drawn !== void 0) {
+      repairs.push({
+        line: { fromX: e.drawn.x, fromY: e.drawn.y, toX: target.drawn.x, toY: target.drawn.y },
+        targetId: e.repairing,
+        targetKind: target.kind
+      });
     }
   }
-  return lines;
+  return repairs;
+}
+function repairLines(enemies) {
+  return drawnRepairs(enemies).map((r) => r.line);
+}
+function repairShields(enemies) {
+  return new Set(drawnRepairs(enemies).flatMap((r) => REPAIR_SHIELD_KINDS.includes(r.targetKind) ? [r.targetId] : []));
 }
 
 // src/net/events.ts
@@ -5440,7 +5451,8 @@ var NetPlay = class {
       faction: e.view.faction,
       x: e.view.x,
       y: e.view.y,
-      repairing: e.repairing
+      repairing: e.repairing,
+      shielded: e.view.shieldShown
     }));
   }
   /**
@@ -5584,6 +5596,12 @@ var NetPlay = class {
     const g = this.repairGraphics.clear().lineStyle(REPAIR_LINE_WIDTH, REPAIR_LINE_COLOR, REPAIR_LINE_ALPHA);
     for (const line of repairLines(this.enemies)) {
       g.lineBetween(line.fromX, line.fromY, line.toX, line.toY);
+    }
+    const shielded = repairShields(this.enemies);
+    for (const [id, enemy] of this.enemies) {
+      if (REPAIR_SHIELD_KINDS.includes(enemy.kind)) {
+        enemy.view.setShield(shielded.has(id));
+      }
     }
     for (const { item } of this.enemyWarnings.due(renderTick)) {
       this.enemies.get(item.enemyId)?.view.warn(item.warnTicks * 1e3 / this.tickRate);
@@ -5944,8 +5962,10 @@ var NetPlay = class {
     for (const state of snapshot.enemies) {
       let enemy = this.enemies.get(state.enemyId);
       if (enemy === void 0) {
+        const kind = fromEnemyKind(state.kind);
         enemy = {
-          view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
+          kind,
+          view: new EnemyView(this.options.scene, this.options.ships, kind, fromEnemyFaction(state.faction)),
           buffer: new StateBuffer(),
           drawn: void 0,
           lastSeen: snapshot.tick,

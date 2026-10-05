@@ -161,7 +161,8 @@ garrison has a few Bombers, which fire pairs of slow shots that curve in to
 where you were, and Torpedo Ships, which line up and fire one slow Torpedo
 that takes two hull steps; there are more of them farther out. In every
 ring, Support Ships stay behind their pack and repair it, a thin green line
-showing which ship; they have no guns and few hit points. The Nairan
+showing which ship, its shield up while it's repaired; they have no guns and
+few hit points. The Nairan
 lead their shots and spread out around you; the Nautolan also dodge your shots
 and go for whoever is most damaged. A garrison is
 8 ships next to home, more farther out, and more again for every

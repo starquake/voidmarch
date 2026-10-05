@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
+import { REPAIR_SHIELD_KINDS } from './net/repair.ts';
 import { ENEMY_FACTIONS } from './sim/enemies.ts';
 import { WEAPONS } from './sim/loadout.ts';
 import { PROJECTILE_KINDS } from './sim/rules.gen.ts';
@@ -62,7 +63,7 @@ test("every faction's Bombers and Torpedo Ships have their sheets, the Torpedo S
 test("every faction's small ships have a looping shield sheet, for their repairs (#188)", () => {
   const loaded = new Map(sheets().map((s) => [s.key, s]));
   for (const faction of ENEMY_FACTIONS) {
-    for (const kind of ['scout', 'fighter', 'bomber', 'torpedo'] as const) {
+    for (const kind of REPAIR_SHIELD_KINDS) {
       const shield = loaded.get(keys.enemyShield(faction, kind));
       assert.ok(shield !== undefined, `${faction} ${kind} shield`);
       assert.ok(shield.loop && shield.fps > 0, `${faction} ${kind} shield loops`);
