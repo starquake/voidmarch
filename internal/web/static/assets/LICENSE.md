@@ -28,7 +28,10 @@ Ships' (#185) `Kla'ed - Torpedo Ship - Weapons.png` is
 Nautolan pack's `Nautolan Ship - Support.png`, its destruction strip, is
 `nautolan/support-destruction.png`. The Kla'ed Torpedo Ship's shot,
 `Kla'ed - Torpedo.png`, is `klaed/torpedo.png`; the game draws it as it is,
-with no blue variant (#185). Some also come in
+with no blue variant (#185). Each faction's Scout, Fighter, Bomber and
+Torpedo Ship shields (#188), such as `Nautolan Ship - Torpedo Ship -
+Shield.png`, are `<faction>/<class>-shield.png`, with `torpedo` for the
+Torpedo Ship: `nautolan/torpedo-shield.png`. Some also come in
 recoloured variants beside the original: palette swaps made with
 `tools/recolor.py`, which turns every pixel's hue and keeps its brightness and
 shading.

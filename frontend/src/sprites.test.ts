@@ -59,6 +59,17 @@ test("every faction's Bombers and Torpedo Ships have their sheets, the Torpedo S
   }
 });
 
+test("every faction's small ships have a looping shield sheet, for their repairs (#188)", () => {
+  const loaded = new Map(sheets().map((s) => [s.key, s]));
+  for (const faction of ENEMY_FACTIONS) {
+    for (const kind of ['scout', 'fighter', 'bomber', 'torpedo'] as const) {
+      const shield = loaded.get(keys.enemyShield(faction, kind));
+      assert.ok(shield !== undefined, `${faction} ${kind} shield`);
+      assert.ok(shield.loop && shield.fps > 0, `${faction} ${kind} shield loops`);
+    }
+  }
+});
+
 test("each faction's fodder telegraphs a volley for about as long as the Kla'ed", () => {
   const klaed = sheets().find((s) => s.key === keys.enemyWeapons('klaed', 'scout'));
   assert.ok(klaed !== undefined);

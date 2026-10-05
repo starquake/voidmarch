@@ -35,6 +35,7 @@ interface EnemyFiles {
   /** No pack draws a Bomber's weapons, so it has none and glows instead (#137). */
   weapons?: number;
   destruction: number;
+  /** The shield strip: a boss's shows its charge (#89), a small ship's a Support Ship's repair (#188). */
   shield?: number;
   /** The shield strip's frame size where it isn't the ship's: the Nautolan Frigate's is 63 px. */
   shieldSize?: number;
@@ -48,28 +49,28 @@ const WEAPONS_FPS = 18;
 /** Each faction's ships, by the frame counts of their pack's strips; a faction has only the classes it fields so far. */
 const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> = {
   klaed: {
-    scout: { size: 64, engine: 10, weapons: 6, destruction: 10 },
-    fighter: { size: 64, engine: 10, weapons: 6, destruction: 9 },
-    bomber: { size: 64, engine: 10, destruction: 8 },
-    torpedo: { size: 64, engine: 10, weapons: 16, destruction: 10, weaponsFps: 21 },
+    scout: { size: 64, engine: 10, weapons: 6, destruction: 10, shield: 14 },
+    fighter: { size: 64, engine: 10, weapons: 6, destruction: 9, shield: 10 },
+    bomber: { size: 64, engine: 10, destruction: 8, shield: 6 },
+    torpedo: { size: 64, engine: 10, weapons: 16, destruction: 10, shield: 10, weaponsFps: 21 },
     frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
     dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
     support: { size: 64, engine: 10, destruction: 10 },
   },
   nairan: {
-    scout: { size: 64, engine: 8, weapons: 6, destruction: 16 },
-    fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, weaponsFps: 84 },
-    bomber: { size: 64, engine: 8, destruction: 16 },
-    torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
+    scout: { size: 64, engine: 8, weapons: 6, destruction: 16, shield: 18 },
+    fighter: { size: 64, engine: 8, weapons: 28, destruction: 18, shield: 20, weaponsFps: 84 },
+    bomber: { size: 64, engine: 8, destruction: 16, shield: 10 },
+    torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, shield: 8, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
     dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 },
     support: { size: 64, engine: 8, destruction: 16 },
   },
   nautolan: {
-    scout: { size: 64, engine: 8, weapons: 7, destruction: 9, weaponsFps: 21 },
-    fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, weaponsFps: 27 },
-    bomber: { size: 64, engine: 8, destruction: 10 },
-    torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
+    scout: { size: 64, engine: 8, weapons: 7, destruction: 9, shield: 13, weaponsFps: 21 },
+    fighter: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 10, weaponsFps: 27 },
+    bomber: { size: 64, engine: 8, destruction: 10, shield: 10 },
+    torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, shield: 8, weaponsFps: 21 },
     frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
     dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 },
     support: { size: 64, engine: 8, destruction: 8 },
