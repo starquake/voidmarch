@@ -195,3 +195,5 @@ export const TELEPORT_FLASH_RADIUS = 14;
 /** The shield's fill, the Super tier's blue, and the light blue that hull, shield and the flash's core turn as they shrink. */
 export const TELEPORT_COLOR = 0x5ad1ff;
 export const TELEPORT_WHITE = 0xd8f8ff;
+/** A teleport is heard only this close to the ship, about the view, like an enemy exploding. */
+export const TELEPORT_SOUND_RANGE = 400;

@@ -60,6 +60,7 @@ import {
   SHARD_DAMAGE,
   SAFE_ZONE_RADIUS,
   SHIP_RADIUS,
+  TELEPORT_SOUND_RANGE,
   TICK_SECONDS,
   WEAPON_STATS,
 } from '../sim/tuning.ts';
@@ -664,6 +665,10 @@ export class NetPlay {
           drawn.view.teleport(now() / 1000);
           this.departing.add(drawn.view);
           this.teleports++;
+          const ship = this.options.sim.ship;
+          if (Math.hypot(drawn.state.x - ship.x, drawn.state.y - ship.y) <= TELEPORT_SOUND_RANGE) {
+            this.options.audio.teleported();
+          }
         } else {
           drawn.view.destroy();
         }

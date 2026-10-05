@@ -190,6 +190,7 @@ var SHIELD_SOUND = "sfx-shield";
 var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
 var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
 var PART_SWITCH_SOUND = "sfx-part-switch";
+var TELEPORT_SOUND = "sfx-teleport";
 var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
 var MUSIC = ["music-explorer-theme-1", "music-explorer-theme-2"];
 function effectFiles() {
@@ -205,6 +206,7 @@ function effectFiles() {
     both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
     both(SHIELD_SOUND, "sfx/shield"),
     both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    both(TELEPORT_SOUND, "sfx/teleport"),
     ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
     both("sfx-engine-base", "sfx/engine-base"),
     both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
@@ -508,6 +510,7 @@ var TELEPORT_SHIELD_START_SCALE = 2.4;
 var TELEPORT_FLASH_RADIUS = 14;
 var TELEPORT_COLOR = 5951999;
 var TELEPORT_WHITE = 14219519;
+var TELEPORT_SOUND_RANGE = 400;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -3538,6 +3541,7 @@ var CHARGE_VOLUME = 0.3;
 var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
 var UI_VOLUME = 0.3;
+var TELEPORT_VOLUME = 0.3;
 var MUSIC_VOLUME = 0.3;
 var ShipAudio = class {
   engine;
@@ -3626,6 +3630,10 @@ var ShipAudio = class {
   }
   enemyDestroyed() {
     this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+  }
+  /** A derelict teleporting away (#190). */
+  teleported() {
+    this.scene.sound.play(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
   }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
@@ -5036,6 +5044,10 @@ var NetPlay = class {
           drawn.view.teleport(now() / 1e3);
           this.departing.add(drawn.view);
           this.teleports++;
+          const ship = this.options.sim.ship;
+          if (Math.hypot(drawn.state.x - ship.x, drawn.state.y - ship.y) <= TELEPORT_SOUND_RANGE) {
+            this.options.audio.teleported();
+          }
         } else {
           drawn.view.destroy();
         }

@@ -7,8 +7,9 @@ required; it is given here anyway.
 - `sfx/`: [Sci-Fi Sounds](https://kenney.nl/assets/sci-fi-sounds) by Kenney
   (www.kenney.nl). Renamed; `rocket-launch` is a trimmed and faded
   `thrusterFire_000`, `charge` is `forceField_002`, `enemy-explosion` is
-  `explosionCrunch_002`, `enemy-shot` is `laserSmall_004`, and `field-zap-0`
-  to `-2` are `forceField_001`, `_003` and `_004`. Each sound also
+  `explosionCrunch_002`, `enemy-shot` is `laserSmall_004`, `field-zap-0`
+  to `-2` are `forceField_001`, `_003` and `_004`, and `teleport` is
+  `laserLarge_002`. Each sound also
   has an MP3 copy for browsers without Ogg support.
 - `music/`: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music),
   commissioned from muresanradu, distributed by Foozle. Themes #1 and #2,

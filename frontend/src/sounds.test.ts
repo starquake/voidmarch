@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { CHARGE_SOUNDS, ENEMY_EXPLOSION_SOUND, ENEMY_SHOT_SOUND, ENGINE_LOOPS, EXPIRE_SOUNDS, MUSIC, PART_SWITCH_SOUND, SHIELD_SOUND, SHOT_SOUNDS, effectFiles, musicFiles } from './sounds.ts';
+import { CHARGE_SOUNDS, ENEMY_EXPLOSION_SOUND, ENEMY_SHOT_SOUND, ENGINE_LOOPS, EXPIRE_SOUNDS, MUSIC, PART_SWITCH_SOUND, SHIELD_SOUND, SHOT_SOUNDS, TELEPORT_SOUND, effectFiles, musicFiles } from './sounds.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
@@ -27,6 +27,7 @@ test('every sound the game plays is loaded', () => {
     ENEMY_EXPLOSION_SOUND,
     ENEMY_SHOT_SOUND,
     PART_SWITCH_SOUND,
+    TELEPORT_SOUND,
     ...MUSIC,
   ];
   for (const key of used) {
