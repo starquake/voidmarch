@@ -1,8 +1,11 @@
 package game_test
 
 import (
+	"fmt"
+	"log/slog"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -621,5 +624,59 @@ func TestDreadnoughtGap_TheLaterFactionsFireMoreOften(t *testing.T) {
 				tc.want,
 			)
 		}
+	}
+}
+
+// damageLines are the "dreadnought damage" lines among logs.
+func damageLines(logs *syncBuffer) []string {
+	var out []string
+	for line := range strings.Lines(logs.String()) {
+		if strings.Contains(line, `msg="dreadnought damage"`) {
+			out = append(out, line)
+		}
+	}
+
+	return out
+}
+
+func TestDreadnought_LogsEachShipsDamageAMinuteAndAtItsFall(t *testing.T) {
+	t.Parallel()
+
+	logs := &syncBuffer{}
+	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
+	hub, tick := loggedHub(
+		t,
+		slog.New(slog.NewTextHandler(logs, nil)),
+		WithMap(m),
+		WithDreadnought(sim.Klaed, 0.01),
+	)
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	shots := sim.DreadnoughtShield/MaxHitDamage + 2
+	for shot := range uint32(shots) { //nolint:gosec // a few shots.
+		hitFrigate(a, d.GetEnemyId(), shot+1)
+	}
+	must(latest(t, a, tick, 1, 0, 0))
+	if got := damageLines(logs); len(got) != 0 {
+		t.Errorf("logged %q within a minute of the first hit, want nothing yet", got)
+	}
+
+	must(latest(t, a, tick, 70*TickRate, 0, 0))
+	want := fmt.Sprintf(
+		"ship=a name=name-a faction=klaed weapon=autoCannon tier=0 damage=%d seconds=60",
+		shots*MaxHitDamage-sim.DreadnoughtShield,
+	)
+	if got := damageLines(logs); len(got) != 1 || !strings.Contains(got[0], want) {
+		t.Errorf("logged %q a minute on, want one line with %q", got, want)
+	}
+
+	for shot := range uint32(1000) {
+		hitFrigate(a, d.GetEnemyId(), 100+shot)
+	}
+	must(latest(t, a, tick, 2, 0, 0))
+	got := damageLines(logs)
+	if len(got) != 2 || !strings.Contains(got[1], "ship=a ") ||
+		strings.Contains(got[1], "seconds=60") {
+		t.Errorf("logged %q once it fell, want a second line for a's last seconds", got)
 	}
 }

@@ -1,9 +1,11 @@
 package game
 
 import (
+	"log/slog"
 	"maps"
 	"math"
 	"slices"
+	"strings"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/sim"
@@ -27,6 +29,9 @@ const (
 	dreadnoughtSaveEvery = 60 * TickRate
 	// regenPerTick is the share of its health it gets back each hub tick.
 	regenPerTick = sim.DreadnoughtRegenPerHour / (60 * 60 * TickRate)
+	// dreadnoughtLogEvery is how often each ship's damage to it is logged
+	// while the ship fights it (#223).
+	dreadnoughtLogEvery = 60 * TickRate
 )
 
 // dreadnoughtFight is the Dreadnought's state beyond an enemy's: its
@@ -43,6 +48,16 @@ type dreadnoughtFight struct {
 	from   float64
 	share  float64
 	weight float64
+	// dealt is each ship's damage to it in its current minute of fighting,
+	// by player id or companion seat, for the log (#223).
+	dealt map[string]*dealing
+}
+
+// dealing is the health a ship took off a Dreadnought since the tick it
+// first hit it this minute.
+type dealing struct {
+	damage float64
+	since  uint32
 }
 
 // maxHP is its maximum health for the players online now.
@@ -147,6 +162,7 @@ func (h *Hub) wakeDreadnought() {
 			shield: sim.DreadnoughtShield,
 			share:  h.dreadnoughtShare(faction),
 			weight: h.onlineWeight(),
+			dealt:  map[string]*dealing{},
 		},
 	}
 	e.hp = e.dread.hp()
@@ -203,6 +219,7 @@ func (h *Hub) sleepDreadnought() {
 	}
 	h.dreadnoughtShares[e.faction] = e.dread.share
 	h.saveDreadnoughtShare(e.faction, e.dread.share)
+	h.logDreadnoughtDamage(e, true)
 	delete(h.enemies, e.id)
 	h.forgetEnemy(e.id)
 	h.dreadnoughtID = 0
@@ -220,6 +237,7 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	if h.tick%dreadnoughtSaveEvery == 0 {
 		h.saveDreadnoughtShare(e.faction, f.share)
 	}
+	h.logDreadnoughtDamage(e, false)
 	if f.shield < sim.DreadnoughtShield && h.tick-f.lastHit >= dreadnoughtShieldTicks {
 		f.shield = sim.DreadnoughtShield
 	}
@@ -265,15 +283,70 @@ func dreadnoughtGap(faction sim.EnemyFaction, ticks int) int {
 	return int(math.Round(float64(ticks) / sim.FactionStats(faction).Shots))
 }
 
-// takeHit takes damage, the shield first, off its share, and returns its
-// health after.
-func (f *dreadnoughtFight) takeHit(damage int, tick uint32) int {
+// takeHit takes shooter's damage, the shield first, off its share, counts
+// the health it took for the log, and returns its health after.
+func (f *dreadnoughtFight) takeHit(shooter string, damage int, tick uint32) int {
 	f.lastHit = tick
 	absorbed := min(f.shield, damage)
 	f.shield -= absorbed
+	before := f.share
 	f.share = math.Max(0, f.share-float64(damage-absorbed)/f.maxHP())
+	d := f.dealt[shooter]
+	if d == nil {
+		d = &dealing{since: tick}
+		f.dealt[shooter] = d
+	}
+	d.damage += (before - f.share) * f.maxHP()
 
 	return f.hp()
+}
+
+// logDreadnoughtDamage logs the health each ship took off e over its minute
+// of fighting once the minute is up, or every ship's so far when all is
+// set, so a real fight's rate can be read back (#223).
+//
+//nolint:revive // all is whether the fight is over, not a mode.
+func (h *Hub) logDreadnoughtDamage(e *enemy, all bool) {
+	for _, ship := range slices.Sorted(maps.Keys(e.dread.dealt)) {
+		d := e.dread.dealt[ship]
+		ticks := h.tick - d.since
+		if !all && ticks < dreadnoughtLogEvery {
+			continue
+		}
+		delete(e.dread.dealt, ship)
+		player, _, _ := strings.Cut(ship, "/")
+		l := h.shipLoadout(ship)
+		h.logger.Info(
+			"dreadnought damage",
+			slog.String("ship", ship),
+			slog.String("name", h.names[player]),
+			slog.String("faction", string(e.faction)),
+			slog.String("weapon", string(l.Weapon)),
+			slog.Int("tier", int(l.WeaponTier)),
+			slog.Int("damage", int(math.Round(d.damage))),
+			slog.Float64("seconds", float64(ticks)/TickRate),
+		)
+	}
+}
+
+// shipLoadout is the loadout of a player's ship or a companion's seat, or
+// the default loadout once it's gone.
+func (h *Hub) shipLoadout(ship string) sim.Loadout {
+	player, _, seat := strings.Cut(ship, "/")
+	m := h.members[player]
+	if m == nil {
+		return sim.DefaultLoadout()
+	}
+	if !seat {
+		return simLoadout(m.state.GetLoadout())
+	}
+	for _, c := range m.companions {
+		if seatID(player, c.number) == ship {
+			return c.flight.Ship.Loadout
+		}
+	}
+
+	return sim.DefaultLoadout()
 }
 
 // dreadnoughtFallen rewards the players near e, releases its derelicts and
@@ -306,6 +379,7 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_BossFell{BossFell: &pb.BossFell{
 		Kind: e.kind, Gains: gains, Tick: h.tick, Faction: pbEnemyFaction(e.faction),
 	}}}, "")
+	h.logDreadnoughtDamage(e, true)
 	h.dreadnoughtID = 0
 	h.dreadnoughtShares[e.faction] = 1
 	h.saveDreadnoughtShare(e.faction, 1)
