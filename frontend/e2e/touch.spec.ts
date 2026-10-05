@@ -83,3 +83,22 @@ test('on a phone the controls shrink, and aiming can start on the minimap', asyn
   await touch(page, 'touchend', 1, mini.x - 60, mini.y);
   expect((await state(page)).mapOpen, 'a drag is not a tap').toBe(false);
 });
+
+test('a tap on the Squadron row opens the squadron screen, and a tap beside it closes it', async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto('/?touch=1');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online' && window.voidmarch.squadron !== '');
+  const squadron = (await state(page)).squadron;
+  const row = page.locator('#hud-panel [data-opens="squadrons"]').first();
+  await expect(row).toHaveText('Squadron');
+
+  await row.tap();
+  await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
+  expect((await state(page)).touchButtons, 'the buttons hide under the screen').toEqual([]);
+  await expect(page.locator('#squadron-list .squadron.current button')).toHaveText('Stay');
+
+  await touch(page, 'touchstart', 1, 10, 380);
+  await touch(page, 'touchend', 1, 10, 380);
+  await expect.poll(async () => (await state(page)).squadronScreen).toBe(false);
+  expect((await state(page)).squadron, 'closing it stays').toBe(squadron);
+});

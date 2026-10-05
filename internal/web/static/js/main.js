@@ -2099,10 +2099,12 @@ var HudView = class _HudView {
   panelKey = "";
   toasts = /* @__PURE__ */ new Map();
   fit;
+  opens;
   /** The slot whose drop-up is open (#191). */
   open;
-  constructor(fit, doc = document) {
+  constructor(fit, opens, doc = document) {
     this.fit = fit;
+    this.opens = opens;
     this.root = doc.querySelector("#hud");
     this.gauge = doc.querySelector("#hud-gauge");
     this.panel = doc.querySelector("#hud-panel");
@@ -2119,6 +2121,16 @@ var HudView = class _HudView {
       } else if (slot !== null && slot !== void 0) {
         const kind = slot.dataset.slot;
         this.setOpen(this.open === kind ? void 0 : kind);
+      }
+    });
+    this.panel?.addEventListener("pointerdown", (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const screen = target?.closest("[data-opens]")?.dataset.opens;
+      if (screen === "squadrons") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.close();
+        this.opens(screen);
       }
     });
     doc.addEventListener("pointerdown", () => {
@@ -2264,6 +2276,11 @@ var HudView = class _HudView {
         if (row.alert) {
           value.className = "alert";
         }
+        if (row.opens !== void 0) {
+          for (const cell of [label, value]) {
+            cell.dataset.opens = row.opens;
+          }
+        }
         return [label, value];
       })
     );
@@ -2328,7 +2345,12 @@ function panelRows(state) {
   if (squadron !== void 0) {
     const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? "" : "s"}`];
     const others = [...squadron.others, ...companions];
-    row("Squadron", others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
+    rows.push({
+      label: "Squadron",
+      value: others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`,
+      alert: false,
+      opens: "squadrons"
+    });
     const hint = ORDER_HINTS[squadron.mode];
     row("Orders", hint === void 0 ? squadron.order : `${squadron.order}: ${hint}`);
   }
@@ -6440,9 +6462,14 @@ var SandboxScene = class extends Phaser11.Scene {
   ships;
   pickups;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  hudView = new HudView((kind, part) => {
-    this.fitPart(kind, part);
-  });
+  hudView = new HudView(
+    (kind, part) => {
+      this.fitPart(kind, part);
+    },
+    () => {
+      this.openSquadrons();
+    }
+  );
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -7013,9 +7040,9 @@ var SandboxScene = class extends Phaser11.Scene {
   canOpenMap() {
     return this.net?.status === "online" && this.orderPress === void 0 && !this.squadronScreen.open;
   }
-  /** Reopens the join screen to move to another squadron (#45), unless the order ring is up. */
+  /** Reopens the join screen to move to another squadron (#45), unless the order ring or another screen is up. */
   openSquadrons() {
-    if (this.orderPress !== void 0) {
+    if (this.orderPress !== void 0 || this.screenOpen) {
       return;
     }
     if (this.net?.openSquadrons() === true) {
@@ -7600,7 +7627,7 @@ ${modeName(info)}`,
     const toCanvas = this.scale.width / Math.max(1, window.innerWidth);
     return { insetLeft: parseFloat(style.paddingLeft) * toCanvas || 0, insetRight: parseFloat(style.paddingRight) * toCanvas || 0 };
   }
-  /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
+  /** A touch lands: it closes an open screen (the join screen only when reopened) or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
     if (this.introScreen.open) {
       this.introScreen.hide();
@@ -7612,6 +7639,10 @@ ${modeName(info)}`,
     }
     if (this.victoryScreen.open) {
       this.victoryScreen.hide();
+      return;
+    }
+    if (this.squadronScreen.reopened) {
+      this.squadronScreen.hide();
       return;
     }
     if (this.maps.open) {

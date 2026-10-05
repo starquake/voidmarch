@@ -230,9 +230,14 @@ export class SandboxScene extends Phaser.Scene {
   private ships!: Phaser.GameObjects.Container;
   private pickups!: PickupsView;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  private readonly hudView = new HudView((kind, part) => {
-    this.fitPart(kind, part);
-  });
+  private readonly hudView = new HudView(
+    (kind, part) => {
+      this.fitPart(kind, part);
+    },
+    () => {
+      this.openSquadrons();
+    },
+  );
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   private showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -866,9 +871,9 @@ export class SandboxScene extends Phaser.Scene {
     return this.net?.status === 'online' && this.orderPress === undefined && !this.squadronScreen.open;
   }
 
-  /** Reopens the join screen to move to another squadron (#45), unless the order ring is up. */
+  /** Reopens the join screen to move to another squadron (#45), unless the order ring or another screen is up. */
   private openSquadrons(): void {
-    if (this.orderPress !== undefined) {
+    if (this.orderPress !== undefined || this.screenOpen) {
       return;
     }
     if (this.net?.openSquadrons() === true) {
@@ -1525,7 +1530,7 @@ export class SandboxScene extends Phaser.Scene {
     return { insetLeft: parseFloat(style.paddingLeft) * toCanvas || 0, insetRight: parseFloat(style.paddingRight) * toCanvas || 0 };
   }
 
-  /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
+  /** A touch lands: it closes an open screen (the join screen only when reopened) or map, picks a sector, or starts a stick, a button or the map. */
   private touchStart(id: number, p: Point): void {
     if (this.introScreen.open) {
       this.introScreen.hide();
@@ -1539,6 +1544,11 @@ export class SandboxScene extends Phaser.Scene {
     }
     if (this.victoryScreen.open) {
       this.victoryScreen.hide();
+
+      return;
+    }
+    if (this.squadronScreen.reopened) {
+      this.squadronScreen.hide();
 
       return;
     }
