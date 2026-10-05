@@ -51,6 +51,7 @@ test('hovering beside a derelict fills its rescue bar and docks it in the hangar
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   await expect.poll(async () => derelict(await state(page)), { message: 'the map has a derelict' }).toBeDefined();
+  const teleports = (await state(page)).teleports;
 
   for (let tries = 1; ; tries++) {
     if (await rescue(page)) {
@@ -63,6 +64,9 @@ test('hovering beside a derelict fills its rescue bar and docks it in the hangar
   }
   expect((await state(page)).rescues).toBe(1);
   expect(filled, 'the rescue bar filled on the way').toBeGreaterThan(0.5);
+  // The rescued derelict teleports away rather than vanishing (#190).
+  await expect.poll(async () => (await state(page)).teleports, { message: 'the rescued derelict teleports' }).toBeGreaterThan(teleports);
+  await expect.poll(async () => (await state(page)).departing, { message: 'the teleport is over' }).toBe(0);
 });
 
 test("the Frigate's derelict waits beside it, held by its fleet", async ({ page }) => {
