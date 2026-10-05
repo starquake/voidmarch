@@ -17,12 +17,11 @@ export function shieldPips(shield: number, strength: number): Pips {
   return { on: Math.min(strength, Math.max(0, Math.floor(shield))), of: strength };
 }
 
-/** One row of the panel: a label and what it says, whether it's an alert, and the screen a tap on it opens. */
+/** One row of the panel: a label and what it says, and whether it's an alert. */
 export interface PanelRow {
   label: string;
   value: string;
   alert: boolean;
-  opens?: 'squadrons';
 }
 
 /** What the panel shows, as the scene knows it; undefined or empty leaves a row out. */
@@ -77,13 +76,7 @@ export function panelRows(state: PanelState): PanelRow[] {
   if (squadron !== undefined) {
     const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? '' : 's'}`];
     const others = [...squadron.others, ...companions];
-    // A tap moves to another squadron, the way C does (#45).
-    rows.push({
-      label: 'Squadron',
-      value: others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`,
-      alert: false,
-      opens: 'squadrons',
-    });
+    row('Squadron', others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
     const hint = ORDER_HINTS[squadron.mode];
     row('Orders', hint === undefined ? squadron.order : `${squadron.order}: ${hint}`);
   }

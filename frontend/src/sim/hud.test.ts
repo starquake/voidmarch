@@ -49,13 +49,6 @@ test('the panel labels every row, as mocked', () => {
   );
 });
 
-test('a tap on the Squadron row opens the squadron screen, and on no other row', () => {
-  assert.deepEqual(
-    panelRows(FULL).map((r) => r.opens),
-    ['squadrons', undefined, undefined, undefined, undefined, undefined, undefined],
-  );
-});
-
 test('the panel leaves out what is not there, and words the rest to fit', () => {
   const alone = panelRows({
     squadron: { name: 'Beta', others: [], companions: 1, order: 'Hold here', mode: 'hold' },

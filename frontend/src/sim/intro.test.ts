@@ -51,8 +51,7 @@ test('the touch variant names the thumbs and buttons, Help among them, and no ke
     ['Thumbs', 'Buttons'],
   );
   assert.ok(content.controls[1].rows.some((r) => r.keys.includes('Help')));
-  assert.ok(content.controls[0].rows.some((r) => r.keys.includes('Squadron row')), 'a tap on the panel switches squadrons (#45)');
-  assert.ok(content.controls[1].rows.some((r) => r.keys.includes('Squadron')), 'so does a button while down (#45)');
+  assert.ok(content.controls[1].rows.some((r) => r.keys.includes('Squadron')), 'a button switches squadrons while down (#45)');
   const text = allText(content);
   for (const key of ['WASD', 'F1', 'Esc', 'Tab', 'mouse']) {
     assert.ok(!text.includes(key), `${key} is not mentioned on touch`);

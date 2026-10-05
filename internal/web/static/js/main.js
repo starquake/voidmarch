@@ -1826,8 +1826,8 @@ var KEYBOARD = {
     { keys: ["1", "2", "3"], text: "switch weapon, engine, shield" },
     { keys: ["M"], text: "map" },
     { keys: ["Tab"], text: "hold for the standings" },
-    { keys: ["C"], text: "switch squadrons, also when down" },
     { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
+    { keys: ["C"], text: "when down: switch squadrons" },
     { keys: ["O"], text: "the season's victory screen" },
     { keys: ["Esc"], text: "settings, or close a screen" },
     { keys: ["F1"], text: "this screen" }
@@ -1851,8 +1851,7 @@ var THUMBS = {
     { keys: ["left half"], text: "a stick where your thumb lands: move that way" },
     { keys: ["right half"], text: "a stick: aim that way and fire while pushed; the big space gun fires on release" },
     { keys: ["minimap"], text: "the full map: tap a sector to send your squadron there" },
-    { keys: ["a slot"], text: "bottom left: tap it, then a part you own" },
-    { keys: ["Squadron row"], text: "top left: switch squadrons" }
+    { keys: ["a slot"], text: "bottom left: tap it, then a part you own" }
   ]
 };
 var BUTTONS = {
@@ -2102,12 +2101,10 @@ var HudView = class _HudView {
   panelKey = "";
   toasts = /* @__PURE__ */ new Map();
   fit;
-  opens;
   /** The slot whose drop-up is open (#191). */
   open;
-  constructor(fit, opens, doc = document) {
+  constructor(fit, doc = document) {
     this.fit = fit;
-    this.opens = opens;
     this.root = doc.querySelector("#hud");
     this.gauge = doc.querySelector("#hud-gauge");
     this.panel = doc.querySelector("#hud-panel");
@@ -2124,16 +2121,6 @@ var HudView = class _HudView {
       } else if (slot !== null && slot !== void 0) {
         const kind = slot.dataset.slot;
         this.setOpen(this.open === kind ? void 0 : kind);
-      }
-    });
-    this.panel?.addEventListener("pointerdown", (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      const screen = target?.closest("[data-opens]")?.dataset.opens;
-      if (screen === "squadrons") {
-        event.preventDefault();
-        event.stopPropagation();
-        this.close();
-        this.opens(screen);
       }
     });
     doc.addEventListener("pointerdown", () => {
@@ -2279,11 +2266,6 @@ var HudView = class _HudView {
         if (row.alert) {
           value.className = "alert";
         }
-        if (row.opens !== void 0) {
-          for (const cell of [label, value]) {
-            cell.dataset.opens = row.opens;
-          }
-        }
         return [label, value];
       })
     );
@@ -2348,12 +2330,7 @@ function panelRows(state) {
   if (squadron !== void 0) {
     const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? "" : "s"}`];
     const others = [...squadron.others, ...companions];
-    rows.push({
-      label: "Squadron",
-      value: others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`,
-      alert: false,
-      opens: "squadrons"
-    });
+    row("Squadron", others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
     const hint = ORDER_HINTS[squadron.mode];
     row("Orders", hint === void 0 ? squadron.order : `${squadron.order}: ${hint}`);
   }
@@ -6482,14 +6459,9 @@ var SandboxScene = class extends Phaser11.Scene {
   ships;
   pickups;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  hudView = new HudView(
-    (kind, part) => {
-      this.fitPart(kind, part);
-    },
-    () => {
-      this.openSquadrons();
-    }
-  );
+  hudView = new HudView((kind, part) => {
+    this.fitPart(kind, part);
+  });
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -7060,9 +7032,9 @@ var SandboxScene = class extends Phaser11.Scene {
   canOpenMap() {
     return this.net?.status === "online" && this.orderPress === void 0 && !this.squadronScreen.open;
   }
-  /** Reopens the join screen to move to another squadron (#45), unless the order ring or another screen is up. */
+  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over the order ring or another screen. */
   openSquadrons() {
-    if (this.orderPress !== void 0 || this.screenOpen) {
+    if (!this.sim.downed || this.orderPress !== void 0 || this.screenOpen) {
       return;
     }
     if (this.net?.openSquadrons() === true) {
@@ -7798,6 +7770,9 @@ ${modeName(info)}`,
   updateDownPanel() {
     if (!this.sim.downed) {
       this.downPanel.setVisible(false);
+      if (this.squadronScreen.reopened) {
+        this.squadronScreen.hide();
+      }
       return;
     }
     const text = downPanelText({

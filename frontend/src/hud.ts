@@ -47,13 +47,11 @@ export class HudView {
   private panelKey = '';
   private readonly toasts = new Map<string, HTMLElement>();
   private readonly fit: (kind: SlotKind, part: string) => void;
-  private readonly opens: (screen: NonNullable<PanelRow['opens']>) => void;
   /** The slot whose drop-up is open (#191). */
   private open: SlotKind | undefined;
 
-  constructor(fit: (kind: SlotKind, part: string) => void, opens: (screen: NonNullable<PanelRow['opens']>) => void, doc: Document = document) {
+  constructor(fit: (kind: SlotKind, part: string) => void, doc: Document = document) {
     this.fit = fit;
-    this.opens = opens;
     this.root = doc.querySelector<HTMLElement>('#hud');
     this.gauge = doc.querySelector<HTMLElement>('#hud-gauge');
     this.panel = doc.querySelector<HTMLElement>('#hud-panel');
@@ -71,17 +69,6 @@ export class HudView {
       } else if (slot !== null && slot !== undefined) {
         const kind = slot.dataset.slot as SlotKind;
         this.setOpen(this.open === kind ? undefined : kind);
-      }
-    });
-    // A tap or click on a row that opens a screen opens it (#45), and takes the touch from the stick.
-    this.panel?.addEventListener('pointerdown', (event) => {
-      const target = event.target instanceof Element ? event.target : null;
-      const screen = target?.closest<HTMLElement>('[data-opens]')?.dataset.opens;
-      if (screen === 'squadrons') {
-        event.preventDefault();
-        event.stopPropagation();
-        this.close();
-        this.opens(screen);
       }
     });
     // Anywhere else closes it.
@@ -240,11 +227,6 @@ export class HudView {
         value.textContent = row.value;
         if (row.alert) {
           value.className = 'alert';
-        }
-        if (row.opens !== undefined) {
-          for (const cell of [label, value]) {
-            cell.dataset.opens = row.opens;
-          }
         }
 
         return [label, value];

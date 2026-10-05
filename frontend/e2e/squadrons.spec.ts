@@ -71,50 +71,15 @@ test('squadmates join from the screen and hear each other\'s orders', async ({ p
   }
 });
 
-test('C reopens the screen to move to another squadron, and Esc stays', async ({ page, browser, baseURL }) => {
-  test.setTimeout(90_000);
+test('C does nothing while flying: switching squadrons is for the downed (#45)', async ({ page }) => {
   await page.goto('/');
-  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-  await expect.poll(async () => (await state(page)).squadron).not.toBe('');
-  const first = (await state(page)).squadron;
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online' && window.voidmarch.squadron !== '');
+  const first = await state(page);
+  expect([first.downed, first.downPanel]).toEqual([false, undefined]);
 
-  // Reopened, the screen lists the player's own squadron with Stay, and the ship holds still under it.
   await page.keyboard.press('c');
-  await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
-  await expect(page.locator('#squadron-list .squadron.current button')).toHaveText('Stay');
-  const before = (await state(page)).ship;
-  await page.keyboard.down('w');
+  // Long enough for the screen to have shown, had C opened it.
   await page.waitForTimeout(500);
-  await page.keyboard.up('w');
-  const held = (await state(page)).ship;
-  expect(Math.hypot(held.x - before.x, held.y - before.y), 'the ship holds still under the screen').toBeLessThan(2);
-  await page.keyboard.press('Escape');
-  await expect.poll(async () => (await state(page)).squadronScreen).toBe(false);
-  expect((await state(page)).squadron, 'Esc closes it without moving').toBe(first);
-
-  // Mo starts a squadron of their own, and the first player moves into it.
-  const mo = await otherPlayer(browser, baseURL ?? '', `Mo${String(Date.now() % 100000)}`);
-  try {
-    await expect.poll(async () => (await state(mo)).squadronScreen).toBe(true);
-    await mo.locator('#squadron-start').click();
-    await expect.poll(async () => (await state(mo)).squadron).not.toBe('');
-    const theirs = (await state(mo)).squadron;
-    expect(theirs).not.toBe(first);
-
-    await page.keyboard.press('c');
-    await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
-    await page.locator('#squadron-list .squadron', { hasText: theirs }).getByRole('button', { name: 'Join' }).click();
-    await expect.poll(async () => (await state(page)).squadron).toBe(theirs);
-    expect((await state(page)).squadronScreen).toBe(false);
-    expect((await state(page)).notice).toBe(`Moved to ${theirs}`);
-
-    // And out again, into a new one of their own.
-    await page.keyboard.press('c');
-    await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
-    await page.locator('#squadron-start').click();
-    await expect.poll(async () => (await state(page)).squadron).not.toBe(theirs);
-    expect((await state(page)).notice).toBe(`Started squadron ${(await state(page)).squadron}`);
-  } finally {
-    await mo.context().close();
-  }
+  const after = await state(page);
+  expect([after.squadronScreen, after.squadron]).toEqual([false, first.squadron]);
 });

@@ -746,10 +746,9 @@ body.touch {
   place-items: center;
 }
 
-/* The slots and their drop-up take the pointer (#191), and so does a panel row that opens a screen (#45); the rest of the HUD lets it through. */
+/* The slots and their drop-up take the pointer (#191); the rest of the HUD lets it through. */
 .hud-slot,
-.hud-drop,
-.hud-panel [data-opens] {
+.hud-drop {
   pointer-events: auto;
   cursor: pointer;
 }

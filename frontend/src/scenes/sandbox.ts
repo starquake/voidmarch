@@ -230,14 +230,9 @@ export class SandboxScene extends Phaser.Scene {
   private ships!: Phaser.GameObjects.Container;
   private pickups!: PickupsView;
   /** The HUD's page elements (#91): the gauge, the panel and the toasts. */
-  private readonly hudView = new HudView(
-    (kind, part) => {
-      this.fitPart(kind, part);
-    },
-    () => {
-      this.openSquadrons();
-    },
-  );
+  private readonly hudView = new HudView((kind, part) => {
+    this.fitPart(kind, part);
+  });
   /** Whether the text HUD shows frames per second: F3 on a development server (#91, decision 2). */
   private showFps = false;
   /** The own ship's loadout as last drawn, so any change redraws it. */
@@ -871,9 +866,9 @@ export class SandboxScene extends Phaser.Scene {
     return this.net?.status === 'online' && this.orderPress === undefined && !this.squadronScreen.open;
   }
 
-  /** Reopens the join screen to move to another squadron (#45), unless the order ring or another screen is up. */
+  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over the order ring or another screen. */
   private openSquadrons(): void {
-    if (this.orderPress !== undefined || this.screenOpen) {
+    if (!this.sim.downed || this.orderPress !== undefined || this.screenOpen) {
       return;
     }
     if (this.net?.openSquadrons() === true) {
@@ -1698,6 +1693,10 @@ export class SandboxScene extends Phaser.Scene {
   private updateDownPanel(): void {
     if (!this.sim.downed) {
       this.downPanel.setVisible(false);
+      // Revived under the reopened join screen: moving is for the downed only.
+      if (this.squadronScreen.reopened) {
+        this.squadronScreen.hide();
+      }
 
       return;
     }
