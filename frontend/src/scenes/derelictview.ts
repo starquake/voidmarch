@@ -42,11 +42,28 @@ export class DerelictView {
       .setTint(DERELICT_TINT)
       .setTintMode(Phaser.TintModes.MULTIPLY);
     this.label = scene.add
-      .text(x, y + DOWN_OFFSET, '', { fontFamily: UI_FONT, fontSize: '8px', color: DOWN_COLOR, resolution })
+      .text(x, y, '', { fontFamily: UI_FONT, fontSize: '8px', color: DOWN_COLOR, resolution })
       .setOrigin(0.5, 0)
       .setShadow(1, 1, '#000000', 0);
-    this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
+    this.bar = scene.add.graphics();
+    this.place(x, y);
     layer.add([this.hull, this.label, this.bar]);
+  }
+
+  /** Where the hull is drawn. */
+  get x(): number {
+    return this.hull.x;
+  }
+
+  get y(): number {
+    return this.hull.y;
+  }
+
+  /** Moves it to (x, y), with its label and bar: a held one goes where its Frigate tows it (#121). */
+  place(x: number, y: number): void {
+    this.hull.setPosition(x, y);
+    this.label.setPosition(x, y + DOWN_OFFSET);
+    this.bar.setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
   }
 
   /** Shows the label, whether it's held, and the rescue's progress (0 to 1); the bar shows once there is some. */

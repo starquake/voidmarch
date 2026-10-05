@@ -182,6 +182,7 @@ export interface NetFrame {
 /** A derelict waiting to be rescued, for the E2E tests (#52). */
 export interface DerelictDebug {
   id: number;
+  /** Where it's drawn. */
   x: number;
   y: number;
   rescue: number;
@@ -634,8 +635,8 @@ export class NetPlay {
   get derelictList(): DerelictDebug[] {
     return [...this.derelicts.entries()].map(([id, d]) => ({
       id,
-      x: d.state.x,
-      y: d.state.y,
+      x: d.view.x,
+      y: d.view.y,
       rescue: d.state.rescue,
       held: d.state.held,
     }));
@@ -669,6 +670,7 @@ export class NetPlay {
       const label = state.held
         ? heldLabel(holders(state.x, state.y, [...this.enemies.values()].map((e) => e.view)))
         : derelictLabel(state.goneTick, tick, this.tickRate);
+      drawn.view.place(state.x, state.y);
       drawn.view.update(label, state.held, state.rescue);
     }
     for (const [id, drawn] of this.derelicts) {
