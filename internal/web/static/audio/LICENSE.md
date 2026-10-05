@@ -14,7 +14,7 @@ required; it is given here anyway.
 - `music/`: [Explorer Chiptune Music](https://foozlecc.itch.io/explorer-chiptune-music),
   commissioned from muresanradu, distributed by Foozle. Themes #1 and #2,
   re-encoded to Ogg Opus (96 kbit/s) and MP3 (112 kbit/s).
-- `music/eerie-1` and `eerie-2`: [Eerie Space Music](https://foozlecc.itch.io/),
+- `music/eerie-1` and `eerie-2`: [Eerie Space Music](https://foozlecc.itch.io/eerie-space-music),
   commissioned from Potriel, distributed by Foozle (www.foozle.io). The full
   songs of tracks 1 and 2, re-encoded to Ogg Opus (96 kbit/s) and MP3
   (112 kbit/s).

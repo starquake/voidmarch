@@ -30,6 +30,8 @@
 
 Everything is pixel art at native resolution. Render with nearest-neighbor scaling (e.g. 2× or 3×). Aseprite sources are included if re-exporting is needed.
 
+Sound comes from CC0 packs too: Kenney's Sci-Fi Sounds for effects, and Foozle's music. Explorer Chiptunes plays everywhere except the home sector, which plays Eerie Space Music track 1, and the Dreadnought fights, which play its track 2 while the boss bar shows; the music crossfades as the ship moves between them (#187). Only the packs' full songs are used, never their stems.
+
 **Things intentionally NOT in the game (no art for them):** currency/scrap, space stations, outposts, base building, player ship explosion.
 
 **Future (allowed via reuse/recolor):** asteroid mining (Environment asteroid), escort missions (enemy ships recolored as friendly convoys).
@@ -385,7 +387,7 @@ if got, want := err.Error(), "error creating question"; !strings.Contains(got, w
 9. **Season end and reset.**
 10. **Later:** asteroid mining, escort missions.
 
-Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney's Sci-Fi Sounds for effects, Foozle's Explorer Chiptunes for music, with Eerie Space Music set aside for the home planet and the Dreadnought fights.
+Sound and music arrived with the sandbox (#14), ahead of the milestones: Kenney's Sci-Fi Sounds for effects, Foozle's Explorer Chiptunes for music, with Eerie Space Music set aside for the home planet and the Dreadnought fights, where it has played since #187.
 
 ## 12. Open questions
 
