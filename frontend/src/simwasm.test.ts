@@ -322,6 +322,17 @@ test('a Bomber fires a pair that curves in, and a Torpedo takes two hull steps',
   assert.equal(s.ship.damage, 2);
 });
 
+test("the Kla'ed heavies fire a pair of Big Bullets and a Torpedo that takes two hull steps", async () => {
+  const s = await sim();
+  const pair = s.enemyPattern('bomber', 'klaed', 0, 0, 0, 1);
+  assert.equal(pair.length, 2);
+  assert.ok(pair.every((b) => b.kind === 'klaedBigBullet'));
+  const [torpedo] = s.enemyPattern('torpedo', 'klaed', 0, 0, 0, 1);
+  assert.equal(torpedo?.kind, 'klaedTorpedo');
+  s.takeHit(Math.PI / 2, 'klaedTorpedo');
+  assert.equal(s.ship.damage, 2);
+});
+
 test('a Frigate fires a whole ring of big bullets', async () => {
   const s = await sim();
   const ring = s.enemyPattern('frigate', 'klaed', 0, 0, 0, 7);

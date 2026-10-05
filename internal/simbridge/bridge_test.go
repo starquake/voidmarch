@@ -415,12 +415,14 @@ func TestTakeHit(t *testing.T) {
 func TestTakeHit_ATorpedoTakesTwoSteps(t *testing.T) {
 	t.Parallel()
 
-	b := New()
-	b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
-	torpedo := slices.Index(ProjectileKinds(), sim.ProjectileKind(sim.NairanTorpedo))
-	b.TakeHit(math.Pi/2, torpedo)
-	if got, want := b.State[HeaderShipDamage], float64(sim.TorpedoHitSteps); got != want {
-		t.Errorf("a Torpedo from behind: damage %v, want %v", got, want)
+	for _, id := range []sim.EnemyBulletID{sim.KlaedTorpedo, sim.NairanTorpedo} {
+		b := New()
+		b.Advance(sim.TickSeconds, sim.Command{AimY: -1000}, sim.NoSquadmate, sim.NoSquadmate)
+		torpedo := slices.Index(ProjectileKinds(), sim.ProjectileKind(id))
+		b.TakeHit(math.Pi/2, torpedo)
+		if got, want := b.State[HeaderShipDamage], float64(sim.TorpedoHitSteps); got != want {
+			t.Errorf("a %s from behind: damage %v, want %v", id, got, want)
+		}
 	}
 }
 

@@ -231,7 +231,7 @@ var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
 var SHIELDS = ["front", "frontAndSide", "round", "invincibility"];
 var ENEMY_KINDS = ["scout", "fighter", "frigate", "dreadnought", "bomber", "torpedo", "support"];
 var ENEMY_FACTIONS = ["klaed", "nairan", "nautolan"];
-var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "klaedRay", "klaedWave", "nairanBolt", "nairanRay", "nautolanBullet", "nautolanSpinningBullet", "nairanRocket", "nairanTorpedo", "nautolanBomb", "nautolanWave", "nautolanRay", "shard"];
+var PROJECTILE_KINDS = ["autoCannon", "rockets", "bigSpaceGun", "zapper", "klaedBullet", "klaedBigBullet", "klaedRay", "klaedWave", "nairanBolt", "nairanRay", "nautolanBullet", "nautolanSpinningBullet", "nairanRocket", "nairanTorpedo", "nautolanBomb", "nautolanWave", "nautolanRay", "klaedTorpedo", "shard"];
 var FACTIONS = ["own", "remote", "enemy"];
 var DEFAULT_LOADOUT = { weapon: "autoCannon", engine: "base", shield: "front", weaponTier: 0, engineTier: 0, shieldTier: 0 };
 var TICK_RATE = 60;
@@ -644,6 +644,8 @@ var BULLET_FRAMES = {
   // The heavy hitters' (#137): the Bombers' Rockets and Bombs, the Torpedo Ships' Torpedoes and Waves.
   nairanRocket: { faction: "nairan", file: "rocket", width: 9, height: 16, frames: 4 },
   nairanTorpedo: { faction: "nairan", file: "torpedo", width: 9, height: 24, frames: 3 },
+  // The Kla'ed Torpedo keeps the pack's colors: its teal exhaust already stands apart from the players' orange.
+  klaedTorpedo: { faction: "klaed", file: "torpedo", width: 11, height: 32, frames: 3, plain: true },
   nautolanBomb: { faction: "nautolan", file: "bomb", width: 16, height: 16, frames: 16 },
   nautolanWave: { faction: "nautolan", file: "wave", width: 64, height: 64, frames: 6 },
   // The Nautolan Dreadnought's beam (#153).
@@ -793,7 +795,7 @@ function sheets() {
     ),
     ...Object.values(BULLET_FRAMES).map((f) => ({
       key: `${f.faction}-${f.file}`,
-      url: `${ASSETS}/${f.faction}/${f.file}-${BULLET_VARIANT}.png`,
+      url: `${ASSETS}/${f.faction}/${f.file}${f.plain === true ? "" : `-${BULLET_VARIANT}`}.png`,
       frameWidth: f.width,
       frameHeight: f.height,
       frames: f.frames,

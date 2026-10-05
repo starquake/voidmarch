@@ -21,7 +21,7 @@ func flown(spawn ProjectileSpawn, age float64) *Projectile {
 func TestEnemyPattern_ABomberPairCrossesWhereItAimed(t *testing.T) {
 	t.Parallel()
 
-	for _, faction := range []EnemyFaction{Nairan, Nautolan} {
+	for _, faction := range EnemyFactions() {
 		const angle = 0.7
 		pair := EnemyPattern(EnemyBomber, faction, 100, 50, angle, 3)
 		if len(pair) != 2 ||
@@ -65,7 +65,7 @@ func TestEnemyPattern_ATorpedoGoesStraightDownItsLine(t *testing.T) {
 	for _, tc := range []struct {
 		faction EnemyFaction
 		want    EnemyBulletID
-	}{{Nairan, NairanTorpedo}, {Nautolan, NautolanWave}} {
+	}{{Klaed, KlaedTorpedo}, {Nairan, NairanTorpedo}, {Nautolan, NautolanWave}} {
 		shots := EnemyPattern(EnemyTorpedo, tc.faction, 0, 0, 1, 5)
 		if len(shots) != 1 || shots[0].Kind != ProjectileKind(tc.want) || shots[0].Angle != 1 ||
 			shots[0].Curve != 0 {
@@ -80,7 +80,7 @@ func TestEnemyPattern_ATorpedoGoesStraightDownItsLine(t *testing.T) {
 			t.Errorf("a %s takes %d hull steps, want %d", tc.want, got, TorpedoHitSteps)
 		}
 	}
-	for _, kind := range []EnemyBulletID{KlaedBullet, NairanRocket, NautolanBomb} {
+	for _, kind := range []EnemyBulletID{KlaedBullet, KlaedBigBullet, NairanRocket, NautolanBomb} {
 		if got := HitSteps(ProjectileKind(kind)); got != 1 {
 			t.Errorf("a %s takes %d hull steps, want 1", kind, got)
 		}
@@ -96,13 +96,46 @@ func TestHeadingAt_AStraightShotKeepsItsAngle(t *testing.T) {
 	}
 }
 
+func TestEnemyBullet_EachFactionsHeaviesFireItsOwnShots(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		faction         EnemyFaction
+		bomber, torpedo EnemyBulletID
+	}{
+		{Klaed, KlaedBigBullet, KlaedTorpedo},
+		{Nairan, NairanRocket, NairanTorpedo},
+		{Nautolan, NautolanBomb, NautolanWave},
+	}
+	for _, tc := range tests {
+		if got := EnemyBullet(EnemyBomber, tc.faction); got != tc.bomber {
+			t.Errorf("a %s Bomber fires %s, want %s", tc.faction, got, tc.bomber)
+		}
+		if got := EnemyBullet(EnemyTorpedo, tc.faction); got != tc.torpedo {
+			t.Errorf("a %s Torpedo Ship fires %s, want %s", tc.faction, got, tc.torpedo)
+		}
+		pair := EnemyPattern(EnemyBomber, tc.faction, 0, 0, 0, 1)
+		if len(pair) != 2 || pair[0].Kind != ProjectileKind(tc.bomber) ||
+			pair[1].Kind != ProjectileKind(tc.bomber) {
+			t.Errorf("a %s Bomber's pair = %+v, want two %s", tc.faction, pair, tc.bomber)
+		}
+	}
+}
+
 func TestGarrisonHeavyShare(t *testing.T) {
 	t.Parallel()
 
-	if GarrisonHeavyShare(1) != 0 || GarrisonHeavyShare(2) <= 0 ||
+	if got := GarrisonHeavyShare(0); got != 0 {
+		t.Errorf("GarrisonHeavyShare(0) = %v, want none at home", got)
+	}
+	// A few in ring 1, at Kla'ed strength (#185).
+	if got := GarrisonHeavyShare(1); got < 0.05 || got > 0.15 {
+		t.Errorf("GarrisonHeavyShare(1) = %v, want about 0.1", got)
+	}
+	if GarrisonHeavyShare(2) <= GarrisonHeavyShare(1) ||
 		GarrisonHeavyShare(3) <= GarrisonHeavyShare(2) {
 		t.Errorf(
-			"heavy shares %v, %v, %v by ring, want none in ring 1 and more outward",
+			"heavy shares %v, %v, %v by ring, want more outward",
 			GarrisonHeavyShare(1),
 			GarrisonHeavyShare(2),
 			GarrisonHeavyShare(3),

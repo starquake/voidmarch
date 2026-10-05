@@ -90,14 +90,11 @@ func TestBomber_KeepsItsDistance(t *testing.T) {
 	}
 }
 
-func TestGarrison_LaterRingsMixInHeavies(t *testing.T) {
+func TestGarrison_EveryRingMixesInHeavies(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct {
-		sector string
-		heavy  bool
-	}{{"E4", false}, {"D2", true}, {"D1", true}} {
-		s, _ := sim.ParseSector(tc.sector)
+	for _, sector := range []string{"E4", "D2", "D1"} {
+		s, _ := sim.ParseSector(sector)
 		c := s.Center()
 		hub, tick := testHub(t, WithOpenRings(3), NoEvents)
 		a, _ := join(t, hub, "a")
@@ -108,13 +105,8 @@ func TestGarrison_LaterRingsMixInHeavies(t *testing.T) {
 				heavies++
 			}
 		}
-		if got := heavies > 0; got != tc.heavy {
-			t.Errorf(
-				"%s: %d Bombers and Torpedo Ships, want some: %t",
-				tc.sector,
-				heavies,
-				tc.heavy,
-			)
+		if heavies == 0 {
+			t.Errorf("%s: no Bombers or Torpedo Ships, want some", sector)
 		}
 	}
 }

@@ -44,7 +44,7 @@ func TestFactionStats_EachFactionTougherThanTheLast(t *testing.T) {
 func TestEnemyBulletStatsOf_LaterFactionsShootFasterWithTheSameReach(t *testing.T) {
 	t.Parallel()
 
-	for _, kind := range []EnemyKind{EnemyScout, EnemyFighter} {
+	for _, kind := range []EnemyKind{EnemyScout, EnemyFighter, EnemyTorpedo} {
 		klaed := EnemyBulletStatsOf(EnemyBullet(kind, Klaed))
 		reach := klaed.Speed * klaed.Lifetime
 		for _, faction := range []EnemyFaction{Nairan, Nautolan} {
