@@ -145,8 +145,10 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   `ChooseSquadron` (empty starts a new one, Greek-named); the server sends
   `Squadrons` on every change and caps them at 4 ships. `SquadronOrder` is
   relayed to squadmates as `SquadronOrdered`, and every client applies it to its
-  own companions. The join screen (`frontend/src/squadrons.ts`) only shows when
-  there's a squadron with room; E2E's first page per spec starts its own.
+  own companions. On joining, the squadron screen (`frontend/src/squadrons.ts`)
+  only shows when there's a squadron with room; E2E's first page per spec
+  starts its own. C (or a tap on the HUD's Squadron row) reopens it in play to
+  switch squadrons (#45), and the ship holds still under it.
 - **A hidden tab keeps playing** (#57): browsers stop a hidden tab's
   animation frames, so a worker (`frontend/src/background.ts`) steps the sim
   and sends the ship's state instead, drawing nothing. The hub drops a player
