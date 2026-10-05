@@ -127,9 +127,17 @@ func statsFor(kind pb.EnemyKind, faction sim.EnemyFaction) enemyStats {
 			aggroRange:   aggroRange,
 			keepDistance: torpedoKeepDistance,
 		}
+	case pb.EnemyKind_ENEMY_KIND_SUPPORT:
+		// No guns: fireEvery stays 0.
+		stats = enemyStats{
+			hp:           supportHP,
+			maxSpeed:     supportMaxSpeed,
+			acceleration: supportAcceleration,
+			aggroRange:   aggroRange,
+			keepDistance: supportBehind,
+		}
 	case pb.EnemyKind_ENEMY_KIND_UNSPECIFIED, pb.EnemyKind_ENEMY_KIND_SCOUT,
-		pb.EnemyKind_ENEMY_KIND_FRIGATE, pb.EnemyKind_ENEMY_KIND_DREADNOUGHT,
-		pb.EnemyKind_ENEMY_KIND_SUPPORT:
+		pb.EnemyKind_ENEMY_KIND_FRIGATE, pb.EnemyKind_ENEMY_KIND_DREADNOUGHT:
 		fallthrough
 	default:
 	}
@@ -141,13 +149,15 @@ func statsFor(kind pb.EnemyKind, faction sim.EnemyFaction) enemyStats {
 }
 
 type enemy struct {
-	id       uint32
-	kind     pb.EnemyKind
-	faction  sim.EnemyFaction
-	x, y     float64
-	vx, vy   float64
-	angle    float64
-	hp       int
+	id      uint32
+	kind    pb.EnemyKind
+	faction sim.EnemyFaction
+	x, y    float64
+	vx, vy  float64
+	angle   float64
+	hp      int
+	// maxHP is the hp it starts with, the most a Support Ship repairs it to.
+	maxHP    int
 	cooldown int
 	lastNear uint32
 	// strafe is the Fighter's sideways direction, +1 or -1.
@@ -176,6 +186,10 @@ type enemy struct {
 	// leaving is set while a straggler flies off from downed ships, with
 	// nobody up to fight (#166).
 	leaving bool
+	// repairing is the enemy a Support Ship repairs, 0 for none, and
+	// repairIn the ticks until its next point (#184).
+	repairing uint32
+	repairIn  int
 }
 
 type point struct{ x, y float64 }
@@ -215,6 +229,7 @@ func (h *Hub) stepEnemies() {
 			h.forgetEnemy(id)
 		}
 	}
+	h.stepRepairs()
 }
 
 // addEnemyOf adds an enemy of kind and faction at (x, y).
@@ -232,6 +247,7 @@ func (h *Hub) addEnemyOf(kind pb.EnemyKind, faction sim.EnemyFaction, x, y float
 		x:        x,
 		y:        y,
 		hp:       stats.hp,
+		maxHP:    stats.hp,
 		cooldown: stats.fireEvery,
 		lastNear: h.tick,
 		strafe:   strafe,
@@ -261,6 +277,12 @@ func (h *Hub) steer(e *enemy, quarries []quarry, threats []sim.Projectile) {
 
 	// A garrison engages anyone in its sector, and roams it otherwise (#121).
 	engaged := found && (distance < stats.aggroRange || e.garrison != nil)
+	// A Support Ship keeps behind its pack, and out of a fight without one.
+	behind, backing := point{}, false
+	if engaged && e.isSupport() {
+		behind, backing = h.behindPack(e, target.at)
+		engaged = backing
+	}
 	holding := h.tick < e.holdUntil
 	if engaged && !holding {
 		h.dodge(e, threats)
@@ -274,6 +296,8 @@ func (h *Hub) steer(e *enemy, quarries []quarry, threats []sim.Projectile) {
 			e.x + dodgeStep*math.Cos(e.dodgeAngle),
 			e.y + dodgeStep*math.Sin(e.dodgeAngle),
 		}, stats)
+	case backing:
+		accelerate(e, behind, stats)
 	case engaged:
 		accelerate(e, h.goal(e, target.at, stats), stats)
 	case e.garrison != nil:
@@ -288,6 +312,22 @@ func (h *Hub) steer(e *enemy, quarries []quarry, threats []sim.Projectile) {
 		e.leaving = h.flyOff(e, stats)
 	}
 
+	move(e)
+
+	if holding {
+		return
+	}
+	if !engaged || backing {
+		faceTravel(e)
+
+		return
+	}
+	h.aimAndFire(e, target, stats)
+}
+
+// move moves e on by its velocity for a tick, out of the safe zone, inside
+// the world and, for a garrison ship, inside its sector.
+func move(e *enemy) {
 	e.x += e.vx * tickDuration
 	e.y += e.vy * tickDuration
 	keepOutOfSafeZone(e)
@@ -295,16 +335,11 @@ func (h *Hub) steer(e *enemy, quarries []quarry, threats []sim.Projectile) {
 	if e.garrison != nil {
 		keepInSector(e, e.garrison.sector)
 	}
+}
 
-	if holding {
-		return
-	}
-	if !engaged {
-		faceTravel(e)
-
-		return
-	}
-	// Aim and fire from where this tick's snapshot shows the enemy.
+// aimAndFire aims e at target from where this tick's snapshot shows it, and
+// fires when its cooldown and range allow.
+func (h *Hub) aimAndFire(e *enemy, target quarry, stats enemyStats) {
 	e.angle = aimAt(e, target)
 	if e.cooldown > 0 {
 		e.cooldown--
@@ -535,6 +570,10 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 			Angle:   float32(e.angle),
 			Vx:      float32(e.vx),
 			Vy:      float32(e.vy),
+		}
+		// The ship it repairs can go down later in the tick, to a companion's shot.
+		if _, ok := h.enemies[e.repairing]; ok {
+			state.Repairing = e.repairing
 		}
 		if f := e.frigate; f != nil {
 			state.Hp = float32(e.hp)

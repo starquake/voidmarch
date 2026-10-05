@@ -213,7 +213,7 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 			return
 		}
 		e := h.addEnemyOf(
-			h.garrisonKind(g.sector.Ring()),
+			h.garrisonKind(g.sector.Ring(), g.killed+g.field),
 			sim.FactionOfRing(g.sector.Ring()),
 			post.x,
 			post.y,
@@ -223,10 +223,14 @@ func (h *Hub) fillGarrison(g *garrison, ships []upShip) {
 	}
 }
 
-// garrisonKind draws a garrison ship's class for ring: its share of
-// Bombers and Torpedo Ships first, then Fighters and Scouts. Ring 1 has no
-// heavy share, so it draws once, as it always did.
-func (h *Hub) garrisonKind(ring int) pb.EnemyKind {
+// garrisonKind is the class of the ship at place in ring's garrison line-up:
+// a Support Ship at its places (#184), else drawn, its share of Bombers and
+// Torpedo Ships first, then Fighters and Scouts. Ring 1 has no heavy share,
+// so it draws once.
+func (h *Hub) garrisonKind(ring, place int) pb.EnemyKind {
+	if sim.GarrisonSupport(ring, place) {
+		return pb.EnemyKind_ENEMY_KIND_SUPPORT
+	}
 	if heavy := sim.GarrisonHeavyShare(ring); heavy > 0 {
 		switch draw := h.rng.Float64(); {
 		case draw < heavy/2:
