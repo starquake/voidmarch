@@ -50,6 +50,24 @@
       <div id="settings-rows" class="settings-rows"></div>
       <p class="loadout-keys"><b>Esc</b> opens and closes this · <b>&uarr;&darr;</b> choose · <b>Enter</b> or <b>&larr;&rarr;</b> or <b>click</b> to change · the world keeps playing behind it</p>
     </form>
+    <form id="intro-form" class="name-screen intro-screen" novalidate hidden>
+      <div class="intro-head"><h1>Voidmarch</h1><p id="intro-hint" class="intro-hint"></p></div>
+      <p id="intro-premise" class="intro-premise"></p>
+      <section class="intro-friends">
+        <div class="intro-friends-text"><h2>Better with friends</h2><p id="intro-friends"></p></div>
+        <div class="intro-friends-buttons">
+          <input id="intro-link" readonly aria-label="The game's link" spellcheck="false">
+          <button id="intro-copy" type="button">Copy link</button>
+          <button id="intro-share" type="button" hidden>Share</button>
+          <button id="intro-play" class="intro-play" type="submit">Play</button>
+        </div>
+      </section>
+      <div class="intro-grid">
+        <section class="intro-panel"><h2>Controls</h2><div id="intro-controls" class="intro-columns"></div></section>
+        <section class="intro-panel"><h2>The sectors</h2><ul id="intro-sectors" class="intro-list"></ul></section>
+      </div>
+      <section class="intro-panel"><h2>Good to know</h2><ul id="intro-extras" class="intro-list intro-extras"></ul></section>
+    </form>
     <div id="hud" class="hud" hidden>
       <div id="hud-panel" class="hud-panel" hidden></div>
       <div id="hud-gauge" class="hud-gauge"></div>

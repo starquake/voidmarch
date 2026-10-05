@@ -40,14 +40,14 @@ test('a knob is drawn within its stick reach', () => {
   assert.deepEqual(t.sticks()[0]?.knob, { x: 100 + TOUCH_STICK_RADIUS_PX, y: 100 });
 });
 
-/** The buttons for playing, without the top-left Settings and fullscreen switch. */
-const play = (s: TouchScreen): ButtonRect[] => touchButtons(s).filter((b) => b.button !== 'settings' && b.button !== 'fullscreen');
+/** The buttons for playing, without the top-left Settings, Help and fullscreen switch. */
+const play = (s: TouchScreen): ButtonRect[] => touchButtons(s).filter((b) => !['settings', 'help', 'fullscreen'].includes(b.button));
 
 test('buttons and the minimap take their touches before the sticks', () => {
   const buttons = touchButtons(screen);
   assert.deepEqual(
     buttons.map((b) => b.button),
-    ['summon', 'orders', 'settings'],
+    ['summon', 'orders', 'settings', 'help'],
   );
   const orders = buttons[1];
   assert.ok(orders);
@@ -123,8 +123,22 @@ test('Settings sits in the top left, with the fullscreen switch beside it where 
   assert.ok(windowed.x > settings.x + settings.width, 'the switch is right of Settings');
   assert.equal(fullscreen({ ...screen, fullscreen: true })?.label, 'Windowed');
   assert.deepEqual(
-    touchButtons({ ...screen, down: true, fullscreen: false }).slice(-2).map((b) => b.button),
-    ['settings', 'fullscreen'],
-    'both also while down',
+    touchButtons({ ...screen, down: true, fullscreen: false }).slice(-3).map((b) => b.button),
+    ['settings', 'help', 'fullscreen'],
+    'all three also while down',
   );
+});
+
+test('Help sits between Settings and the fullscreen switch (#193)', () => {
+  const buttons = touchButtons({ ...screen, fullscreen: false });
+  const find = (button: string): ButtonRect | undefined => buttons.find((b) => b.button === button);
+  const settings = find('settings');
+  const help = find('help');
+  const fullscreen = find('fullscreen');
+  assert.ok(settings && help && fullscreen);
+  assert.equal(help.label, 'Help');
+  assert.equal(help.y, settings.y);
+  assert.ok(help.x > settings.x + settings.width, 'Help is right of Settings');
+  assert.ok(fullscreen.x > help.x + help.width, 'the switch is right of Help');
+  assert.equal(buttonAt(buttons, help.x + 1, help.y + 1)?.button, 'help');
 });

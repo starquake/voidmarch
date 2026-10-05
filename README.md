@@ -58,6 +58,7 @@ From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
 | Q (hold) | Order ring: point at an order and let go |
 | Q (tap) | Repeat the last order |
 | Esc | Settings, when no other screen is open; Esc closes it |
+| F1 | The intro screen: what the game is, the controls, the sectors and the link to share; F1 or Esc closes it |
 
 The settings screen holds the options: sound, music, controls (screen- or
 ship-relative, where W flies toward the mouse), rotation (free or 16
@@ -70,7 +71,7 @@ The HUD shows your ship bottom left: the three fitted parts as their icons,
 in their tier's color, and the hull and shield as pips. Top left, a panel
 names your squadron and its orders, the hangar at home, how many of your
 companions are out, the sector you're in, your mission and any alert. Notices, and the connection while it isn't
-online, show as toasts at the top. The keys are listed bottom right. On a
+online, show as toasts at the top. Bottom right, a hint names F1 for the intro screen and Esc for the settings. On a
 development server or offline, **F3** shows frames per second, with the
 worst frame of the last second.
 
@@ -90,7 +91,8 @@ turns them on anywhere, and `?touch=0` off. Play in landscape.
 | Minimap | Full map: tap a sector to send your squadron there, tap beside it to close |
 | Respawn buttons | When down, respawn at home or beside a squadmate |
 | Settings | Top left: the settings screen; tap a row to change it, tap beside it to close |
-| Full screen | Beside Settings: switch to fullscreen and back (asked for on the first tap too; not on an iPhone, whose Safari can't) |
+| Help | Beside Settings: the intro screen, with these controls; tap beside it to close |
+| Full screen | Beside Help: switch to fullscreen and back (asked for on the first tap too; not on an iPhone, whose Safari can't) |
 
 An iPhone's Safari can't switch a page to fullscreen. Add the game to the
 Home Screen instead (Share, then Add to Home Screen): opened from there it
@@ -106,7 +108,10 @@ the weapon, engine and shield, locked parts too.
 ## Playing together
 
 Everyone connected to the same server plays in the same world. On the first
-visit you pick a name; your browser remembers it. Other players show up with
+visit you pick a name; your browser remembers it. An intro screen follows, once
+per browser: what the game is, its controls, the sectors, and the game's link
+with a Copy link button (and Share on a phone or tablet) to send to friends.
+**F1**, or **Help** on touch, brings it back. Other players show up with
 their name under their ship, in their own colour. Up to 16 players fit; the
 17th sees "the frontier is full, try again soon". Without a connection the
 game keeps running on its own and reconnects when it can.

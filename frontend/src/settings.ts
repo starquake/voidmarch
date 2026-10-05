@@ -213,6 +213,26 @@ export function saveSeenSeason(season: string, store: Store | undefined = browse
   }
 }
 
+const INTRO_SEEN_KEY = 'voidmarch.introSeen';
+
+/** Whether this browser has closed the intro screen before (#193). */
+export function loadIntroSeen(store: Store | undefined = browserStorage()): boolean {
+  try {
+    return store?.getItem(INTRO_SEEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Remembers that this browser closed the intro screen; a denied write is ignored. */
+export function saveIntroSeen(store: Store | undefined = browserStorage()): void {
+  try {
+    store?.setItem(INTRO_SEEN_KEY, '1');
+  } catch {
+    // Private windows can refuse storage; the screen then shows again next visit.
+  }
+}
+
 // Numbered: a phone that found the bloom black before the small blend (#180) tries it again.
 const BLOOM_BROKEN_KEY = 'voidmarch.bloomBroken.2';
 

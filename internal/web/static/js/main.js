@@ -128,9 +128,9 @@ function bakeGlow(src, glow) {
   const height = src.height + 2 * pad;
   const data = new Uint8ClampedArray(width * height * CHANNELS);
   const maxAlpha = glow.distance * (glow.distance + 1) * glow.quality / 2;
-  const red = (glow.color >> 16 & MAX) / MAX;
+  const red2 = (glow.color >> 16 & MAX) / MAX;
   const green = (glow.color >> 8 & MAX) / MAX;
-  const blue = (glow.color & MAX) / MAX;
+  const blue2 = (glow.color & MAX) / MAX;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const sx = x - pad + 0.5;
@@ -154,9 +154,9 @@ function bakeGlow(src, glow) {
       const alpha = a + outer;
       const to = (y * width + x) * CHANNELS;
       if (alpha > 0) {
-        data[to] = Math.round((r * a + outer * red) / alpha * MAX);
+        data[to] = Math.round((r * a + outer * red2) / alpha * MAX);
         data[to + 1] = Math.round((g * a + outer * green) / alpha * MAX);
-        data[to + 2] = Math.round((b * a + outer * blue) / alpha * MAX);
+        data[to + 2] = Math.round((b * a + outer * blue2) / alpha * MAX);
         data[to + 3] = Math.round(alpha * MAX);
       }
     }
@@ -166,7 +166,7 @@ function bakeGlow(src, glow) {
 
 // src/sounds.ts
 var AUDIO = "/static/audio";
-var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
+var both = (key2, path) => ({ key: key2, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
 var SHOT_SOUNDS = {
   autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
   rockets: ["sfx-rocket-launch"],
@@ -216,7 +216,7 @@ function effectFiles() {
   return files;
 }
 function musicFiles() {
-  return MUSIC.map((key) => both(key, `music/${key.replace(/^music-/, "")}`));
+  return MUSIC.map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
 }
 
 // src/sim/rules.gen.ts
@@ -578,8 +578,8 @@ var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
-var still = (key, url, size) => ({
-  key,
+var still = (key2, url, size) => ({
+  key: key2,
   url,
   frameWidth: size,
   frameHeight: size,
@@ -632,8 +632,8 @@ var BULLET_FRAMES = {
   // The Nautolan Dreadnought's beam (#153).
   nautolanRay: { faction: "nautolan", file: "ray", width: 18, height: 38, frames: 4 }
 };
-var strip = (key, url, size, frames, fps, loop = true) => ({
-  key,
+var strip = (key2, url, size, frames, fps, loop = true) => ({
+  key: key2,
   url,
   frameWidth: size,
   frameHeight: size,
@@ -746,9 +746,9 @@ function sheets() {
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12)
       ];
     }),
-    ...keys.background.map((key) => ({
-      key,
-      url: `${env}/${key}.png`,
+    ...keys.background.map((key2) => ({
+      key: key2,
+      url: `${env}/${key2}.png`,
       frameWidth: 640,
       frameHeight: 360,
       frames: 9,
@@ -1453,6 +1453,20 @@ function saveSeenSeason(season, store = browserStorage()) {
   } catch {
   }
 }
+var INTRO_SEEN_KEY = "voidmarch.introSeen";
+function loadIntroSeen(store = browserStorage()) {
+  try {
+    return store?.getItem(INTRO_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function saveIntroSeen(store = browserStorage()) {
+  try {
+    store?.setItem(INTRO_SEEN_KEY, "1");
+  } catch {
+  }
+}
 var BLOOM_BROKEN_KEY = "voidmarch.bloomBroken.2";
 function loadBloomBroken(store = browserStorage()) {
   try {
@@ -1586,6 +1600,472 @@ var SettingsScreen = class {
   }
 };
 
+// src/sim/sectors.ts
+var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+var SQRT3 = Math.sqrt(3);
+function ring({ q, r }) {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+function hexName({ q, r }) {
+  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
+  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
+}
+function sectorAxial(name) {
+  return parseHex(name);
+}
+function parseHex(name) {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
+    return void 0;
+  }
+  const q = col - GRID_RINGS;
+  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
+  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
+}
+function hexCenter({ q, r }) {
+  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
+}
+function sectorName(x, y) {
+  const q = 2 / 3 * x / SECTOR_RADIUS;
+  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
+  const s = -q - r;
+  let rq = Math.round(q);
+  let rr = Math.round(r);
+  const rs = Math.round(s);
+  const dq = Math.abs(rq - q);
+  const dr = Math.abs(rr - r);
+  const ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) {
+    rq = -rr - rs;
+  } else if (dr > ds) {
+    rr = -rq - rs;
+  }
+  const hex2 = { q: rq + 0, r: rr + 0 };
+  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
+}
+var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
+function sectorRing(name) {
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : ring(hex2);
+}
+var SECTOR_NAMES = (() => {
+  const names = [];
+  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
+    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
+      if (ring({ q, r }) <= GRID_RINGS) {
+        names.push(hexName({ q, r }));
+      }
+    }
+  }
+  return names;
+})();
+var HOME_SECTOR = sectorName(0, 0) ?? "";
+var ALL_OPEN = { openRings: 0, opened: /* @__PURE__ */ new Set() };
+function sectorOpen(name, frontier) {
+  const ring2 = sectorRing(name);
+  return ring2 !== void 0 && (frontier.openRings === 0 || ring2 <= frontier.openRings || frontier.opened.has(name));
+}
+function closedEdges(frontier) {
+  const edges = [];
+  for (const name of SECTOR_NAMES) {
+    if (sectorOpen(name, frontier)) {
+      continue;
+    }
+    const center = sectorCenter(name) ?? { x: 0, y: 0 };
+    const corners = sectorCorners(name);
+    corners.forEach((a, i) => {
+      const b = corners[(i + 1) % corners.length] ?? a;
+      const side = (2 * i + 1) * Math.PI / 6;
+      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
+      if (across !== void 0 && sectorOpen(across, frontier)) {
+        edges.push({ a, b });
+      }
+    });
+  }
+  return edges;
+}
+function sectorState(name, cleared, frontier = ALL_OPEN) {
+  if (name === HOME_SECTOR) {
+    return "home";
+  }
+  if (!sectorOpen(name, frontier)) {
+    return "closed";
+  }
+  if (cleared === void 0) {
+    return "unknown";
+  }
+  return cleared.has(name) ? "cleared" : "hostile";
+}
+function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
+  const name = sectorName(x, y);
+  if (name === void 0) {
+    return "";
+  }
+  const state = sectorState(name, cleared, frontier);
+  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
+}
+function sectorCorners(name) {
+  const hex2 = parseHex(name);
+  if (hex2 === void 0) {
+    return [];
+  }
+  const center = hexCenter(hex2);
+  return Array.from({ length: 6 }, (_, i) => ({
+    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
+    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
+  }));
+}
+function sectorCenter(name) {
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : hexCenter(hex2);
+}
+function missionArrow(ship, target, width, height, margin) {
+  const center = sectorCenter(target);
+  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
+    return void 0;
+  }
+  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
+  const halfW = width / 2 - margin;
+  const halfH = height / 2 - margin;
+  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
+  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
+}
+function sectorFaction(name) {
+  const ring2 = sectorRing(name);
+  return (ring2 === void 0 ? void 0 : RING_FACTIONS[ring2]) ?? "klaed";
+}
+function missionBanner(sector) {
+  return [
+    `New mission: sector ${sector}`,
+    `Destroy every ${FACTION_NAMES[sectorFaction(sector)]} ship in ${sector} to clear it.`,
+    "Follow the gold arrow at the edge of the screen."
+  ];
+}
+function missionCompleteBanner(sector, part, stats) {
+  const lines = [`Mission complete: sector ${sector} cleared`];
+  if (stats !== void 0) {
+    lines.push(stats);
+  }
+  if (part !== void 0) {
+    lines.push(`Your reward: ${part}`);
+  }
+  return lines;
+}
+var WHITE = 16777215;
+var CHANNELS2 = [16, 8, 0];
+var CHANNEL_MAX = 255;
+function ringTint(x, y) {
+  const name = sectorName(x, y);
+  const ring2 = name === void 0 ? void 0 : sectorRing(name);
+  return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
+}
+function fadeColor(a, b, t) {
+  const share = Math.min(1, Math.max(0, t));
+  let out = 0;
+  for (const shift of CHANNELS2) {
+    const from = a >> shift & CHANNEL_MAX;
+    const to = b >> shift & CHANNEL_MAX;
+    const step = (to - from) * share;
+    const moved = share > 0 && Math.abs(step) < 1 ? from + Math.sign(to - from) : Math.round(from + step);
+    out |= moved << shift;
+  }
+  return out;
+}
+
+// src/sim/intro.ts
+var plain = (text) => ({ text });
+var gold = (text) => ({ text, mark: "gold" });
+var blue = (text) => ({ text, mark: "blue" });
+var red = (text) => ({ text, mark: "red" });
+var key = (text) => ({ text, mark: "key" });
+var NUMBER_WORDS = ["no", "one", "two", "three", "four", "five"];
+function numberWord(n, capital = false) {
+  const word = NUMBER_WORDS[n] ?? String(n);
+  return capital ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+}
+var PREMISE = [
+  plain("The "),
+  gold("Kla'ed"),
+  plain(", "),
+  gold("Nairan"),
+  plain(" and "),
+  gold("Nautolan"),
+  plain(
+    " fleets hold the sectors around your home planet. Clear them ring by ring with your friends and your companions. Rescue derelict ships for the hangar, and bring down each ring's Dreadnought to open the next. Win the season together."
+  )
+];
+var KEYBOARD = {
+  title: "Keyboard",
+  style: "keys",
+  rows: [
+    { keys: ["W", "A", "S", "D"], text: "move" },
+    { keys: ["G"], text: "draw a companion, at home" },
+    { keys: ["Q"], text: "hold for orders, tap to repeat" },
+    { keys: ["1", "2", "3"], text: "switch weapon, engine, shield" },
+    { keys: ["M"], text: "map" },
+    { keys: ["Tab"], text: "hold for the standings" },
+    { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
+    { keys: ["O"], text: "the season's victory screen" },
+    { keys: ["Esc"], text: "settings, or close a screen" },
+    { keys: ["F1"], text: "this screen" }
+  ]
+};
+var MOUSE = {
+  title: "Mouse",
+  style: "plain",
+  rows: [
+    { keys: ["point"], text: "aim" },
+    { keys: ["hold left"], text: "fire; the big space gun charges, and fires when you let go" },
+    { keys: ["click"], text: "on the map: send your squadron to a sector" },
+    { keys: ["click a slot"], text: "bottom left: pick another part you own" }
+  ],
+  note: "W flies up the screen, or toward the mouse with ship-relative controls in the settings."
+};
+var THUMBS = {
+  title: "Thumbs",
+  style: "plain",
+  rows: [
+    { keys: ["left half"], text: "a stick where your thumb lands: move that way" },
+    { keys: ["right half"], text: "a stick: aim that way and fire while pushed; the big space gun fires on release" },
+    { keys: ["minimap"], text: "the full map: tap a sector to send your squadron there" },
+    { keys: ["a slot"], text: "bottom left: tap it, then a part you own" }
+  ]
+};
+var BUTTONS = {
+  title: "Buttons",
+  style: "buttons",
+  rows: [
+    { keys: ["Summon"], text: "draw a companion, at home" },
+    { keys: ["Orders"], text: "hold for the order ring, tap to repeat" },
+    { keys: ["Respawn"], text: "when down: at home, or beside a squadmate" },
+    { keys: ["Settings"], text: "sound, controls, effects" },
+    { keys: ["Help"], text: "this screen" }
+  ]
+};
+var SECTORS = [
+  [
+    plain("The world is "),
+    blue(`${String(SECTOR_NAMES.length)} hexagonal sectors`),
+    plain(`: home in ${HOME_SECTOR} and ${numberWord(GRID_RINGS)} rings around it.`)
+  ],
+  [plain("Destroy a sector's whole garrison to "), blue("clear it"), plain(" for good. Its losses stay, so you can wear it down over several visits.")],
+  [
+    plain("Your squadron's "),
+    gold("mission"),
+    plain(" is the nearest uncleared sector: the "),
+    gold("gold arrow"),
+    plain(" at the screen's edge points the way.")
+  ],
+  [plain("A "), red("red force field"), plain(" closes the outer rings until the ring's Dreadnought falls.")]
+];
+function extras(touch) {
+  return [
+    [blue("Companions"), plain(" are AI wingmates from the shared hangar, up to three. They follow your squadron's orders from the order ring.")],
+    [
+      blue("Parts"),
+      plain(
+        ` drop from enemies: fly over one to take it for your squadron, or raise its tier. Switch anywhere with ${touch ? "the slots bottom left" : "1, 2, 3 or the slots"}.`
+      )
+    ],
+    [
+      blue("Going down:"),
+      plain(
+        ` ${numberWord(MAX_DAMAGE, true)} hull hits. A friend hovering beside you revives you, or after ${String(RESPAWN_DELAY)} s respawn at home or beside a squadmate.`
+      )
+    ],
+    [blue("Squadrons"), plain(" are up to 4 ships, companions included. An order from anyone reaches every companion in it.")],
+    [blue("The season"), plain(" is won when the Nautolan Dreadnought in ring 3 falls; the victory screen then shows everyone's stats.")]
+  ];
+}
+function introContent(touch) {
+  return {
+    premise: PREMISE,
+    hint: touch ? [key("Help"), plain(", top left, opens this again \xB7 tap beside it to close")] : [key("F1"), plain(" opens and closes this \xB7 "), key("Esc"), plain(" closes \xB7 the world keeps playing behind it")],
+    controls: touch ? [THUMBS, BUTTONS] : [KEYBOARD, MOUSE],
+    sectors: SECTORS,
+    extras: extras(touch),
+    friends: "Everyone with this link plays in the same world, up to 16 ships."
+  };
+}
+function shareLink(location) {
+  return location.origin + location.pathname;
+}
+
+// src/introscreen.ts
+var COPIED_MS = 2e3;
+var IntroScreen = class {
+  doc;
+  form;
+  link;
+  copy;
+  share;
+  closed;
+  copiedTimer;
+  /** closed runs each time the screen closes. */
+  constructor(closed, doc = document) {
+    this.closed = closed;
+    this.doc = doc;
+    this.form = doc.querySelector("#intro-form");
+    this.link = doc.querySelector("#intro-link");
+    this.copy = doc.querySelector("#intro-copy");
+    this.share = doc.querySelector("#intro-share");
+    this.form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.hide();
+    });
+    this.copy?.addEventListener("click", () => {
+      this.copyLink();
+    });
+    this.share?.addEventListener("click", () => {
+      this.shareLink();
+    });
+  }
+  get open() {
+    return this.form !== null && !this.form.hidden;
+  }
+  /** Opens the screen with the controls of the device, keeping the screens behind it from taking focus or clicks. */
+  show(touch) {
+    if (this.form === null) {
+      return;
+    }
+    this.fill(touch);
+    for (const other of this.doc.querySelectorAll(".name-screen")) {
+      other.inert = other !== this.form;
+    }
+    this.form.hidden = false;
+    this.form.scrollTop = 0;
+    if (!touch) {
+      this.doc.querySelector("#intro-play")?.focus({ preventScroll: true });
+    }
+  }
+  hide() {
+    if (!this.open || this.form === null) {
+      return;
+    }
+    this.form.hidden = true;
+    for (const other of this.doc.querySelectorAll(".name-screen")) {
+      other.inert = false;
+    }
+    this.closed();
+  }
+  fill(touch) {
+    const content = introContent(touch);
+    const location = this.doc.defaultView?.location;
+    this.text("#intro-hint", content.hint);
+    this.text("#intro-premise", content.premise);
+    this.doc.querySelector("#intro-friends")?.replaceChildren(content.friends);
+    if (this.link !== null && location !== void 0) {
+      this.link.value = shareLink(location);
+    }
+    this.resetCopy();
+    if (this.share !== null) {
+      this.share.hidden = !touch || typeof this.doc.defaultView?.navigator.share !== "function";
+    }
+    this.doc.querySelector("#intro-controls")?.replaceChildren(...content.controls.map((column) => this.column(column)));
+    this.list("#intro-sectors", content.sectors);
+    this.list("#intro-extras", content.extras);
+  }
+  /** Copies the link and says so for a moment; where the clipboard is out of reach, selects it to copy by hand. */
+  copyLink() {
+    const link = this.link?.value ?? "";
+    const clipboard = this.doc.defaultView?.navigator.clipboard;
+    const fallback = () => {
+      this.link?.focus();
+      this.link?.select();
+    };
+    if (clipboard === void 0) {
+      fallback();
+      return;
+    }
+    clipboard.writeText(link).then(() => {
+      this.copied();
+    }, fallback);
+  }
+  copied() {
+    const view = this.doc.defaultView;
+    if (this.copy === null || view === null) {
+      return;
+    }
+    this.copy.textContent = "Copied";
+    this.copy.classList.add("copied");
+    view.clearTimeout(this.copiedTimer);
+    this.copiedTimer = view.setTimeout(() => {
+      this.resetCopy();
+    }, COPIED_MS);
+  }
+  resetCopy() {
+    this.doc.defaultView?.clearTimeout(this.copiedTimer);
+    this.copiedTimer = void 0;
+    if (this.copy !== null) {
+      this.copy.textContent = "Copy link";
+      this.copy.classList.remove("copied");
+    }
+  }
+  /** Opens the device's share sheet with the link; closing it unshared is fine. */
+  shareLink() {
+    const nav = this.doc.defaultView?.navigator;
+    nav?.share({ title: "Voidmarch", url: this.link?.value ?? "" }).catch(() => void 0);
+  }
+  text(selector, line) {
+    this.doc.querySelector(selector)?.replaceChildren(...this.spans(line));
+  }
+  list(selector, lines) {
+    this.doc.querySelector(selector)?.replaceChildren(
+      ...lines.map((line) => {
+        const li = this.doc.createElement("li");
+        li.append(...this.spans(line));
+        return li;
+      })
+    );
+  }
+  spans(line) {
+    return line.map(({ text, mark }) => {
+      if (mark === void 0) {
+        return text;
+      }
+      const el = this.doc.createElement(mark === "key" ? "b" : "span");
+      if (mark !== "key") {
+        el.className = `mark-${mark}`;
+      }
+      el.textContent = text;
+      return el;
+    });
+  }
+  column(column) {
+    const el = this.doc.createElement("div");
+    const title = this.doc.createElement("h3");
+    title.textContent = column.title;
+    const rows = this.doc.createElement("div");
+    rows.className = "intro-rows";
+    for (const row of column.rows) {
+      const keys2 = this.doc.createElement("span");
+      keys2.className = column.style === "buttons" ? "intro-keys buttons" : "intro-keys";
+      keys2.append(
+        ...row.keys.map((k) => {
+          if (column.style !== "keys") {
+            return k;
+          }
+          const cap = this.doc.createElement("kbd");
+          cap.textContent = k;
+          return cap;
+        })
+      );
+      const text = this.doc.createElement("span");
+      text.textContent = row.text;
+      rows.append(keys2, text);
+    }
+    el.append(title, rows);
+    if (column.note !== void 0) {
+      const note = this.doc.createElement("p");
+      note.className = "intro-note";
+      note.textContent = column.note;
+      el.append(note);
+    }
+    return el;
+  }
+};
+
 // src/hud.ts
 var ASSETS2 = "/static/assets";
 var TOAST_FADE_MS = 600;
@@ -1662,11 +2142,11 @@ var HudView = class _HudView {
     this.drawToasts(frame.toasts);
   }
   drawGauge(frame) {
-    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
-    if (this.gauge === null || key === this.gaugeKey) {
+    const key2 = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
+    if (this.gauge === null || key2 === this.gaugeKey) {
       return;
     }
-    this.gaugeKey = key;
+    this.gaugeKey = key2;
     const doc = this.gauge.ownerDocument;
     const slots = doc.createElement("div");
     slots.className = "hud-slots";
@@ -1746,11 +2226,11 @@ var HudView = class _HudView {
     return icon;
   }
   drawPanel(rows) {
-    const key = JSON.stringify(rows);
-    if (this.panel === null || key === this.panelKey) {
+    const key2 = JSON.stringify(rows);
+    if (this.panel === null || key2 === this.panelKey) {
       return;
     }
-    this.panelKey = key;
+    this.panelKey = key2;
     const doc = this.panel.ownerDocument;
     this.panel.hidden = rows.length === 0;
     this.panel.replaceChildren(
@@ -2063,179 +2543,6 @@ var StandingsPanel = class _StandingsPanel {
 
 // src/scenes/mapview.ts
 import "./vendor/phaser.js";
-
-// src/sim/sectors.ts
-var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-var SQRT3 = Math.sqrt(3);
-function ring({ q, r }) {
-  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-}
-function hexName({ q, r }) {
-  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
-  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
-}
-function sectorAxial(name) {
-  return parseHex(name);
-}
-function parseHex(name) {
-  const col = LETTERS.indexOf(name.charAt(0));
-  const row = Number(name.slice(1)) - 1;
-  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
-    return void 0;
-  }
-  const q = col - GRID_RINGS;
-  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
-  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
-}
-function hexCenter({ q, r }) {
-  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
-}
-function sectorName(x, y) {
-  const q = 2 / 3 * x / SECTOR_RADIUS;
-  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
-  const s = -q - r;
-  let rq = Math.round(q);
-  let rr = Math.round(r);
-  const rs = Math.round(s);
-  const dq = Math.abs(rq - q);
-  const dr = Math.abs(rr - r);
-  const ds = Math.abs(rs - s);
-  if (dq > dr && dq > ds) {
-    rq = -rr - rs;
-  } else if (dr > ds) {
-    rr = -rq - rs;
-  }
-  const hex2 = { q: rq + 0, r: rr + 0 };
-  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
-}
-var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
-function sectorRing(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : ring(hex2);
-}
-var SECTOR_NAMES = (() => {
-  const names = [];
-  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
-    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
-      if (ring({ q, r }) <= GRID_RINGS) {
-        names.push(hexName({ q, r }));
-      }
-    }
-  }
-  return names;
-})();
-var HOME_SECTOR = sectorName(0, 0) ?? "";
-var ALL_OPEN = { openRings: 0, opened: /* @__PURE__ */ new Set() };
-function sectorOpen(name, frontier) {
-  const ring2 = sectorRing(name);
-  return ring2 !== void 0 && (frontier.openRings === 0 || ring2 <= frontier.openRings || frontier.opened.has(name));
-}
-function closedEdges(frontier) {
-  const edges = [];
-  for (const name of SECTOR_NAMES) {
-    if (sectorOpen(name, frontier)) {
-      continue;
-    }
-    const center = sectorCenter(name) ?? { x: 0, y: 0 };
-    const corners = sectorCorners(name);
-    corners.forEach((a, i) => {
-      const b = corners[(i + 1) % corners.length] ?? a;
-      const side = (2 * i + 1) * Math.PI / 6;
-      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
-      if (across !== void 0 && sectorOpen(across, frontier)) {
-        edges.push({ a, b });
-      }
-    });
-  }
-  return edges;
-}
-function sectorState(name, cleared, frontier = ALL_OPEN) {
-  if (name === HOME_SECTOR) {
-    return "home";
-  }
-  if (!sectorOpen(name, frontier)) {
-    return "closed";
-  }
-  if (cleared === void 0) {
-    return "unknown";
-  }
-  return cleared.has(name) ? "cleared" : "hostile";
-}
-function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
-  const name = sectorName(x, y);
-  if (name === void 0) {
-    return "";
-  }
-  const state = sectorState(name, cleared, frontier);
-  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
-}
-function sectorCorners(name) {
-  const hex2 = parseHex(name);
-  if (hex2 === void 0) {
-    return [];
-  }
-  const center = hexCenter(hex2);
-  return Array.from({ length: 6 }, (_, i) => ({
-    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
-    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
-  }));
-}
-function sectorCenter(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : hexCenter(hex2);
-}
-function missionArrow(ship, target, width, height, margin) {
-  const center = sectorCenter(target);
-  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
-    return void 0;
-  }
-  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
-  const halfW = width / 2 - margin;
-  const halfH = height / 2 - margin;
-  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
-  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
-}
-function sectorFaction(name) {
-  const ring2 = sectorRing(name);
-  return (ring2 === void 0 ? void 0 : RING_FACTIONS[ring2]) ?? "klaed";
-}
-function missionBanner(sector) {
-  return [
-    `New mission: sector ${sector}`,
-    `Destroy every ${FACTION_NAMES[sectorFaction(sector)]} ship in ${sector} to clear it.`,
-    "Follow the gold arrow at the edge of the screen."
-  ];
-}
-function missionCompleteBanner(sector, part, stats) {
-  const lines = [`Mission complete: sector ${sector} cleared`];
-  if (stats !== void 0) {
-    lines.push(stats);
-  }
-  if (part !== void 0) {
-    lines.push(`Your reward: ${part}`);
-  }
-  return lines;
-}
-var WHITE = 16777215;
-var CHANNELS2 = [16, 8, 0];
-var CHANNEL_MAX = 255;
-function ringTint(x, y) {
-  const name = sectorName(x, y);
-  const ring2 = name === void 0 ? void 0 : sectorRing(name);
-  return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
-}
-function fadeColor(a, b, t) {
-  const share = Math.min(1, Math.max(0, t));
-  let out = 0;
-  for (const shift of CHANNELS2) {
-    const from = a >> shift & CHANNEL_MAX;
-    const to = b >> shift & CHANNEL_MAX;
-    const step = (to - from) * share;
-    const moved = share > 0 && Math.abs(step) < 1 ? from + Math.sign(to - from) : Math.round(from + step);
-    out |= moved << shift;
-  }
-  return out;
-}
 
 // src/sim/sectormap.ts
 function layoutForWidth(x, y, width) {
@@ -3031,16 +3338,17 @@ function touchButtons(screen) {
     x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
     width: TOUCH_BUTTON_WIDTH_PX * dpr * TOUCH_SMALL_SHARE
   };
+  const help = { ...settings, button: "help", label: "Help", x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr };
   const switcher = screen.fullscreen === void 0 ? [] : [
     {
       ...small,
       button: "fullscreen",
       label: screen.fullscreen ? "Windowed" : "Full screen",
-      x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr,
+      x: help.x + help.width + TOUCH_BUTTON_GAP_PX * dpr,
       width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE
     }
   ];
-  return [...playButtons(screen, dpr), settings, ...switcher];
+  return [...playButtons(screen, dpr), settings, help, ...switcher];
 }
 function playButtons(screen, dpr) {
   const { width, height } = screen;
@@ -3292,8 +3600,12 @@ var SquadronScreen = class {
     }
     this.list?.replaceChildren(...choices.map((c) => this.row(c)));
     if (this.open) {
-      this.list?.querySelector(".picked button")?.focus();
+      this.focusPick();
     }
+  }
+  /** Gives the picked squadron's Join the focus, so Enter joins it. */
+  focusPick() {
+    this.list?.querySelector(".picked button")?.focus();
   }
   showError(reason) {
     if (this.error !== null) {
@@ -3522,9 +3834,9 @@ var ShipAudio = class {
       this.engine.setRate(mix.rate);
     }
     for (const weapon of events.charges) {
-      const key = CHARGE_SOUNDS[weapon];
-      if (key !== void 0) {
-        this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
+      const key2 = CHARGE_SOUNDS[weapon];
+      if (key2 !== void 0) {
+        this.scene.sound.play(key2, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
       }
     }
     const volleys = /* @__PURE__ */ new Set();
@@ -3534,23 +3846,23 @@ var ShipAudio = class {
         continue;
       }
       volleys.add(volley);
-      const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
-      if (key !== void 0) {
-        this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
+      const key2 = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
+      if (key2 !== void 0) {
+        this.scene.sound.play(key2, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
       }
     }
     for (const expired of events.expired) {
-      const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : void 0;
-      if (key !== void 0) {
-        this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+      const key2 = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : void 0;
+      if (key2 !== void 0) {
+        this.scene.sound.play(key2, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
     }
   }
   /** Another player's shot: the same sound, quieter. */
   remoteShot(weapon) {
-    const key = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
-    if (key !== void 0) {
-      this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
+    const key2 = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
+    if (key2 !== void 0) {
+      this.scene.sound.play(key2, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
   }
   /** An enemy's shot: their own laser, soft and a little low. */
@@ -3569,10 +3881,10 @@ var ShipAudio = class {
   }
   /** A force field zap (#127), at a volume from 0 to 1: a random one, never the last one again. */
   fieldZap(volume) {
-    const key = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
-    this.lastZap = key;
-    if (key !== void 0) {
-      this.scene.sound.play(key, { volume });
+    const key2 = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
+    this.lastZap = key2;
+    if (key2 !== void 0) {
+      this.scene.sound.play(key2, { volume });
     }
   }
   partSwitched() {
@@ -3612,9 +3924,9 @@ var ShipAudio = class {
       });
       return;
     }
-    const key = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
+    const key2 = MUSIC[this.musicIndex % MUSIC.length] ?? MUSIC[0];
     this.music?.destroy();
-    this.music = this.scene.sound.add(key, { volume: MUSIC_VOLUME });
+    this.music = this.scene.sound.add(key2, { volume: MUSIC_VOLUME });
     this.music.once(Phaser3.Sound.Events.COMPLETE, () => {
       this.musicIndex++;
       this.playMusic();
@@ -5275,12 +5587,12 @@ var NetPlay = class {
   }
   /** A number naming another ship for the ram cooldown, the same for as long as the page runs. */
   bumpKey(name) {
-    let key = this.bumpKeys.get(name);
-    if (key === void 0) {
-      key = this.bumpKeys.size + 1;
-      this.bumpKeys.set(name, key);
+    let key2 = this.bumpKeys.get(name);
+    if (key2 === void 0) {
+      key2 = this.bumpKeys.size + 1;
+      this.bumpKeys.set(name, key2);
     }
-    return key;
+    return key2;
   }
   /** Whether a point is within range of the player or one of their companions. */
   nearWing(x, y, range) {
@@ -5872,8 +6184,7 @@ var DOWN_PANEL_PADDING_X = 12;
 var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
-var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion";
-var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 M map \xB7 hold Tab standings \xB7 1/2/3 parts \xB7 Esc settings";
+var KEY_HINT = "F1 help \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
@@ -5920,10 +6231,17 @@ var SandboxScene = class extends Phaser11.Scene {
   shownLoadout = "";
   ship;
   net;
-  /** The loadout screen at the home planet (#78). */
   victoryScreen = new VictoryScreen();
   settingsScreen = new SettingsScreen((row) => {
     this.setOption(row.id);
+  });
+  squadronScreen = new SquadronScreen();
+  /** The intro screen (#193), on the first visit and from F1; it saves itself as seen when closed. */
+  introScreen = new IntroScreen(() => {
+    saveIntroSeen();
+    if (this.squadronScreen.open) {
+      this.squadronScreen.focusPick();
+    }
   });
   /** The season so far on the join screen, and above the down panel while down or while Tab is held (#167). */
   standingsJoin = new StandingsPanel("#standings-join");
@@ -6032,6 +6350,9 @@ var SandboxScene = class extends Phaser11.Scene {
       this.resize();
     });
     this.startNetPlay();
+    if (!loadIntroSeen()) {
+      this.introScreen.show(this.touchOn);
+    }
     this.debug = {
       ready: true,
       scene: this.scene.key,
@@ -6081,6 +6402,7 @@ var SandboxScene = class extends Phaser11.Scene {
       squadronScreen: false,
       victoryScreen: false,
       settingsScreen: false,
+      introScreen: false,
       standings: { join: 0, down: 0 },
       touch: this.touchOn,
       touchButtons: [],
@@ -6200,8 +6522,8 @@ var SandboxScene = class extends Phaser11.Scene {
     label.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * MISSION_LABEL_OFFSET, at2.y - Math.sin(at2.angle) * size * MISSION_LABEL_OFFSET);
   }
   createBackgrounds() {
-    this.backgrounds = keys.background.map((key, i) => {
-      const sprite = this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key, 0).setScrollFactor(0);
+    this.backgrounds = keys.background.map((key2, i) => {
+      const sprite = this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key2, 0).setScrollFactor(0);
       this.world.add(sprite);
       return { sprite, factor: PARALLAX[i] ?? 0 };
     });
@@ -6248,7 +6570,7 @@ var SandboxScene = class extends Phaser11.Scene {
         clearToken();
         window.location.reload();
       },
-      squadronScreen: new SquadronScreen(),
+      squadronScreen: this.squadronScreen,
       pickups: this.pickups
     });
     this.net.start();
@@ -6397,7 +6719,12 @@ var SandboxScene = class extends Phaser11.Scene {
         }
         return;
       }
-      if (this.hudView.dropOpen !== void 0 && event.code === "Escape") {
+      if (event.code === "F1") {
+        event.preventDefault();
+        this.toggleIntro();
+      } else if (this.introScreen.open) {
+        this.introKey(event);
+      } else if (this.hudView.dropOpen !== void 0 && event.code === "Escape") {
         this.hudView.close();
       } else if (this.settingsScreen.open) {
         this.settingsKey(event);
@@ -6574,7 +6901,29 @@ var SandboxScene = class extends Phaser11.Scene {
   }
   /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
   get screenOpen() {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open;
+  }
+  /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
+  toggleIntro() {
+    if (this.introScreen.open) {
+      this.introScreen.hide();
+      return;
+    }
+    if (this.orderPress !== void 0) {
+      return;
+    }
+    this.settingsScreen.hide();
+    this.victoryScreen.hide();
+    this.maps.close();
+    this.hudView.close();
+    this.standingsHeld = false;
+    this.introScreen.show(this.touchOn);
+  }
+  /** A key while the intro screen is open: Esc closes it, and the rest wait. */
+  introKey(event) {
+    if (event.code === "Escape") {
+      this.introScreen.hide();
+    }
   }
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
   openSettings() {
@@ -7010,6 +7359,10 @@ ${modeName(info)}`,
   }
   /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
+    if (this.introScreen.open) {
+      this.introScreen.hide();
+      return;
+    }
     if (this.settingsScreen.open) {
       this.settingsScreen.hide();
       return;
@@ -7043,6 +7396,9 @@ ${modeName(info)}`,
         break;
       case "settings":
         this.openSettings();
+        break;
+      case "help":
+        this.toggleIntro();
         break;
       case "respawnHome":
         this.respawn(false);
@@ -7349,8 +7705,8 @@ ${modeName(info)}`,
   }
   updateHud() {
     this.hud.setText([
-      // The key lines are about keys, so a tablet goes without them (#180, decision 6).
-      ...this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE],
+      // The hint is about keys, so a tablet goes without it (#180, decision 6).
+      ...this.touchOn ? [] : [KEY_HINT],
       ...this.showFps ? [this.fpsLine()] : [],
       ...this.diagnostics?.lines() ?? []
     ]);
@@ -7370,10 +7726,10 @@ ${modeName(info)}`,
     const owned = this.ownedUnlocks;
     const unlocks = this.net?.unlocks ?? defaultUnlocks();
     const view = (part, tier) => ({ part, file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier), hint: PART_HINTS[part] });
-    const slot = (kind, key, parts, part, tier) => ({
+    const slot = (kind, key2, parts, part, tier) => ({
       ...view(part, tier),
       kind,
-      key,
+      key: key2,
       options: ownedParts(parts, owned).map((p) => view(p, unlocks.get(p) ?? 0))
     });
     const info = net?.squadronInfo;
@@ -7465,6 +7821,7 @@ ${modeName(info)}`,
     this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
+    this.debug.introScreen = this.introScreen.open;
     this.debug.standings = { join: this.standingsJoin.rows, down: this.standingsDown.rows };
     this.debug.touchButtons = this.touchButtonRects.map((b) => b.button);
     this.debug.touchSticks = this.touch.sticks().map((s) => s.role);

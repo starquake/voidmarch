@@ -13,8 +13,8 @@ import {
   TOUCH_WIDE_BUTTON_PX,
 } from './tuning.ts';
 
-/** The touch buttons (#180): what the keyboard's G, Q, H, J and Esc do, and switching to fullscreen and back. */
-export type TouchButton = 'summon' | 'orders' | 'respawnHome' | 'respawnBeside' | 'settings' | 'fullscreen';
+/** The touch buttons (#180): what the keyboard's G, Q, H, J, Esc and F1 do, and switching to fullscreen and back. */
+export type TouchButton = 'summon' | 'orders' | 'respawnHome' | 'respawnBeside' | 'settings' | 'help' | 'fullscreen';
 
 /** A touch button's place on the canvas, in device pixels, and its label. */
 export interface ButtonRect {
@@ -68,6 +68,8 @@ export function touchButtons(screen: TouchScreen): ButtonRect[] {
     x: TOUCH_EDGE_PX * dpr + (screen.insetLeft ?? 0),
     width: TOUCH_BUTTON_WIDTH_PX * dpr * TOUCH_SMALL_SHARE,
   };
+  // The intro screen (#193), beside Settings.
+  const help: ButtonRect = { ...settings, button: 'help', label: 'Help', x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr };
   const switcher: ButtonRect[] =
     screen.fullscreen === undefined
       ? []
@@ -76,12 +78,12 @@ export function touchButtons(screen: TouchScreen): ButtonRect[] {
             ...small,
             button: 'fullscreen',
             label: screen.fullscreen ? 'Windowed' : 'Full screen',
-            x: settings.x + settings.width + TOUCH_BUTTON_GAP_PX * dpr,
+            x: help.x + help.width + TOUCH_BUTTON_GAP_PX * dpr,
             width: TOUCH_WIDE_BUTTON_PX * dpr * TOUCH_SMALL_SHARE,
           },
         ];
 
-  return [...playButtons(screen, dpr), settings, ...switcher];
+  return [...playButtons(screen, dpr), settings, help, ...switcher];
 }
 
 /** The buttons for playing: Summon and Orders, or while down the respawns. */

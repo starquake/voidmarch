@@ -115,10 +115,14 @@ export class SquadronScreen {
       this.full.textContent = full.length === 0 ? '' : `Full: ${full.join(', ')}.`;
     }
     this.list?.replaceChildren(...choices.map((c) => this.row(c)));
-    // The picked squadron's Join has the focus, so Enter joins it.
     if (this.open) {
-      this.list?.querySelector<HTMLButtonElement>('.picked button')?.focus();
+      this.focusPick();
     }
+  }
+
+  /** Gives the picked squadron's Join the focus, so Enter joins it. */
+  focusPick(): void {
+    this.list?.querySelector<HTMLButtonElement>('.picked button')?.focus();
   }
 
   showError(reason: string): void {
