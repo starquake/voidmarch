@@ -1,27 +1,17 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
-import { aimAt, nearest, state } from './hunt.ts';
+import { aimAt, state } from './hunt.ts';
 
 /**
  * Up and left of home, toward C3's center: 600 px out is past the safe zone
- * and within reach of C3's garrison. Its line-up never moves on, so its
- * second ship, a Support Ship (#184), comes out every time. Only the shield
- * spec fires at it, a shot at a time, stopping at the first repair.
+ * and within reach of C3's garrison, which no spec fights. Its line-up never
+ * moves on, so its second ship, a Support Ship (#184), comes out every time.
  */
 const TOWARD_C3 = { x: -Math.sqrt(3) / 2, y: -1 / 2 };
 const OUT = 600;
-/** Inside C3, past its side 857 px out, where its garrison comes for the ship. */
-const IN_C3 = 1000;
-/** The kinds that show a shield only while repaired (#188); the bosses' show their charge. */
-const SMALL = ['scout', 'fighter', 'bomber', 'torpedo'];
-/** Near enough for an auto cannon shot, which flies about 470 px. */
-const IN_RANGE = 400;
-/** Near enough a Support Ship for it to repair, a little inside its 200 px. */
-const REPAIR_RANGE = 180;
 
-/** Flies out toward C3 until the ship is out this far and C3's Support Ship has come out. */
-async function meetC3Support(page: Page, out: number): Promise<void> {
+test('a garrison comes out with its Support Ship', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
 
@@ -29,11 +19,11 @@ async function meetC3Support(page: Page, out: number): Promise<void> {
   await expect
     .poll(async () => {
       const s = await state(page);
-      await aimAt(page, s, TOWARD_C3.x * 2 * out, TOWARD_C3.y * 2 * out);
+      await aimAt(page, s, TOWARD_C3.x * 2 * OUT, TOWARD_C3.y * 2 * OUT);
 
       return s.ship.x * TOWARD_C3.x + s.ship.y * TOWARD_C3.y;
     })
-    .toBeGreaterThan(out);
+    .toBeGreaterThan(OUT);
   await page.keyboard.up('w');
 
   await expect
@@ -42,53 +32,94 @@ async function meetC3Support(page: Page, out: number): Promise<void> {
       timeout: 20_000,
     })
     .toBeGreaterThan(0);
-}
-
-test('a garrison comes out with its Support Ship', async ({ page }) => {
-  await meetC3Support(page, OUT);
 });
 
+/** An enemy as protobuf JSON puts it in a snapshot (`?wire=json`). */
+interface WireEnemy {
+  enemyId: number;
+  kind: string;
+  faction: string;
+  x: number;
+  y: number;
+  angle: number;
+  repairing?: number;
+}
+
+/** Ids past any the hub hands out, so the added ships never meet a real one. */
+const SUPPORT_ID = 4_000_000_000;
+const FIGHTER_ID = SUPPORT_ID + 1;
+const SCOUT_ID = SUPPORT_ID + 2;
+
+/** The added ships' controls: where they fly, and the end of the repair. */
+interface Repair {
+  near: (x: number, y: number) => void;
+  stop: () => void;
+}
+
+/**
+ * Routes the page's connection through to its server, adding to every
+ * snapshot, once `near` places them, a Support Ship, the Fighter it repairs
+ * until `stop`, and a Scout it never repairs. A real repair lasts only while
+ * the garrison wins its fight, which no spec can count on (#188).
+ */
+async function withRepair(page: Page): Promise<Repair> {
+  let at: { x: number; y: number } | undefined;
+  let repairing = true;
+  await page.routeWebSocket('**/ws', (ws) => {
+    const server = ws.connectToServer();
+    server.onMessage((message) => {
+      const frame = typeof message === 'string' ? (JSON.parse(message) as { snapshot?: { enemies?: WireEnemy[] } }) : {};
+      if (at === undefined || frame.snapshot === undefined) {
+        ws.send(message);
+
+        return;
+      }
+      const { x, y } = at;
+      const ship = (enemyId: number, kind: string, dx: number): WireEnemy => ({
+        enemyId,
+        kind: `ENEMY_KIND_${kind}`,
+        faction: 'ENEMY_FACTION_KLAED',
+        x: x + dx,
+        y: y - 120,
+        angle: Math.PI / 2,
+      });
+      frame.snapshot.enemies = [
+        ...(frame.snapshot.enemies ?? []),
+        { ...ship(SUPPORT_ID, 'SUPPORT', -80), repairing: repairing ? FIGHTER_ID : 0 },
+        ship(FIGHTER_ID, 'FIGHTER', 0),
+        ship(SCOUT_ID, 'SCOUT', 80),
+      ];
+      ws.send(JSON.stringify(frame));
+    });
+  });
+
+  return {
+    near: (nx, ny) => {
+      at = { x: nx, y: ny };
+    },
+    stop: () => {
+      repairing = false;
+    },
+  };
+}
+
 test("a small ship shows its shield while it's repaired, and not after (#188)", async ({ page }) => {
-  test.setTimeout(90_000);
-  await meetC3Support(page, IN_C3);
+  const repair = await withRepair(page);
+  await page.goto('/?wire=json');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const { ship } = await state(page);
+  repair.near(ship.x, ship.y);
 
-  // A shot at a time at a ship by the Support Ship, until one shows its shield.
-  let shielded: number | undefined;
+  const shields = async (): Promise<{ fighter: boolean | undefined; scout: boolean | undefined }> => {
+    const { enemies } = await state(page);
+    const shielded = (id: number): boolean | undefined => enemies.find((e) => e.id === id)?.shielded;
+
+    return { fighter: shielded(FIGHTER_ID), scout: shielded(SCOUT_ID) };
+  };
   await expect
-    .poll(
-      async () => {
-        const s = await state(page);
-        shielded = s.enemies.find((e) => e.shielded && SMALL.includes(e.kind))?.id;
-        if (shielded !== undefined) {
-          return true;
-        }
-        const supports = s.enemies.filter((e) => e.kind === 'support');
-        const near = s.enemies.filter(
-          (e) =>
-            SMALL.includes(e.kind) &&
-            Math.hypot(e.x - s.ship.x, e.y - s.ship.y) < IN_RANGE &&
-            supports.some((o) => Math.hypot(e.x - o.x, e.y - o.y) < REPAIR_RANGE),
-        );
-        // A Scout goes down in two hits, so another kind first.
-        const tough = near.filter((e) => e.kind !== 'scout');
-        const target = nearest({ ...s, enemies: tough.length > 0 ? tough : near });
-        if (target !== undefined) {
-          await aimAt(page, s, target.x, target.y);
-          await page.mouse.down();
-          await page.waitForTimeout(40);
-          await page.mouse.up();
-        }
+    .poll(shields, { message: 'the repaired Fighter shows its shield, the Scout beside it none' })
+    .toEqual({ fighter: true, scout: false });
 
-        return false;
-      },
-      { message: 'a damaged ship shows its shield while the Support Ship repairs it', timeout: 45_000, intervals: [250] },
-    )
-    .toBe(true);
-
-  await expect
-    .poll(async () => (await state(page)).enemies.find((e) => e.id === shielded)?.shielded ?? 'gone', {
-      message: 'the shield goes once the repair stops',
-      timeout: 20_000,
-    })
-    .toBe(false);
+  repair.stop();
+  await expect.poll(shields, { message: 'the shield goes once the repair stops' }).toEqual({ fighter: false, scout: false });
 });
