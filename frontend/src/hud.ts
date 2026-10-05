@@ -71,10 +71,17 @@ export class HudView {
         this.setOpen(this.open === kind ? undefined : kind);
       }
     });
-    // Anywhere else closes it.
-    doc.addEventListener('pointerdown', () => {
-      this.close();
-    });
+    // Anywhere else closes it. In the capture phase, since the game's canvas
+    // keeps its pointer events from bubbling up in Firefox.
+    doc.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (!(event.target instanceof Node && this.gauge?.contains(event.target) === true)) {
+          this.close();
+        }
+      },
+      true,
+    );
   }
 
   /** Whether a slot's drop-up is open, so the scene's Esc closes it first. */

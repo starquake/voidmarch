@@ -1620,9 +1620,15 @@ var HudView = class _HudView {
         this.setOpen(this.open === kind ? void 0 : kind);
       }
     });
-    doc.addEventListener("pointerdown", () => {
-      this.close();
-    });
+    doc.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (!(event.target instanceof Node && this.gauge?.contains(event.target) === true)) {
+          this.close();
+        }
+      },
+      true
+    );
   }
   /** Whether a slot's drop-up is open, so the scene's Esc closes it first. */
   get dropOpen() {
