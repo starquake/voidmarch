@@ -68,7 +68,9 @@ test('a click on a slot opens its drop-up, and a click on a part fits it (#191)'
 
   await page.locator('#hud-gauge [data-slot="engine"]').click();
   await expect(drop).toBeVisible();
-  await page.mouse.click(640, 300);
+  // A click on the game, in the middle of the view.
+  const view = page.viewportSize() ?? { width: 640, height: 360 };
+  await page.mouse.click(view.width / 2, view.height / 3);
   await expect(drop).toBeHidden();
 });
 
