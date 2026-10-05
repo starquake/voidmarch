@@ -1,7 +1,7 @@
 import { test as fresh, type Page } from '@playwright/test';
 
 import { touchButtons } from '../src/sim/touch.ts';
-import { expect, test } from './fixtures.ts';
+import { expect, registerPlayer, test } from './fixtures.ts';
 import { state } from './hunt.ts';
 
 const online = async (page: Page): Promise<void> => {
@@ -27,6 +27,39 @@ fresh('a first visit shows the intro after the name screen, and Play closes it f
   await online(page);
   await page.waitForTimeout(300);
   await expect(intro).toBeHidden();
+});
+
+test('on a first visit with a squadron to join, the intro opens over the join screen, which waits behind it', async ({ page, browser, baseURL }) => {
+  test.setTimeout(60_000);
+  await page.goto('/');
+  await online(page);
+  await expect.poll(async () => (await state(page)).squadron).not.toBe('');
+  const squadron = (await state(page)).squadron;
+
+  // A small viewport, since two pages render WebGL in software at once in CI (#22).
+  const context = await browser.newContext({ baseURL: baseURL ?? '', viewport: { width: 480, height: 270 } });
+  try {
+    const token = await registerPlayer(context.request, `Ny${String(Date.now() % 100000)}`);
+    await context.addInitScript((t) => {
+      localStorage.setItem('voidmarch.token', t);
+    }, token);
+    const newcomer = await context.newPage();
+    await newcomer.goto('/');
+    await online(newcomer);
+    await expect.poll(async () => (await state(newcomer)).squadronScreen).toBe(true);
+    expect((await state(newcomer)).introScreen).toBe(true);
+
+    // Enter plays, and doesn't join the squadron behind the screen.
+    await newcomer.keyboard.press('Enter');
+    await expect.poll(async () => (await state(newcomer)).introScreen).toBe(false);
+    expect((await state(newcomer)).squadron).toBe('');
+    // The join screen has the focus back: Enter joins the picked squadron.
+    await newcomer.keyboard.press('Enter');
+    await expect.poll(async () => (await state(newcomer)).squadron).toBe(squadron);
+  } finally {
+    // An open page keeps rendering WebGL through later specs (#22).
+    await context.close();
+  }
 });
 
 test('F1 opens and closes the intro, Esc closes it, and the ship holds still under it', async ({ page }) => {
