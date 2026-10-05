@@ -53,6 +53,14 @@ type dreadnoughtFight struct {
 	// dealt is each ship's damage to it in its current minute of fighting,
 	// by player id or companion seat, for the log (#223).
 	dealt map[string]*dealing
+	// raid is the raid it's on, nil for the gate fight (#223).
+	raid *raid
+}
+
+// drivenOff reports whether a raiding Dreadnought has taken enough this
+// visit to leave.
+func (f *dreadnoughtFight) drivenOff() bool {
+	return f.raid != nil && f.share <= f.raid.floor
 }
 
 // dealing is the health a ship took off a Dreadnought since the tick it
@@ -140,6 +148,10 @@ func (h *Hub) wakeDreadnought() {
 	early := inside == 1 && h.worldMap != nil && h.worldMap.DreadnoughtAwake
 	if !early && h.ringCleared(inside) < sim.DreadnoughtWakesAt {
 		return
+	}
+	// Its raid, if it's on one, ends first, keeping the share it took (#223).
+	if h.raid != nil {
+		h.endRaid(false, nil)
 	}
 	faction := sim.FactionOfRing(inside)
 	ring := min(inside+1, sim.GridRings)
@@ -358,19 +370,7 @@ func (h *Hub) shipLoadout(ship string) sim.Loadout {
 // health for the next time its faction's wakes, and clears the sector it
 // held (#223). The finale's fall wins the season (#153).
 func (h *Hub) dreadnoughtFallen(e *enemy) {
-	var gains []*pb.PickupGain
-	for _, id := range slices.Sorted(maps.Keys(h.members)) {
-		m := h.members[id]
-		if m.gone || m.state == nil || downed(m.state) {
-			continue
-		}
-		if math.Hypot(float64(m.state.GetX())-e.x, float64(m.state.GetY())-e.y) > sim.FrigateReach {
-			continue
-		}
-		if gain := h.grantPart(id, m); gain != nil {
-			gains = append(gains, gain)
-		}
-	}
+	gains := h.partsNear(e)
 	for n := range sim.DreadnoughtDerelicts {
 		angle := fullTurnFloat * float64(n) / sim.DreadnoughtDerelicts
 		h.releaseDerelict(
@@ -397,6 +397,25 @@ func (h *Hub) dreadnoughtFallen(e *enemy) {
 		h.saves <- func() { h.saveOpenRings(opened) }
 	}
 	h.broadcastFrontier()
+}
+
+// partsNear grants a part to every player up within reach of e (#125).
+func (h *Hub) partsNear(e *enemy) []*pb.PickupGain {
+	var gains []*pb.PickupGain
+	for _, id := range slices.Sorted(maps.Keys(h.members)) {
+		m := h.members[id]
+		if m.gone || m.state == nil || downed(m.state) {
+			continue
+		}
+		if math.Hypot(float64(m.state.GetX())-e.x, float64(m.state.GetY())-e.y) > sim.FrigateReach {
+			continue
+		}
+		if gain := h.grantPart(id, m); gain != nil {
+			gains = append(gains, gain)
+		}
+	}
+
+	return gains
 }
 
 // clearHeldSector clears s, the sector a fallen Dreadnought held, its

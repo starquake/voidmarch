@@ -206,6 +206,7 @@ func (h *Hub) stepEnemies() {
 	h.spawnFrigates()
 	h.closeRingsIfFallenBack()
 	h.wakeDreadnought()
+	h.stepRaids(ships)
 	// In id order: steering draws from h.rng, so map order would make a
 	// seeded hub differ between runs.
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
@@ -515,6 +516,11 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 	default:
 		e.hp = damaged(e.hp, damage)
 	}
+	if e.dread != nil && e.dread.drivenOff() {
+		h.driveOff(e)
+
+		return
+	}
 	if e.hp > 0 {
 		return
 	}
@@ -586,6 +592,9 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 			state.MaxHp = float32(d.maxHP())
 			state.Shield = float32(d.shield)
 			state.ScaledFor = float32(d.weight)
+			if d.raid != nil {
+				state.LeavesAt = float32(d.raid.floor * d.maxHP())
+			}
 		}
 		out = append(out, state)
 	}

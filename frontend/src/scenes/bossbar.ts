@@ -17,6 +17,9 @@ const FONT_PX = 12;
 const HEALTH_PX = 10;
 const SHIELD_PX = 3;
 const GAP_PX = 2;
+/** The line where a raider is driven off (#223), a little past the bar. */
+const MARK_FILL = 0xd8f8ff;
+const MARK_PX = 2;
 
 /** The health bar at the top center while a boss is near (#89), on the HUD camera. */
 export class BossBarView {
@@ -57,7 +60,11 @@ export class BossBarView {
   /** Shows bar, or hides it when undefined. */
   show(bar: BossBar | undefined): void {
     const same =
-      bar?.name === this.shown?.name && bar?.health === this.shown?.health && bar?.shield === this.shown?.shield && bar?.text === this.shown?.text;
+      bar?.name === this.shown?.name &&
+      bar?.health === this.shown?.health &&
+      bar?.shield === this.shown?.shield &&
+      bar?.text === this.shown?.text &&
+      bar?.mark === this.shown?.mark;
     this.shown = bar;
     for (const object of [this.name, this.text, this.bars]) {
       object.setVisible(bar !== undefined);
@@ -88,5 +95,9 @@ export class BossBarView {
       .fillRect(0, 0, Math.round(this.width * bar.health), health)
       .fillStyle(SHIELD_FILL, 1)
       .fillRect(0, shieldY, Math.round(this.width * bar.shield), shield);
+    if (bar.mark > 0) {
+      const x = Math.round(this.width * bar.mark);
+      this.bars.fillStyle(MARK_FILL, 1).fillRect(x - Math.round(MARK_PX * s) / 2, -GAP_PX * s, Math.round(MARK_PX * s), health + 2 * GAP_PX * s);
+    }
   }
 }

@@ -35,6 +35,10 @@ const CHARGE_DETUNE = 300;
 const EXPIRE_VOLUME = 0.3;
 const UI_VOLUME = 0.3;
 const TELEPORT_VOLUME = 0.3;
+/** A raid's warning (#223): the teleport an octave down, in cents, played at these delays in seconds. */
+const RAID_WARNING_VOLUME = 0.5;
+const RAID_WARNING_DETUNE = -1200;
+const RAID_WARNING_DELAYS = [0, 0.6] as const;
 const MUSIC_VOLUME = 0.3;
 /** How long one place's music takes to fade into the next's. */
 const MUSIC_FADE_MS = 2000;
@@ -160,9 +164,16 @@ export class ShipAudio {
     this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
   }
 
-  /** A derelict teleporting away (#190). */
+  /** A derelict teleporting away (#190), or a Dreadnought (#223). */
   teleported(): void {
     this.scene.sound.play(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
+  }
+
+  /** A Dreadnought coming to raid (#223): the teleport's sound, an octave down, louder, twice. */
+  raidWarned(): void {
+    for (const delay of RAID_WARNING_DELAYS) {
+      this.scene.sound.play(TELEPORT_SOUND, { volume: RAID_WARNING_VOLUME, detune: RAID_WARNING_DETUNE, delay });
+    }
   }
 
   shieldSwitched(): void {

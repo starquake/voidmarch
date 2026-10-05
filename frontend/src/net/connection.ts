@@ -17,6 +17,8 @@ import {
   type EventEnded,
   type Frontier as FrontierMessage,
   type BossFell,
+  type RaidEnded,
+  type RaidWarned,
   type SeasonWon,
   type Standings,
   type SquadronOrder,
@@ -95,6 +97,9 @@ export interface ConnectionEvents {
   seasonWon(won: SeasonWon): void;
   /** The season so far changed (#167). */
   standings(standings: Standings): void;
+  /** A Dreadnought is coming to raid a sector, or has left one (#223). */
+  raidWarned(warned: RaidWarned): void;
+  raidEnded(ended: RaidEnded): void;
 }
 
 export interface Timers {
@@ -247,6 +252,13 @@ export class Connection {
     }
   }
 
+  /** Sends a Dreadnought raiding the sector the ship is in at once; a development server only (#223). */
+  sendDevStartRaid(): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'devStartRaid', value: {} } }));
+    }
+  }
+
   /** Asks for the season's result as if it were won now; a development server only (#156). */
   sendDevSeasonWon(): void {
     if (this.welcomed) {
@@ -359,6 +371,12 @@ export class Connection {
         break;
       case 'standings':
         events.standings(message.kind.value);
+        break;
+      case 'raidWarned':
+        events.raidWarned(message.kind.value);
+        break;
+      case 'raidEnded':
+        events.raidEnded(message.kind.value);
         break;
       default:
     }

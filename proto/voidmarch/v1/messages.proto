@@ -206,8 +206,13 @@ message ClientMessage {
     PickMission pick_mission = 11;
     DevStartAttack dev_start_attack = 12;
     DevSeasonWon dev_season_won = 13;
+    DevStartRaid dev_start_raid = 14;
   }
 }
+
+// DevStartRaid sends a Dreadnought raiding the hostile sector this player is
+// in at once, on a development server only, for trying raids (#223).
+message DevStartRaid {}
 
 // DevStartAttack starts an attack on a cleared sector at once, on a
 // development server only, for trying events and for E2E (#102).
@@ -395,6 +400,9 @@ message EnemyState {
   EnemyFaction faction = 12;
   // The enemy a Support Ship is repairing now (#184); 0 for none.
   uint32 repairing = 13;
+  // A raiding Dreadnought's health at which it's driven off (#223); 0 for
+  // any other enemy.
+  float leaves_at = 14;
 }
 
 // Snapshot is every other player, and every enemy, at a server tick.
@@ -522,7 +530,28 @@ message ServerMessage {
     BossFell boss_fell = 23;
     SeasonWon season_won = 24;
     Standings standings = 25;
+    RaidWarned raid_warned = 26;
+    RaidEnded raid_ended = 27;
   }
+}
+
+// RaidWarned says a Dreadnought is coming to raid a sector (#223): it
+// appears there, out of sight, at tick.
+message RaidWarned {
+  EnemyFaction faction = 1;
+  string sector = 2;
+  uint32 tick = 3;
+}
+
+// RaidEnded says a raiding Dreadnought teleported out (#223): driven off by
+// damage, with the parts it gave the players near it, or not. enemy_id is 0
+// for a raid called off before it arrived.
+message RaidEnded {
+  uint32 enemy_id = 1;
+  EnemyFaction faction = 2;
+  bool driven_off = 3;
+  repeated PickupGain gains = 4;
+  uint32 tick = 5;
 }
 
 // BossFell says a siege boss was destroyed (#125): the parts it gave the

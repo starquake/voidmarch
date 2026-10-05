@@ -13,6 +13,7 @@ const frigate = (over: Partial<DrawnBoss> = {}): DrawnBoss => ({
   maxHp: 130,
   shield: FRIGATE_SHIELD / 2,
   scaledFor: 3,
+  leavesAt: 0,
   ...over,
 });
 
@@ -27,6 +28,7 @@ test('the bar names the Frigate and shows its health, shield and the players it 
     health: 96 / 130,
     shield: 0.5,
     text: '96 / 130 · scaled for 3 online',
+    mark: 0,
   });
 });
 
@@ -38,6 +40,19 @@ test('the bar names the Dreadnought and fills its shield against its own size', 
     health: 0.5,
     shield: 0.25,
     text: `${String(max / 2)} / ${String(max)} · scaled for 3 online`,
+    mark: 0,
+  });
+});
+
+test("a raiding Dreadnought's bar marks where it's driven off", () => {
+  const max = DREADNOUGHT_BASE_HP * 4;
+  const raider = frigate({ kind: 'dreadnought', hp: max / 2, maxHp: max, shield: 0, scaledFor: 3, leavesAt: max * 0.4 });
+  assert.deepEqual(bossBar([raider], 0, 0), {
+    name: "KLA'ED DREADNOUGHT · RAID",
+    health: 0.5,
+    shield: 0,
+    text: `${String(max / 2)} / ${String(max)} · driven off at ${String(max * 0.4)} · scaled for 3 online`,
+    mark: 0.4,
   });
 });
 

@@ -203,6 +203,20 @@ const (
 	// DreadnoughtDerelicts is how many derelicts its fall releases (#8
 	// decision 8).
 	DreadnoughtDerelicts = 3
+	// DreadnoughtRaidEveryMin and DreadnoughtRaidEveryMax bound the seconds
+	// from a raid, or from the raided ring's first clear, to the next (#223).
+	DreadnoughtRaidEveryMin = 600
+	DreadnoughtRaidEveryMax = 900
+	// DreadnoughtRaidWarning is the seconds between a raid's banner and the
+	// Dreadnought appearing.
+	DreadnoughtRaidWarning = 4
+	// DreadnoughtRaidSeconds is the longest a raid lasts, and
+	// DreadnoughtRaidShare the share of its maximum health that drives it off.
+	DreadnoughtRaidSeconds = 120
+	DreadnoughtRaidShare   = 0.1
+	// DreadnoughtRaidClearance keeps a raiding Dreadnought out of every
+	// ship's sight where it appears, in px.
+	DreadnoughtRaidClearance = 600
 )
 
 // Companion brains (docs/design.md, section 13).

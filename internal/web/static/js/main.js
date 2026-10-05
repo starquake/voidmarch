@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser12 from "./vendor/phaser.js";
+import Phaser13 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -516,6 +516,7 @@ var TELEPORT_FLASH_RADIUS = 14;
 var TELEPORT_COLOR = 5951999;
 var TELEPORT_WHITE = 14219519;
 var TELEPORT_SOUND_RANGE = 400;
+var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -897,7 +898,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser11 from "./vendor/phaser.js";
+import Phaser12 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -1056,10 +1057,10 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSL4BAoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIABI0Cg5kZXZfc2Vhc29uX3dvbhgNIAEoCzIaLnZvaWRtYXJjaC52MS5EZXZTZWFzb25Xb25IAEIGCgRraW5kIiAKDkRldlN0YXJ0QXR0YWNrEg4KBnNlY3RvchgBIAEoCSIOCgxEZXZTZWFzb25Xb24iHQoLUGlja01pc3Npb24SDgoGc2VjdG9yGAEgASgJIhUKB0NvbGxlY3QSCgoCaWQYASABKA0i7QQKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg0KBWNvbG9yGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDRIXCg9jb21wYW5pb25fbGltaXQYByABKA0SDAoEbmFtZRgJIAEoCRISCgpjb21wYW5pb25zGAogAygNEioKCXNxdWFkcm9ucxgLIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnMSEAoIc3F1YWRyb24YDCABKAkSJQoHdW5sb2NrcxgNIAMoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sSLAoHcGlja3VwcxgOIAMoCzIbLnZvaWRtYXJjaC52MS5QaWNrdXBEcm9wcGVkEiYKB2xvYWRvdXQYDyABKAsyFS52b2lkbWFyY2gudjEuTG9hZG91dBITCgtkZXZlbG9wbWVudBgQIAEoCBIXCg9jbGVhcmVkX3NlY3RvcnMYESADKAkSLQoLd29ybGRfZXZlbnQYEiABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIQCghtYXBfbmFtZRgTIAEoCRIoCghmcm9udGllchgUIAEoCzIWLnZvaWRtYXJjaC52MS5Gcm9udGllchIrCgpzZWFzb25fd29uGBUgASgLMhcudm9pZG1hcmNoLnYxLlNlYXNvbldvbhIqCglzdGFuZGluZ3MYFiABKAsyFy52b2lkbWFyY2gudjEuU3RhbmRpbmdzSgQICBAJUg9zdW1tb25fYW55d2hlcmUiRwoJU3RhbmRpbmdzEioKB3BsYXllcnMYASADKAsyGS52b2lkbWFyY2gudjEuUGxheWVyU3RhdHMSDgoGc2Vhc29uGAIgASgDImkKCVNlYXNvbldvbhIOCgZzZWFzb24YASABKAMSDwoHc2Vjb25kcxgCIAEoBBIqCgdwbGF5ZXJzGAMgAygLMhkudm9pZG1hcmNoLnYxLlBsYXllclN0YXRzEg8KB3NlY3RvcnMYBCABKA0ipQEKC1BsYXllclN0YXRzEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWtpbGxzGAMgASgNEhcKD2NvbXBhbmlvbl9raWxscxgEIAEoDRINCgVzaG90cxgFIAEoDRIMCgRoaXRzGAYgASgNEg4KBmRlYXRocxgHIAEoDRIPCgdyZXNjdWVzGAggASgNEg8KB3NlY3RvcnMYCSABKA0ijAEKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvbG9yGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNIocBCgxTcXVhZHJvbkluZm8SDAoEbmFtZRgBIAEoCRItCgdtZW1iZXJzGAIgAygLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uTWVtYmVyEikKBG1vZGUYAyABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIPCgdtaXNzaW9uGAQgASgJIl0KCVNxdWFkcm9ucxItCglzcXVhZHJvbnMYASADKAsyGi52b2lkbWFyY2gudjEuU3F1YWRyb25JbmZvEhEKCW5leHRfbmFtZRgCIAEoCRIOCgZoYW5nYXIYAyABKA0icgoOU3F1YWRyb25Kb2luZWQSDAoEbmFtZRgBIAEoCRIpCgRtb2RlGAIgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAiIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIl4KD1NxdWFkcm9uT3JkZXJlZBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIqCgVvcmRlchgDIAEoCzIbLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyIoICCgpFbmVteVN0YXRlEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgkKAXgYAyABKAISCQoBeRgEIAEoAhINCgVhbmdsZRgFIAEoAhIKCgJ2eBgGIAEoAhIKCgJ2eRgHIAEoAhIKCgJocBgIIAEoAhIOCgZtYXhfaHAYCSABKAISDgoGc2hpZWxkGAogASgCEhIKCnNjYWxlZF9mb3IYCyABKAISKwoHZmFjdGlvbhgMIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24SEQoJcmVwYWlyaW5nGA0gASgNIqIBCghTbmFwc2hvdBIMCgR0aWNrGAEgASgNEi0KB3BsYXllcnMYAiADKAsyHC52b2lkbWFyY2gudjEuUGxheWVyU25hcHNob3QSKQoHZW5lbWllcxgDIAMoCzIYLnZvaWRtYXJjaC52MS5FbmVteVN0YXRlEi4KCWRlcmVsaWN0cxgEIAMoCzIbLnZvaWRtYXJjaC52MS5EZXJlbGljdFN0YXRlInoKDURlcmVsaWN0U3RhdGUSEwoLZGVyZWxpY3RfaWQYASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCEg0KBWFuZ2xlGAQgASgCEg4KBnJlc2N1ZRgFIAEoAhIRCglnb25lX3RpY2sYBiABKA0SDAoEaGVsZBgHIAEoCCLHAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0SKwoHZmFjdGlvbhgJIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiJMCglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDRINCgVzaGFyZBgEIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSI5ChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNEhAKCHRha2VuX2J5GAIgASgJIgYKBEZ1bGwijgoKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSAASLAoJc3F1YWRyb25zGAwgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9uc0gAEjcKD3NxdWFkcm9uX2pvaW5lZBgNIAEoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbkpvaW5lZEgAEjkKEHNxdWFkcm9uX3JlZnVzZWQYDiABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25SZWZ1c2VkSAASOQoQc3F1YWRyb25fb3JkZXJlZBgPIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyZWRIABI1Cg5waWNrdXBfZHJvcHBlZBgQIAEoCzIbLnZvaWRtYXJjaC52MS5QaWNrdXBEcm9wcGVkSAASMQoMcGlja3VwX3Rha2VuGBEgASgLMhkudm9pZG1hcmNoLnYxLlBpY2t1cFRha2VuSAASOQoQZGVyZWxpY3RfcmVzY3VlZBgSIAEoCzIdLnZvaWRtYXJjaC52MS5EZXJlbGljdFJlc2N1ZWRIABI1Cg5zZWN0b3JfY2xlYXJlZBgTIAEoCzIbLnZvaWRtYXJjaC52MS5TZWN0b3JDbGVhcmVkSAASMwoNZXZlbnRfc3RhcnRlZBgUIAEoCzIaLnZvaWRtYXJjaC52MS5FdmVudFN0YXJ0ZWRIABIvCgtldmVudF9lbmRlZBgVIAEoCzIYLnZvaWRtYXJjaC52MS5FdmVudEVuZGVkSAASKgoIZnJvbnRpZXIYFiABKAsyFi52b2lkbWFyY2gudjEuRnJvbnRpZXJIABIrCglib3NzX2ZlbGwYFyABKAsyFi52b2lkbWFyY2gudjEuQm9zc0ZlbGxIABItCgpzZWFzb25fd29uGBggASgLMhcudm9pZG1hcmNoLnYxLlNlYXNvbldvbkgAEiwKCXN0YW5kaW5ncxgZIAEoCzIXLnZvaWRtYXJjaC52MS5TdGFuZGluZ3NIAEIGCgRraW5kIpUBCghCb3NzRmVsbBIlCgRraW5kGAEgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBInCgVnYWlucxgCIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluEgwKBHRpY2sYAyABKA0SKwoHZmFjdGlvbhgEIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24iLgoIRnJvbnRpZXISEgoKb3Blbl9yaW5ncxgBIAEoDRIOCgZvcGVuZWQYAiADKAkidAoNUGlja3VwRHJvcHBlZBIKCgJpZBgBIAEoDRIgCgRwYXJ0GAIgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJZ29uZV90aWNrGAYgASgNIlUKC1BpY2t1cFRha2VuEgoKAmlkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluIlsKCldvcmxkRXZlbnQSKgoEa2luZBgBIAEoDjIcLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50S2luZBIOCgZzZWN0b3IYAiABKAkSEQoJZW5kc190aWNrGAMgASgNIkgKDEV2ZW50U3RhcnRlZBInCgVldmVudBgBIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50Eg8KB29uZ29pbmcYAiABKAgiQgoKRXZlbnRFbmRlZBInCgVldmVudBgBIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EgsKA3dvbhgCIAEoCCKCAQoNU2VjdG9yQ2xlYXJlZBIOCgZzZWN0b3IYASABKAkSDAoEdGljaxgCIAEoDRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluEioKB21pc3Npb24YBCADKAsyGS52b2lkbWFyY2gudjEuUGxheWVyU3RhdHMiZwoPRGVyZWxpY3RSZXNjdWVkEhMKC2RlcmVsaWN0X2lkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRIMCgR0aWNrGAMgASgNEg4KBmhhbmdhchgEIAEoDRIOCgZkb2NrZWQYBSABKAgiRQoKUGlja3VwR2FpbhIRCglwbGF5ZXJfaWQYASABKAkSJAoGdW5sb2NrGAIgASgLMhQudm9pZG1hcmNoLnYxLlVubG9jayp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKtABCglFbmVteUtpbmQSGgoWRU5FTVlfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVORU1ZX0tJTkRfU0NPVVQQARIWChJFTkVNWV9LSU5EX0ZJR0hURVIQAhIWChJFTkVNWV9LSU5EX0ZSSUdBVEUQAxIaChZFTkVNWV9LSU5EX0RSRUFETk9VR0hUEAQSFQoRRU5FTVlfS0lORF9CT01CRVIQBRIWChJFTkVNWV9LSU5EX1RPUlBFRE8QBhIWChJFTkVNWV9LSU5EX1NVUFBPUlQQByp8CgxFbmVteUZhY3Rpb24SHQoZRU5FTVlfRkFDVElPTl9VTlNQRUNJRklFRBAAEhcKE0VORU1ZX0ZBQ1RJT05fS0xBRUQQARIYChRFTkVNWV9GQUNUSU9OX05BSVJBThACEhoKFkVORU1ZX0ZBQ1RJT05fTkFVVE9MQU4QAyq0AQoNQ29tcGFuaW9uTW9kZRIeChpDT01QQU5JT05fTU9ERV9VTlNQRUNJRklFRBAAEhkKFUNPTVBBTklPTl9NT0RFX0VTQ09SVBABEhkKFUNPTVBBTklPTl9NT0RFX0FUVEFDSxACEhgKFENPTVBBTklPTl9NT0RFX0dVQVJEEAMSFwoTQ09NUEFOSU9OX01PREVfSE9MRBAEEhoKFkNPTVBBTklPTl9NT0RFX1NURUFMVEgQBSqUAQoQQ29tcGFuaW9uT25lU2hvdBIiCh5DT01QQU5JT05fT05FX1NIT1RfVU5TUEVDSUZJRUQQABIcChhDT01QQU5JT05fT05FX1NIT1RfRk9DVVMQARIeChpDT01QQU5JT05fT05FX1NIT1RfUkVHUk9VUBACEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9HT19IT01FEAMqbgoOV29ybGRFdmVudEtpbmQSIAocV09STERfRVZFTlRfS0lORF9VTlNQRUNJRklFRBAAEhsKF1dPUkxEX0VWRU5UX0tJTkRfQVRUQUNLEAESHQoZV09STERfRVZFTlRfS0lORF9ESVNUUkVTUxACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSKuBQoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIABI0Cg5kZXZfc2Vhc29uX3dvbhgNIAEoCzIaLnZvaWRtYXJjaC52MS5EZXZTZWFzb25Xb25IABI0Cg5kZXZfc3RhcnRfcmFpZBgOIAEoCzIaLnZvaWRtYXJjaC52MS5EZXZTdGFydFJhaWRIAEIGCgRraW5kIg4KDERldlN0YXJ0UmFpZCIgCg5EZXZTdGFydEF0dGFjaxIOCgZzZWN0b3IYASABKAkiDgoMRGV2U2Vhc29uV29uIh0KC1BpY2tNaXNzaW9uEg4KBnNlY3RvchgBIAEoCSIVCgdDb2xsZWN0EgoKAmlkGAEgASgNIu0ECgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRINCgVjb2xvchgCIAEoDRIPCgdzcGF3bl94GAMgASgCEg8KB3NwYXduX3kYBCABKAISDAoEdGljaxgFIAEoDRIRCgl0aWNrX3JhdGUYBiABKA0SFwoPY29tcGFuaW9uX2xpbWl0GAcgASgNEgwKBG5hbWUYCSABKAkSEgoKY29tcGFuaW9ucxgKIAMoDRIqCglzcXVhZHJvbnMYCyABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zEhAKCHNxdWFkcm9uGAwgASgJEiUKB3VubG9ja3MYDSADKAsyFC52b2lkbWFyY2gudjEuVW5sb2NrEiwKB3BpY2t1cHMYDiADKAsyGy52b2lkbWFyY2gudjEuUGlja3VwRHJvcHBlZBImCgdsb2Fkb3V0GA8gASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSEwoLZGV2ZWxvcG1lbnQYECABKAgSFwoPY2xlYXJlZF9zZWN0b3JzGBEgAygJEi0KC3dvcmxkX2V2ZW50GBIgASgLMhgudm9pZG1hcmNoLnYxLldvcmxkRXZlbnQSEAoIbWFwX25hbWUYEyABKAkSKAoIZnJvbnRpZXIYFCABKAsyFi52b2lkbWFyY2gudjEuRnJvbnRpZXISKwoKc2Vhc29uX3dvbhgVIAEoCzIXLnZvaWRtYXJjaC52MS5TZWFzb25Xb24SKgoJc3RhbmRpbmdzGBYgASgLMhcudm9pZG1hcmNoLnYxLlN0YW5kaW5nc0oECAgQCVIPc3VtbW9uX2FueXdoZXJlIkcKCVN0YW5kaW5ncxIqCgdwbGF5ZXJzGAEgAygLMhkudm9pZG1hcmNoLnYxLlBsYXllclN0YXRzEg4KBnNlYXNvbhgCIAEoAyJpCglTZWFzb25Xb24SDgoGc2Vhc29uGAEgASgDEg8KB3NlY29uZHMYAiABKAQSKgoHcGxheWVycxgDIAMoCzIZLnZvaWRtYXJjaC52MS5QbGF5ZXJTdGF0cxIPCgdzZWN0b3JzGAQgASgNIqUBCgtQbGF5ZXJTdGF0cxIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVraWxscxgDIAEoDRIXCg9jb21wYW5pb25fa2lsbHMYBCABKA0SDQoFc2hvdHMYBSABKA0SDAoEaGl0cxgGIAEoDRIOCgZkZWF0aHMYByABKA0SDwoHcmVzY3VlcxgIIAEoDRIPCgdzZWN0b3JzGAkgASgNIowBCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVjb2xvchgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkSEAoIc3F1YWRyb24YBiABKAkiRQoOU3F1YWRyb25NZW1iZXISEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKY29tcGFuaW9ucxgDIAEoDSKHAQoMU3F1YWRyb25JbmZvEgwKBG5hbWUYASABKAkSLQoHbWVtYmVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbk1lbWJlchIpCgRtb2RlGAMgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSDwoHbWlzc2lvbhgEIAEoCSJdCglTcXVhZHJvbnMSLQoJc3F1YWRyb25zGAEgAygLMhoudm9pZG1hcmNoLnYxLlNxdWFkcm9uSW5mbxIRCgluZXh0X25hbWUYAiABKAkSDgoGaGFuZ2FyGAMgASgNInIKDlNxdWFkcm9uSm9pbmVkEgwKBG5hbWUYASABKAkSKQoEbW9kZRgCIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEhEKCXRvb2tfb3ZlchgDIAEoCBIJCgF4GAQgASgCEgkKAXkYBSABKAIiIQoPU3F1YWRyb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSJeCg9TcXVhZHJvbk9yZGVyZWQSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSKgoFb3JkZXIYAyABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlciKVAgoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAISCgoCdngYBiABKAISCgoCdnkYByABKAISCgoCaHAYCCABKAISDgoGbWF4X2hwGAkgASgCEg4KBnNoaWVsZBgKIAEoAhISCgpzY2FsZWRfZm9yGAsgASgCEisKB2ZhY3Rpb24YDCABKA4yGi52b2lkbWFyY2gudjEuRW5lbXlGYWN0aW9uEhEKCXJlcGFpcmluZxgNIAEoDRIRCglsZWF2ZXNfYXQYDiABKAIiogEKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUSLgoJZGVyZWxpY3RzGAQgAygLMhsudm9pZG1hcmNoLnYxLkRlcmVsaWN0U3RhdGUiegoNRGVyZWxpY3RTdGF0ZRITCgtkZXJlbGljdF9pZBgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAISDQoFYW5nbGUYBCABKAISDgoGcmVzY3VlGAUgASgCEhEKCWdvbmVfdGljaxgGIAEoDRIMCgRoZWxkGAcgASgIIscBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDRIrCgdmYWN0aW9uGAkgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbiKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCLuCgoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI5ChBzcXVhZHJvbl9vcmRlcmVkGA8gASgLMh0udm9pZG1hcmNoLnYxLlNxdWFkcm9uT3JkZXJlZEgAEjUKDnBpY2t1cF9kcm9wcGVkGBAgASgLMhsudm9pZG1hcmNoLnYxLlBpY2t1cERyb3BwZWRIABIxCgxwaWNrdXBfdGFrZW4YESABKAsyGS52b2lkbWFyY2gudjEuUGlja3VwVGFrZW5IABI5ChBkZXJlbGljdF9yZXNjdWVkGBIgASgLMh0udm9pZG1hcmNoLnYxLkRlcmVsaWN0UmVzY3VlZEgAEjUKDnNlY3Rvcl9jbGVhcmVkGBMgASgLMhsudm9pZG1hcmNoLnYxLlNlY3RvckNsZWFyZWRIABIzCg1ldmVudF9zdGFydGVkGBQgASgLMhoudm9pZG1hcmNoLnYxLkV2ZW50U3RhcnRlZEgAEi8KC2V2ZW50X2VuZGVkGBUgASgLMhgudm9pZG1hcmNoLnYxLkV2ZW50RW5kZWRIABIqCghmcm9udGllchgWIAEoCzIWLnZvaWRtYXJjaC52MS5Gcm9udGllckgAEisKCWJvc3NfZmVsbBgXIAEoCzIWLnZvaWRtYXJjaC52MS5Cb3NzRmVsbEgAEi0KCnNlYXNvbl93b24YGCABKAsyFy52b2lkbWFyY2gudjEuU2Vhc29uV29uSAASLAoJc3RhbmRpbmdzGBkgASgLMhcudm9pZG1hcmNoLnYxLlN0YW5kaW5nc0gAEi8KC3JhaWRfd2FybmVkGBogASgLMhgudm9pZG1hcmNoLnYxLlJhaWRXYXJuZWRIABItCgpyYWlkX2VuZGVkGBsgASgLMhcudm9pZG1hcmNoLnYxLlJhaWRFbmRlZEgAQgYKBGtpbmQiVwoKUmFpZFdhcm5lZBIrCgdmYWN0aW9uGAEgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbhIOCgZzZWN0b3IYAiABKAkSDAoEdGljaxgDIAEoDSKVAQoJUmFpZEVuZGVkEhAKCGVuZW15X2lkGAEgASgNEisKB2ZhY3Rpb24YAiABKA4yGi52b2lkbWFyY2gudjEuRW5lbXlGYWN0aW9uEhIKCmRyaXZlbl9vZmYYAyABKAgSJwoFZ2FpbnMYBCADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIMCgR0aWNrGAUgASgNIpUBCghCb3NzRmVsbBIlCgRraW5kGAEgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBInCgVnYWlucxgCIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluEgwKBHRpY2sYAyABKA0SKwoHZmFjdGlvbhgEIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24iLgoIRnJvbnRpZXISEgoKb3Blbl9yaW5ncxgBIAEoDRIOCgZvcGVuZWQYAiADKAkidAoNUGlja3VwRHJvcHBlZBIKCgJpZBgBIAEoDRIgCgRwYXJ0GAIgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSCQoBeBgDIAEoAhIJCgF5GAQgASgCEgwKBHRpY2sYBSABKA0SEQoJZ29uZV90aWNrGAYgASgNIlUKC1BpY2t1cFRha2VuEgoKAmlkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluIlsKCldvcmxkRXZlbnQSKgoEa2luZBgBIAEoDjIcLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50S2luZBIOCgZzZWN0b3IYAiABKAkSEQoJZW5kc190aWNrGAMgASgNIkgKDEV2ZW50U3RhcnRlZBInCgVldmVudBgBIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50Eg8KB29uZ29pbmcYAiABKAgiQgoKRXZlbnRFbmRlZBInCgVldmVudBgBIAEoCzIYLnZvaWRtYXJjaC52MS5Xb3JsZEV2ZW50EgsKA3dvbhgCIAEoCCKCAQoNU2VjdG9yQ2xlYXJlZBIOCgZzZWN0b3IYASABKAkSDAoEdGljaxgCIAEoDRInCgVnYWlucxgDIAMoCzIYLnZvaWRtYXJjaC52MS5QaWNrdXBHYWluEioKB21pc3Npb24YBCADKAsyGS52b2lkbWFyY2gudjEuUGxheWVyU3RhdHMiZwoPRGVyZWxpY3RSZXNjdWVkEhMKC2RlcmVsaWN0X2lkGAEgASgNEhEKCXBsYXllcl9pZBgCIAEoCRIMCgR0aWNrGAMgASgNEg4KBmhhbmdhchgEIAEoDRIOCgZkb2NrZWQYBSABKAgiRQoKUGlja3VwR2FpbhIRCglwbGF5ZXJfaWQYASABKAkSJAoGdW5sb2NrGAIgASgLMhQudm9pZG1hcmNoLnYxLlVubG9jayp5CgZXZWFwb24SFgoSV0VBUE9OX1VOU1BFQ0lGSUVEEAASFgoSV0VBUE9OX0FVVE9fQ0FOTk9OEAESEgoOV0VBUE9OX1JPQ0tFVFMQAhIYChRXRUFQT05fQklHX1NQQUNFX0dVThADEhEKDVdFQVBPTl9aQVBQRVIQBCpyCgZFbmdpbmUSFgoSRU5HSU5FX1VOU1BFQ0lGSUVEEAASDwoLRU5HSU5FX0JBU0UQARIUChBFTkdJTkVfQklHX1BVTFNFEAISEAoMRU5HSU5FX0JVUlNUEAMSFwoTRU5HSU5FX1NVUEVSQ0hBUkdFRBAEKnkKBlNoaWVsZBIWChJTSElFTERfVU5TUEVDSUZJRUQQABIQCgxTSElFTERfRlJPTlQQARIZChVTSElFTERfRlJPTlRfQU5EX1NJREUQAhIQCgxTSElFTERfUk9VTkQQAxIYChRTSElFTERfSU5WSU5DSUJJTElUWRAEKtABCglFbmVteUtpbmQSGgoWRU5FTVlfS0lORF9VTlNQRUNJRklFRBAAEhQKEEVORU1ZX0tJTkRfU0NPVVQQARIWChJFTkVNWV9LSU5EX0ZJR0hURVIQAhIWChJFTkVNWV9LSU5EX0ZSSUdBVEUQAxIaChZFTkVNWV9LSU5EX0RSRUFETk9VR0hUEAQSFQoRRU5FTVlfS0lORF9CT01CRVIQBRIWChJFTkVNWV9LSU5EX1RPUlBFRE8QBhIWChJFTkVNWV9LSU5EX1NVUFBPUlQQByp8CgxFbmVteUZhY3Rpb24SHQoZRU5FTVlfRkFDVElPTl9VTlNQRUNJRklFRBAAEhcKE0VORU1ZX0ZBQ1RJT05fS0xBRUQQARIYChRFTkVNWV9GQUNUSU9OX05BSVJBThACEhoKFkVORU1ZX0ZBQ1RJT05fTkFVVE9MQU4QAyq0AQoNQ29tcGFuaW9uTW9kZRIeChpDT01QQU5JT05fTU9ERV9VTlNQRUNJRklFRBAAEhkKFUNPTVBBTklPTl9NT0RFX0VTQ09SVBABEhkKFUNPTVBBTklPTl9NT0RFX0FUVEFDSxACEhgKFENPTVBBTklPTl9NT0RFX0dVQVJEEAMSFwoTQ09NUEFOSU9OX01PREVfSE9MRBAEEhoKFkNPTVBBTklPTl9NT0RFX1NURUFMVEgQBSqUAQoQQ29tcGFuaW9uT25lU2hvdBIiCh5DT01QQU5JT05fT05FX1NIT1RfVU5TUEVDSUZJRUQQABIcChhDT01QQU5JT05fT05FX1NIT1RfRk9DVVMQARIeChpDT01QQU5JT05fT05FX1NIT1RfUkVHUk9VUBACEh4KGkNPTVBBTklPTl9PTkVfU0hPVF9HT19IT01FEAMqbgoOV29ybGRFdmVudEtpbmQSIAocV09STERfRVZFTlRfS0lORF9VTlNQRUNJRklFRBAAEhsKF1dPUkxEX0VWRU5UX0tJTkRfQVRUQUNLEAESHQoZV09STERfRVZFTlRfS0lORF9ESVNUUkVTUxACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 3);
 var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 12);
-var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 40);
+var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 41);
 var WeaponSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 0);
 var Weapon = /* @__PURE__ */ tsEnum(WeaponSchema);
 var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
@@ -3817,11 +3818,14 @@ function bossBar(bosses, x, y) {
   const hp = Math.max(0, Math.ceil(nearest.hp));
   const max = Math.round(nearest.maxHp);
   const scaled = nearest.scaledFor > 0 ? ` \xB7 scaled for ${String(nearest.scaledFor)} online` : "";
+  const raiding = nearest.leavesAt > 0;
+  const leaves = raiding ? ` \xB7 driven off at ${String(Math.round(nearest.leavesAt))}` : "";
   return {
-    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
+    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}${raiding ? " \xB7 RAID" : ""}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
-    text: `${String(hp)} / ${String(max)}${scaled}`
+    text: `${String(hp)} / ${String(max)}${leaves}${scaled}`,
+    mark: raiding ? Math.min(nearest.leavesAt / max, 1) : 0
   };
 }
 
@@ -3865,6 +3869,9 @@ var CHARGE_DETUNE = 300;
 var EXPIRE_VOLUME = 0.3;
 var UI_VOLUME = 0.3;
 var TELEPORT_VOLUME = 0.3;
+var RAID_WARNING_VOLUME = 0.5;
+var RAID_WARNING_DETUNE = -1200;
+var RAID_WARNING_DELAYS = [0, 0.6];
 var MUSIC_VOLUME = 0.3;
 var MUSIC_FADE_MS = 2e3;
 var ShipAudio = class {
@@ -3972,9 +3979,15 @@ var ShipAudio = class {
   enemyDestroyed() {
     this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
   }
-  /** A derelict teleporting away (#190). */
+  /** A derelict teleporting away (#190), or a Dreadnought (#223). */
   teleported() {
     this.scene.sound.play(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
+  }
+  /** A Dreadnought coming to raid (#223): the teleport's sound, an octave down, louder, twice. */
+  raidWarned() {
+    for (const delay of RAID_WARNING_DELAYS) {
+      this.scene.sound.play(TELEPORT_SOUND, { volume: RAID_WARNING_VOLUME, detune: RAID_WARNING_DETUNE, delay });
+    }
   }
   shieldSwitched() {
     this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
@@ -4107,6 +4120,8 @@ var FONT_PX2 = 12;
 var HEALTH_PX = 10;
 var SHIELD_PX = 3;
 var GAP_PX = 2;
+var MARK_FILL = 14219519;
+var MARK_PX = 2;
 var BossBarView = class {
   name;
   text;
@@ -4140,7 +4155,7 @@ var BossBarView = class {
   }
   /** Shows bar, or hides it when undefined. */
   show(bar) {
-    const same = bar?.name === this.shown?.name && bar?.health === this.shown?.health && bar?.shield === this.shown?.shield && bar?.text === this.shown?.text;
+    const same = bar?.name === this.shown?.name && bar?.health === this.shown?.health && bar?.shield === this.shown?.shield && bar?.text === this.shown?.text && bar?.mark === this.shown?.mark;
     this.shown = bar;
     for (const object of [this.name, this.text, this.bars]) {
       object.setVisible(bar !== void 0);
@@ -4163,6 +4178,10 @@ var BossBarView = class {
     const shieldY = health + GAP_PX * s;
     const shield = SHIELD_PX * s;
     this.bars.fillStyle(TRACK, TRACK_ALPHA).fillRect(0, 0, this.width, health).fillRect(0, shieldY, this.width, shield).fillStyle(HEALTH_FILL, 1).fillRect(0, 0, Math.round(this.width * bar.health), health).fillStyle(SHIELD_FILL, 1).fillRect(0, shieldY, Math.round(this.width * bar.shield), shield);
+    if (bar.mark > 0) {
+      const x = Math.round(this.width * bar.mark);
+      this.bars.fillStyle(MARK_FILL, 1).fillRect(x - Math.round(MARK_PX * s) / 2, -GAP_PX * s, Math.round(MARK_PX * s), health + 2 * GAP_PX * s);
+    }
   }
 };
 
@@ -4308,6 +4327,12 @@ var Connection = class {
       this.send(create2(ClientMessageSchema, { kind: { case: "devStartAttack", value: { sector } } }));
     }
   }
+  /** Sends a Dreadnought raiding the sector the ship is in at once; a development server only (#223). */
+  sendDevStartRaid() {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "devStartRaid", value: {} } }));
+    }
+  }
   /** Asks for the season's result as if it were won now; a development server only (#156). */
   sendDevSeasonWon() {
     if (this.welcomed) {
@@ -4418,6 +4443,12 @@ var Connection = class {
       case "standings":
         events.standings(message.kind.value);
         break;
+      case "raidWarned":
+        events.raidWarned(message.kind.value);
+        break;
+      case "raidEnded":
+        events.raidEnded(message.kind.value);
+        break;
       default:
     }
   }
@@ -4522,7 +4553,7 @@ var TimedQueue = class {
 };
 
 // src/scenes/enemyview.ts
-import Phaser6 from "./vendor/phaser.js";
+import Phaser7 from "./vendor/phaser.js";
 
 // src/scenes/shipview.ts
 import Phaser5 from "./vendor/phaser.js";
@@ -4742,93 +4773,8 @@ function drawReviveBar(bar, fill) {
   bar.fillStyle(REVIVE_TRACK, REVIVE_TRACK_ALPHA).fillRect(-1, -1, REVIVE_BAR_WIDTH + 2, REVIVE_BAR_HEIGHT + 2).fillStyle(REVIVE_FILL, 1).fillRect(0, 0, REVIVE_BAR_WIDTH * fill, REVIVE_BAR_HEIGHT);
 }
 
-// src/scenes/enemyview.ts
-var FLASH_MS = 70;
-var EnemyView = class {
-  kind;
-  faction;
-  root;
-  base;
-  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137), nor a Support Ship (#184). */
-  weapon;
-  /** The shield bubble, for the kinds that have one (#89). */
-  shield;
-  scene;
-  constructor(scene, parent, kind, faction) {
-    this.scene = scene;
-    this.kind = kind;
-    this.faction = faction;
-    const engine = scene.add.sprite(0, 0, keys.enemyEngine(faction, kind)).play(keys.enemyEngine(faction, kind));
-    this.base = scene.add.image(0, 0, keys.enemyBase(faction, kind));
-    const parts = [engine, this.base];
-    if (scene.textures.exists(keys.enemyWeapons(faction, kind))) {
-      const weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
-      weapon.on(Phaser6.Animations.Events.ANIMATION_COMPLETE, () => {
-        weapon.setFrame(0);
-      });
-      this.weapon = weapon;
-      parts.push(weapon);
-    }
-    if (scene.textures.exists(keys.enemyShield(faction, kind))) {
-      this.shield = scene.add.sprite(0, 0, keys.enemyShield(faction, kind)).play(keys.enemyShield(faction, kind)).setVisible(false);
-      parts.push(this.shield);
-    }
-    this.root = scene.add.container(0, 0, parts);
-    parent.add(this.root);
-  }
-  get x() {
-    return this.root.x;
-  }
-  get y() {
-    return this.root.y;
-  }
-  place(x, y, angle) {
-    this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
-  }
-  /** Shows the shield bubble while the shield holds a charge. */
-  setShield(up) {
-    this.shield?.setVisible(up);
-  }
-  /** Whether the shield bubble shows, for the E2E tests. */
-  get shieldShown() {
-    return this.shield?.visible ?? false;
-  }
-  /** The telegraph before a volley leaves in ms: the weapon animation, or without weapons a blue glow for that long. */
-  warn(ms) {
-    if (this.weapon !== void 0) {
-      this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
-      return;
-    }
-    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser6.TintModes.ADD);
-    this.scene.time.delayedCall(ms, () => {
-      this.base.clearTint().setTintMode(Phaser6.TintModes.MULTIPLY);
-    });
-  }
-  /** A short white flash where a shot landed. */
-  flash() {
-    this.base.setTint(16777215).setTintMode(Phaser6.TintModes.FILL);
-    this.scene.time.delayedCall(FLASH_MS, () => {
-      this.base.clearTint().setTintMode(Phaser6.TintModes.MULTIPLY);
-    });
-  }
-  /** Plays the pack's destruction animation in place of the ship, then goes. */
-  destroy(explode) {
-    if (!explode) {
-      this.root.destroy();
-      return;
-    }
-    const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.faction, this.kind)).setRotation(this.root.rotation);
-    this.root.parentContainer.add(boom);
-    this.root.destroy();
-    boom.once(Phaser6.Animations.Events.ANIMATION_COMPLETE, () => {
-      boom.destroy();
-    });
-    boom.play(keys.enemyDestruction(this.faction, this.kind));
-  }
-};
-
-// src/scenes/derelictview.ts
-import Phaser7 from "./vendor/phaser.js";
+// src/scenes/teleportview.ts
+import Phaser6 from "./vendor/phaser.js";
 
 // src/sim/teleport.ts
 var TELEPORT_DURATION_S = TELEPORT_CLOSE_S + TELEPORT_HOLD_S + TELEPORT_SHRINK_S + TELEPORT_FLASH_S;
@@ -4868,10 +4814,157 @@ function teleportFrame(elapsed) {
   return { shieldScale: 0, shieldAlpha: 0, hullScale: 0, white: true, flashRadius: TELEPORT_FLASH_RADIUS * (1 - collapse), flashAlpha: 1, done: false };
 }
 
+// src/scenes/teleportview.ts
+var FLASH_CORE = 0.5;
+var TeleportEffect = class {
+  start;
+  size;
+  shield;
+  flash;
+  constructor(scene, layer, x, y, rotation, now2, size) {
+    this.start = now2;
+    this.size = size;
+    this.shield = scene.add.sprite(x, y, keys.shield("invincibility")).setRotation(rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser6.TintModes.FILL).setBlendMode(Phaser6.BlendModes.ADD);
+    this.shield.play(keys.shield("invincibility"));
+    this.flash = scene.add.graphics().setPosition(x, y).setBlendMode(Phaser6.BlendModes.ADD);
+    layer.add([this.shield, this.flash]);
+  }
+  /** Draws the shield and flash at now, in seconds, and returns the frame, for the hull to follow. */
+  step(now2) {
+    const f = teleportFrame(now2 - this.start);
+    if (f.white) {
+      this.shield.setTint(TELEPORT_WHITE);
+    }
+    this.shield.setScale(f.shieldScale * this.size).setAlpha(f.shieldAlpha).setVisible(f.shieldScale > 0 && f.shieldAlpha > 0);
+    this.flash.clear();
+    if (f.flashRadius > 0) {
+      const radius = f.flashRadius * this.size;
+      this.flash.fillStyle(TELEPORT_COLOR, f.flashAlpha).fillCircle(0, 0, radius);
+      this.flash.fillStyle(TELEPORT_WHITE, f.flashAlpha).fillCircle(0, 0, radius * FLASH_CORE);
+    }
+    return f;
+  }
+  destroy() {
+    this.shield.destroy();
+    this.flash.destroy();
+  }
+};
+
+// src/scenes/enemyview.ts
+var FLASH_MS = 70;
+var EnemyView = class {
+  kind;
+  faction;
+  root;
+  base;
+  /** The weapons, for the kinds whose pack draws them; a Bomber has none (#137), nor a Support Ship (#184). */
+  weapon;
+  /** The shield bubble, for the kinds that have one (#89). */
+  shield;
+  scene;
+  parent;
+  teleporting;
+  constructor(scene, parent, kind, faction) {
+    this.scene = scene;
+    this.parent = parent;
+    this.kind = kind;
+    this.faction = faction;
+    const engine = scene.add.sprite(0, 0, keys.enemyEngine(faction, kind)).play(keys.enemyEngine(faction, kind));
+    this.base = scene.add.image(0, 0, keys.enemyBase(faction, kind));
+    const parts = [engine, this.base];
+    if (scene.textures.exists(keys.enemyWeapons(faction, kind))) {
+      const weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
+      weapon.on(Phaser7.Animations.Events.ANIMATION_COMPLETE, () => {
+        weapon.setFrame(0);
+      });
+      this.weapon = weapon;
+      parts.push(weapon);
+    }
+    if (scene.textures.exists(keys.enemyShield(faction, kind))) {
+      this.shield = scene.add.sprite(0, 0, keys.enemyShield(faction, kind)).play(keys.enemyShield(faction, kind)).setVisible(false);
+      parts.push(this.shield);
+    }
+    this.root = scene.add.container(0, 0, parts);
+    parent.add(this.root);
+  }
+  get x() {
+    return this.root.x;
+  }
+  get y() {
+    return this.root.y;
+  }
+  place(x, y, angle) {
+    this.root.setPosition(x, y).setRotation(angle + SPRITE_FACING);
+  }
+  /** Shows the shield bubble while the shield holds a charge. */
+  setShield(up) {
+    this.shield?.setVisible(up);
+  }
+  /** Whether the shield bubble shows, for the E2E tests. */
+  get shieldShown() {
+    return this.shield?.visible ?? false;
+  }
+  /** The telegraph before a volley leaves in ms: the weapon animation, or without weapons a blue glow for that long. */
+  warn(ms) {
+    if (this.weapon !== void 0) {
+      this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
+      return;
+    }
+    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser7.TintModes.ADD);
+    this.scene.time.delayedCall(ms, () => {
+      this.base.clearTint().setTintMode(Phaser7.TintModes.MULTIPLY);
+    });
+  }
+  /** A short white flash where a shot landed. */
+  flash() {
+    this.base.setTint(16777215).setTintMode(Phaser7.TintModes.FILL);
+    this.scene.time.delayedCall(FLASH_MS, () => {
+      this.base.clearTint().setTintMode(Phaser7.TintModes.MULTIPLY);
+    });
+  }
+  /** Starts teleporting out at now, in seconds (#223): the derelict's teleport (#190), size times as big. */
+  teleport(now2, size) {
+    if (this.teleporting !== void 0) {
+      return;
+    }
+    this.setShield(false);
+    this.teleporting = new TeleportEffect(this.scene, this.parent, this.root.x, this.root.y, this.root.rotation, now2, size);
+    this.step(now2);
+  }
+  /** Draws its teleport at now, in seconds; true once it's over, false while it runs or before it starts. */
+  step(now2) {
+    const f = this.teleporting?.step(now2);
+    if (f === void 0) {
+      return false;
+    }
+    if (f.white) {
+      this.base.setTint(TELEPORT_WHITE).setTintMode(Phaser7.TintModes.FILL);
+    }
+    this.root.setScale(f.hullScale).setVisible(f.hullScale > 0);
+    return f.done;
+  }
+  /** Goes, after the pack's destruction animation in place of the ship when it explodes. */
+  destroy(explode = false) {
+    this.teleporting?.destroy();
+    this.teleporting = void 0;
+    if (!explode) {
+      this.root.destroy();
+      return;
+    }
+    const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.faction, this.kind)).setRotation(this.root.rotation);
+    this.root.parentContainer.add(boom);
+    this.root.destroy();
+    boom.once(Phaser7.Animations.Events.ANIMATION_COMPLETE, () => {
+      boom.destroy();
+    });
+    boom.play(keys.enemyDestruction(this.faction, this.kind));
+  }
+};
+
 // src/scenes/derelictview.ts
+import Phaser8 from "./vendor/phaser.js";
 var DERELICT_TINT = 9080729;
 var DERELICT_HELD_TINT = 4869724;
-var FLASH_CORE = 0.5;
 var DerelictView = class {
   scene;
   layer;
@@ -4883,7 +4976,7 @@ var DerelictView = class {
   constructor(scene, layer, x, y, angle, resolution) {
     this.scene = scene;
     this.layer = layer;
-    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser7.TintModes.MULTIPLY);
+    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser8.TintModes.MULTIPLY);
     this.label = scene.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bar = scene.add.graphics();
     this.place(x, y);
@@ -4925,39 +5018,26 @@ var DerelictView = class {
     }
     this.label.setVisible(false);
     this.bar.setVisible(false);
-    const shield = this.scene.add.sprite(this.hull.x, this.hull.y, keys.shield("invincibility")).setRotation(this.hull.rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser7.TintModes.FILL).setBlendMode(Phaser7.BlendModes.ADD);
-    shield.play(keys.shield("invincibility"));
-    const flash = this.scene.add.graphics().setPosition(this.hull.x, this.hull.y).setBlendMode(Phaser7.BlendModes.ADD);
-    this.layer.add([shield, flash]);
-    this.teleporting = { start: now2, shield, flash };
+    this.teleporting = new TeleportEffect(this.scene, this.layer, this.hull.x, this.hull.y, this.hull.rotation, now2, 1);
     this.step(now2);
   }
   /** Draws the teleport at now, in seconds; true once it's over, false while it runs or before it starts. */
   step(now2) {
-    const t = this.teleporting;
-    if (t === void 0) {
+    const f = this.teleporting?.step(now2);
+    if (f === void 0) {
       return false;
     }
-    const f = teleportFrame(now2 - t.start);
     if (f.white) {
-      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser7.TintModes.FILL);
-      t.shield.setTint(TELEPORT_WHITE);
+      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser8.TintModes.FILL);
     }
     this.hull.setScale(f.hullScale).setVisible(f.hullScale > 0);
-    t.shield.setScale(f.shieldScale).setAlpha(f.shieldAlpha).setVisible(f.shieldScale > 0 && f.shieldAlpha > 0);
-    t.flash.clear();
-    if (f.flashRadius > 0) {
-      t.flash.fillStyle(TELEPORT_COLOR, f.flashAlpha).fillCircle(0, 0, f.flashRadius);
-      t.flash.fillStyle(TELEPORT_WHITE, f.flashAlpha).fillCircle(0, 0, f.flashRadius * FLASH_CORE);
-    }
     return f.done;
   }
   destroy() {
     this.hull.destroy();
     this.label.destroy();
     this.bar.destroy();
-    this.teleporting?.shield.destroy();
-    this.teleporting?.flash.destroy();
+    this.teleporting?.destroy();
     this.teleporting = void 0;
   }
 };
@@ -5004,6 +5084,20 @@ function ringsClosedBanner(before, after) {
     `${ringNames(after + 1, before)} closed`,
     `Ring ${String(after)} fell below 4 cleared sectors. Take them back to wake a new Dreadnought.`
   ];
+}
+function raidBanner(faction, sector) {
+  return [`The ${FACTION_NAMES[faction]} Dreadnought is coming`, `It raids ${sector}. Take a tenth of its health to drive it off.`];
+}
+function raidEndedBanner(faction, drivenOff, part) {
+  const name = `The ${FACTION_NAMES[faction]} Dreadnought`;
+  if (!drivenOff) {
+    return [`${name} teleported away`];
+  }
+  const lines = [`${name} was driven off`, "The damage stays on it."];
+  if (part !== void 0) {
+    lines.push(`Your reward: ${part}`);
+  }
+  return lines;
 }
 
 // src/net/repair.ts
@@ -5066,6 +5160,9 @@ var NetPlay = class {
   departing = /* @__PURE__ */ new Set();
   /** Derelicts seen to start teleporting away (#190). */
   teleports = 0;
+  /** Raiding Dreadnoughts that left (#223), teleporting out once gone from the snapshots, and those doing it. */
+  raidersLeaving = /* @__PURE__ */ new Set();
+  departingRaiders = /* @__PURE__ */ new Set();
   /** Whether a snapshot came since connecting, so derelicts already there aren't announced. */
   derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
@@ -5245,6 +5342,13 @@ var NetPlay = class {
         standings: (standings) => {
           this.setStandings(standings);
         },
+        raidWarned: (warned) => {
+          this.banners.push(raidBanner(fromEnemyFaction(warned.faction), warned.sector));
+          this.options.audio.raidWarned();
+        },
+        raidEnded: (ended) => {
+          this.raidEnded(ended);
+        },
         eventEnded: (ended) => {
           this.worldEvent = void 0;
           const event = ended.event;
@@ -5284,6 +5388,11 @@ var NetPlay = class {
       view.destroy();
     }
     this.departing.clear();
+    for (const view of this.departingRaiders) {
+      view.destroy();
+    }
+    this.departingRaiders.clear();
+    this.raidersLeaving.clear();
   }
   /** Other players and their companions, for the HUD and the E2E tests. */
   get others() {
@@ -5325,6 +5434,19 @@ var NetPlay = class {
   }
   /** Takes the parts the fall gave this player, and announces it (#125). */
   bossFell(faction, gains) {
+    this.banners.push(bossFellBanner(faction, this.takeGains(gains)));
+  }
+  /** Announces a raid's end, takes the parts it gave this player, and lets its Dreadnought teleport out (#223). */
+  raidEnded(ended) {
+    if (ended.enemyId === 0) {
+      return;
+    }
+    this.raidersLeaving.add(ended.enemyId);
+    const reward = this.takeGains(ended.gains);
+    this.banners.push(raidEndedBanner(fromEnemyFaction(ended.faction), ended.drivenOff, reward));
+  }
+  /** Takes this player's part among gains, if any, and returns its label. */
+  takeGains(gains) {
     let reward;
     for (const gain of gains) {
       const part = fromPart(gain.unlock?.part);
@@ -5334,9 +5456,11 @@ var NetPlay = class {
         reward = partLabel(part, tier);
       }
     }
-    this.banners.push(bossFellBanner(faction, reward));
-    this.options.pickups.regrade(this.unlocks);
-    this.refit();
+    if (reward !== void 0) {
+      this.options.pickups.regrade(this.unlocks);
+      this.refit();
+    }
+    return reward;
   }
   /** Takes the server's frontier, and hands it to the sim so the ship stays out of closed sectors (#123). */
   setFrontier(message) {
@@ -5396,6 +5520,12 @@ var NetPlay = class {
   devSeasonWon() {
     if (this.development) {
       this.connection.sendDevSeasonWon();
+    }
+  }
+  /** On a development server, sends a Dreadnought raiding the sector the ship is in, if it's hostile (#223). */
+  devStartRaid() {
+    if (this.development) {
+      this.connection.sendDevStartRaid();
     }
   }
   /** On a development server, starts an attack on the sector the ship is in, if it's cleared (#102). */
@@ -5524,6 +5654,12 @@ var NetPlay = class {
       if (view.step(seconds)) {
         view.destroy();
         this.departing.delete(view);
+      }
+    }
+    for (const view of this.departingRaiders) {
+      if (view.step(seconds)) {
+        view.destroy();
+        this.departingRaiders.delete(view);
       }
     }
     const serverTick = this.clock.tickAt(nowMs);
@@ -5689,9 +5825,22 @@ var NetPlay = class {
     }
     for (const [id, enemy] of this.enemies) {
       if (enemy.destroyedAt === void 0 && enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
-        enemy.view.destroy(false);
         this.enemies.delete(id);
+        if (this.raidersLeaving.delete(id)) {
+          this.raiderLeaves(enemy.view);
+        } else {
+          enemy.view.destroy(false);
+        }
       }
+    }
+  }
+  /** A raiding Dreadnought gone from the snapshots teleports out (#223), heard near the ship. */
+  raiderLeaves(view) {
+    view.teleport(now() / 1e3, TELEPORT_DREADNOUGHT_SIZE);
+    this.departingRaiders.add(view);
+    const ship = this.options.sim.ship;
+    if (Math.hypot(view.x - ship.x, view.y - ship.y) <= TELEPORT_SOUND_RANGE * TELEPORT_DREADNOUGHT_SIZE) {
+      this.options.audio.teleported();
     }
   }
   /** The player's companions as drawn: the hub flies them, so they come in snapshots. */
@@ -6052,7 +6201,7 @@ var NetPlay = class {
       enemy.lastSeen = snapshot.tick;
       enemy.repairing = state.repairing;
       if (state.maxHp > 0) {
-        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor };
+        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor, leavesAt: state.leavesAt };
         enemy.view.setShield(state.shield > 0);
       }
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle, vx: state.vx, vy: state.vy });
@@ -6160,7 +6309,7 @@ var PickupsView = class {
 };
 
 // src/scenes/resample.ts
-import Phaser9 from "./vendor/phaser.js";
+import Phaser10 from "./vendor/phaser.js";
 var RESAMPLE_NODE = "FilterResample";
 var FRAGMENT = [
   "#pragma phaserTemplate(shaderName)",
@@ -6186,14 +6335,14 @@ var FRAGMENT = [
   "    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);",
   "}"
 ].join("\n");
-var Resample = class extends Phaser9.Filters.Controller {
+var Resample = class extends Phaser10.Filters.Controller {
   scale;
   constructor(camera, scale) {
     super(camera, RESAMPLE_NODE);
     this.scale = scale;
   }
 };
-var ResampleNode = class extends Phaser9.Renderer.WebGL.RenderNodes.BaseFilterShader {
+var ResampleNode = class extends Phaser10.Renderer.WebGL.RenderNodes.BaseFilterShader {
   inputSize = [1, 1];
   constructor(manager) {
     super(RESAMPLE_NODE, manager, void 0, FRAGMENT);
@@ -6205,7 +6354,7 @@ var ResampleNode = class extends Phaser9.Renderer.WebGL.RenderNodes.BaseFilterSh
       Math.max(1, Math.round(inputDrawingContext.width * scale)),
       Math.max(1, Math.round(inputDrawingContext.height * scale))
     );
-    return super.run(controller, inputDrawingContext, output, new Phaser9.Geom.Rectangle());
+    return super.run(controller, inputDrawingContext, output, new Phaser10.Geom.Rectangle());
   }
   setupUniforms() {
     this.programManager.setUniform("inputSize", this.inputSize);
@@ -6287,7 +6436,7 @@ var TouchView = class {
 };
 
 // src/scenes/blend.ts
-import Phaser10 from "./vendor/phaser.js";
+import Phaser11 from "./vendor/phaser.js";
 var FRAGMENT2 = [
   "#pragma phaserTemplate(shaderName)",
   "precision mediump float;",
@@ -6312,12 +6461,12 @@ var FRAGMENT2 = [
   "}"
 ].join("\n");
 function modeOf(blendMode) {
-  if (blendMode === Phaser10.BlendModes.COPY) {
+  if (blendMode === Phaser11.BlendModes.COPY) {
     return 2;
   }
-  return blendMode === Phaser10.BlendModes.ADD ? 1 : 0;
+  return blendMode === Phaser11.BlendModes.ADD ? 1 : 0;
 }
-var SmallBlendNode = class extends Phaser10.Renderer.WebGL.RenderNodes.BaseFilterShader {
+var SmallBlendNode = class extends Phaser11.Renderer.WebGL.RenderNodes.BaseFilterShader {
   constructor(manager) {
     super("FilterBlend", manager, void 0, FRAGMENT2);
   }
@@ -6449,7 +6598,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser11.Scene {
+var SandboxScene = class extends Phaser12.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -6579,11 +6728,11 @@ var SandboxScene = class extends Phaser11.Scene {
     }
     if (asked.get("diag") === "1") {
       const renderer = this.renderer;
-      this.diagnostics = new Diagnostics(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
     }
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser11.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser12.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -6791,7 +6940,7 @@ var SandboxScene = class extends Phaser11.Scene {
     this.world.add(lines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
-    this.fieldLayer = this.add.graphics().setBlendMode(Phaser11.BlendModes.ADD);
+    this.fieldLayer = this.add.graphics().setBlendMode(Phaser12.BlendModes.ADD);
     this.world.add(this.fieldLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
@@ -6822,7 +6971,7 @@ var SandboxScene = class extends Phaser11.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -6832,7 +6981,7 @@ var SandboxScene = class extends Phaser11.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -6865,7 +7014,7 @@ var SandboxScene = class extends Phaser11.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser11.BlendModes.ADD,
+      blendMode: Phaser12.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -6874,7 +7023,7 @@ var SandboxScene = class extends Phaser11.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser11.BlendModes.ADD,
+      blendMode: Phaser12.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -6884,7 +7033,7 @@ var SandboxScene = class extends Phaser11.Scene {
    * blur at half the screen's size between two smooth resamples (#143).
    */
   createBloom(main) {
-    if (!(this.renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer)) {
+    if (!(this.renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     registerResample(this.renderer);
@@ -6894,7 +7043,7 @@ var SandboxScene = class extends Phaser11.Scene {
     bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
     bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
-    bloom.blend.blendMode = Phaser11.BlendModes.ADD;
+    bloom.blend.blendMode = Phaser12.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
   }
@@ -6908,7 +7057,7 @@ var SandboxScene = class extends Phaser11.Scene {
       canvas.width = VIGNETTE_SIZE;
       canvas.height = VIGNETTE_SIZE;
       canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
-      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser11.Textures.FilterMode.LINEAR);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser12.Textures.FilterMode.LINEAR);
     }
     return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
   }
@@ -6952,7 +7101,7 @@ var SandboxScene = class extends Phaser11.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser11.Input.Keyboard.KeyCodes;
+    const codes = Phaser12.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -7010,7 +7159,7 @@ var SandboxScene = class extends Phaser11.Scene {
       this.closeOrderRing();
       this.standingsHeld = false;
     };
-    this.input.on(Phaser11.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser12.Input.Events.POINTER_DOWN, (pointer) => {
       if (this.touchOn) {
         return;
       }
@@ -7022,7 +7171,7 @@ var SandboxScene = class extends Phaser11.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -7294,6 +7443,9 @@ var SandboxScene = class extends Phaser11.Scene {
       case "KeyY":
         this.net?.devSeasonWon();
         break;
+      case "KeyU":
+        this.net?.devStartRaid();
+        break;
       case "F3":
         this.showFps = !this.showFps;
         this.updateHud();
@@ -7416,11 +7568,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser11.Math.Vector2(cx, cy)];
+    const points = [new Phaser12.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser11.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser12.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -7571,7 +7723,7 @@ ${modeName(info)}`,
       this.victoryScreen.hide();
     };
     victory?.addEventListener("click", closeVictory);
-    this.events.once(Phaser11.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => {
       canvas.removeEventListener("touchstart", onStart);
       canvas.removeEventListener("touchmove", onMove);
       canvas.removeEventListener("touchend", onEnd);
@@ -7915,7 +8067,7 @@ ${modeName(info)}`,
   /** Times the GPU's work for each frame, where the browser can (#143). */
   timeGpu() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer)) {
+    if (!(renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     const timer = new GpuTimer(renderer.gl);
@@ -7923,10 +8075,10 @@ ${modeName(info)}`,
       return;
     }
     this.gpuTimer = timer;
-    renderer.on(Phaser11.Renderer.Events.PRE_RENDER, () => {
+    renderer.on(Phaser12.Renderer.Events.PRE_RENDER, () => {
       timer.begin();
     });
-    renderer.on(Phaser11.Renderer.Events.POST_RENDER, () => {
+    renderer.on(Phaser12.Renderer.Events.POST_RENDER, () => {
       timer.end();
     });
   }
@@ -7947,7 +8099,7 @@ ${modeName(info)}`,
    */
   checkBloom() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser11.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
+    if (!(renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
       return;
     }
     if (loadBloomBroken()) {
@@ -7961,7 +8113,7 @@ ${modeName(info)}`,
       if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
         return;
       }
-      renderer.off(Phaser11.Renderer.Events.POST_RENDER, check);
+      renderer.off(Phaser12.Renderer.Events.POST_RENDER, check);
       const gl = renderer.gl;
       const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -7977,7 +8129,7 @@ ${modeName(info)}`,
         saveBloomBroken();
       }
     };
-    renderer.on(Phaser11.Renderer.Events.POST_RENDER, check);
+    renderer.on(Phaser12.Renderer.Events.POST_RENDER, check);
   }
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   fpsLine() {
@@ -8145,8 +8297,8 @@ async function start() {
   ]);
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
-  const game = new Phaser12.Game({
-    type: Phaser12.AUTO,
+  const game = new Phaser13.Game({
+    type: Phaser13.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -8155,7 +8307,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser12.Scale.NONE,
+      mode: Phaser13.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

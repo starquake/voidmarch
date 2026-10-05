@@ -204,6 +204,21 @@ func WithDreadnoughtInClearedSector() HubOption {
 	}
 }
 
+// WithRaidEvery sets the bounds of the hub ticks between raids (#223).
+func WithRaidEvery(lo, hi uint32) HubOption {
+	return func(o *hubOptions) {
+		o.raidEvery = [2]uint32{lo, hi}
+	}
+}
+
+// Raid timings in hub ticks, exposed for tests.
+const (
+	RaidWarnTicks = raidWarnTicks
+	RaidTicks     = raidTicks
+	RaidEveryMin  = raidEveryMin
+	RaidEveryMax  = raidEveryMax
+)
+
 // DreadnoughtGap exposes dreadnoughtGap for tests.
 var DreadnoughtGap = dreadnoughtGap
 

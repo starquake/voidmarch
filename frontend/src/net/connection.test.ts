@@ -133,6 +133,8 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     bossFell: (f) => log.events.push(`boss fell, ${String(f.gains.length)} gains`),
     seasonWon: (w) => log.events.push(`season won in ${String(w.seconds)} s`),
     standings: (s) => log.events.push(`standings ${String(s.players.length)}`),
+    raidWarned: (w) => log.events.push(`raid on ${w.sector}`),
+    raidEnded: (e) => log.events.push(`raider ${String(e.enemyId)} ${e.drivenOff ? 'driven off' : 'left'}`),
   };
   const conn = new Connection({
     url: 'ws://test/ws',
@@ -204,6 +206,8 @@ test('server messages reach their events', () => {
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'bossFell', value: { gains: [{ playerId: 'me' }] } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'seasonWon', value: { seconds: 3600n } } }));
   socket.deliver(create(ServerMessageSchema, { kind: { case: 'standings', value: { players: [{ playerId: 'mo' }] } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'raidWarned', value: { sector: 'E4' } } }));
+  socket.deliver(create(ServerMessageSchema, { kind: { case: 'raidEnded', value: { enemyId: 8, drivenOff: true } } }));
   assert.deepEqual(log.events, [
     'welcome me',
     'snapshot 7',
@@ -225,6 +229,8 @@ test('server messages reach their events', () => {
     'boss fell, 1 gains',
     'season won in 3600 s',
     'standings 1',
+    'raid on E4',
+    'raider 8 driven off',
   ]);
   assert.equal(conn.connected, true);
 });
@@ -276,6 +282,12 @@ test('a development season win is asked for', () => {
   const { conn, socket } = welcomed();
   conn.sendDevSeasonWon();
   assert.equal(socket.messages().at(-1)?.kind.case, 'devSeasonWon');
+});
+
+test('a development raid is asked for', () => {
+  const { conn, socket } = welcomed();
+  conn.sendDevStartRaid();
+  assert.equal(socket.messages().at(-1)?.kind.case, 'devStartRaid');
 });
 
 test('a mission pick names its sector', () => {

@@ -7,6 +7,7 @@ import type {
   PickupDropped,
   PickupGain,
   PickupTaken,
+  RaidEnded,
   SeasonWon,
   SectorCleared,
   Standings,
@@ -63,6 +64,7 @@ import {
   SHARD_DAMAGE,
   SAFE_ZONE_RADIUS,
   SHIP_RADIUS,
+  TELEPORT_DREADNOUGHT_SIZE,
   TELEPORT_SOUND_RANGE,
   TICK_SECONDS,
   WEAPON_STATS,
@@ -72,7 +74,7 @@ import type { ShipAudio } from './audio.ts';
 import { EnemyView } from './enemyview.ts';
 import { DerelictView } from './derelictview.ts';
 import { derelictLabel, heldLabel, holders, rescueNotice } from '../net/derelict.ts';
-import { bossFellBanner, ringsClosedBanner } from '../net/frontier.ts';
+import { bossFellBanner, raidBanner, raidEndedBanner, ringsClosedBanner } from '../net/frontier.ts';
 import { repairLines } from '../net/repair.ts';
 import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
@@ -237,6 +239,9 @@ export class NetPlay {
   private readonly departing = new Set<DerelictView>();
   /** Derelicts seen to start teleporting away (#190). */
   teleports = 0;
+  /** Raiding Dreadnoughts that left (#223), teleporting out once gone from the snapshots, and those doing it. */
+  private readonly raidersLeaving = new Set<number>();
+  private readonly departingRaiders = new Set<EnemyView>();
   /** Whether a snapshot came since connecting, so derelicts already there aren't announced. */
   private derelictsSeen = false;
   /** Derelicts this player, or their companions, rescued (#52). */
@@ -420,6 +425,13 @@ export class NetPlay {
         standings: (standings) => {
           this.setStandings(standings);
         },
+        raidWarned: (warned) => {
+          this.banners.push(raidBanner(fromEnemyFaction(warned.faction), warned.sector));
+          this.options.audio.raidWarned();
+        },
+        raidEnded: (ended) => {
+          this.raidEnded(ended);
+        },
         eventEnded: (ended) => {
           this.worldEvent = undefined;
           const event = ended.event;
@@ -461,6 +473,11 @@ export class NetPlay {
       view.destroy();
     }
     this.departing.clear();
+    for (const view of this.departingRaiders) {
+      view.destroy();
+    }
+    this.departingRaiders.clear();
+    this.raidersLeaving.clear();
   }
 
   /** Other players and their companions, for the HUD and the E2E tests. */
@@ -512,6 +529,21 @@ export class NetPlay {
 
   /** Takes the parts the fall gave this player, and announces it (#125). */
   private bossFell(faction: EnemyFaction, gains: readonly PickupGain[]): void {
+    this.banners.push(bossFellBanner(faction, this.takeGains(gains)));
+  }
+
+  /** Announces a raid's end, takes the parts it gave this player, and lets its Dreadnought teleport out (#223). */
+  private raidEnded(ended: RaidEnded): void {
+    if (ended.enemyId === 0) {
+      return;
+    }
+    this.raidersLeaving.add(ended.enemyId);
+    const reward = this.takeGains(ended.gains);
+    this.banners.push(raidEndedBanner(fromEnemyFaction(ended.faction), ended.drivenOff, reward));
+  }
+
+  /** Takes this player's part among gains, if any, and returns its label. */
+  private takeGains(gains: readonly PickupGain[]): string | undefined {
     let reward: string | undefined;
     for (const gain of gains) {
       const part = fromPart(gain.unlock?.part);
@@ -521,9 +553,12 @@ export class NetPlay {
         reward = partLabel(part, tier);
       }
     }
-    this.banners.push(bossFellBanner(faction, reward));
-    this.options.pickups.regrade(this.unlocks);
-    this.refit();
+    if (reward !== undefined) {
+      this.options.pickups.regrade(this.unlocks);
+      this.refit();
+    }
+
+    return reward;
   }
 
   /** Takes the server's frontier, and hands it to the sim so the ship stays out of closed sectors (#123). */
@@ -593,6 +628,13 @@ export class NetPlay {
   devSeasonWon(): void {
     if (this.development) {
       this.connection.sendDevSeasonWon();
+    }
+  }
+
+  /** On a development server, sends a Dreadnought raiding the sector the ship is in, if it's hostile (#223). */
+  devStartRaid(): void {
+    if (this.development) {
+      this.connection.sendDevStartRaid();
     }
   }
 
@@ -734,6 +776,12 @@ export class NetPlay {
       if (view.step(seconds)) {
         view.destroy();
         this.departing.delete(view);
+      }
+    }
+    for (const view of this.departingRaiders) {
+      if (view.step(seconds)) {
+        view.destroy();
+        this.departingRaiders.delete(view);
       }
     }
 
@@ -919,9 +967,23 @@ export class NetPlay {
     // shoot during a tick, so its snapshot already lacks the enemy.
     for (const [id, enemy] of this.enemies) {
       if (enemy.destroyedAt === undefined && enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
-        enemy.view.destroy(false);
         this.enemies.delete(id);
+        if (this.raidersLeaving.delete(id)) {
+          this.raiderLeaves(enemy.view);
+        } else {
+          enemy.view.destroy(false);
+        }
       }
+    }
+  }
+
+  /** A raiding Dreadnought gone from the snapshots teleports out (#223), heard near the ship. */
+  private raiderLeaves(view: EnemyView): void {
+    view.teleport(now() / 1000, TELEPORT_DREADNOUGHT_SIZE);
+    this.departingRaiders.add(view);
+    const ship = this.options.sim.ship;
+    if (Math.hypot(view.x - ship.x, view.y - ship.y) <= TELEPORT_SOUND_RANGE * TELEPORT_DREADNOUGHT_SIZE) {
+      this.options.audio.teleported();
     }
   }
 
@@ -1318,7 +1380,7 @@ export class NetPlay {
       enemy.lastSeen = snapshot.tick;
       enemy.repairing = state.repairing;
       if (state.maxHp > 0) {
-        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor };
+        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor, leavesAt: state.leavesAt };
         enemy.view.setShield(state.shield > 0);
       }
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle, vx: state.vx, vy: state.vy });
