@@ -165,10 +165,12 @@ const (
 // ring 2 and the Nairan one ring 3 (#140).
 const (
 	// DreadnoughtBaseHP and DreadnoughtHPPerPlayer make its maximum health:
-	// the base plus the per-player amount for each player online, so 3-6
-	// friends beat it in an evening (#132).
-	DreadnoughtBaseHP      = 10000
-	DreadnoughtHPPerPlayer = 10000
+	// the base plus the per-player amount for each player online (#132).
+	// From the measured 258 health a ship takes off a minute
+	// (TestDreadnought_DamageRate), one player takes about 20 minutes and
+	// twelve about 15 (#223).
+	DreadnoughtBaseHP      = 1400
+	DreadnoughtHPPerPlayer = 3750
 	// DreadnoughtRegenPerHour is the share of its health it gets back an
 	// hour; the share left is what's kept across sessions.
 	DreadnoughtRegenPerHour = 0.01

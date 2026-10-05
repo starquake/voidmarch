@@ -143,24 +143,26 @@ func TestDreadnought_KeepsItsShareAndScalesToThoseOnline(t *testing.T) {
 	hub, tick := testHub(t, WithMap(m), WithDreadnought(sim.Klaed, 0.75))
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
-	if got, want := d.GetHp(), float32(0.75*sim.DreadnoughtMaxHP(1)); got != want ||
+	if got, want := d.GetHp(), float32(math.Round(0.75*sim.DreadnoughtMaxHP(1))); got != want ||
 		d.GetScaledFor() != 1 {
 		t.Fatalf("Dreadnought %+v with one player online, want the saved share, %v", d, want)
 	}
-	// A hundredth of its health an hour is 1/72,000 a tick, so 1,800 ticks
-	// give back a quarter of a thousandth: 5 of 20,000.
+	// A hundredth of its health an hour is 1/72,000 a tick, so 7,200 ticks
+	// give back a thousandth of it.
 	start := d.GetHp()
-	after := dreadnoughtIn(must(latest(t, a, tick, 1800, 0, 0))).GetHp()
-	if got := after - start; got < 4 || got > 6 {
-		t.Errorf("hp went up %v in 1800 ticks, want about 5", got)
+	after := dreadnoughtIn(must(latest(t, a, tick, 7200, 0, 0))).GetHp()
+	want := sim.DreadnoughtMaxHP(1) / 1000
+	if got := float64(after - start); math.Abs(got-want) > 1 {
+		t.Errorf("hp went up %v in 7200 ticks, want about %v", got, want)
 	}
 	b, _ := join(t, hub, "b")
 	b.Send(state(0, 0))
 	d = dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
 	drain(b)
+	// Both health figures are rounded, half a point of each.
 	share := float64(after) / sim.DreadnoughtMaxHP(1)
 	if got, want := d.GetMaxHp(), float32(sim.DreadnoughtMaxHP(2)); got != want ||
-		math.Abs(float64(d.GetHp()/want)-share) > 1e-4 || d.GetScaledFor() != 2 {
+		math.Abs(float64(d.GetHp()/want)-share) > 3e-4 || d.GetScaledFor() != 2 {
 		t.Errorf(
 			"Dreadnought %+v with a second player far away, want %v of %v, scaled for 2",
 			d,
