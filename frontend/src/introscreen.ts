@@ -72,7 +72,7 @@ export class IntroScreen {
     this.focusPlay();
   }
 
-  /** The game is up behind the screen: Play plays, and the screen closes. */
+  /** The game is up behind the screen: Play is enabled, and the screen can close. */
   ready(): void {
     if (!this.loading) {
       return;
