@@ -807,17 +807,21 @@ export class SandboxScene extends Phaser.Scene {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
         this.victoryKey(event);
+      } else if (this.squadronScreen.open) {
+        this.squadronKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
       } else if (event.code === 'KeyM' && this.canOpenMap()) {
         this.maps.toggle();
-      } else if (event.code === 'Tab' && !this.joinScreenOpen()) {
+      } else if (event.code === 'Tab') {
         event.preventDefault();
         this.standingsHeld = true;
       } else if (event.code === 'KeyO') {
         this.openVictory();
       } else if (event.code === 'KeyQ') {
         this.pressOrders();
+      } else if (event.code === 'KeyC') {
+        this.openSquadrons();
       } else if (event.code === 'Escape') {
         this.openSettings();
       } else {
@@ -859,12 +863,24 @@ export class SandboxScene extends Phaser.Scene {
 
   /** The full map opens online, and not over the join screen or the order ring, where the keys and the mouse are theirs. */
   private canOpenMap(): boolean {
-    return this.net?.status === 'online' && this.orderPress === undefined && !this.joinScreenOpen();
+    return this.net?.status === 'online' && this.orderPress === undefined && !this.squadronScreen.open;
   }
 
-  /** Whether the squadron join screen is up, whose form takes Tab to move between its fields. */
-  private joinScreenOpen(): boolean {
-    return document.querySelector<HTMLFormElement>('#squadron-form')?.hidden === false;
+  /** Reopens the join screen to move to another squadron (#45), unless the order ring is up. */
+  private openSquadrons(): void {
+    if (this.orderPress !== undefined) {
+      return;
+    }
+    if (this.net?.openSquadrons() === true) {
+      this.hudView.close();
+    }
+  }
+
+  /** A key while the join screen is open: reopened, C and Esc close it without moving; the rest wait, and the form has Tab and Enter. */
+  private squadronKey(event: KeyboardEvent): void {
+    if ((event.code === 'KeyC' || event.code === 'Escape') && this.squadronScreen.reopened) {
+      this.squadronScreen.hide();
+    }
   }
 
   /** A key while the full map is open: M and Esc close it, and the rest wait. */
@@ -976,7 +992,7 @@ export class SandboxScene extends Phaser.Scene {
     const net = this.net;
     const players = net?.standings ?? [];
     for (const [panel, show] of [
-      [this.standingsJoin, this.joinScreenOpen()],
+      [this.standingsJoin, this.squadronScreen.open],
       // Holding Tab shows it too, in the same place (#167, decision 6).
       [this.standingsDown, this.sim.downed || this.standingsHeld],
     ] as const) {
@@ -993,7 +1009,7 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
   private get screenOpen(): boolean {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.open;
   }
 
   /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
@@ -1023,8 +1039,7 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
   private openSettings(): void {
-    const squadronScreen = document.querySelector<HTMLFormElement>('#squadron-form');
-    if (this.orderPress !== undefined || squadronScreen?.hidden === false) {
+    if (this.orderPress !== undefined || this.squadronScreen.open) {
       return;
     }
     this.settingsScreen.show(optionRows(this.options()));
@@ -2025,7 +2040,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.orderMenuOpen = this.orderPress?.labels !== undefined;
     this.debug.squadron = this.net?.squadron ?? '';
     this.debug.hangar = this.net?.hangar;
-    this.debug.squadronScreen = !(document.querySelector<HTMLFormElement>('#squadron-form')?.hidden ?? true);
+    this.debug.squadronScreen = this.squadronScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.introScreen = this.introScreen.open;

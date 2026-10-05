@@ -16,6 +16,8 @@ export interface SquadronChoice {
   note: string;
   /** The squadron's orders, as the ring names them. */
   mode: string;
+  /** Whether it's the player's own squadron, which they stay in (#45). */
+  current: boolean;
 }
 
 /** The mode's name as the ring shows it, or Escort for none. */
@@ -26,16 +28,18 @@ export function modeName(info: Pick<SquadronInfo, 'mode'>): string {
 }
 
 /**
- * The squadrons a joining player can pick, in the server's order (most
- * players first), and the names of those full of players.
+ * The squadrons a player can pick, in the server's order (most players
+ * first), and the names of those full of players. The player's current
+ * squadron, when they have one, is always a choice: staying in it (#45).
  */
-export function squadronChoices(list: Pick<Squadrons, 'squadrons'>): { choices: SquadronChoice[]; full: string[] } {
+export function squadronChoices(list: Pick<Squadrons, 'squadrons'>, current = ''): { choices: SquadronChoice[]; full: string[] } {
   const choices: SquadronChoice[] = [];
   const full: string[] = [];
   for (const info of list.squadrons) {
     const players = info.members.map((m) => m.name);
     const companions = info.members.reduce((n, m) => n + m.companions, 0);
-    if (players.length >= SQUADRON_CAP) {
+    const own = info.name === current;
+    if (players.length >= SQUADRON_CAP && !own) {
       full.push(info.name);
       continue;
     }
@@ -47,12 +51,37 @@ export function squadronChoices(list: Pick<Squadrons, 'squadrons'>): { choices: 
       players,
       companions,
       seats: '■'.repeat(players.length) + '▣'.repeat(shown) + '□'.repeat(free),
-      note: free === 0 ? 'you take over one of the companions' : `${String(free)} seat${free === 1 ? '' : 's'} free`,
+      note: own ? 'your squadron' : free === 0 ? 'you take over one of the companions' : `${String(free)} seat${free === 1 ? '' : 's'} free`,
       mode: modeName(info),
+      current: own,
     });
   }
 
   return { choices, full };
+}
+
+/** What a move to another squadron did, for the HUD notice (#45). */
+export interface Move {
+  name: string;
+  /** Whether the player started it rather than joined it. */
+  started: boolean;
+  /** Whether the player took over one of its companions' seats. */
+  tookOver: boolean;
+  /** How many of the player's companions went home for lack of room. */
+  sentHome: number;
+}
+
+/** The HUD notice for a move to another squadron. */
+export function moveNotice(move: Move): string {
+  const parts = [move.started ? `Started squadron ${move.name}` : `Moved to ${move.name}`];
+  if (move.tookOver) {
+    parts.push("in a companion's seat");
+  }
+  if (move.sentHome > 0) {
+    parts.push(`${move.sentHome === 1 ? 'a companion' : `${String(move.sentHome)} companions`} went home, no room`);
+  }
+
+  return parts.join(', ');
 }
 
 /** The squadron to pick first: the one the player flew in last, else the fullest. */
@@ -63,7 +92,8 @@ export function pickFirst(choices: readonly SquadronChoice[], last: string | und
 /**
  * The join screen: the squadrons with room, a way to start a new one, and
  * why flying together pays. It calls choose with a squadron's name, or ""
- * to start one.
+ * to start one. Reopened in a squadron, it lists that one too, whose Stay
+ * closes it (#45).
  */
 export class SquadronScreen {
   private readonly form: HTMLFormElement | null;
@@ -72,6 +102,8 @@ export class SquadronScreen {
   private readonly next: HTMLElement | null;
   private readonly error: HTMLElement | null;
   private picked: string | undefined;
+  /** The player's squadron while the screen is reopened in one, else "". */
+  private current = '';
   private choose: (name: string) => void = () => undefined;
 
   constructor(doc: Document = document) {
@@ -82,7 +114,7 @@ export class SquadronScreen {
     this.error = doc.querySelector<HTMLElement>('#squadron-error');
     this.form?.addEventListener('submit', (event) => {
       event.preventDefault();
-      this.choose(this.picked ?? '');
+      this.pick(this.picked ?? '');
     });
     doc.querySelector<HTMLButtonElement>('#squadron-start')?.addEventListener('click', () => {
       this.choose('');
@@ -93,9 +125,16 @@ export class SquadronScreen {
     return this.form !== null && !this.form.hidden;
   }
 
-  show(squadrons: Squadrons, last: string | undefined, choose: (name: string) => void): void {
+  /** Whether the screen was reopened in a squadron, so closing it keeps the player there. */
+  get reopened(): boolean {
+    return this.current !== '';
+  }
+
+  /** Opens the screen; current is the player's squadron when they're in one. */
+  show(squadrons: Squadrons, last: string | undefined, choose: (name: string) => void, current = ''): void {
     this.choose = choose;
-    this.picked = pickFirst(squadronChoices(squadrons).choices, last);
+    this.current = current;
+    this.picked = pickFirst(squadronChoices(squadrons, current).choices, last);
     if (this.form !== null) {
       this.form.hidden = false;
     }
@@ -104,7 +143,7 @@ export class SquadronScreen {
 
   /** Redraws the list, keeping the pick while its squadron is still there. */
   update(squadrons: Squadrons): void {
-    const { choices, full } = squadronChoices(squadrons);
+    const { choices, full } = squadronChoices(squadrons, this.current);
     if (!choices.some((c) => c.name === this.picked)) {
       this.picked = choices[0]?.name;
     }
@@ -120,7 +159,7 @@ export class SquadronScreen {
     }
   }
 
-  /** Gives the picked squadron's Join the focus, so Enter joins it. */
+  /** Gives the picked squadron's Join (or Stay) the focus, so Enter picks it. */
   focusPick(): void {
     this.list?.querySelector<HTMLButtonElement>('.picked button')?.focus();
   }
@@ -132,6 +171,7 @@ export class SquadronScreen {
   }
 
   hide(): void {
+    this.current = '';
     if (this.form !== null) {
       this.form.hidden = true;
     }
@@ -143,7 +183,7 @@ export class SquadronScreen {
   private row(c: SquadronChoice): HTMLElement {
     const doc = this.list?.ownerDocument ?? document;
     const row = doc.createElement('div');
-    row.className = c.name === this.picked ? 'squadron picked' : 'squadron';
+    row.className = ['squadron', c.name === this.picked ? 'picked' : '', c.current ? 'current' : ''].filter((n) => n !== '').join(' ');
     const name = doc.createElement('span');
     name.className = 'name';
     name.textContent = c.name;
@@ -158,9 +198,9 @@ export class SquadronScreen {
     }
     const join = doc.createElement('button');
     join.type = 'button';
-    join.textContent = 'Join';
+    join.textContent = c.current ? 'Stay' : 'Join';
     join.addEventListener('click', () => {
-      this.choose(c.name);
+      this.pick(c.name);
     });
     const seats = doc.createElement('span');
     seats.className = 'seats-pips';
@@ -171,5 +211,14 @@ export class SquadronScreen {
     row.append(name, who, join, seats, note);
 
     return row;
+  }
+
+  /** Joins the named squadron, or stays: the player's own closes the screen. */
+  private pick(name: string): void {
+    if (name !== '' && name === this.current) {
+      this.hide();
+    } else {
+      this.choose(name);
+    }
   }
 }

@@ -44,7 +44,7 @@ import { ORDER_ITEMS, type OrderContext, type OrderItem } from '../ordermenu.ts'
 import { loadLastSquadron, loadSeenSeason, saveLastSquadron, saveSeenSeason } from '../settings.ts';
 import type { SeasonResult } from '../victory.ts';
 import { missionStatsLine, type PlayerStatsRow } from '../sim/standings.ts';
-import { squadronChoices, type SquadronScreen } from '../squadrons.ts';
+import { moveNotice, squadronChoices, type Move, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyFaction, type EnemyKind } from '../sim/enemies.ts';
@@ -283,6 +283,8 @@ export class NetPlay {
   /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
   squadrons: Squadrons | undefined;
   squadron = '';
+  /** A move to another squadron asked for and not yet answered, with the companions it sent home so far (#45). */
+  private moving: Pick<Move, 'started' | 'sentHome'> | undefined;
   private notice: { text: string; untilMs: number } | undefined;
   /** The parts this player owns, at their tiers (#77); the server's word. */
   unlocks: Map<PartId, number> = defaultUnlocks();
@@ -385,6 +387,7 @@ export class NetPlay {
           this.squadronJoined(joined);
         },
         squadronRefused: (reason) => {
+          this.moving = undefined;
           options.squadronScreen.showError(reason);
         },
         squadronOrdered: (ordered) => {
@@ -439,6 +442,9 @@ export class NetPlay {
           this.pickupTaken(taken);
         },
         companionDismissed: (number, takenBy) => {
+          if (this.moving !== undefined && takenBy === '') {
+            this.moving.sentHome++;
+          }
           this.say(takenBy === '' ? `companion ${String(number)} went home` : `${takenBy} took over companion ${String(number)}`);
         },
       },
@@ -825,9 +831,35 @@ export class NetPlay {
     });
   }
 
-  /** In a squadron now; a takeover puts the ship where the companion was. */
+  /**
+   * Reopens the join screen in the player's squadron, to move to another
+   * (#45); false when there's no squadron to move from.
+   */
+  openSquadrons(): boolean {
+    const list = this.squadrons;
+    if (this.status !== 'online' || this.squadron === '' || list === undefined) {
+      return false;
+    }
+    this.options.squadronScreen.show(
+      list,
+      this.squadron,
+      (name) => {
+        this.moving = { started: name === '', sentHome: 0 };
+        this.connection.sendChooseSquadron(name);
+      },
+      this.squadron,
+    );
+
+    return true;
+  }
+
+  /** In a squadron now; a takeover puts the ship where the companion was, and a move says so. */
   private squadronJoined(joined: SquadronJoined): void {
     this.options.squadronScreen.hide();
+    if (this.moving !== undefined && joined.name !== this.squadron) {
+      this.say(moveNotice({ ...this.moving, name: joined.name, tookOver: joined.tookOver }));
+    }
+    this.moving = undefined;
     this.squadron = joined.name;
     saveLastSquadron(joined.name);
     if (joined.tookOver) {
@@ -1140,6 +1172,7 @@ export class NetPlay {
     this.development = welcome.development;
     this.squadrons = welcome.squadrons;
     this.squadron = welcome.squadron;
+    this.moving = undefined;
     if (welcome.squadron === '') {
       this.pickSquadron(welcome.squadrons);
     }
