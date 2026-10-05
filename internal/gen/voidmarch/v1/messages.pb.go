@@ -2774,10 +2774,8 @@ type EnemyState struct {
 	Hp    float32 `protobuf:"fixed32,8,opt,name=hp,proto3" json:"hp,omitempty"`
 	MaxHp float32 `protobuf:"fixed32,9,opt,name=max_hp,json=maxHp,proto3" json:"max_hp,omitempty"`
 	// The shield's charge left, as damage it can still take.
-	Shield float32 `protobuf:"fixed32,10,opt,name=shield,proto3" json:"shield,omitempty"`
-	// The players online its health was scaled for, a companion counting half.
-	ScaledFor float32      `protobuf:"fixed32,11,opt,name=scaled_for,json=scaledFor,proto3" json:"scaled_for,omitempty"`
-	Faction   EnemyFaction `protobuf:"varint,12,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
+	Shield  float32      `protobuf:"fixed32,10,opt,name=shield,proto3" json:"shield,omitempty"`
+	Faction EnemyFaction `protobuf:"varint,12,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
 	// The enemy a Support Ship is repairing now (#184); 0 for none.
 	Repairing uint32 `protobuf:"varint,13,opt,name=repairing,proto3" json:"repairing,omitempty"`
 	// A raiding Dreadnought's health at which it's driven off (#223); 0 for
@@ -2883,13 +2881,6 @@ func (x *EnemyState) GetMaxHp() float32 {
 func (x *EnemyState) GetShield() float32 {
 	if x != nil {
 		return x.Shield
-	}
-	return 0
-}
-
-func (x *EnemyState) GetScaledFor() float32 {
-	if x != nil {
-		return x.ScaledFor
 	}
 	return 0
 }
@@ -5102,7 +5093,7 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x0fSquadronOrdered\x12\x1b\n" +
 	"\tplayer_id\x18\x01 \x01(\tR\bplayerId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
-	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xf5\x02\n" +
+	"\x05order\x18\x03 \x01(\v2\x1b.voidmarch.v1.SquadronOrderR\x05order\"\xe8\x02\n" +
 	"\n" +
 	"EnemyState\x12\x19\n" +
 	"\benemy_id\x18\x01 \x01(\rR\aenemyId\x12+\n" +
@@ -5115,12 +5106,11 @@ const file_voidmarch_v1_messages_proto_rawDesc = "" +
 	"\x02hp\x18\b \x01(\x02R\x02hp\x12\x15\n" +
 	"\x06max_hp\x18\t \x01(\x02R\x05maxHp\x12\x16\n" +
 	"\x06shield\x18\n" +
-	" \x01(\x02R\x06shield\x12\x1d\n" +
-	"\n" +
-	"scaled_for\x18\v \x01(\x02R\tscaledFor\x124\n" +
+	" \x01(\x02R\x06shield\x124\n" +
 	"\afaction\x18\f \x01(\x0e2\x1a.voidmarch.v1.EnemyFactionR\afaction\x12\x1c\n" +
 	"\trepairing\x18\r \x01(\rR\trepairing\x12\x1b\n" +
-	"\tleaves_at\x18\x0e \x01(\x02R\bleavesAt\"\xc5\x01\n" +
+	"\tleaves_at\x18\x0e \x01(\x02R\bleavesAtJ\x04\b\v\x10\fR\n" +
+	"scaled_for\"\xc5\x01\n" +
 	"\bSnapshot\x12\x12\n" +
 	"\x04tick\x18\x01 \x01(\rR\x04tick\x126\n" +
 	"\aplayers\x18\x02 \x03(\v2\x1c.voidmarch.v1.PlayerSnapshotR\aplayers\x122\n" +

@@ -426,7 +426,7 @@ export class NetPlay {
           this.setStandings(standings);
         },
         raidWarned: (warned) => {
-          this.banners.push(raidBanner(fromEnemyFaction(warned.faction), warned.sector));
+          this.banners.push(raidBanner(fromEnemyFaction(warned.faction)));
           this.options.audio.raidWarned();
         },
         raidEnded: (ended) => {
@@ -1380,7 +1380,7 @@ export class NetPlay {
       enemy.lastSeen = snapshot.tick;
       enemy.repairing = state.repairing;
       if (state.maxHp > 0) {
-        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, scaledFor: state.scaledFor, leavesAt: state.leavesAt };
+        enemy.health = { hp: state.hp, maxHp: state.maxHp, shield: state.shield, raiding: state.leavesAt > 0 };
         enemy.view.setShield(state.shield > 0);
       }
       enemy.buffer.push(snapshot.tick, { x: state.x, y: state.y, angle: state.angle, vx: state.vx, vy: state.vy });

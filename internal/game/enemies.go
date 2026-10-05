@@ -585,13 +585,11 @@ func (h *Hub) enemySnapshot() []*pb.EnemyState {
 			state.Hp = float32(e.hp)
 			state.MaxHp = float32(f.maxHP)
 			state.Shield = float32(f.shield)
-			state.ScaledFor = float32(f.weight)
 		}
 		if d := e.dread; d != nil {
 			state.Hp = float32(e.hp)
 			state.MaxHp = float32(d.maxHP())
 			state.Shield = float32(d.shield)
-			state.ScaledFor = float32(d.weight)
 			if d.raid != nil {
 				state.LeavesAt = float32(d.raid.floor * d.maxHP())
 			}

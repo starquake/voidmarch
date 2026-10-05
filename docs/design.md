@@ -233,7 +233,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Shield**: a bubble that takes 20 damage before the hull, and recharges all at once after 8 s without a hit.
 - **Reset**: once nobody within 800 px is up, it heals fully and its shield comes back.
 - **Destroyed**: it always drops a part for the players near it, and is back at its spot 5 minutes later.
-- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, its shield as a thin blue line, and the players online its health was scaled for. The HUD's gauge sits bottom left and its panel top left, clear of it.
+- **The bar**: within 800 px, a health bar at the top of the screen shows its name, its health, and its shield as a thin blue line. Until #223 it also showed the players online its health was scaled for; no boss bar does now. The HUD's gauge sits bottom left and its panel top left, clear of it.
 
 ### Siege bosses (Dreadnought)
 
@@ -253,7 +253,7 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Raids** (#223): the Kla'ed Dreadnought raids ring 1 and the Nairan one ring 2; the finale doesn't.
   - **When:** once the raided ring has a sector cleared, every 10–15 minutes (drawn), while a player is up in a hostile sector of it. The clock starts again after each raid, and whenever no raid may come: while the ring's Dreadnought is awake at its gate, after it has fallen, or with the season won.
   - **Where:** in the hostile sector a player is in, drawn among them, at least 600 px from every ship. A banner and a warning sound (the teleport's, an octave down, twice) go to everyone 4 s before it appears. It brings no escort, and the sector's garrison is unchanged.
-  - **The fight:** its usual volleys and shield. Its health is the same saved share as the gate fight's, and the damage stays on it. Its boss bar reads RAID, with a line where it's driven off.
+  - **The fight:** its usual volleys and shield. Its health is the same saved share as the gate fight's, and the damage stays on it. Its boss bar reads RAID, and nothing on screen says how to drive it off, so that stays a surprise: the warning banner only says it's coming.
   - **Leaving:** it teleports out once it has taken a tenth of its maximum health this visit, after 2 minutes, or when every ship within 800 px of it is down. Driven off by damage, it gives every player up within 800 px a part, as at its fall; it never falls during a raid. Its gate waking calls a raid off first, keeping its share.
   - **The teleport** is the derelict's (#190), scaled to its 128 px.
   - **On a development server**, **U** sends a raid at once to the hostile sector you're in, whatever the clock says. The E2E map's Dreadnought is awake from the start, so it never raids there; hub tests cover raids.

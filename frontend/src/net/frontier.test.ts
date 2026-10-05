@@ -30,11 +30,9 @@ test('only rings closing again gets a banner', () => {
   assert.equal(ringsClosedBanner(1, 1), undefined, 'a sector opening on its own');
 });
 
-test('a raid is announced with its sector and how to end it', () => {
-  assert.deepEqual(raidBanner('klaed', 'E4'), [
-    "The Kla'ed Dreadnought is coming",
-    'It raids E4. Take a tenth of its health to drive it off.',
-  ]);
+test('a raid is announced without how to end it', () => {
+  assert.deepEqual(raidBanner('klaed'), ["The Kla'ed Dreadnought is coming"]);
+  assert.deepEqual(raidBanner('nairan'), ['The Nairan Dreadnought is coming']);
 });
 
 test("a raid's end says whether it was driven off, and the part won", () => {

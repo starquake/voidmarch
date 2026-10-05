@@ -395,8 +395,10 @@ message EnemyState {
   float max_hp = 9;
   // The shield's charge left, as damage it can still take.
   float shield = 10;
-  // The players online its health was scaled for, a companion counting half.
-  float scaled_for = 11;
+  // Was scaled_for: the players online its health was scaled for, shown on
+  // the boss bar until #223.
+  reserved 11;
+  reserved "scaled_for";
   EnemyFaction faction = 12;
   // The enemy a Support Ship is repairing now (#184); 0 for none.
   uint32 repairing = 13;

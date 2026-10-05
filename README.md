@@ -224,10 +224,10 @@ near it a part, and leaves 3 derelicts by the wreck.
 
 Before then it raids ring 1: once a sector there is cleared, every 10 to 15
 minutes it teleports into the hostile sector someone is in, out of sight, after
-a banner and a warning sound. Take a tenth of its health and it teleports away,
-leaving a part for everyone near; otherwise it leaves after two minutes, or
-once everyone near it is down. The damage stays on it for the real fight. The
-Nairan Dreadnought raids ring 2 the same way.
+a banner and a warning sound. Drive it off and it leaves a part for everyone
+near; otherwise it teleports away after two minutes, or once everyone near it
+is down. The damage stays on it for the real fight. The Nairan Dreadnought
+raids ring 2 the same way.
 
 Once four of ring 2's sectors are cleared, the Nairan Dreadnought wakes in
 ring 3 the same way, with its own health kept between sessions. It fires Ray

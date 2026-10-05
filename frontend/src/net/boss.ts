@@ -6,10 +6,8 @@ export interface BossHealth {
   hp: number;
   maxHp: number;
   shield: number;
-  /** The players online its health was scaled for, a companion counting half. */
-  scaledFor: number;
-  /** A raiding Dreadnought's health at which it's driven off (#223); 0 for any other boss. */
-  leavesAt: number;
+  /** Whether it's a Dreadnought raiding a sector (#223). */
+  raiding: boolean;
 }
 
 /** A boss as drawn, with its health. */
@@ -27,8 +25,6 @@ export interface BossBar {
   health: number;
   shield: number;
   text: string;
-  /** Where on the bar a raider is driven off, from 0 to 1; 0 for none (#223). */
-  mark: number;
 }
 
 /** The bosses with a bar: their class's name after their faction's, and the most their shields hold. */
@@ -54,15 +50,11 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   }
   const hp = Math.max(0, Math.ceil(nearest.hp));
   const max = Math.round(nearest.maxHp);
-  const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} online` : '';
-  const raiding = nearest.leavesAt > 0;
-  const leaves = raiding ? ` · driven off at ${String(Math.round(nearest.leavesAt))}` : '';
 
   return {
-    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}${raiding ? ' · RAID' : ''}`,
+    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}${nearest.raiding ? ' · RAID' : ''}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
-    text: `${String(hp)} / ${String(max)}${leaves}${scaled}`,
-    mark: raiding ? Math.min(nearest.leavesAt / max, 1) : 0,
+    text: `${String(hp)} / ${String(max)}`,
   };
 }

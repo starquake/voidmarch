@@ -1195,13 +1195,6 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
   shield: number;
 
   /**
-   * The players online its health was scaled for, a companion counting half.
-   *
-   * @generated from field: float scaled_for = 11;
-   */
-  scaledFor: number;
-
-  /**
    * @generated from field: voidmarch.v1.EnemyFaction faction = 12;
    */
   faction: EnemyFaction;

@@ -144,7 +144,7 @@ func TestDreadnought_KeepsItsShareAndScalesToThoseOnline(t *testing.T) {
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
 	if got, want := d.GetHp(), float32(math.Round(0.75*sim.DreadnoughtMaxHP(1))); got != want ||
-		d.GetScaledFor() != 1 {
+		d.GetMaxHp() != float32(sim.DreadnoughtMaxHP(1)) {
 		t.Fatalf("Dreadnought %+v with one player online, want the saved share, %v", d, want)
 	}
 	// A hundredth of its health an hour is 1/72,000 a tick, so 7,200 ticks
@@ -162,9 +162,9 @@ func TestDreadnought_KeepsItsShareAndScalesToThoseOnline(t *testing.T) {
 	// Both health figures are rounded, half a point of each.
 	share := float64(after) / sim.DreadnoughtMaxHP(1)
 	if got, want := d.GetMaxHp(), float32(sim.DreadnoughtMaxHP(2)); got != want ||
-		math.Abs(float64(d.GetHp()/want)-share) > 3e-4 || d.GetScaledFor() != 2 {
+		math.Abs(float64(d.GetHp()/want)-share) > 3e-4 {
 		t.Errorf(
-			"Dreadnought %+v with a second player far away, want %v of %v, scaled for 2",
+			"Dreadnought %+v with a second player far away, want %v of %v",
 			d,
 			share,
 			want,

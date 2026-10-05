@@ -62,7 +62,7 @@ test('flying to the Frigate shows its health bar, and a hit lowers its shield or
     const near = await state(page);
     if (!near.downed) {
       expect(near.boss?.name).toBe("KLA'ED FRIGATE");
-      expect(near.boss?.text).toMatch(/^\d+ \/ \d+ · scaled for [\d.]+ online$/);
+      expect(near.boss?.text).toMatch(/^\d+ \/ \d+$/);
       if (await wear(page)) {
         break;
       }
