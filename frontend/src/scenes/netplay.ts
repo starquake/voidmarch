@@ -831,13 +831,18 @@ export class NetPlay {
     });
   }
 
+  /** Whether the player is online in a squadron, so C can move them to another (#45). */
+  get canSwitchSquadron(): boolean {
+    return this.status === 'online' && this.squadron !== '' && this.squadrons !== undefined;
+  }
+
   /**
    * Reopens the join screen in the player's squadron, to move to another
    * (#45); false when there's no squadron to move from.
    */
   openSquadrons(): boolean {
     const list = this.squadrons;
-    if (this.status !== 'online' || this.squadron === '' || list === undefined) {
+    if (!this.canSwitchSquadron || list === undefined) {
       return false;
     }
     this.options.squadronScreen.show(

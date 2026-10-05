@@ -36,7 +36,7 @@ import { changeOption, optionRows, type OptionId, type Options } from '../sim/op
 import { SettingsScreen } from '../settingsscreen.ts';
 import { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
-import { connectionToast, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
+import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { VictoryScreen } from '../victory.ts';
@@ -999,7 +999,8 @@ export class SandboxScene extends Phaser.Scene {
     for (const [panel, show] of [
       [this.standingsJoin, this.squadronScreen.open],
       // Holding Tab shows it too, in the same place (#167, decision 6).
-      [this.standingsDown, this.sim.downed || this.standingsHeld],
+      // Under the reopened join screen, its own copy shows instead.
+      [this.standingsDown, (this.sim.downed || this.standingsHeld) && !this.squadronScreen.open],
     ] as const) {
       panel.update(show, players, net?.playerId, net?.seasonStarted ?? 0, net?.standingsVersion ?? 0);
     }
@@ -1593,6 +1594,9 @@ export class SandboxScene extends Phaser.Scene {
       case 'respawnBeside':
         this.respawn(true);
         break;
+      case 'squadron':
+        this.openSquadrons();
+        break;
       case 'fullscreen':
         this.switchFullscreen(this.fullscreenState() !== true);
         break;
@@ -1641,6 +1645,7 @@ export class SandboxScene extends Phaser.Scene {
           down: this.sim.downed,
           canRespawn: this.sim.canRespawn,
           beside: this.net?.nearestSquadmate()?.name,
+          squadron: this.net?.canSwitchSquadron === true,
           fullscreen: this.fullscreenState(),
           ...this.insets,
         });
@@ -1696,14 +1701,13 @@ export class SandboxScene extends Phaser.Scene {
 
       return;
     }
-    const beside = this.net?.nearestSquadmate();
-    const keys = `[H] respawn at home${beside === undefined ? '' : `      [J] respawn beside ${beside.name}`}`;
-    const choices = this.sim.canRespawn
-      ? this.touchOn
-        ? 'respawn with a button above'
-        : keys
-      : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
-    const text = ["You're down", '', choices, 'or stay: a friend close by revives you'].join('\n');
+    const text = downPanelText({
+      canRespawn: this.sim.canRespawn,
+      wait: RESPAWN_DELAY - this.sim.ship.downFor,
+      beside: this.net?.nearestSquadmate()?.name,
+      touch: this.touchOn,
+      squadron: this.net?.canSwitchSquadron === true,
+    });
     if (this.downPanel.text !== text) {
       this.downPanel.setText(text);
     }

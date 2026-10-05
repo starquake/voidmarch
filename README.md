@@ -95,6 +95,7 @@ turns them on anywhere, and `?touch=0` off. Play in landscape.
 | Squadron row | Top left, in the panel: the squadron screen, to move to another squadron; tap beside it to close |
 | Minimap | Full map: tap a sector to send your squadron there, tap beside it to close |
 | Respawn buttons | When down, respawn at home or beside a squadmate |
+| Squadron button | When down, beside the respawn buttons: the squadron screen |
 | Settings | Top left: the settings screen; tap a row to change it, tap beside it to close |
 | Help | Beside Settings: the intro screen, with these controls; tap beside it to close |
 | Full screen | Beside Help: switch to fullscreen and back (asked for on the first tap too; not on an iPhone, whose Safari can't) |
@@ -196,6 +197,7 @@ apart. A fast collision with an enemy is a ram that hurts both sides;
 friendly ships only push each other. Three hull hits
 and you're down: you drift until a friend hovers beside you to revive you,
 or after 3 s you respawn with **H** at home or **J** beside a squadmate.
+**C** switches squadron while you're down too, and you stay down.
 Enemies need the server, so
 offline the sandbox stays empty.
 

@@ -1826,7 +1826,7 @@ var KEYBOARD = {
     { keys: ["1", "2", "3"], text: "switch weapon, engine, shield" },
     { keys: ["M"], text: "map" },
     { keys: ["Tab"], text: "hold for the standings" },
-    { keys: ["C"], text: "switch squadrons" },
+    { keys: ["C"], text: "switch squadrons, also when down" },
     { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
     { keys: ["O"], text: "the season's victory screen" },
     { keys: ["Esc"], text: "settings, or close a screen" },
@@ -1862,6 +1862,7 @@ var BUTTONS = {
     { keys: ["Summon"], text: "draw a companion, at home" },
     { keys: ["Orders"], text: "hold for the order ring, tap to repeat" },
     { keys: ["Respawn"], text: "when down: at home, or beside a squadmate" },
+    { keys: ["Squadron"], text: "when down: switch squadrons" },
     { keys: ["Settings"], text: "sound, controls, effects" },
     { keys: ["Help"], text: "this screen" }
   ]
@@ -2373,6 +2374,12 @@ function panelRows(state) {
     row("Alert", state.event, true);
   }
   return rows;
+}
+var DOWN_PANEL_GAP = "      ";
+function downPanelText(state) {
+  const respawn = state.canRespawn ? state.touch ? ["respawn with a button above"] : ["[H] respawn at home", ...state.beside === void 0 ? [] : [`[J] respawn beside ${state.beside}`]] : [`respawn in ${String(Math.ceil(state.wait))} s`];
+  const choices = [...respawn, ...state.squadron && !state.touch ? ["[C] switch squadron"] : []].join(DOWN_PANEL_GAP);
+  return ["You're down", "", choices, "or stay: a friend close by revives you"].join("\n");
 }
 function connectionToast(status) {
   switch (status) {
@@ -3400,17 +3407,24 @@ function playButtons(screen, dpr) {
   const h = TOUCH_BUTTON_PX * dpr;
   const gap = TOUCH_BUTTON_GAP_PX * dpr;
   if (screen.down) {
-    if (!screen.canRespawn) {
-      return [];
-    }
     const wide = TOUCH_WIDE_BUTTON_PX * dpr;
-    const respawns = [{ button: "respawnHome", label: "Respawn at home", gold: true }];
-    if (screen.beside !== void 0) {
-      respawns.push({ button: "respawnBeside", label: `Respawn beside ${screen.beside}`, gold: false });
+    const row = [];
+    if (screen.canRespawn) {
+      row.push({ button: "respawnHome", label: "Respawn at home", gold: true, width: wide });
+      if (screen.beside !== void 0) {
+        row.push({ button: "respawnBeside", label: `Respawn beside ${screen.beside}`, gold: false, width: wide });
+      }
     }
-    const total = respawns.length * wide + (respawns.length - 1) * gap;
-    const left = (width - total) / 2;
-    return respawns.map((r, i) => ({ ...r, x: left + i * (wide + gap), y: height * TOUCH_RESPAWN_Y, width: wide, height: h }));
+    if (screen.squadron) {
+      row.push({ button: "squadron", label: "Squadron", gold: false, width: TOUCH_BUTTON_WIDTH_PX * dpr });
+    }
+    const total = row.reduce((sum, b) => sum + b.width, 0) + Math.max(0, row.length - 1) * gap;
+    let x = (width - total) / 2;
+    return row.map((b) => {
+      const rect = { ...b, x, y: height * TOUCH_RESPAWN_Y, height: h };
+      x += b.width + gap;
+      return rect;
+    });
   }
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
   const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
@@ -5619,13 +5633,17 @@ var NetPlay = class {
       this.connection.sendChooseSquadron(name);
     });
   }
+  /** Whether the player is online in a squadron, so C can move them to another (#45). */
+  get canSwitchSquadron() {
+    return this.status === "online" && this.squadron !== "" && this.squadrons !== void 0;
+  }
   /**
    * Reopens the join screen in the player's squadron, to move to another
    * (#45); false when there's no squadron to move from.
    */
   openSquadrons() {
     const list = this.squadrons;
-    if (this.status !== "online" || this.squadron === "" || list === void 0) {
+    if (!this.canSwitchSquadron || list === void 0) {
       return false;
     }
     this.options.squadronScreen.show(
@@ -7161,7 +7179,8 @@ var SandboxScene = class extends Phaser11.Scene {
     for (const [panel, show] of [
       [this.standingsJoin, this.squadronScreen.open],
       // Holding Tab shows it too, in the same place (#167, decision 6).
-      [this.standingsDown, this.sim.downed || this.standingsHeld]
+      // Under the reopened join screen, its own copy shows instead.
+      [this.standingsDown, (this.sim.downed || this.standingsHeld) && !this.squadronScreen.open]
     ]) {
       panel.update(show, players, net?.playerId, net?.seasonStarted ?? 0, net?.standingsVersion ?? 0);
     }
@@ -7686,6 +7705,9 @@ ${modeName(info)}`,
       case "respawnBeside":
         this.respawn(true);
         break;
+      case "squadron":
+        this.openSquadrons();
+        break;
       case "fullscreen":
         this.switchFullscreen(this.fullscreenState() !== true);
         break;
@@ -7729,6 +7751,7 @@ ${modeName(info)}`,
       down: this.sim.downed,
       canRespawn: this.sim.canRespawn,
       beside: this.net?.nearestSquadmate()?.name,
+      squadron: this.net?.canSwitchSquadron === true,
       fullscreen: this.fullscreenState(),
       ...this.insets
     });
@@ -7777,10 +7800,13 @@ ${modeName(info)}`,
       this.downPanel.setVisible(false);
       return;
     }
-    const beside = this.net?.nearestSquadmate();
-    const keys2 = `[H] respawn at home${beside === void 0 ? "" : `      [J] respawn beside ${beside.name}`}`;
-    const choices = this.sim.canRespawn ? this.touchOn ? "respawn with a button above" : keys2 : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
-    const text = ["You're down", "", choices, "or stay: a friend close by revives you"].join("\n");
+    const text = downPanelText({
+      canRespawn: this.sim.canRespawn,
+      wait: RESPAWN_DELAY - this.sim.ship.downFor,
+      beside: this.net?.nearestSquadmate()?.name,
+      touch: this.touchOn,
+      squadron: this.net?.canSwitchSquadron === true
+    });
     if (this.downPanel.text !== text) {
       this.downPanel.setText(text);
     }

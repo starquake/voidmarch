@@ -67,3 +67,40 @@ test('a downed player respawns at home, whole', async ({ page }) => {
   expect((await state(page)).revives).toBe(0);
   expect((await state(page)).standings.down, 'gone once up again').toBe(0);
 });
+
+test('a downed player switches squadron with C and stays down, the panel still theirs (#45)', async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online' && window.voidmarch.squadron !== '');
+  const first = (await state(page)).squadron;
+  await goDown(page);
+  expect((await state(page)).downPanel).toContain('[C] switch squadron');
+  await expect
+    .poll(async () => (await state(page)).downPanel ?? '', { timeout: 10_000 })
+    .toContain('[H] respawn at home');
+
+  await page.keyboard.press('c');
+  await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
+  await expect(page.locator('#squadron-list .squadron.current button')).toHaveText('Stay');
+  await expect
+    .poll(async () => {
+      const { join, down } = (await state(page)).standings;
+
+      return [join > 0, down];
+    }, { message: 'one copy of the season so far, on the screen' })
+    .toEqual([true, 0]);
+  await page.keyboard.press('h');
+  expect((await state(page)).downed, 'H waits under the screen').toBe(true);
+
+  await page.locator('#squadron-start').click();
+  await expect.poll(async () => (await state(page)).squadron).not.toBe(first);
+  const moved = await state(page);
+  expect([moved.squadronScreen, moved.downed], 'the screen closes, and the ship stays down').toEqual([false, true]);
+  expect(moved.notice).toBe(`Started squadron ${moved.squadron}`);
+  expect(moved.downPanel).toContain('[H] respawn at home');
+  expect(moved.downPanel).toContain('[C] switch squadron');
+
+  await page.keyboard.press('h');
+  await expect.poll(async () => (await state(page)).downed).toBe(false);
+  expect((await state(page)).squadron, 'respawned in the new squadron').toBe(moved.squadron);
+});

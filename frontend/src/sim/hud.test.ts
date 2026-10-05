@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { connectionToast, hullPips, joinNames, panelRows, shieldPips, type PanelState } from './hud.ts';
+import { connectionToast, downPanelText, hullPips, joinNames, panelRows, shieldPips, type DownPanelState, type PanelState } from './hud.ts';
 import { MAX_DAMAGE } from './rules.gen.ts';
 
 test('the hull has a pip per hit the ship can still take', () => {
@@ -85,4 +85,25 @@ test('the connection toasts only while it is not online', () => {
   assert.equal(connectionToast('offline'), 'Offline, reconnecting');
   assert.equal(connectionToast('full'), 'The frontier is full, try again soon');
   assert.equal(connectionToast('connecting'), 'Connecting');
+});
+
+test('the down panel counts down, then lists H, J beside a squadmate, and C beside them in a squadron (#47, #45)', () => {
+  const down: DownPanelState = { canRespawn: false, wait: 2.2, beside: undefined, touch: false, squadron: false };
+  assert.equal(downPanelText(down), "You're down\n\nrespawn in 3 s\nor stay: a friend close by revives you");
+  assert.equal(
+    downPanelText({ ...down, squadron: true }),
+    "You're down\n\nrespawn in 3 s      [C] switch squadron\nor stay: a friend close by revives you",
+    'C before respawning is allowed too',
+  );
+  assert.equal(
+    downPanelText({ ...down, canRespawn: true, beside: 'Mira', squadron: true }),
+    "You're down\n\n[H] respawn at home      [J] respawn beside Mira      [C] switch squadron\nor stay: a friend close by revives you",
+  );
+  assert.equal(downPanelText({ ...down, canRespawn: true }).split('\n')[2], '[H] respawn at home');
+  assert.equal(downPanelText({ ...down, canRespawn: true, squadron: true }).split('\n')[2], '[H] respawn at home      [C] switch squadron');
+});
+
+test('on touch the down panel points at the buttons, and leaves C to the Squadron button', () => {
+  const touch: DownPanelState = { canRespawn: true, wait: 0, beside: 'Mira', touch: true, squadron: true };
+  assert.equal(downPanelText(touch), "You're down\n\nrespawn with a button above\nor stay: a friend close by revives you");
 });
