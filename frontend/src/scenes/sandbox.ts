@@ -155,9 +155,8 @@ const DOWN_PANEL_PADDING_Y = 8;
 const DOWN_PANEL_Y = 0.8;
 /** How many frames in the bloom is checked for drawing the world black, once things have settled (#180). */
 const BLOOM_CHECK_FRAME = 30;
-/** The HUD's two lines of keys. */
-const KEY_HELP_MOVE = 'WASD move · mouse aim · hold left button to fire · H/J respawn when down · G companion';
-const KEY_HELP_MORE = 'hold Q orders, tap to repeat · M map · hold Tab standings · 1/2/3 parts · Esc settings';
+/** Bottom right: the keys to the intro screen, which lists the rest (#193), and the settings. */
+const KEY_HINT = 'F1 help · Esc settings';
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
 /** The order ring's height radius and its dead center, in CSS pixels. */
@@ -713,7 +712,7 @@ export class SandboxScene extends Phaser.Scene {
     this.vignette = this.createVignette();
     main.ignore(this.vignette);
 
-    // What's left of the text HUD (#91): the keys until F1 help (#193), frames per second, and ?diag=1.
+    // What's left of the text HUD (#91): the F1 and Esc hint (#193), frames per second, and ?diag=1.
     this.hud = this.add
       .text(8, 8, '', { fontFamily: UI_FONT, fontSize: '12px', color: '#d8f8ff', align: 'right' })
       .setOrigin(1, 1)
@@ -1890,8 +1889,8 @@ export class SandboxScene extends Phaser.Scene {
 
   private updateHud(): void {
     this.hud.setText([
-      // The key lines are about keys, so a tablet goes without them (#180, decision 6).
-      ...(this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE]),
+      // The hint is about keys, so a tablet goes without it (#180, decision 6).
+      ...(this.touchOn ? [] : [KEY_HINT]),
       ...(this.showFps ? [this.fpsLine()] : []),
       ...(this.diagnostics?.lines() ?? []),
     ]);

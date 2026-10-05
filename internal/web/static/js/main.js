@@ -6184,8 +6184,7 @@ var DOWN_PANEL_PADDING_X = 12;
 var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
-var KEY_HELP_MOVE = "WASD move \xB7 mouse aim \xB7 hold left button to fire \xB7 H/J respawn when down \xB7 G companion";
-var KEY_HELP_MORE = "hold Q orders, tap to repeat \xB7 M map \xB7 hold Tab standings \xB7 1/2/3 parts \xB7 Esc settings";
+var KEY_HINT = "F1 help \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
@@ -7706,8 +7705,8 @@ ${modeName(info)}`,
   }
   updateHud() {
     this.hud.setText([
-      // The key lines are about keys, so a tablet goes without them (#180, decision 6).
-      ...this.touchOn ? [] : [KEY_HELP_MOVE, KEY_HELP_MORE],
+      // The hint is about keys, so a tablet goes without it (#180, decision 6).
+      ...this.touchOn ? [] : [KEY_HINT],
       ...this.showFps ? [this.fpsLine()] : [],
       ...this.diagnostics?.lines() ?? []
     ]);
