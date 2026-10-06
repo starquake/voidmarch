@@ -153,12 +153,13 @@ func TestBulletOf(t *testing.T) {
 }
 
 // battle is wings of stealthy companions, each beside its parked owner, and
-// an enemy above each wing firing seeded volleys at it, stepped a sim tick
-// at a time as the hub steps them.
+// an enemy of kind above each wing firing seeded volleys at it, stepped a
+// sim tick at a time as the hub steps them. Hits are counted, not taken.
 type battle struct {
 	wings   []*Wing
 	owners  []Mover
 	enemies []Vec
+	kind    EnemyKind
 	pool    *Pool
 	sees    bool
 	tick    int
@@ -169,10 +170,11 @@ type battle struct {
 // battleVolleyTicks is how often each enemy fires.
 const battleVolleyTicks = 20
 
-// newBattle is wings of three, 300 px apart in a row, each with an enemy
-// 300 px above it; the companions see the bullets when sees is set.
-func newBattle(wings int, sees bool) *battle {
-	b := &battle{pool: NewPool(512), sees: sees}
+// newBattle is wings of three, 300 px apart in a row, each with an enemy of
+// kind 300 px above it; the companions see the bullets when sees is set. Its
+// pool holds as many projectiles as the hub's.
+func newBattle(wings int, kind EnemyKind, sees bool) *battle {
+	b := &battle{kind: kind, pool: NewPool(512), sees: sees}
 	for i := range wings {
 		x := float64(i) * 300
 		var w Wing
@@ -196,7 +198,7 @@ func (b *battle) step() {
 			target := wing.Companions[b.tick/battleVolleyTicks%len(wing.Companions)].Ship
 			angle := math.Atan2(target.Y-e.Y, target.X-e.X)
 			seed := uint32(b.tick + i) //nolint:gosec // small.
-			for _, s := range EnemyPattern(EnemyFighter, Klaed, e.X, e.Y, angle, seed) {
+			for _, s := range EnemyPattern(b.kind, Klaed, e.X, e.Y, angle, seed) {
 				b.pool.Spawn(s, SpawnOptions{Faction: FactionEnemy})
 			}
 		}
@@ -241,7 +243,7 @@ func TestWing_DodgingTakesFewerHits(t *testing.T) {
 	t.Parallel()
 
 	hits := func(sees bool) int {
-		b := newBattle(2, sees)
+		b := newBattle(2, EnemyFighter, sees)
 		for range 30 * TickRate {
 			b.step()
 		}
@@ -251,5 +253,29 @@ func TestWing_DodgingTakesFewerHits(t *testing.T) {
 	unseen, seen := hits(false), hits(true)
 	if unseen == 0 || seen*2 > unseen {
 		t.Errorf("hits = %d seeing the bullets and %d not, want under half", seen, unseen)
+	}
+}
+
+// BenchmarkWing_UnderHeavyFire is one hub tick, three sim ticks, of 16 wings
+// of three under Dreadnought volleys that keep the hub's projectile pool
+// full: the companions dodging, and blind to the bullets.
+func BenchmarkWing_UnderHeavyFire(b *testing.B) {
+	for _, tc := range []struct {
+		name string
+		sees bool
+	}{{"dodging", true}, {"blind", false}} {
+		b.Run(tc.name, func(b *testing.B) {
+			fight := newBattle(16, EnemyDreadnought, tc.sees)
+			for range 5 * TickRate {
+				fight.step()
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				for range 3 {
+					fight.step()
+				}
+			}
+			b.ReportMetric(float64(fight.pool.ActiveCount()), "bullets")
+		})
 	}
 }

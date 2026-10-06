@@ -6,6 +6,10 @@ import "math"
 // bullet's path is straight between them.
 const dodgeSamples = 10
 
+// dodgeThreats is how many noticed bullets fit on the stack before the list
+// of them is allocated.
+const dodgeThreats = 64
+
 // Bullet is an enemy bullet as a companion sees it (#249): where it is, how
 // fast it flies, and how long it has flown.
 type Bullet struct {
@@ -33,7 +37,11 @@ func BulletOf(p *Projectile) Bullet {
 // latest, the ways nearest move first, so it keeps to its course as far as it
 // can.
 func dodge(view *BrainView, g goal, move Vec) Vec {
-	threats := noticed(view)
+	if len(view.Bullets) == 0 {
+		return move
+	}
+	var room [dodgeThreats]Bullet
+	threats := noticed(view, room[:0])
 	if len(threats) == 0 {
 		return move
 	}
@@ -67,10 +75,9 @@ func dodge(view *BrainView, g goal, move Vec) Vec {
 	return best
 }
 
-// noticed are the bullets a companion has seen coming: within
+// noticed is out with the bullets a companion has seen coming: within
 // BrainDodgeRadius, and flying at least BrainDodgeReaction.
-func noticed(view *BrainView) []Bullet {
-	var out []Bullet
+func noticed(view *BrainView, out []Bullet) []Bullet {
 	self := view.Self
 	for i := range view.Bullets {
 		b := &view.Bullets[i]
