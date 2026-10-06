@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 
 import { keys } from '../sprites.ts';
 import type { EnemyFaction, EnemyKind } from '../sim/enemies.ts';
-import { BOMBER_WARN_TINT } from '../sim/tuning.ts';
+import { BOMBER_WARN_TINT, TELEPORT_WHITE } from '../sim/tuning.ts';
 import { SPRITE_FACING, type ShipParent } from './shipview.ts';
+import { TeleportEffect } from './teleportview.ts';
 
 /** How long a hit flashes an enemy white. */
 const FLASH_MS = 70;
@@ -19,9 +20,12 @@ export class EnemyView {
   /** The shield bubble, for the kinds that have one (#89). */
   private readonly shield: Phaser.GameObjects.Sprite | undefined;
   private readonly scene: Phaser.Scene;
+  private readonly parent: ShipParent;
+  private teleporting: TeleportEffect | undefined;
 
   constructor(scene: Phaser.Scene, parent: ShipParent, kind: EnemyKind, faction: EnemyFaction) {
     this.scene = scene;
+    this.parent = parent;
     this.kind = kind;
     this.faction = faction;
     const engine = scene.add.sprite(0, 0, keys.enemyEngine(faction, kind)).play(keys.enemyEngine(faction, kind));
@@ -86,8 +90,34 @@ export class EnemyView {
     });
   }
 
-  /** Plays the pack's destruction animation in place of the ship, then goes. */
-  destroy(explode: boolean): void {
+  /** Starts teleporting out at now, in seconds (#223): the derelict's teleport (#190), size times as big. */
+  teleport(now: number, size: number): void {
+    if (this.teleporting !== undefined) {
+      return;
+    }
+    this.setShield(false);
+    this.teleporting = new TeleportEffect(this.scene, this.parent, this.root.x, this.root.y, this.root.rotation, now, size);
+    this.step(now);
+  }
+
+  /** Draws its teleport at now, in seconds; true once it's over, false while it runs or before it starts. */
+  step(now: number): boolean {
+    const f = this.teleporting?.step(now);
+    if (f === undefined) {
+      return false;
+    }
+    if (f.white) {
+      this.base.setTint(TELEPORT_WHITE).setTintMode(Phaser.TintModes.FILL);
+    }
+    this.root.setScale(f.hullScale).setVisible(f.hullScale > 0);
+
+    return f.done;
+  }
+
+  /** Goes, after the pack's destruction animation in place of the ship when it explodes. */
+  destroy(explode = false): void {
+    this.teleporting?.destroy();
+    this.teleporting = undefined;
     if (!explode) {
       this.root.destroy();
 

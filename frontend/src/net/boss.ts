@@ -6,8 +6,8 @@ export interface BossHealth {
   hp: number;
   maxHp: number;
   shield: number;
-  /** The players online its health was scaled for, a companion counting half. */
-  scaledFor: number;
+  /** Whether it's a Dreadnought raiding a sector (#223). */
+  raiding: boolean;
 }
 
 /** A boss as drawn, with its health. */
@@ -50,12 +50,11 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
   }
   const hp = Math.max(0, Math.ceil(nearest.hp));
   const max = Math.round(nearest.maxHp);
-  const scaled = nearest.scaledFor > 0 ? ` · scaled for ${String(nearest.scaledFor)} online` : '';
 
   return {
-    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}`,
+    name: `${FACTION_NAMES[nearest.faction].toUpperCase()} ${boss.name}${nearest.raiding ? ' · RAID' : ''}`,
     health: Math.min(hp / max, 1),
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
-    text: `${String(hp)} / ${String(max)}${scaled}`,
+    text: `${String(hp)} / ${String(max)}`,
   };
 }

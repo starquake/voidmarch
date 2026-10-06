@@ -201,3 +201,5 @@ export const TELEPORT_COLOR = 0x5ad1ff;
 export const TELEPORT_WHITE = 0xd8f8ff;
 /** A teleport is heard only this close to the ship, about the view, like an enemy exploding. */
 export const TELEPORT_SOUND_RANGE = 400;
+/** A raiding Dreadnought's teleport (#223), scaled from the Main Ship's 48 px to its 128. */
+export const TELEPORT_DREADNOUGHT_SIZE = 128 / 48;

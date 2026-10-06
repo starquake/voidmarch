@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { bossFellBanner, ringOpenedBy, ringsClosedBanner } from './frontier.ts';
+import { bossFellBanner, raidBanner, raidEndedBanner, ringOpenedBy, ringsClosedBanner } from './frontier.ts';
 
 test('the fall is announced with what it opened and the part won', () => {
   assert.deepEqual(bossFellBanner('klaed', 'Mega Zapper'), [
@@ -28,4 +28,19 @@ test('only rings closing again gets a banner', () => {
   assert.equal(ringsClosedBanner(0, 1), undefined, 'the first frontier heard');
   assert.equal(ringsClosedBanner(1, 3), undefined, 'rings opening');
   assert.equal(ringsClosedBanner(1, 1), undefined, 'a sector opening on its own');
+});
+
+test('a raid is announced with where it raids, but not how to end it', () => {
+  assert.deepEqual(raidBanner('klaed', 'E4'), ["The Kla'ed Dreadnought is coming", 'It raids E4.']);
+  assert.deepEqual(raidBanner('nairan', 'B3'), ['The Nairan Dreadnought is coming', 'It raids B3.']);
+});
+
+test("a raid's end says whether it was driven off, and the part won", () => {
+  assert.deepEqual(raidEndedBanner('nairan', true, 'Super Rockets'), [
+    'The Nairan Dreadnought was driven off',
+    'The damage stays on it.',
+    'Your reward: Super Rockets',
+  ]);
+  assert.deepEqual(raidEndedBanner('klaed', true, undefined), ["The Kla'ed Dreadnought was driven off", 'The damage stays on it.']);
+  assert.deepEqual(raidEndedBanner('klaed', false, undefined), ["The Kla'ed Dreadnought teleported away"]);
 });

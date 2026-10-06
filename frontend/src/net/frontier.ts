@@ -39,3 +39,25 @@ export function ringsClosedBanner(before: number, after: number): string[] | und
     `Ring ${String(after)} fell below 4 cleared sectors. Take them back to wake a new Dreadnought.`,
   ];
 }
+
+/** The banner a few seconds before a Dreadnought raids sector (#223): where, but not how to drive it off. */
+export function raidBanner(faction: EnemyFaction, sector: string): string[] {
+  return [`The ${FACTION_NAMES[faction]} Dreadnought is coming`, `It raids ${sector}.`];
+}
+
+/**
+ * The banner when a raiding Dreadnought teleports out (#223): driven off,
+ * with the part this player won, if any, or gone on its own.
+ */
+export function raidEndedBanner(faction: EnemyFaction, drivenOff: boolean, part: string | undefined): string[] {
+  const name = `The ${FACTION_NAMES[faction]} Dreadnought`;
+  if (!drivenOff) {
+    return [`${name} teleported away`];
+  }
+  const lines = [`${name} was driven off`, 'The damage stays on it.'];
+  if (part !== undefined) {
+    lines.push(`Your reward: ${part}`);
+  }
+
+  return lines;
+}

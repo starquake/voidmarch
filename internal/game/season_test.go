@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -59,8 +60,13 @@ func TestSeason_TheFinalesFallTellsEveryoneTheResult(t *testing.T) {
 			took,
 		)
 	}
-	if got, want := won.GetSectors(), uint32(len(finaleCleared())); got != want {
-		t.Errorf("SeasonWon sectors = %d, want %d", got, want)
+	// The finale's fall clears its own sector first (#223).
+	want := uint32(len(finaleCleared()))
+	if !slices.Contains(finaleCleared(), dreadnoughtSector(t, d).Name()) {
+		want++
+	}
+	if got := won.GetSectors(); got != want {
+		t.Errorf("SeasonWon sectors = %d, want %d, its own sector included", got, want)
 	}
 	rows := won.GetPlayers()
 	if len(rows) != 2 || rows[0].GetName() != "Zed" || rows[0].GetKills() != 9 ||

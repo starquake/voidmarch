@@ -143,7 +143,7 @@ export const RING_FACTIONS: readonly EnemyFaction[] = ['klaed', 'klaed', 'nairan
 export const FRIGATE_REACH = 800;
 export const FRIGATE_SHIELD = 20;
 export const DREADNOUGHT_SHIELD = 120;
-export const DREADNOUGHT_BASE_HP = 10000;
+export const DREADNOUGHT_BASE_HP = 1100;
 /** Where the WebAssembly sim's state sits in its float64 array (internal/simbridge). */
 export const LAYOUT = {
   ticks: 0,

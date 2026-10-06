@@ -519,6 +519,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: DevSeasonWon;
     case: "devSeasonWon";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.DevStartRaid dev_start_raid = 14;
+     */
+    value: DevStartRaid;
+    case: "devStartRaid";
   } | { case: undefined; value?: undefined };
 };
 
@@ -527,6 +533,21 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export declare const ClientMessageSchema: GenMessage<ClientMessage>;
+
+/**
+ * DevStartRaid sends a Dreadnought raiding the hostile sector this player is
+ * in at once, on a development server only, for trying raids (#223).
+ *
+ * @generated from message voidmarch.v1.DevStartRaid
+ */
+export declare type DevStartRaid = Message<"voidmarch.v1.DevStartRaid"> & {
+};
+
+/**
+ * Describes the message voidmarch.v1.DevStartRaid.
+ * Use `create(DevStartRaidSchema)` to create a new message.
+ */
+export declare const DevStartRaidSchema: GenMessage<DevStartRaid>;
 
 /**
  * DevStartAttack starts an attack on a cleared sector at once, on a
@@ -1174,13 +1195,6 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
   shield: number;
 
   /**
-   * The players online its health was scaled for, a companion counting half.
-   *
-   * @generated from field: float scaled_for = 11;
-   */
-  scaledFor: number;
-
-  /**
    * @generated from field: voidmarch.v1.EnemyFaction faction = 12;
    */
   faction: EnemyFaction;
@@ -1191,6 +1205,14 @@ export declare type EnemyState = Message<"voidmarch.v1.EnemyState"> & {
    * @generated from field: uint32 repairing = 13;
    */
   repairing: number;
+
+  /**
+   * A raiding Dreadnought's health at which it's driven off (#223); 0 for
+   * any other enemy.
+   *
+   * @generated from field: float leaves_at = 14;
+   */
+  leavesAt: number;
 };
 
 /**
@@ -1722,6 +1744,18 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: Standings;
     case: "standings";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.RaidWarned raid_warned = 26;
+     */
+    value: RaidWarned;
+    case: "raidWarned";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.RaidEnded raid_ended = 27;
+     */
+    value: RaidEnded;
+    case: "raidEnded";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1730,6 +1764,75 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
  * Use `create(ServerMessageSchema)` to create a new message.
  */
 export declare const ServerMessageSchema: GenMessage<ServerMessage>;
+
+/**
+ * RaidWarned says a Dreadnought is coming to raid a sector (#223): it
+ * appears there, out of sight, at tick.
+ *
+ * @generated from message voidmarch.v1.RaidWarned
+ */
+export declare type RaidWarned = Message<"voidmarch.v1.RaidWarned"> & {
+  /**
+   * @generated from field: voidmarch.v1.EnemyFaction faction = 1;
+   */
+  faction: EnemyFaction;
+
+  /**
+   * @generated from field: string sector = 2;
+   */
+  sector: string;
+
+  /**
+   * @generated from field: uint32 tick = 3;
+   */
+  tick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.RaidWarned.
+ * Use `create(RaidWarnedSchema)` to create a new message.
+ */
+export declare const RaidWarnedSchema: GenMessage<RaidWarned>;
+
+/**
+ * RaidEnded says a raiding Dreadnought teleported out (#223): driven off by
+ * damage, with the parts it gave the players near it, or not. enemy_id is 0
+ * for a raid called off before it arrived.
+ *
+ * @generated from message voidmarch.v1.RaidEnded
+ */
+export declare type RaidEnded = Message<"voidmarch.v1.RaidEnded"> & {
+  /**
+   * @generated from field: uint32 enemy_id = 1;
+   */
+  enemyId: number;
+
+  /**
+   * @generated from field: voidmarch.v1.EnemyFaction faction = 2;
+   */
+  faction: EnemyFaction;
+
+  /**
+   * @generated from field: bool driven_off = 3;
+   */
+  drivenOff: boolean;
+
+  /**
+   * @generated from field: repeated voidmarch.v1.PickupGain gains = 4;
+   */
+  gains: PickupGain[];
+
+  /**
+   * @generated from field: uint32 tick = 5;
+   */
+  tick: number;
+};
+
+/**
+ * Describes the message voidmarch.v1.RaidEnded.
+ * Use `create(RaidEndedSchema)` to create a new message.
+ */
+export declare const RaidEndedSchema: GenMessage<RaidEnded>;
 
 /**
  * BossFell says a siege boss was destroyed (#125): the parts it gave the

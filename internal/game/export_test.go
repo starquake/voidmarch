@@ -153,6 +153,86 @@ func WithWokenThenLost(name string) HubOption {
 	}
 }
 
+// WithDreadnoughtHealthScale wakes the Dreadnought at the start with its
+// maximum health multiplied by scale, so a measuring fight outlasts it.
+func WithDreadnoughtHealthScale(scale float64) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if e, awake := h.enemies[h.dreadnoughtID]; awake {
+				e.dread.hpScale = scale
+				e.hp = e.dread.hp()
+			}
+		})
+	}
+}
+
+// WithDreadnoughtGarrisonOut wakes the Dreadnought at the start with its
+// sector's garrison on the field, killed of it destroyed already, as if it
+// was fought before the Dreadnought woke.
+func WithDreadnoughtGarrisonOut(killed int) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if e, awake := h.enemies[h.dreadnoughtID]; awake {
+				g := h.garrisons[e.dread.sector]
+				g.killed = killed
+				h.fillGarrison(g, nil)
+			}
+		})
+	}
+}
+
+// WithClearedBesideDreadnought wakes the Dreadnought at the start, with n
+// other sectors of its ring cleared.
+func WithClearedBesideDreadnought(n int) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			e, awake := h.enemies[h.dreadnoughtID]
+			if !awake {
+				return
+			}
+			for _, s := range sim.Sectors() {
+				if n > 0 && s.Ring() == e.dread.sector.Ring() && s != e.dread.sector {
+					h.cleared[s] = true
+					delete(h.garrisons, s)
+					n--
+				}
+			}
+		})
+	}
+}
+
+// WithDreadnoughtInClearedSector wakes the Dreadnought at the start in a
+// sector cleared before, as when its ring closed and opened again.
+func WithDreadnoughtInClearedSector() HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if e, awake := h.enemies[h.dreadnoughtID]; awake {
+				h.cleared[e.dread.sector] = true
+				delete(h.garrisons, e.dread.sector)
+			}
+		})
+	}
+}
+
+// WithRaidEvery sets the bounds of the hub ticks between raids (#223).
+func WithRaidEvery(lo, hi uint32) HubOption {
+	return func(o *hubOptions) {
+		o.raidEvery = [2]uint32{lo, hi}
+	}
+}
+
+// Raid timings in hub ticks, exposed for tests.
+const (
+	RaidWarnTicks = raidWarnTicks
+	RaidTicks     = raidTicks
+	RaidEveryMin  = raidEveryMin
+	RaidEveryMax  = raidEveryMax
+)
+
 // DreadnoughtGap exposes dreadnoughtGap for tests.
 var DreadnoughtGap = dreadnoughtGap
 

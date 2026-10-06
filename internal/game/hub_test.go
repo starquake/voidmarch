@@ -17,9 +17,16 @@ import (
 func testHub(t *testing.T, opts ...HubOption) (*Hub, func(n int)) {
 	t.Helper()
 
+	return loggedHub(t, slog.New(slog.DiscardHandler), opts...)
+}
+
+// loggedHub is testHub logging to logger.
+func loggedHub(t *testing.T, logger *slog.Logger, opts ...HubOption) (*Hub, func(n int)) {
+	t.Helper()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	ticks := make(chan time.Time)
-	hub := NewHub(slog.New(slog.DiscardHandler), append([]HubOption{WithSeed(1)}, opts...)...)
+	hub := NewHub(logger, append([]HubOption{WithSeed(1)}, opts...)...)
 	done := make(chan struct{})
 	go func() {
 		hub.Run(ctx, ticks)

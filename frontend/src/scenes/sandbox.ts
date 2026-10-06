@@ -1151,6 +1151,9 @@ export class SandboxScene extends Phaser.Scene {
       case 'KeyY':
         this.net?.devSeasonWon();
         break;
+      case 'KeyU':
+        this.net?.devStartRaid();
+        break;
       case 'F3':
         this.showFps = !this.showFps;
         this.updateHud();

@@ -189,6 +189,12 @@ type Hub struct {
 	dreadnoughtShares map[sim.EnemyFaction]float64
 	saveDreadnought   func(faction sim.EnemyFaction, share float64)
 	saveOpenRings     func(rings int)
+	// raid is the Dreadnought raid under way, nextRaid the tick the next
+	// may come, 0 while no raid may (#223), and raidEvery the bounds of the
+	// ticks between them.
+	raid      *raid
+	nextRaid  uint32
+	raidEvery [2]uint32
 	// seasonWon is set once the finale falls (#153), seasonStarted and
 	// seasonWonAt say when, and names are the players' names, for its
 	// result (#156).
@@ -259,6 +265,7 @@ type hubOptions struct {
 	saveSector        func(name string)
 	forgetSector      func(name string)
 	eventTimes        *eventTimes
+	raidEvery         [2]uint32
 	// setup runs on the new hub, for tests that start from a given world.
 	setup []func(*Hub)
 }
@@ -357,6 +364,7 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 	h.nextEvent = h.eventTimes.every
 	h.nextOffline = h.eventTimes.offlineEvery
 	h.garrisonField = garrisonField(o.worldMap)
+	h.raidEvery = raidEveryOf(o)
 	for _, setup := range o.setup {
 		setup(h)
 	}
@@ -606,10 +614,9 @@ func (h *Hub) handleMessage(in inbound) {
 		h.collect(in.session.Player.ID, m, kind.Collect.GetId())
 	case *pb.ClientMessage_PickMission:
 		h.pickMission(m, kind.PickMission.GetSector())
-	case *pb.ClientMessage_DevStartAttack:
-		h.devStartAttack(kind.DevStartAttack.GetSector())
-	case *pb.ClientMessage_DevSeasonWon:
-		h.devSeasonWon(in.session.Player.ID)
+	case *pb.ClientMessage_DevStartAttack, *pb.ClientMessage_DevSeasonWon,
+		*pb.ClientMessage_DevStartRaid:
+		h.handleDevMessage(in.session.Player.ID, in.msg)
 	case *pb.ClientMessage_Shot:
 		if kind.Shot.GetCompanion() != 0 {
 			return
@@ -622,6 +629,20 @@ func (h *Hub) handleMessage(in inbound) {
 		h.broadcast(shot, in.session.Player.ID)
 		h.noteShot(kind.Shot)
 		h.countStat(in.session.Player.ID, func(s *players.Stats) { s.Shots++ })
+	default:
+	}
+}
+
+// handleDevMessage runs player's development request; each checks for a
+// development server itself.
+func (h *Hub) handleDevMessage(player string, msg *pb.ClientMessage) {
+	switch kind := msg.GetKind().(type) {
+	case *pb.ClientMessage_DevStartAttack:
+		h.devStartAttack(kind.DevStartAttack.GetSector())
+	case *pb.ClientMessage_DevSeasonWon:
+		h.devSeasonWon(player)
+	case *pb.ClientMessage_DevStartRaid:
+		h.devStartRaid(player)
 	default:
 	}
 }

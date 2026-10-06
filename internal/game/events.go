@@ -93,11 +93,12 @@ func (h *Hub) stepEvents() {
 }
 
 // startAttack sends a Frigate and a garrison at a cleared sector next to
-// hostile space, to last ticks, and reports whether there was one to attack.
+// hostile space, other than one an awake Dreadnought holds (#223), to last
+// ticks, and reports whether there was one to attack.
 func (h *Hub) startAttack(ticks uint32) bool {
 	var targets []sim.Sector
 	for _, s := range sim.Sectors() {
-		if h.cleared[s] && h.bordersHostile(s) && h.frontier.Open(s) {
+		if h.cleared[s] && h.bordersHostile(s) && h.frontier.Open(s) && !h.dreadnoughtHolds(s) {
 			targets = append(targets, s)
 		}
 	}
@@ -113,7 +114,7 @@ func (h *Hub) startAttack(ticks uint32) bool {
 // development server, in place of any event running (#176).
 func (h *Hub) devStartAttack(name string) {
 	s, ok := sim.ParseSector(name)
-	if !h.development || !ok || !h.cleared[s] {
+	if !h.development || !ok || !h.cleared[s] || h.dreadnoughtHolds(s) {
 		return
 	}
 	h.callOffEvent()

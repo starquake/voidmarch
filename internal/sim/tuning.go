@@ -165,10 +165,12 @@ const (
 // ring 2 and the Nairan one ring 3 (#140).
 const (
 	// DreadnoughtBaseHP and DreadnoughtHPPerPlayer make its maximum health:
-	// the base plus the per-player amount for each player online, so 3-6
-	// friends beat it in an evening (#132).
-	DreadnoughtBaseHP      = 10000
-	DreadnoughtHPPerPlayer = 10000
+	// the base plus the per-player amount for each player online (#132).
+	// From the measured 400 health a dodging ship takes off a minute
+	// (TestDreadnought_DamageRate over 24 seeds, #252), a player at that
+	// rate takes about 10 minutes alone and twelve about 7.5 (#223).
+	DreadnoughtBaseHP      = 1100
+	DreadnoughtHPPerPlayer = 2900
 	// DreadnoughtRegenPerHour is the share of its health it gets back an
 	// hour; the share left is what's kept across sessions.
 	DreadnoughtRegenPerHour = 0.01
@@ -201,6 +203,20 @@ const (
 	// DreadnoughtDerelicts is how many derelicts its fall releases (#8
 	// decision 8).
 	DreadnoughtDerelicts = 3
+	// DreadnoughtRaidEveryMin and DreadnoughtRaidEveryMax bound the seconds
+	// from a raid, or from the raided ring's first clear, to the next (#223).
+	DreadnoughtRaidEveryMin = 600
+	DreadnoughtRaidEveryMax = 900
+	// DreadnoughtRaidWarning is the seconds between a raid's banner and the
+	// Dreadnought appearing.
+	DreadnoughtRaidWarning = 4
+	// DreadnoughtRaidSeconds is the longest a raid lasts, and
+	// DreadnoughtRaidShare the share of its maximum health that drives it off.
+	DreadnoughtRaidSeconds = 120
+	DreadnoughtRaidShare   = 0.1
+	// DreadnoughtRaidClearance keeps a raiding Dreadnought out of every
+	// ship's sight where it appears, in px.
+	DreadnoughtRaidClearance = 600
 )
 
 // Companion brains (docs/design.md, section 13).
