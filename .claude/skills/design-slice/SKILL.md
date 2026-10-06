@@ -99,9 +99,13 @@ maintainer's.
 - **Mockup**: if the change's value is how it looks, make the mockup now
   (`mockup` skill) and embed it in the *Mockup* section. Approving the
   screenshot is part of the spec OK.
-- **Hand off**: posting the block moves the ticket to `Your input` in the same
-  step. Nothing open? Skip straight to the plan. A card in a lane carries no
-  `needs:` label; drop one if it still has it.
+- **Hand off**: posting the block moves the ticket to `Your input` and adds
+  the `question` label in the same step. Nothing open? Skip straight to the
+  plan. A card in a lane carries no `needs:` label; drop one if it still has
+  it.
+- **The `question` label** follows the answer block, in any lane: it goes on
+  with the block and comes off in the same step as the last answer moves into
+  *Decisions*, answered on GitHub or in chat alike (#228).
 
 ## Step 3: settle, then plan
 
