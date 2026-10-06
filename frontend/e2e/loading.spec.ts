@@ -30,6 +30,34 @@ const phaserLoaded = (page: Page): Promise<boolean> =>
 const categories = (page: Page): Promise<string[]> =>
   page.locator('#loading-categories li').evaluateAll((items) => items.map((li) => `${li.textContent}:${li.getAttribute('class') ?? ''}`));
 
+/** The bar's value, as a screen reader reads it. */
+const barValue = async (page: Page): Promise<number> => Number(await page.locator('#loading-bar').getAttribute('aria-valuenow'));
+
+/** A value the bar took, with the strip's label at the time. */
+interface BarStep {
+  label: string;
+  value: number;
+}
+
+/** Records every value the bar takes once the strip first shows, on window.barSteps. */
+async function recordBar(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const steps: BarStep[] = [];
+    (window as unknown as { barSteps: BarStep[] }).barSteps = steps;
+    new MutationObserver(() => {
+      const bar = document.querySelector('#loading-bar');
+      if (bar === null || (steps.length === 0 && document.querySelector<HTMLElement>('#loading-strip')?.hidden !== false)) {
+        return;
+      }
+      const step = { label: document.querySelector('#loading-what')?.textContent ?? '', value: Number(bar.getAttribute('aria-valuenow')) };
+      const last = steps.at(-1);
+      if (last?.label !== step.label || last.value !== step.value) {
+        steps.push(step);
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+  });
+}
+
 const online = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
 };
@@ -53,7 +81,7 @@ fresh("the name screen shows before the game's code is in, and the strip reads L
   await expect(strip).toBeVisible();
   await expect(page.locator('#intro-form')).toBeVisible();
   await expect(page.locator('#loading-what')).toHaveText('Loading game');
-  await expect(page.locator('#loading-amount'), "the code's download has no percentage").toBeHidden();
+  await expect.poll(() => barValue(page), "the code's download counts what is in").toBeGreaterThan(0);
   await expect.poll(() => categories(page)).toEqual(['Ships:waiting', 'Enemies:waiting', 'Space:waiting', 'Sounds:waiting']);
   await expect(play).toBeDisabled();
   expect(await phaserLoaded(page), 'phaser.js is still downloading').toBe(false);
@@ -139,17 +167,42 @@ test("a returning player sees the strip alone, reading Loading game until the ga
   const strip = page.locator('#loading-strip');
   await expect(strip).toBeVisible();
   await expect(page.locator('#loading-what')).toHaveText('Loading game');
-  await expect(page.locator('#loading-amount')).toBeHidden();
   expect(await phaserLoaded(page), 'phaser.js is still downloading').toBe(false);
   await expect(page.locator('#name-form')).toBeHidden();
   await expect(page.locator('#intro-form')).toBeHidden();
 
   releaseCode();
   await expect(page.locator('#loading-what')).toHaveText('Loading enemies');
-  await expect(page.locator('#loading-amount')).toBeVisible();
   expect(await page.evaluate(() => window.voidmarch?.ready ?? false), 'the game waits for its files').toBe(false);
 
   release();
   await expect(strip).toBeHidden();
   await online(page);
+});
+
+test("one bar by bytes: it counts the game's code as it streams, never goes back, and reaches 100 once", async ({ page }) => {
+  await recordBar(page);
+  const release = await hold(page, PHASER);
+  const phaser = page.waitForRequest(PHASER);
+  await page.goto('/', { waitUntil: 'commit' });
+  await phaser;
+  await expect(page.locator('#loading-what')).toHaveText('Loading game');
+  // main.js and the protobuf modules stream in while Phaser is held.
+  await expect.poll(() => barValue(page)).toBeGreaterThan(0);
+  const held = await barValue(page);
+  expect(held, 'Phaser is most of what is left').toBeLessThan(50);
+  await expect(page.locator('#loading-percent')).toHaveText(`${String(held)}%`);
+  await expect(page.locator('#loading-what')).toHaveText('Loading game');
+  expect(await phaserLoaded(page), 'phaser.js is still downloading').toBe(false);
+
+  release();
+  await expect(page.locator('#loading-strip')).toBeHidden();
+  await online(page);
+  const steps = await page.evaluate(() => (window as unknown as { barSteps: BarStep[] }).barSteps);
+  const values = steps.map((s) => s.value);
+  expect(values, 'the bar never goes back').toEqual(values.toSorted((a, b) => a - b));
+  expect(values.at(-1), 'it ends at 100').toBe(100);
+  expect(values.filter((v) => v === 100).length, 'and gets there once').toBe(1);
+  expect(steps.some((s) => s.label === 'Loading game' && s.value > 0), 'the code counts before it runs').toBe(true);
+  expect(steps.some((s) => s.label !== 'Loading game' && s.value < 100), 'then the files count').toBe(true);
 });

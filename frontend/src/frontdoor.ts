@@ -1,22 +1,21 @@
 import type { IntroScreen } from './introscreen.ts';
-import { LoadProgress, codeView, type LoadView } from './sim/loading.ts';
+import type { LoadProgress, LoadView } from './sim/loading.ts';
 
 /** The loading strip (#227): what is loading and how far it got, docked at the bottom of the screen. */
 class LoadingStrip {
   private readonly doc: Document;
   private readonly strip: HTMLElement | null;
   private readonly what: HTMLElement | null;
-  private readonly amount: HTMLElement | null;
   private readonly percent: HTMLElement | null;
   private readonly bar: HTMLElement | null;
   private readonly fill: HTMLElement | null;
   private readonly categories: HTMLElement | null;
+  private shown = '';
 
   constructor(doc: Document) {
     this.doc = doc;
     this.strip = doc.querySelector('#loading-strip');
     this.what = doc.querySelector('#loading-what');
-    this.amount = doc.querySelector('#loading-amount');
     this.percent = doc.querySelector('#loading-percent');
     this.bar = doc.querySelector('#loading-bar');
     this.fill = doc.querySelector('#loading-fill');
@@ -27,22 +26,20 @@ class LoadingStrip {
     if (this.strip === null) {
       return;
     }
-    const percent = `${String(view.percent ?? 0)}%`;
+    // Every chunk of a download asks; most change nothing on screen.
+    const shown = JSON.stringify(view);
+    if (shown === this.shown && !this.strip.hidden) {
+      return;
+    }
+    this.shown = shown;
+    const percent = `${String(view.percent)}%`;
     if (this.what !== null) {
       this.what.textContent = view.label;
-    }
-    if (this.amount !== null) {
-      this.amount.hidden = view.percent === undefined;
     }
     if (this.percent !== null) {
       this.percent.textContent = percent;
     }
-    // Without a value, the bar is an indeterminate progressbar.
-    if (view.percent === undefined) {
-      this.bar?.removeAttribute('aria-valuenow');
-    } else {
-      this.bar?.setAttribute('aria-valuenow', String(view.percent));
-    }
+    this.bar?.setAttribute('aria-valuenow', String(view.percent));
     if (this.fill !== null) {
       this.fill.style.width = percent;
     }
@@ -76,8 +73,7 @@ class LoadingStrip {
  */
 export class FrontDoor {
   private readonly doc: Document;
-  /** Undefined until the game's code is in and says what it loads. */
-  private progress: LoadProgress | undefined;
+  private readonly progress: LoadProgress;
   private readonly strip: LoadingStrip;
   private readonly intro: IntroScreen;
   private entered = false;
@@ -90,22 +86,36 @@ export class FrontDoor {
     }
   };
 
-  constructor(intro: IntroScreen, doc: Document = document) {
+  /** progress: everything loaded before play, the game's code included, by bytes. */
+  constructor(intro: IntroScreen, progress: LoadProgress, doc: Document = document) {
     this.doc = doc;
+    this.progress = progress;
     this.strip = new LoadingStrip(doc);
     this.intro = intro;
     doc.addEventListener('keydown', this.keepHelpClosed);
   }
 
-  /** The game's code is in: from now on the strip counts keys, everything still to load. */
-  count(keys: Iterable<string>): void {
-    this.progress = new LoadProgress(keys);
+  /** Part of a file is in, as a fraction of it. */
+  advance(key: string, fraction: number): void {
+    this.progress.advance(key, fraction);
+    this.draw();
+  }
+
+  /** Part of a file is in, as the bytes a stream delivered so far. */
+  receive(key: string, bytes: number): void {
+    this.progress.receive(key, bytes);
     this.draw();
   }
 
   /** A file is in, or failed. */
   loaded(key: string): void {
-    this.progress?.finish(key);
+    this.progress.finish(key);
+    this.draw();
+  }
+
+  /** The game's code runs: the strip names the categories from now on. */
+  codeLoaded(): void {
+    this.progress.finishCode();
     this.draw();
   }
 
@@ -128,7 +138,7 @@ export class FrontDoor {
 
   private draw(): void {
     if (this.entered && !this.started) {
-      this.strip.show(this.progress?.view() ?? codeView());
+      this.strip.show(this.progress.view());
     }
   }
 }

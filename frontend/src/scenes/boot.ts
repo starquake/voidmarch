@@ -49,6 +49,8 @@ function bakeSheet(source: CanvasImageSource, sheet: GlowSheet): { canvas: HTMLC
 
 /** What the boot scene needs from the page (#227). */
 export interface BootOptions {
+  /** A file's key and the fraction of it in so far, while it downloads. */
+  loading: (key: string, fraction: number) => void;
   /** Each file's key once it has arrived, or failed. */
   loaded: (key: string) => void;
   /** Resolves with the player's token, or undefined to play alone, once the rules, the fonts and the name are in. */
@@ -70,6 +72,10 @@ export class BootScene extends Phaser.Scene {
     const loaded = (file: Phaser.Loader.File): void => {
       this.options.loaded(file.key);
     };
+    // Only where the response gives its length; a compressed one counts its transferred bytes against it.
+    this.load.on(Phaser.Loader.Events.FILE_PROGRESS, (file: Phaser.Loader.File, fraction: number) => {
+      this.options.loading(file.key, fraction);
+    });
     this.load.on(Phaser.Loader.Events.FILE_LOAD, loaded);
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, loaded);
     // The loader skips a file it can't use, such as a sound where the browser has no audio.

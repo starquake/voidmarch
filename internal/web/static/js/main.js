@@ -234,71 +234,6 @@ function loadRank(key) {
   return category === void 0 ? LOAD_CATEGORIES.length : LOAD_CATEGORIES.indexOf(category);
 }
 
-// src/sounds.ts
-var AUDIO = "/static/audio";
-var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
-var SHOT_SOUNDS = {
-  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
-  rockets: ["sfx-rocket-launch"],
-  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
-  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
-};
-var EXPIRE_SOUNDS = {
-  rockets: "sfx-rocket-blast",
-  bigSpaceGun: "sfx-big-blast"
-};
-var CHARGE_SOUNDS = {
-  bigSpaceGun: "sfx-charge"
-};
-var ENGINE_LOOPS = {
-  base: "sfx-engine-base",
-  bigPulse: "sfx-engine-big-pulse",
-  burst: "sfx-engine-burst",
-  supercharged: "sfx-engine-supercharged"
-};
-var SHIELD_SOUND = "sfx-shield";
-var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
-var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
-var PART_SWITCH_SOUND = "sfx-part-switch";
-var TELEPORT_SOUND = "sfx-teleport";
-var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
-var MUSIC = {
-  home: "music-title-screen",
-  ring1: "music-level-1",
-  ring2: "music-level-2",
-  ring3: "music-level-3",
-  ending: "music-ending"
-};
-function effectFiles() {
-  const files = [
-    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
-    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
-    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
-    both("sfx-rocket-launch", "sfx/rocket-launch"),
-    both("sfx-rocket-blast", "sfx/rocket-blast"),
-    both("sfx-big-blast", "sfx/big-blast"),
-    both("sfx-charge", "sfx/charge"),
-    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
-    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
-    both(SHIELD_SOUND, "sfx/shield"),
-    both(PART_SWITCH_SOUND, "sfx/part-switch"),
-    both(TELEPORT_SOUND, "sfx/teleport"),
-    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
-    both("sfx-engine-base", "sfx/engine-base"),
-    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
-    both("sfx-engine-burst", "sfx/engine-burst"),
-    both("sfx-engine-supercharged", "sfx/engine-supercharged")
-  ];
-  return files;
-}
-function musicFiles() {
-  return Object.values(MUSIC).map((key) => both(key, `music/${key.replace(/^music-/, "")}`));
-}
-
-// src/sim/loadout.ts
-var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
-var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
-
 // src/sim/tuning.ts
 var VIEW_WIDTH = 640;
 var VIEW_HEIGHT = 360;
@@ -409,6 +344,71 @@ var TELEPORT_COLOR = 5951999;
 var TELEPORT_WHITE = 14219519;
 var TELEPORT_SOUND_RANGE = 400;
 var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
+
+// src/sounds.ts
+var AUDIO = "/static/audio";
+var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
+var SHOT_SOUNDS = {
+  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
+  rockets: ["sfx-rocket-launch"],
+  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
+  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
+};
+var EXPIRE_SOUNDS = {
+  rockets: "sfx-rocket-blast",
+  bigSpaceGun: "sfx-big-blast"
+};
+var CHARGE_SOUNDS = {
+  bigSpaceGun: "sfx-charge"
+};
+var ENGINE_LOOPS = {
+  base: "sfx-engine-base",
+  bigPulse: "sfx-engine-big-pulse",
+  burst: "sfx-engine-burst",
+  supercharged: "sfx-engine-supercharged"
+};
+var SHIELD_SOUND = "sfx-shield";
+var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
+var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
+var PART_SWITCH_SOUND = "sfx-part-switch";
+var TELEPORT_SOUND = "sfx-teleport";
+var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
+var MUSIC = {
+  home: "music-title-screen",
+  ring1: "music-level-1",
+  ring2: "music-level-2",
+  ring3: "music-level-3",
+  ending: "music-ending"
+};
+function effectFiles() {
+  const files = [
+    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
+    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
+    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
+    both("sfx-rocket-launch", "sfx/rocket-launch"),
+    both("sfx-rocket-blast", "sfx/rocket-blast"),
+    both("sfx-big-blast", "sfx/big-blast"),
+    both("sfx-charge", "sfx/charge"),
+    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
+    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
+    both(SHIELD_SOUND, "sfx/shield"),
+    both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    both(TELEPORT_SOUND, "sfx/teleport"),
+    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
+    both("sfx-engine-base", "sfx/engine-base"),
+    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
+    both("sfx-engine-burst", "sfx/engine-burst"),
+    both("sfx-engine-supercharged", "sfx/engine-supercharged")
+  ];
+  return files;
+}
+function musicFiles() {
+  return Object.values(MUSIC).map((key) => both(key, `music/${key.replace(/^music-/, "")}`));
+}
+
+// src/sim/loadout.ts
+var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
+var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
 
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
@@ -721,14 +721,25 @@ function glowSheets() {
 }
 
 // src/preload.ts
+var RULES = { key: "rules", url: "/static/wasm/sim.wasm" };
+var FONTS = [
+  { key: `font-${UI_FONT_NAME}`, name: UI_FONT_NAME, url: "/static/fonts/exo2.woff2" },
+  { key: `font-${HEADING_FONT_NAME}`, name: HEADING_FONT_NAME, url: "/static/fonts/orbitron.woff2" }
+];
 function bootFiles() {
   const byRank = (files) => files.sort((a, b) => loadRank(a.key) - loadRank(b.key));
   return { sheets: byRank(sheets()), sounds: byRank(effectFiles()) };
 }
-function bootKeys() {
+function bootSceneUrls() {
   const { sheets: s, sounds } = bootFiles();
-  const layers = layerSheets().flatMap((layer) => [layer.key, keys.layerLayout(layer.key)]);
-  return [...s.map((f) => f.key), ...layers, ...sounds.map((f) => f.key)];
+  const layers = layerSheets().flatMap((layer) => [
+    { key: layer.key, urls: [layer.url] },
+    { key: keys.layerLayout(layer.key), urls: [layer.layoutUrl] }
+  ]);
+  return [...s.map((f) => ({ key: f.key, urls: [f.url] })), ...layers, ...sounds];
+}
+function bootKeys() {
+  return bootSceneUrls().map((file) => file.key);
 }
 
 // src/scenes/boot.ts
@@ -864,6 +875,9 @@ var BootScene = class extends Phaser.Scene {
     const loaded2 = (file) => {
       this.options.loaded(file.key);
     };
+    this.load.on(Phaser.Loader.Events.FILE_PROGRESS, (file, fraction) => {
+      this.options.loading(file.key, fraction);
+    });
     this.load.on(Phaser.Loader.Events.FILE_LOAD, loaded2);
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, loaded2);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
@@ -2570,6 +2584,32 @@ function within(layout, x, y) {
   return Math.abs(x - layout.x) <= size.width / 2 && Math.abs(y - layout.y) <= size.height / 2;
 }
 
+// src/net/download.ts
+async function download(url, received, fetcher = fetch) {
+  const response = await fetcher(url);
+  if (!response.ok) {
+    throw new Error(`error downloading ${url}: ${String(response.status)}`);
+  }
+  const reader = response.body?.getReader();
+  if (reader === void 0) {
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  const chunks = [];
+  let length = 0;
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    chunks.push(chunk.value);
+    length += chunk.value.byteLength;
+    received(length);
+  }
+  const body = new Uint8Array(length);
+  let at2 = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, at2);
+    at2 += chunk.byteLength;
+  }
+  return body;
+}
+
 // src/simwasm.ts
 var SCRATCH_SIZE = LAYOUT.scratchSize;
 var PATTERN_SIZE = 5;
@@ -3005,14 +3045,13 @@ function isWeapon(kind) {
   return WEAPONS.includes(kind);
 }
 var loaded;
-async function loadSim(url) {
+async function loadSim(url, received = () => void 0) {
   if (loaded === void 0) {
     const Go = globalThis.Go;
     if (Go === void 0) {
       throw new Error("wasm_exec.js did not load: no Go runtime");
     }
-    const response = await fetch(url);
-    loaded = new Sandbox(await instantiate(await response.arrayBuffer(), new Go()));
+    loaded = new Sandbox(await instantiate(await download(url, received), new Go()));
   }
   return loaded;
 }
@@ -8118,23 +8157,24 @@ ${modeName(info)}`,
 var loadoutKey = (l) => `${l.weapon}:${l.engine}:${l.shield}:${String(l.weaponTier)}${String(l.engineTier)}${String(l.shieldTier)}`;
 
 // src/main.ts
-var RULES_KEY = "rules";
-var FONTS = [UI_FONT_NAME, HEADING_FONT_NAME];
-var fontKey = (name) => `font-${name}`;
 function start({ door, intro, token }) {
-  door.count([RULES_KEY, ...FONTS.map(fontKey), ...bootKeys()]);
   const assets = Promise.all([
-    loadSim("/static/wasm/sim.wasm").then(() => {
-      door.loaded(RULES_KEY);
+    loadSim(RULES.url, (bytes) => {
+      door.receive(RULES.key, bytes);
+    }).then(() => {
+      door.loaded(RULES.key);
     }),
-    ...FONTS.map(async (name) => {
-      await document.fonts.load(`16px '${name}'`).catch(() => []);
-      door.loaded(fontKey(name));
+    ...FONTS.map(async (font) => {
+      await document.fonts.load(`16px '${font.name}'`).catch(() => []);
+      door.loaded(font.key);
     })
   ]);
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
   const boot = new BootScene({
+    loading: (key, fraction) => {
+      door.advance(key, fraction);
+    },
     loaded: (key) => {
       door.loaded(key);
     },

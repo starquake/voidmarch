@@ -79,11 +79,15 @@ func TestWebClient_EntryModule(t *testing.T) {
 		t.Errorf("index.html should not load %q: the entry module imports it", notWant)
 	}
 
+	// It names the vendor modules' URLs for their sizes, but never imports one.
 	entry := get(t, baseURL+"/static/js/entry.js")
-	for _, notWant := range []string{"vendor/phaser.js", "vendor/protobuf"} {
+	for _, notWant := range []string{`"./vendor/phaser.js"`, `"./vendor/protobuf`} {
 		if strings.Contains(entry.body, notWant) {
-			t.Errorf("entry.js should not import %q", notWant)
+			t.Errorf("entry.js should not import %s", notWant)
 		}
+	}
+	if got, want := entry.body, `"/static/js/vendor/phaser.js": `; !strings.Contains(got, want) {
+		t.Errorf("entry.js should contain %q, Phaser's size for the loading bar", want)
 	}
 }
 

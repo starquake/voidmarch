@@ -2,23 +2,34 @@
 // runtime are separate vendor modules, kept external, so the committed game
 // bundle stays small and its diffs readable; vendor files change only when
 // a dependency is bumped. The page loads entry.js, which has none of them, and
-// it imports main.js, the game (#227).
+// it imports main.js, the game (#227). Between the two, the boot files' sizes
+// are written into src/bootsizes.gen.ts, which the entry carries (decision 9).
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
 import * as esbuild from 'esbuild';
 
+import { bootSizesSource } from './scripts/bootsizes.ts';
+
 const root = import.meta.dirname;
+const defaultOutdir = path.join(root, '../internal/web/static/js');
 const { values } = parseArgs({
   options: {
     watch: { type: 'boolean', default: false },
-    outdir: { type: 'string', default: path.join(root, '../internal/web/static/js') },
+    outdir: { type: 'string', default: defaultOutdir },
+    // Where to write the boot files' sizes: src/bootsizes.gen.ts for the committed bundle, elsewhere for a check.
+    sizes: { type: 'string' },
     // Where to write the npm packages the bundle ships, for THIRD-PARTY.md (#196).
     packages: { type: 'string' },
   },
 });
 const outdir = path.resolve(values.outdir);
+// A build into another folder never rewrites the committed sizes.
+if (outdir !== defaultOutdir && values.sizes === undefined) {
+  throw new Error('--outdir needs --sizes, so the committed bootsizes.gen.ts stays as it is');
+}
+const sizesFile = path.resolve(values.sizes ?? path.join(root, 'src/bootsizes.gen.ts'));
 
 /** Bare imports served as vendor modules, and the file each maps to. */
 const VENDOR = {
@@ -81,8 +92,23 @@ const noVendor = {
   },
 };
 
+/** The sizes this build generates, set once the game's bundles are built. */
+let sizes = '';
+
+/**
+ * The entry carries the sizes this build generated, also when they are written elsewhere for a check.
+ * @type {esbuild.Plugin}
+ */
+const sizesFrom = {
+  name: 'sizes-from',
+  setup(build) {
+    build.onLoad({ filter: /\/src\/bootsizes\.gen\.ts$/ }, () => ({ contents: sizes, loader: 'ts' }));
+  },
+};
+
 /** @type {esbuild.BuildOptions} */
 const common = {
+  absWorkingDir: root,
   bundle: true,
   format: 'esm',
   target: 'es2022',
@@ -90,11 +116,16 @@ const common = {
   logLevel: 'info',
 };
 
-/** @type {esbuild.BuildOptions[]} */
-const bundles = [
-  { ...common, entryPoints: [path.join(root, 'src/entry.ts')], outfile: path.join(outdir, 'entry.js'), plugins: [gameExternal, noVendor] },
-  { ...common, entryPoints: [path.join(root, 'src/main.ts')], outfile: path.join(outdir, 'main.js'), plugins: [vendorExternal] },
-];
+/** @type {esbuild.BuildOptions} */
+const entry = {
+  ...common,
+  entryPoints: [path.join(root, 'src/entry.ts')],
+  outfile: path.join(outdir, 'entry.js'),
+  plugins: [gameExternal, noVendor, sizesFrom],
+};
+
+/** @type {esbuild.BuildOptions} */
+const game = { ...common, entryPoints: [path.join(root, 'src/main.ts')], outfile: path.join(outdir, 'main.js'), plugins: [vendorExternal] };
 
 await mkdir(path.join(outdir, 'vendor'), { recursive: true });
 await copyFile(
@@ -118,19 +149,23 @@ const collect = (result) => {
       shipped.add(name);
     }
   }
+
+  return result.metafile;
 };
 
-collect(await esbuild.build({ ...protobufVendor, metafile: true }));
+// The game and its vendor modules first: the entry carries their sizes.
+const metafiles = [collect(await esbuild.build({ ...protobufVendor, metafile: true })), collect(await esbuild.build({ ...game, metafile: true }))];
+sizes = await bootSizesSource({ jsDir: outdir, staticDir: path.join(root, '../internal/web/static'), workingDir: root, metafiles });
+await writeFile(sizesFile, sizes);
 
 if (values.watch) {
-  for (const options of bundles) {
+  // The sizes stay as they were at the start; make js brings them up to date.
+  for (const options of [entry, game]) {
     const ctx = await esbuild.context(options);
     await ctx.watch();
   }
 } else {
-  for (const options of bundles) {
-    collect(await esbuild.build({ ...options, metafile: true }));
-  }
+  collect(await esbuild.build({ ...entry, metafile: true }));
   if (values.packages !== undefined) {
     await writeFile(values.packages, `${JSON.stringify([...shipped].sort(), null, 2)}\n`);
   }

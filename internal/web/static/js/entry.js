@@ -1,105 +1,200 @@
-// src/sim/rules.gen.ts
-var ENEMY_FACTIONS = ["klaed", "nairan", "nautolan"];
-var TICK_RATE = 60;
-var TICK_SECONDS = 1 / TICK_RATE;
-var SECTOR_RADIUS = 990;
-var GRID_RINGS = 3;
-var MAX_DAMAGE = 3;
-var RESPAWN_DELAY = 3;
-
-// src/sim/loading.ts
-var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
-var LOAD_CATEGORY_NAMES = {
-  ships: "Ships",
-  enemies: "Enemies",
-  space: "Space",
-  sounds: "Sounds"
+// src/bootsizes.gen.ts
+var CODE_BYTES = {
+  "/static/js/main.js": 301261,
+  "/static/js/vendor/phaser.js": 1377611,
+  "/static/js/vendor/protobuf.js": 27603,
+  "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
+  "/static/js/vendor/protobuf-codegenv2.js": 7637
 };
-var SHIP_PREFIXES = ["hull-", "engine-", "flame-", "shield-", "weapon-", "projectile-", "pickup-"];
-var SPACE_KEYS = ["planet", "asteroid"];
-function loadCategory(key2) {
-  if (ENEMY_FACTIONS.some((faction) => key2.startsWith(`${faction}-`))) {
-    return "enemies";
-  }
-  if (SHIP_PREFIXES.some((prefix) => key2.startsWith(prefix))) {
-    return "ships";
-  }
-  if (key2.startsWith("background-") || SPACE_KEYS.includes(key2)) {
-    return "space";
-  }
-  if (key2.startsWith("sfx-")) {
-    return "sounds";
-  }
-  return void 0;
-}
-function codeView() {
-  return {
-    label: "Loading game",
-    percent: void 0,
-    categories: LOAD_CATEGORIES.map((category) => ({ category, name: LOAD_CATEGORY_NAMES[category], state: "waiting" }))
-  };
-}
-var LoadProgress = class {
-  pending;
-  total;
-  constructor(keys) {
-    this.pending = new Set(keys);
-    this.total = this.pending.size;
-  }
-  /** A file is in, or failed: either way it's no longer waited for. */
-  finish(key2) {
-    this.pending.delete(key2);
-  }
-  get complete() {
-    return this.pending.size === 0;
-  }
-  view() {
-    const left = /* @__PURE__ */ new Map();
-    for (const key2 of this.pending) {
-      const category = loadCategory(key2);
-      if (category !== void 0) {
-        left.set(category, (left.get(category) ?? 0) + 1);
-      }
-    }
-    const current = LOAD_CATEGORIES.find((c) => left.has(c));
-    const categories = LOAD_CATEGORIES.map((category) => ({
-      category,
-      name: LOAD_CATEGORY_NAMES[category],
-      state: stateOf(category, current, left)
-    }));
-    const done = this.total - this.pending.size;
-    const percent = this.complete ? 100 : Math.min(99, Math.floor(done * 100 / this.total));
-    let label = "Loading";
-    if (this.complete) {
-      label = "Starting";
-    } else if (current !== void 0) {
-      label = `Loading ${LOAD_CATEGORY_NAMES[current].toLowerCase()}`;
-    }
-    return { label, percent, categories };
-  }
+var FILE_BYTES = {
+  "rules": 168202,
+  "font-Exo 2": 40932,
+  "font-Orbitron": 11768,
+  "hull-fullHealth": 485,
+  "hull-slightDamage": 623,
+  "hull-damaged": 745,
+  "hull-veryDamaged": 825,
+  "engine-base": 336,
+  "flame-base-idle": 292,
+  "flame-base-powering": 355,
+  "engine-bigPulse": 464,
+  "flame-bigPulse-idle": 285,
+  "flame-bigPulse-powering": 405,
+  "engine-burst": 468,
+  "flame-burst-idle": 572,
+  "flame-burst-powering": 409,
+  "engine-supercharged": 359,
+  "flame-supercharged-idle": 267,
+  "flame-supercharged-powering": 555,
+  "shield-front": 1516,
+  "shield-frontAndSide": 2116,
+  "shield-round": 4785,
+  "shield-invincibility": 1853,
+  "weapon-autoCannon": 1243,
+  "projectile-autoCannon": 627,
+  "weapon-rockets": 1394,
+  "projectile-rockets": 331,
+  "weapon-bigSpaceGun": 1668,
+  "projectile-bigSpaceGun": 1064,
+  "weapon-zapper": 1515,
+  "projectile-zapper": 611,
+  "pickup-autoCannon": 1532,
+  "pickup-rockets": 1224,
+  "pickup-bigSpaceGun": 1481,
+  "pickup-zapper": 2055,
+  "pickup-base": 1160,
+  "pickup-bigPulse": 1569,
+  "pickup-burst": 1569,
+  "pickup-supercharged": 1357,
+  "pickup-front": 1092,
+  "pickup-frontAndSide": 1431,
+  "pickup-round": 1483,
+  "pickup-invincibility": 1587,
+  "klaed-scout-base": 674,
+  "klaed-scout-engine": 655,
+  "klaed-scout-weapons": 1163,
+  "klaed-scout-destruction": 3408,
+  "klaed-fighter-base": 590,
+  "klaed-fighter-engine": 655,
+  "klaed-fighter-weapons": 1039,
+  "klaed-fighter-destruction": 3234,
+  "klaed-frigate-base": 1068,
+  "klaed-frigate-engine": 479,
+  "klaed-frigate-weapons": 1764,
+  "klaed-frigate-destruction": 4389,
+  "klaed-frigate-shield": 6079,
+  "klaed-dreadnought-base": 2749,
+  "klaed-dreadnought-engine": 1706,
+  "klaed-dreadnought-weapons": 31997,
+  "klaed-dreadnought-destruction": 20880,
+  "klaed-dreadnought-shield": 9905,
+  "klaed-bomber-base": 751,
+  "klaed-bomber-engine": 725,
+  "klaed-bomber-destruction": 3645,
+  "klaed-torpedo-base": 581,
+  "klaed-torpedo-engine": 769,
+  "klaed-torpedo-weapons": 2723,
+  "klaed-torpedo-destruction": 3315,
+  "klaed-support-base": 802,
+  "klaed-support-engine": 427,
+  "klaed-support-destruction": 3214,
+  "nairan-scout-base": 746,
+  "nairan-scout-engine": 622,
+  "nairan-scout-weapons": 1120,
+  "nairan-scout-destruction": 4260,
+  "nairan-fighter-base": 773,
+  "nairan-fighter-engine": 660,
+  "nairan-fighter-weapons": 2899,
+  "nairan-fighter-destruction": 4455,
+  "nairan-frigate-base": 1396,
+  "nairan-frigate-engine": 721,
+  "nairan-frigate-weapons": 1848,
+  "nairan-frigate-destruction": 6795,
+  "nairan-frigate-shield": 2767,
+  "nairan-dreadnought-base": 3050,
+  "nairan-dreadnought-engine": 1379,
+  "nairan-dreadnought-weapons": 15877,
+  "nairan-dreadnought-destruction": 33443,
+  "nairan-dreadnought-shield": 11817,
+  "nairan-bomber-base": 824,
+  "nairan-bomber-engine": 751,
+  "nairan-bomber-destruction": 4610,
+  "nairan-torpedo-base": 846,
+  "nairan-torpedo-engine": 659,
+  "nairan-torpedo-weapons": 2913,
+  "nairan-torpedo-destruction": 4969,
+  "nairan-support-base": 968,
+  "nairan-support-engine": 684,
+  "nairan-support-destruction": 5070,
+  "nautolan-scout-base": 917,
+  "nautolan-scout-engine": 1116,
+  "nautolan-scout-weapons": 1480,
+  "nautolan-scout-destruction": 3253,
+  "nautolan-fighter-base": 928,
+  "nautolan-fighter-engine": 917,
+  "nautolan-fighter-weapons": 1770,
+  "nautolan-fighter-destruction": 3719,
+  "nautolan-frigate-base": 1291,
+  "nautolan-frigate-engine": 917,
+  "nautolan-frigate-weapons": 2107,
+  "nautolan-frigate-destruction": 4309,
+  "nautolan-frigate-shield": 6872,
+  "nautolan-dreadnought-base": 3705,
+  "nautolan-dreadnought-engine": 1647,
+  "nautolan-dreadnought-weapons": 18517,
+  "nautolan-dreadnought-destruction": 24772,
+  "nautolan-dreadnought-shield": 26148,
+  "nautolan-bomber-base": 755,
+  "nautolan-bomber-engine": 1075,
+  "nautolan-bomber-destruction": 3056,
+  "nautolan-torpedo-base": 899,
+  "nautolan-torpedo-engine": 1026,
+  "nautolan-torpedo-weapons": 2604,
+  "nautolan-torpedo-destruction": 3025,
+  "nautolan-support-base": 1131,
+  "nautolan-support-engine": 1182,
+  "nautolan-support-destruction": 3304,
+  "klaed-bullet": 173,
+  "klaed-big-bullet": 242,
+  "klaed-ray": 468,
+  "klaed-wave": 1529,
+  "nairan-bolt": 183,
+  "nairan-ray": 472,
+  "nautolan-bullet": 270,
+  "nautolan-spinning-bullet": 660,
+  "nairan-rocket": 251,
+  "nairan-torpedo": 381,
+  "klaed-torpedo": 348,
+  "nautolan-bomb": 614,
+  "nautolan-wave": 964,
+  "nautolan-ray": 467,
+  "background-void": 117797,
+  "planet": 91866,
+  "asteroid": 1095,
+  "background-stars": 18300,
+  "background-stars-layout": 10242,
+  "background-big-stars": 104525,
+  "background-big-stars-layout": 353,
+  "sfx-auto-cannon-0": { ogg: 7286, mp3: 2622 },
+  "sfx-auto-cannon-1": { ogg: 7448, mp3: 3014 },
+  "sfx-auto-cannon-2": { ogg: 8973, mp3: 3613 },
+  "sfx-zapper-0": { ogg: 12588, mp3: 3824 },
+  "sfx-zapper-1": { ogg: 12732, mp3: 3641 },
+  "sfx-zapper-2": { ogg: 13130, mp3: 3433 },
+  "sfx-big-space-gun-0": { ogg: 25566, mp3: 6527 },
+  "sfx-big-space-gun-1": { ogg: 26220, mp3: 6499 },
+  "sfx-rocket-launch": { ogg: 5154, mp3: 8420 },
+  "sfx-rocket-blast": { ogg: 28274, mp3: 7647 },
+  "sfx-big-blast": { ogg: 9408, mp3: 4960 },
+  "sfx-charge": { ogg: 27647, mp3: 6703 },
+  "sfx-enemy-explosion": { ogg: 47907, mp3: 17382 },
+  "sfx-enemy-shot": { ogg: 8632, mp3: 6626 },
+  "sfx-shield": { ogg: 25672, mp3: 6522 },
+  "sfx-part-switch": { ogg: 11290, mp3: 2517 },
+  "sfx-teleport": { ogg: 27440, mp3: 5430 },
+  "sfx-field-zap-0": { ogg: 28947, mp3: 5116 },
+  "sfx-field-zap-1": { ogg: 23938, mp3: 5168 },
+  "sfx-field-zap-2": { ogg: 26885, mp3: 5246 },
+  "sfx-engine-base": { ogg: 116880, mp3: 35981 },
+  "sfx-engine-big-pulse": { ogg: 109059, mp3: 82884 },
+  "sfx-engine-burst": { ogg: 177470, mp3: 54779 },
+  "sfx-engine-supercharged": { ogg: 189900, mp3: 62046 }
 };
-function stateOf(category, current, left) {
-  if (!left.has(category)) {
-    return "done";
-  }
-  return category === current ? "loading" : "waiting";
-}
 
 // src/frontdoor.ts
 var LoadingStrip = class {
   doc;
   strip;
   what;
-  amount;
   percent;
   bar;
   fill;
   categories;
+  shown = "";
   constructor(doc) {
     this.doc = doc;
     this.strip = doc.querySelector("#loading-strip");
     this.what = doc.querySelector("#loading-what");
-    this.amount = doc.querySelector("#loading-amount");
     this.percent = doc.querySelector("#loading-percent");
     this.bar = doc.querySelector("#loading-bar");
     this.fill = doc.querySelector("#loading-fill");
@@ -109,21 +204,19 @@ var LoadingStrip = class {
     if (this.strip === null) {
       return;
     }
-    const percent = `${String(view.percent ?? 0)}%`;
+    const shown = JSON.stringify(view);
+    if (shown === this.shown && !this.strip.hidden) {
+      return;
+    }
+    this.shown = shown;
+    const percent = `${String(view.percent)}%`;
     if (this.what !== null) {
       this.what.textContent = view.label;
-    }
-    if (this.amount !== null) {
-      this.amount.hidden = view.percent === void 0;
     }
     if (this.percent !== null) {
       this.percent.textContent = percent;
     }
-    if (view.percent === void 0) {
-      this.bar?.removeAttribute("aria-valuenow");
-    } else {
-      this.bar?.setAttribute("aria-valuenow", String(view.percent));
-    }
+    this.bar?.setAttribute("aria-valuenow", String(view.percent));
     if (this.fill !== null) {
       this.fill.style.width = percent;
     }
@@ -147,7 +240,6 @@ var LoadingStrip = class {
 };
 var FrontDoor = class {
   doc;
-  /** Undefined until the game's code is in and says what it loads. */
   progress;
   strip;
   intro;
@@ -159,20 +251,32 @@ var FrontDoor = class {
       event.preventDefault();
     }
   };
-  constructor(intro, doc = document) {
+  /** progress: everything loaded before play, the game's code included, by bytes. */
+  constructor(intro, progress, doc = document) {
     this.doc = doc;
+    this.progress = progress;
     this.strip = new LoadingStrip(doc);
     this.intro = intro;
     doc.addEventListener("keydown", this.keepHelpClosed);
   }
-  /** The game's code is in: from now on the strip counts keys, everything still to load. */
-  count(keys) {
-    this.progress = new LoadProgress(keys);
+  /** Part of a file is in, as a fraction of it. */
+  advance(key2, fraction) {
+    this.progress.advance(key2, fraction);
+    this.draw();
+  }
+  /** Part of a file is in, as the bytes a stream delivered so far. */
+  receive(key2, bytes) {
+    this.progress.receive(key2, bytes);
     this.draw();
   }
   /** A file is in, or failed. */
   loaded(key2) {
-    this.progress?.finish(key2);
+    this.progress.finish(key2);
+    this.draw();
+  }
+  /** The game's code runs: the strip names the categories from now on. */
+  codeLoaded() {
+    this.progress.finishCode();
     this.draw();
   }
   /** Past the name screen: the intro on a first visit, and the strip until the game is up. */
@@ -192,10 +296,19 @@ var FrontDoor = class {
   }
   draw() {
     if (this.entered && !this.started) {
-      this.strip.show(this.progress?.view() ?? codeView());
+      this.strip.show(this.progress.view());
     }
   }
 };
+
+// src/sim/rules.gen.ts
+var ENEMY_FACTIONS = ["klaed", "nairan", "nautolan"];
+var TICK_RATE = 60;
+var TICK_SECONDS = 1 / TICK_RATE;
+var SECTOR_RADIUS = 990;
+var GRID_RINGS = 3;
+var MAX_DAMAGE = 3;
+var RESPAWN_DELAY = 3;
 
 // src/sim/tuning.ts
 var UI_FONT_NAME = "Exo 2";
@@ -650,6 +763,32 @@ function askName() {
   });
 }
 
+// src/net/download.ts
+async function download(url, received, fetcher = fetch) {
+  const response = await fetcher(url);
+  if (!response.ok) {
+    throw new Error(`error downloading ${url}: ${String(response.status)}`);
+  }
+  const reader = response.body?.getReader();
+  if (reader === void 0) {
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  const chunks = [];
+  let length = 0;
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    chunks.push(chunk.value);
+    length += chunk.value.byteLength;
+    received(length);
+  }
+  const body = new Uint8Array(length);
+  let at = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return body;
+}
+
 // src/sim/math.ts
 var TAU = Math.PI * 2;
 
@@ -690,6 +829,130 @@ function saveIntroSeen(store = browserStorage()) {
   }
 }
 
+// src/sim/loading.ts
+var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
+var LOAD_CATEGORY_NAMES = {
+  ships: "Ships",
+  enemies: "Enemies",
+  space: "Space",
+  sounds: "Sounds"
+};
+var SHIP_PREFIXES = ["hull-", "engine-", "flame-", "shield-", "weapon-", "projectile-", "pickup-"];
+var SPACE_KEYS = ["planet", "asteroid"];
+function loadCategory(key2) {
+  if (ENEMY_FACTIONS.some((faction) => key2.startsWith(`${faction}-`))) {
+    return "enemies";
+  }
+  if (SHIP_PREFIXES.some((prefix) => key2.startsWith(prefix))) {
+    return "ships";
+  }
+  if (key2.startsWith("background-") || SPACE_KEYS.includes(key2)) {
+    return "space";
+  }
+  if (key2.startsWith("sfx-")) {
+    return "sounds";
+  }
+  return void 0;
+}
+var SOUND_TYPES = {
+  ogg: 'audio/ogg; codecs="vorbis"',
+  mp3: "audio/mpeg"
+};
+function fileSizes(files, canPlay2) {
+  return new Map(
+    Object.entries(files).map(([key2, bytes]) => {
+      if (typeof bytes === "number") {
+        return [key2, bytes];
+      }
+      const format = Object.keys(bytes).find(canPlay2);
+      return [key2, format === void 0 ? 0 : bytes[format] ?? 0];
+    })
+  );
+}
+var LoadProgress = class {
+  code;
+  sizes;
+  /** Each file still to come, with the fraction of it already in. */
+  pending;
+  total;
+  codeIn = false;
+  /** code: the game's modules by URL; files: everything loaded once they run, by key; both in bytes. */
+  constructor(code, files) {
+    this.code = [...code.keys()];
+    this.sizes = new Map([...code, ...files]);
+    this.pending = new Map([...this.sizes.keys()].map((key2) => [key2, 0]));
+    this.total = [...this.sizes.values()].reduce((sum, bytes) => sum + bytes, 0);
+  }
+  /** Part of a file is in: a fraction of it, which only ever grows. */
+  advance(key2, fraction) {
+    const was = this.pending.get(key2);
+    if (was !== void 0 && Number.isFinite(fraction)) {
+      this.pending.set(key2, Math.min(1, Math.max(was, fraction)));
+    }
+  }
+  /** Part of a file is in, counted in bytes as a stream delivers them. */
+  receive(key2, bytes) {
+    const size = this.sizes.get(key2);
+    if (size !== void 0 && size > 0) {
+      this.advance(key2, bytes / size);
+    }
+  }
+  /** A file is in, or failed: either way it's no longer waited for. */
+  finish(key2) {
+    this.pending.delete(key2);
+  }
+  /** The game's code runs: any of it not counted yet is done, and the categories take over from "Loading game". */
+  finishCode() {
+    for (const key2 of this.code) {
+      this.finish(key2);
+    }
+    this.codeIn = true;
+  }
+  get complete() {
+    return this.pending.size === 0;
+  }
+  view() {
+    const left = /* @__PURE__ */ new Map();
+    for (const key2 of this.pending.keys()) {
+      const category = loadCategory(key2);
+      if (category !== void 0) {
+        left.set(category, (left.get(category) ?? 0) + 1);
+      }
+    }
+    const current = this.codeIn ? LOAD_CATEGORIES.find((c) => left.has(c)) : void 0;
+    const categories = LOAD_CATEGORIES.map((category) => ({
+      category,
+      name: LOAD_CATEGORY_NAMES[category],
+      state: this.codeIn ? stateOf(category, current, left) : "waiting"
+    }));
+    let label = "Loading";
+    if (!this.codeIn) {
+      label = "Loading game";
+    } else if (this.complete) {
+      label = "Starting";
+    } else if (current !== void 0) {
+      label = `Loading ${LOAD_CATEGORY_NAMES[current].toLowerCase()}`;
+    }
+    return { label, percent: this.percent(), categories };
+  }
+  percent() {
+    if (this.complete) {
+      return 100;
+    }
+    let missing = 0;
+    for (const [key2, fraction] of this.pending) {
+      missing += (this.sizes.get(key2) ?? 0) * (1 - fraction);
+    }
+    return this.total === 0 ? 0 : Math.min(99, Math.floor((this.total - missing) * 100 / this.total));
+  }
+};
+function stateOf(category, current, left) {
+  if (!left.has(category)) {
+    return "done";
+  }
+  return category === current ? "loading" : "waiting";
+}
+
 // src/sim/touch.ts
 function touchMode(matches, search) {
   const asked = new URLSearchParams(search).get("touch");
@@ -706,14 +969,30 @@ function enter() {
   intro.onClose(() => {
     saveIntroSeen();
   });
-  const door = new FrontDoor(intro);
+  const door = new FrontDoor(intro, new LoadProgress(new Map(Object.entries(CODE_BYTES)), fileSizes(FILE_BYTES, canPlay)));
   const token = askToken().then((t) => {
     door.enter(!loadIntroSeen(), touch);
     return t;
   });
-  void import("./main.js").then(({ start }) => {
+  void Promise.all(Object.keys(CODE_BYTES).map((url) => prefetch(url, door))).then(async () => {
+    const imports = Object.keys(CODE_BYTES).filter((url) => !url.endsWith("/main.js"));
+    const [game] = await Promise.all([import("./main.js"), ...imports.map(async (url) => await import(url))]);
+    return game;
+  }).then(({ start }) => {
+    door.codeLoaded();
     start({ door, intro, token });
   });
+}
+var audio = document.createElement("audio");
+function canPlay(format) {
+  const type = SOUND_TYPES[format];
+  return type !== void 0 && !["", "no"].includes(audio.canPlayType(type));
+}
+async function prefetch(url, door) {
+  await download(url, (bytes) => {
+    door.receive(url, bytes);
+  }).catch(() => void 0);
+  door.loaded(url);
 }
 async function askToken() {
   const saved = loadToken();

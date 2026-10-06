@@ -23,6 +23,7 @@ import {
   type ShieldId,
   type WeaponId,
 } from './sim/rules.gen.ts';
+import { download } from './net/download.ts';
 import { toCommand, type ControlMode, type InputSnapshot } from './sim/input.ts';
 import type { Vec } from './sim/math.ts';
 import { sectorAxial } from './sim/sectors.ts';
@@ -715,15 +716,15 @@ let loaded: Sandbox | undefined;
 /**
  * Fetches and starts the sim once, with the Go runtime the page loaded
  * (wasm/wasm_exec.js defines Go), and returns the page's one Sandbox.
+ * received hears the bytes in so far, for the loading bar.
  */
-export async function loadSim(url: string): Promise<Sandbox> {
+export async function loadSim(url: string, received: (bytes: number) => void = () => undefined): Promise<Sandbox> {
   if (loaded === undefined) {
     const Go = (globalThis as unknown as { Go?: new () => GoRuntime }).Go;
     if (Go === undefined) {
       throw new Error('wasm_exec.js did not load: no Go runtime');
     }
-    const response = await fetch(url);
-    loaded = new Sandbox(await instantiate(await response.arrayBuffer(), new Go()));
+    loaded = new Sandbox(await instantiate(await download(url, received), new Go()));
   }
 
   return loaded;
