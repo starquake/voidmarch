@@ -49,5 +49,6 @@ test('the closed ring\'s force field zaps a ship that flies into it', async ({ p
     )
     .toBeLessThan(WORLD_EDGE_BAND);
   await expect.poll(async () => (await state(page)).field.zaps).toBeGreaterThan(0);
+  expect((await state(page)).field.dots, 'the field glows').toBeGreaterThan(0);
   await page.keyboard.up('w');
 });
