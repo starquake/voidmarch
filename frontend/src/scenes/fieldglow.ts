@@ -6,10 +6,10 @@ import { FIELD_DOT_TEXELS } from '../sim/tuning.ts';
 const DOT_KEY = 'field-dot';
 
 /**
- * The force field's glow (#262): a pool of tinted, additive images of one dot
- * texture, made once, in place of two circles a sample that the renderer
- * tessellated every frame. Each frame starts with begin, adds a dot per sample
- * and ends with end, which hides the dots it didn't use.
+ * The force field's glow: a pool of tinted, additive images of one dot
+ * texture, made once, so the renderer has no circles to tessellate every
+ * frame (#262). Each frame starts with begin, adds a dot per sample and ends
+ * with end, which hides the dots it didn't use.
  */
 export class FieldGlow {
   private readonly scene: Phaser.Scene;
