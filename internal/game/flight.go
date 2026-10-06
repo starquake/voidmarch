@@ -25,6 +25,7 @@ func (h *Hub) flyCompanions() {
 	owners := slices.Sorted(maps.Keys(h.members))
 	derelicts := h.derelictPoints()
 	for range substeps {
+		bullets := h.enemyBullets()
 		for _, id := range owners {
 			m := h.members[id]
 			if m == nil || len(m.wing.Companions) == 0 || (m.state == nil && !m.gone) {
@@ -36,6 +37,7 @@ func (h *Hub) flyCompanions() {
 			}
 			m.wing.Observe(owner)
 			m.wing.Derelicts = derelicts
+			m.wing.Bullets = bullets
 			m.wing.Frontier = h.frontier
 			for _, shot := range m.wing.Step(h.brainEnemies(m), h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
@@ -43,6 +45,20 @@ func (h *Hub) flyCompanions() {
 		}
 		h.stepCompanionShots()
 	}
+}
+
+// enemyBullets are the enemy bullets in flight on the hub, as companions see
+// them, in the hub's buffer for them.
+func (h *Hub) enemyBullets() []sim.Bullet {
+	h.bullets = h.bullets[:0]
+	items := h.shots.Items()
+	for i := range items {
+		if p := &items[i]; p.Active && p.Faction == sim.FactionEnemy {
+			h.bullets = append(h.bullets, sim.BulletOf(p))
+		}
+	}
+
+	return h.bullets
 }
 
 // othersThan are the ships of every member but id and their companions,

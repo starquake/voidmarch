@@ -218,6 +218,9 @@ type Hub struct {
 	frigates []frigateSpot
 	// shots are the companions' shots and the enemies' bullets in flight.
 	shots *sim.Pool
+	// bullets are the enemy bullets among shots as companions see them,
+	// kept to save allocating them every sim tick.
+	bullets []sim.Bullet
 	// relayed are players' shots in flight, for the enemies that dodge
 	// (#138).
 	relayed []relayedShot
