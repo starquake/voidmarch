@@ -71,6 +71,17 @@ fresh('a first visit loads behind the name screen, then shows the intro with the
   await page.keyboard.press('Enter');
   await expect(intro, 'neither Esc nor Enter closes it while loading').toBeVisible();
 
+  await page.evaluate(() => {
+    window.addEventListener('keydown', (event) => {
+      if (event.code === 'F1') {
+        document.body.dataset.f1Prevented = String(event.defaultPrevented);
+      }
+    });
+  });
+  await page.keyboard.press('F1');
+  await expect(page.locator('body'), "F1 keeps the browser's own help closed").toHaveAttribute('data-f1-prevented', 'true');
+  await expect(intro, 'F1 leaves it open while loading').toBeVisible();
+
   release();
   await expect(strip).toBeHidden();
   await expect(play).toBeEnabled();

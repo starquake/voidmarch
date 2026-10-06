@@ -337,16 +337,25 @@ var LoadingStrip = class {
   }
 };
 var FrontDoor = class {
+  doc;
   progress;
   strip;
   intro;
   entered = false;
   started = false;
+  /** Until the game is up, F1 has nothing to toggle, and some browsers would open their own help. */
+  keepHelpClosed = (event) => {
+    if (event.code === "F1") {
+      event.preventDefault();
+    }
+  };
   /** keys are everything the strip counts. */
   constructor(keys2, intro, doc = document) {
+    this.doc = doc;
     this.progress = new LoadProgress(keys2);
     this.strip = new LoadingStrip(doc);
     this.intro = intro;
+    doc.addEventListener("keydown", this.keepHelpClosed);
   }
   /** A file is in, or failed. */
   loaded(key2) {
@@ -364,6 +373,7 @@ var FrontDoor = class {
   /** The game is up: the strip goes, and the intro can be closed. */
   start() {
     this.started = true;
+    this.doc.removeEventListener("keydown", this.keepHelpClosed);
     this.strip.hide();
     this.intro.ready();
   }

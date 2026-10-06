@@ -64,17 +64,27 @@ class LoadingStrip {
  * loading strip under it, or the strip alone, until the game is up.
  */
 export class FrontDoor {
+  private readonly doc: Document;
   private readonly progress: LoadProgress;
   private readonly strip: LoadingStrip;
   private readonly intro: IntroScreen;
   private entered = false;
   private started = false;
 
+  /** Until the game is up, F1 has nothing to toggle, and some browsers would open their own help. */
+  private readonly keepHelpClosed = (event: KeyboardEvent): void => {
+    if (event.code === 'F1') {
+      event.preventDefault();
+    }
+  };
+
   /** keys are everything the strip counts. */
   constructor(keys: Iterable<string>, intro: IntroScreen, doc: Document = document) {
+    this.doc = doc;
     this.progress = new LoadProgress(keys);
     this.strip = new LoadingStrip(doc);
     this.intro = intro;
+    doc.addEventListener('keydown', this.keepHelpClosed);
   }
 
   /** A file is in, or failed. */
@@ -95,6 +105,7 @@ export class FrontDoor {
   /** The game is up: the strip goes, and the intro can be closed. */
   start(): void {
     this.started = true;
+    this.doc.removeEventListener('keydown', this.keepHelpClosed);
     this.strip.hide();
     this.intro.ready();
   }
