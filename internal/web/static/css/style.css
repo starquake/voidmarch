@@ -103,9 +103,13 @@ body {
   color: #ff9a8a;
 }
 
-/* The squadron join screen (#42), in the name screen's style. */
+/* The squadron join screen (#42), in the name screen's style, scrolling where it doesn't fit (#45). */
 .squadron-screen {
   width: min(34rem, calc(100% - 2rem));
+  /* Its padding is outside the height: 1rem clear above and below. */
+  max-height: calc(100% - 5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .squadron-screen h2 {

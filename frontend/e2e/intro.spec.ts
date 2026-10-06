@@ -150,7 +150,7 @@ test.describe('on touch', () => {
     await page.goto('/?touch=1');
     await online(page);
     await expect.poll(async () => (await state(page)).touchButtons).toContain('help');
-    const help = touchButtons({ width: 844, height: 390, dpr: 1, down: false, canRespawn: false, beside: undefined, fullscreen: undefined }).find(
+    const help = touchButtons({ width: 844, height: 390, dpr: 1, down: false, canRespawn: false, beside: undefined, squadron: true, fullscreen: undefined }).find(
       (b) => b.button === 'help',
     );
     if (help === undefined) {

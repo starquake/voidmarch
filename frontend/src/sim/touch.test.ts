@@ -2,9 +2,18 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { TouchControls, buttonAt, touchButtons, touchMode, touchUnit, type ButtonRect, type TouchScreen } from './touch.ts';
-import { TOUCH_DEAD_ZONE, TOUCH_MIN_SCALE, TOUCH_STICK_RADIUS_PX } from './tuning.ts';
+import { TOUCH_BUTTON_WIDTH_PX, TOUCH_DEAD_ZONE, TOUCH_MIN_SCALE, TOUCH_STICK_RADIUS_PX } from './tuning.ts';
 
-const screen: TouchScreen = { width: 1000, height: 800, dpr: 1, down: false, canRespawn: false, beside: undefined, fullscreen: undefined };
+const screen: TouchScreen = {
+  width: 1000,
+  height: 800,
+  dpr: 1,
+  down: false,
+  canRespawn: false,
+  beside: undefined,
+  squadron: false,
+  fullscreen: undefined,
+};
 
 test('the left half moves, the right half aims and fires, and each stick takes one touch', () => {
   const t = new TouchControls();
@@ -62,7 +71,7 @@ test('buttons and the minimap take their touches before the sticks', () => {
   assert.equal(t.position('aim'), undefined);
 });
 
-test('while down, only the respawns show', () => {
+test('while down, only the respawns show, outside a squadron', () => {
   assert.equal(play(screen).length, 2);
   assert.deepEqual(play({ ...screen, down: true }), [], 'not yet allowed to respawn');
   const respawns = play({ ...screen, down: true, canRespawn: true, beside: 'Mira' });
@@ -74,6 +83,33 @@ test('while down, only the respawns show', () => {
   assert.ok(home && beside);
   assert.equal(home.x + home.width / 2 + (beside.x + beside.width / 2), 1000, 'centered as a pair');
   assert.equal(play({ ...screen, down: true, canRespawn: true }).length, 1);
+});
+
+test('while down in a squadron, a Squadron button sits beside the respawns, or alone before them (#45)', () => {
+  assert.deepEqual(
+    play({ ...screen, squadron: true }).map((b) => b.button),
+    ['summon', 'orders'],
+    'only while down',
+  );
+  const waiting = play({ ...screen, down: true, squadron: true });
+  assert.deepEqual(
+    waiting.map((b) => [b.button, b.label]),
+    [['squadron', 'Squadron']],
+  );
+  const [alone] = waiting;
+  assert.ok(alone);
+  assert.equal(alone.x + alone.width / 2, 500, 'centered');
+
+  const row = play({ ...screen, down: true, canRespawn: true, beside: 'Mira', squadron: true });
+  assert.deepEqual(
+    row.map((b) => b.button),
+    ['respawnHome', 'respawnBeside', 'squadron'],
+  );
+  const [home, , squadron] = row;
+  assert.ok(home && squadron);
+  assert.equal(home.x + (squadron.x + squadron.width), 1000, 'centered as a row');
+  assert.ok(row.every((b) => b.y === home.y && b.height === home.height), 'in one row');
+  assert.equal(squadron.width, TOUCH_BUTTON_WIDTH_PX, 'as wide as Summon');
 });
 
 test('touch shows on a touch screen without a mouse, or when the page asks', () => {

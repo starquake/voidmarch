@@ -36,7 +36,7 @@ test('the keyboard variant names every key the game answers to, and no loadout',
     ['Keyboard', 'Mouse'],
   );
   const keys = controls[0].rows.flatMap((r) => r.keys);
-  for (const key of ['W', 'A', 'S', 'D', 'G', 'Q', '1', '2', '3', 'M', 'Tab', 'H', 'J', 'O', 'Esc', 'F1']) {
+  for (const key of ['W', 'A', 'S', 'D', 'G', 'Q', '1', '2', '3', 'M', 'Tab', 'C', 'H', 'J', 'O', 'Esc', 'F1']) {
     assert.ok(keys.includes(key), `${key} is listed`);
   }
   const text = allText(introContent(false));
@@ -51,6 +51,7 @@ test('the touch variant names the thumbs and buttons, Help among them, and no ke
     ['Thumbs', 'Buttons'],
   );
   assert.ok(content.controls[1].rows.some((r) => r.keys.includes('Help')));
+  assert.ok(content.controls[1].rows.some((r) => r.keys.includes('Squadron')), 'a button switches squadrons while down (#45)');
   const text = allText(content);
   for (const key of ['WASD', 'F1', 'Esc', 'Tab', 'mouse']) {
     assert.ok(!text.includes(key), `${key} is not mentioned on touch`);

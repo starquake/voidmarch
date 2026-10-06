@@ -1827,6 +1827,7 @@ var KEYBOARD = {
     { keys: ["M"], text: "map" },
     { keys: ["Tab"], text: "hold for the standings" },
     { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
+    { keys: ["C"], text: "when down: switch squadrons" },
     { keys: ["O"], text: "the season's victory screen" },
     { keys: ["Esc"], text: "settings, or close a screen" },
     { keys: ["F1"], text: "this screen" }
@@ -1860,6 +1861,7 @@ var BUTTONS = {
     { keys: ["Summon"], text: "draw a companion, at home" },
     { keys: ["Orders"], text: "hold for the order ring, tap to repeat" },
     { keys: ["Respawn"], text: "when down: at home, or beside a squadmate" },
+    { keys: ["Squadron"], text: "when down: switch squadrons" },
     { keys: ["Settings"], text: "sound, controls, effects" },
     { keys: ["Help"], text: "this screen" }
   ]
@@ -2349,6 +2351,12 @@ function panelRows(state) {
     row("Alert", state.event, true);
   }
   return rows;
+}
+var DOWN_PANEL_GAP = "      ";
+function downPanelText(state) {
+  const respawn = state.canRespawn ? state.touch ? ["respawn with a button above"] : ["[H] respawn at home", ...state.beside === void 0 ? [] : [`[J] respawn beside ${state.beside}`]] : [`respawn in ${String(Math.ceil(state.wait))} s`];
+  const choices = [...respawn, ...state.squadron && !state.touch ? ["[C] switch squadron"] : []].join(DOWN_PANEL_GAP);
+  return ["You're down", "", choices, "or stay: a friend close by revives you"].join("\n");
 }
 function connectionToast(status) {
   switch (status) {
@@ -3376,17 +3384,24 @@ function playButtons(screen, dpr) {
   const h = TOUCH_BUTTON_PX * dpr;
   const gap = TOUCH_BUTTON_GAP_PX * dpr;
   if (screen.down) {
-    if (!screen.canRespawn) {
-      return [];
-    }
     const wide = TOUCH_WIDE_BUTTON_PX * dpr;
-    const respawns = [{ button: "respawnHome", label: "Respawn at home", gold: true }];
-    if (screen.beside !== void 0) {
-      respawns.push({ button: "respawnBeside", label: `Respawn beside ${screen.beside}`, gold: false });
+    const row = [];
+    if (screen.canRespawn) {
+      row.push({ button: "respawnHome", label: "Respawn at home", gold: true, width: wide });
+      if (screen.beside !== void 0) {
+        row.push({ button: "respawnBeside", label: `Respawn beside ${screen.beside}`, gold: false, width: wide });
+      }
     }
-    const total = respawns.length * wide + (respawns.length - 1) * gap;
-    const left = (width - total) / 2;
-    return respawns.map((r, i) => ({ ...r, x: left + i * (wide + gap), y: height * TOUCH_RESPAWN_Y, width: wide, height: h }));
+    if (screen.squadron) {
+      row.push({ button: "squadron", label: "Squadron", gold: false, width: TOUCH_BUTTON_WIDTH_PX * dpr });
+    }
+    const total = row.reduce((sum, b) => sum + b.width, 0) + Math.max(0, row.length - 1) * gap;
+    let x = (width - total) / 2;
+    return row.map((b) => {
+      const rect = { ...b, x, y: height * TOUCH_RESPAWN_Y, height: h };
+      x += b.width + gap;
+      return rect;
+    });
   }
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
   const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
@@ -3564,13 +3579,14 @@ function modeName(info) {
   const mode = fromCompanionMode(info.mode) ?? "escort";
   return ORDER_ITEMS.find((i) => i.kind === "mode" && i.mode === mode)?.label ?? "Escort";
 }
-function squadronChoices(list) {
+function squadronChoices(list, current = "") {
   const choices = [];
   const full = [];
   for (const info of list.squadrons) {
     const players = info.members.map((m) => m.name);
     const companions = info.members.reduce((n, m) => n + m.companions, 0);
-    if (players.length >= SQUADRON_CAP) {
+    const own = info.name === current;
+    if (players.length >= SQUADRON_CAP && !own) {
       full.push(info.name);
       continue;
     }
@@ -3582,11 +3598,22 @@ function squadronChoices(list) {
       players,
       companions,
       seats: "\u25A0".repeat(players.length) + "\u25A3".repeat(shown) + "\u25A1".repeat(free),
-      note: free === 0 ? "you take over one of the companions" : `${String(free)} seat${free === 1 ? "" : "s"} free`,
-      mode: modeName(info)
+      note: own ? "your squadron" : free === 0 ? "you take over one of the companions" : `${String(free)} seat${free === 1 ? "" : "s"} free`,
+      mode: modeName(info),
+      current: own
     });
   }
   return { choices, full };
+}
+function moveNotice(move) {
+  const parts = [move.started ? `Started squadron ${move.name}` : `Moved to ${move.name}`];
+  if (move.tookOver) {
+    parts.push("in a companion's seat");
+  }
+  if (move.sentHome > 0) {
+    parts.push(`${move.sentHome === 1 ? "a companion" : `${String(move.sentHome)} companions`} went home, no room`);
+  }
+  return parts.join(", ");
 }
 function pickFirst(choices, last) {
   return choices.find((c) => c.name === last)?.name ?? choices[0]?.name;
@@ -3598,6 +3625,8 @@ var SquadronScreen = class {
   next;
   error;
   picked;
+  /** The player's squadron while the screen is reopened in one, else "". */
+  current = "";
   choose = () => void 0;
   constructor(doc = document) {
     this.form = doc.querySelector("#squadron-form");
@@ -3607,7 +3636,7 @@ var SquadronScreen = class {
     this.error = doc.querySelector("#squadron-error");
     this.form?.addEventListener("submit", (event) => {
       event.preventDefault();
-      this.choose(this.picked ?? "");
+      this.pick(this.picked ?? "");
     });
     doc.querySelector("#squadron-start")?.addEventListener("click", () => {
       this.choose("");
@@ -3616,9 +3645,15 @@ var SquadronScreen = class {
   get open() {
     return this.form !== null && !this.form.hidden;
   }
-  show(squadrons, last, choose) {
+  /** Whether the screen was reopened in a squadron, so closing it keeps the player there. */
+  get reopened() {
+    return this.current !== "";
+  }
+  /** Opens the screen; current is the player's squadron when they're in one. */
+  show(squadrons, last, choose, current = "") {
     this.choose = choose;
-    this.picked = pickFirst(squadronChoices(squadrons).choices, last);
+    this.current = current;
+    this.picked = pickFirst(squadronChoices(squadrons, current).choices, last);
     if (this.form !== null) {
       this.form.hidden = false;
     }
@@ -3626,7 +3661,7 @@ var SquadronScreen = class {
   }
   /** Redraws the list, keeping the pick while its squadron is still there. */
   update(squadrons) {
-    const { choices, full } = squadronChoices(squadrons);
+    const { choices, full } = squadronChoices(squadrons, this.current);
     if (!choices.some((c) => c.name === this.picked)) {
       this.picked = choices[0]?.name;
     }
@@ -3641,7 +3676,7 @@ var SquadronScreen = class {
       this.focusPick();
     }
   }
-  /** Gives the picked squadron's Join the focus, so Enter joins it. */
+  /** Gives the picked squadron's Join (or Stay) the focus, so Enter picks it. */
   focusPick() {
     this.list?.querySelector(".picked button")?.focus();
   }
@@ -3651,6 +3686,7 @@ var SquadronScreen = class {
     }
   }
   hide() {
+    this.current = "";
     if (this.form !== null) {
       this.form.hidden = true;
     }
@@ -3661,7 +3697,7 @@ var SquadronScreen = class {
   row(c) {
     const doc = this.list?.ownerDocument ?? document;
     const row = doc.createElement("div");
-    row.className = c.name === this.picked ? "squadron picked" : "squadron";
+    row.className = ["squadron", c.name === this.picked ? "picked" : "", c.current ? "current" : ""].filter((n) => n !== "").join(" ");
     const name = doc.createElement("span");
     name.className = "name";
     name.textContent = c.name;
@@ -3676,9 +3712,9 @@ var SquadronScreen = class {
     }
     const join = doc.createElement("button");
     join.type = "button";
-    join.textContent = "Join";
+    join.textContent = c.current ? "Stay" : "Join";
     join.addEventListener("click", () => {
-      this.choose(c.name);
+      this.pick(c.name);
     });
     const seats = doc.createElement("span");
     seats.className = "seats-pips";
@@ -3688,6 +3724,14 @@ var SquadronScreen = class {
     note.textContent = `${c.note} \xB7 orders: ${c.mode}`;
     row.append(name, who, join, seats, note);
     return row;
+  }
+  /** Joins the named squadron, or stays: the player's own closes the screen. */
+  pick(name) {
+    if (name !== "" && name === this.current) {
+      this.hide();
+    } else {
+      this.choose(name);
+    }
   }
 };
 
@@ -5068,6 +5112,8 @@ var NetPlay = class {
   /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
   squadrons;
   squadron = "";
+  /** A move to another squadron asked for and not yet answered, with the companions it sent home so far (#45). */
+  moving;
   notice;
   /** The parts this player owns, at their tiers (#77); the server's word. */
   unlocks = defaultUnlocks();
@@ -5166,6 +5212,7 @@ var NetPlay = class {
           this.squadronJoined(joined);
         },
         squadronRefused: (reason) => {
+          this.moving = void 0;
           options.squadronScreen.showError(reason);
         },
         squadronOrdered: (ordered) => {
@@ -5220,6 +5267,9 @@ var NetPlay = class {
           this.pickupTaken(taken);
         },
         companionDismissed: (number, takenBy) => {
+          if (this.moving !== void 0 && takenBy === "") {
+            this.moving.sentHome++;
+          }
           this.say(takenBy === "" ? `companion ${String(number)} went home` : `${takenBy} took over companion ${String(number)}`);
         }
       }
@@ -5560,9 +5610,37 @@ var NetPlay = class {
       this.connection.sendChooseSquadron(name);
     });
   }
-  /** In a squadron now; a takeover puts the ship where the companion was. */
+  /** Whether the player is online in a squadron, so C can move them to another (#45). */
+  get canSwitchSquadron() {
+    return this.status === "online" && this.squadron !== "" && this.squadrons !== void 0;
+  }
+  /**
+   * Reopens the join screen in the player's squadron, to move to another
+   * (#45); false when there's no squadron to move from.
+   */
+  openSquadrons() {
+    const list = this.squadrons;
+    if (!this.canSwitchSquadron || list === void 0) {
+      return false;
+    }
+    this.options.squadronScreen.show(
+      list,
+      this.squadron,
+      (name) => {
+        this.moving = { started: name === "", sentHome: 0 };
+        this.connection.sendChooseSquadron(name);
+      },
+      this.squadron
+    );
+    return true;
+  }
+  /** In a squadron now; a takeover puts the ship where the companion was, and a move says so. */
   squadronJoined(joined) {
     this.options.squadronScreen.hide();
+    if (this.moving !== void 0 && joined.name !== this.squadron) {
+      this.say(moveNotice({ ...this.moving, name: joined.name, tookOver: joined.tookOver }));
+    }
+    this.moving = void 0;
     this.squadron = joined.name;
     saveLastSquadron(joined.name);
     if (joined.tookOver) {
@@ -5845,6 +5923,7 @@ var NetPlay = class {
     this.development = welcome.development;
     this.squadrons = welcome.squadrons;
     this.squadron = welcome.squadron;
+    this.moving = void 0;
     if (welcome.squadron === "") {
       this.pickSquadron(welcome.squadrons);
     }
@@ -6899,17 +6978,21 @@ var SandboxScene = class extends Phaser11.Scene {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
         this.victoryKey(event);
+      } else if (this.squadronScreen.reopened) {
+        this.squadronKey(event);
       } else if (this.maps.open) {
         this.mapKey(event);
       } else if (event.code === "KeyM" && this.canOpenMap()) {
         this.maps.toggle();
-      } else if (event.code === "Tab" && !this.joinScreenOpen()) {
+      } else if (event.code === "Tab" && !this.squadronScreen.open) {
         event.preventDefault();
         this.standingsHeld = true;
       } else if (event.code === "KeyO") {
         this.openVictory();
       } else if (event.code === "KeyQ") {
         this.pressOrders();
+      } else if (event.code === "KeyC") {
+        this.openSquadrons();
       } else if (event.code === "Escape") {
         this.openSettings();
       } else {
@@ -6947,11 +7030,22 @@ var SandboxScene = class extends Phaser11.Scene {
   }
   /** The full map opens online, and not over the join screen or the order ring, where the keys and the mouse are theirs. */
   canOpenMap() {
-    return this.net?.status === "online" && this.orderPress === void 0 && !this.joinScreenOpen();
+    return this.net?.status === "online" && this.orderPress === void 0 && !this.squadronScreen.open;
   }
-  /** Whether the squadron join screen is up, whose form takes Tab to move between its fields. */
-  joinScreenOpen() {
-    return document.querySelector("#squadron-form")?.hidden === false;
+  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over the order ring or another screen. */
+  openSquadrons() {
+    if (!this.sim.downed || this.orderPress !== void 0 || this.screenOpen) {
+      return;
+    }
+    if (this.net?.openSquadrons() === true) {
+      this.hudView.close();
+    }
+  }
+  /** A key while the join screen is reopened: C and Esc close it without moving, the form has Tab and Enter, and the rest wait. */
+  squadronKey(event) {
+    if (event.code === "KeyC" || event.code === "Escape") {
+      this.squadronScreen.hide();
+    }
   }
   /** A key while the full map is open: M and Esc close it, and the rest wait. */
   mapKey(event) {
@@ -7055,9 +7149,10 @@ var SandboxScene = class extends Phaser11.Scene {
     const net = this.net;
     const players = net?.standings ?? [];
     for (const [panel, show] of [
-      [this.standingsJoin, this.joinScreenOpen()],
+      [this.standingsJoin, this.squadronScreen.open],
       // Holding Tab shows it too, in the same place (#167, decision 6).
-      [this.standingsDown, this.sim.downed || this.standingsHeld]
+      // Under the reopened join screen, its own copy shows instead.
+      [this.standingsDown, (this.sim.downed || this.standingsHeld) && !this.squadronScreen.open]
     ]) {
       panel.update(show, players, net?.playerId, net?.seasonStarted ?? 0, net?.standingsVersion ?? 0);
     }
@@ -7068,9 +7163,13 @@ var SandboxScene = class extends Phaser11.Scene {
       this.victoryScreen.hide();
     }
   }
-  /** Whether a screen or the full map covers the game, so the ship holds still and the touch controls hide. */
+  /**
+   * Whether a screen or the full map covers the game, so the ship holds still
+   * and the touch controls hide. The join screen counts only when reopened:
+   * a joining ship flies while its player picks.
+   */
   get screenOpen() {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened;
   }
   /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
   toggleIntro() {
@@ -7096,8 +7195,7 @@ var SandboxScene = class extends Phaser11.Scene {
   }
   /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
   openSettings() {
-    const squadronScreen = document.querySelector("#squadron-form");
-    if (this.orderPress !== void 0 || squadronScreen?.hidden === false) {
+    if (this.orderPress !== void 0 || this.squadronScreen.open) {
       return;
     }
     this.settingsScreen.show(optionRows(this.options()));
@@ -7526,7 +7624,7 @@ ${modeName(info)}`,
     const toCanvas = this.scale.width / Math.max(1, window.innerWidth);
     return { insetLeft: parseFloat(style.paddingLeft) * toCanvas || 0, insetRight: parseFloat(style.paddingRight) * toCanvas || 0 };
   }
-  /** A touch lands: it closes an open screen or map, picks a sector, or starts a stick, a button or the map. */
+  /** A touch lands: it closes an open screen (the join screen only when reopened) or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
     if (this.introScreen.open) {
       this.introScreen.hide();
@@ -7538,6 +7636,10 @@ ${modeName(info)}`,
     }
     if (this.victoryScreen.open) {
       this.victoryScreen.hide();
+      return;
+    }
+    if (this.squadronScreen.reopened) {
+      this.squadronScreen.hide();
       return;
     }
     if (this.maps.open) {
@@ -7574,6 +7676,9 @@ ${modeName(info)}`,
         break;
       case "respawnBeside":
         this.respawn(true);
+        break;
+      case "squadron":
+        this.openSquadrons();
         break;
       case "fullscreen":
         this.switchFullscreen(this.fullscreenState() !== true);
@@ -7618,6 +7723,7 @@ ${modeName(info)}`,
       down: this.sim.downed,
       canRespawn: this.sim.canRespawn,
       beside: this.net?.nearestSquadmate()?.name,
+      squadron: this.net?.canSwitchSquadron === true,
       fullscreen: this.fullscreenState(),
       ...this.insets
     });
@@ -7664,12 +7770,18 @@ ${modeName(info)}`,
   updateDownPanel() {
     if (!this.sim.downed) {
       this.downPanel.setVisible(false);
+      if (this.squadronScreen.reopened) {
+        this.squadronScreen.hide();
+      }
       return;
     }
-    const beside = this.net?.nearestSquadmate();
-    const keys2 = `[H] respawn at home${beside === void 0 ? "" : `      [J] respawn beside ${beside.name}`}`;
-    const choices = this.sim.canRespawn ? this.touchOn ? "respawn with a button above" : keys2 : `respawn in ${String(Math.ceil(RESPAWN_DELAY - this.sim.ship.downFor))} s`;
-    const text = ["You're down", "", choices, "or stay: a friend close by revives you"].join("\n");
+    const text = downPanelText({
+      canRespawn: this.sim.canRespawn,
+      wait: RESPAWN_DELAY - this.sim.ship.downFor,
+      beside: this.net?.nearestSquadmate()?.name,
+      touch: this.touchOn,
+      squadron: this.net?.canSwitchSquadron === true
+    });
     if (this.downPanel.text !== text) {
       this.downPanel.setText(text);
     }
@@ -7990,7 +8102,7 @@ ${modeName(info)}`,
     this.debug.orderMenuOpen = this.orderPress?.labels !== void 0;
     this.debug.squadron = this.net?.squadron ?? "";
     this.debug.hangar = this.net?.hangar;
-    this.debug.squadronScreen = !(document.querySelector("#squadron-form")?.hidden ?? true);
+    this.debug.squadronScreen = this.squadronScreen.open;
     this.debug.victoryScreen = this.victoryScreen.open;
     this.debug.settingsScreen = this.settingsScreen.open;
     this.debug.introScreen = this.introScreen.open;

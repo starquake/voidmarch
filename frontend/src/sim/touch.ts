@@ -13,8 +13,8 @@ import {
   TOUCH_WIDE_BUTTON_PX,
 } from './tuning.ts';
 
-/** The touch buttons (#180): what the keyboard's G, Q, H, J, Esc and F1 do, and switching to fullscreen and back. */
-export type TouchButton = 'summon' | 'orders' | 'respawnHome' | 'respawnBeside' | 'settings' | 'help' | 'fullscreen';
+/** The touch buttons (#180): what the keyboard's G, Q, H, J, C while down, Esc and F1 do, and switching to fullscreen and back. */
+export type TouchButton = 'summon' | 'orders' | 'respawnHome' | 'respawnBeside' | 'squadron' | 'settings' | 'help' | 'fullscreen';
 
 /** A touch button's place on the canvas, in device pixels, and its label. */
 export interface ButtonRect {
@@ -47,6 +47,8 @@ export interface TouchScreen {
   canRespawn: boolean;
   /** The squadmate to respawn beside, if one is up. */
   beside: string | undefined;
+  /** Whether the player is in a squadron they can switch from, which a button offers while down (#45). */
+  squadron: boolean;
   /** Whether the page is in fullscreen, or undefined where the browser can't switch (an iPhone's Safari). */
   fullscreen: boolean | undefined;
   /** The notch's safe area on the left and right, in device pixels, which the buttons keep clear of. */
@@ -56,7 +58,7 @@ export interface TouchScreen {
 
 /**
  * The buttons for screen, as mocked (#180): Summon and Orders on the right
- * edge; while down, only the respawns.
+ * edge; while down, only the respawns and switching squadron.
  */
 export function touchButtons(screen: TouchScreen): ButtonRect[] {
   const dpr = touchUnit(screen.height, screen.dpr);
@@ -86,24 +88,32 @@ export function touchButtons(screen: TouchScreen): ButtonRect[] {
   return [...playButtons(screen, dpr), settings, help, ...switcher];
 }
 
-/** The buttons for playing: Summon and Orders, or while down the respawns. */
+/** The buttons for playing: Summon and Orders, or while down the respawns and Squadron. */
 function playButtons(screen: TouchScreen, dpr: number): ButtonRect[] {
   const { width, height } = screen;
   const h = TOUCH_BUTTON_PX * dpr;
   const gap = TOUCH_BUTTON_GAP_PX * dpr;
   if (screen.down) {
-    if (!screen.canRespawn) {
-      return [];
-    }
     const wide = TOUCH_WIDE_BUTTON_PX * dpr;
-    const respawns: { button: TouchButton; label: string; gold: boolean }[] = [{ button: 'respawnHome', label: 'Respawn at home', gold: true }];
-    if (screen.beside !== undefined) {
-      respawns.push({ button: 'respawnBeside', label: `Respawn beside ${screen.beside}`, gold: false });
+    const row: { button: TouchButton; label: string; gold: boolean; width: number }[] = [];
+    if (screen.canRespawn) {
+      row.push({ button: 'respawnHome', label: 'Respawn at home', gold: true, width: wide });
+      if (screen.beside !== undefined) {
+        row.push({ button: 'respawnBeside', label: `Respawn beside ${screen.beside}`, gold: false, width: wide });
+      }
     }
-    const total = respawns.length * wide + (respawns.length - 1) * gap;
-    const left = (width - total) / 2;
+    if (screen.squadron) {
+      row.push({ button: 'squadron', label: 'Squadron', gold: false, width: TOUCH_BUTTON_WIDTH_PX * dpr });
+    }
+    const total = row.reduce((sum, b) => sum + b.width, 0) + Math.max(0, row.length - 1) * gap;
+    let x = (width - total) / 2;
 
-    return respawns.map((r, i) => ({ ...r, x: left + i * (wide + gap), y: height * TOUCH_RESPAWN_Y, width: wide, height: h }));
+    return row.map((b) => {
+      const rect = { ...b, x, y: height * TOUCH_RESPAWN_Y, height: h };
+      x += b.width + gap;
+
+      return rect;
+    });
   }
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
   const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);

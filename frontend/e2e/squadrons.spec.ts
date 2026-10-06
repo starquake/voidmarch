@@ -70,3 +70,16 @@ test('squadmates join from the screen and hear each other\'s orders', async ({ p
     await mo.context().close();
   }
 });
+
+test('C does nothing while flying: switching squadrons is for the downed (#45)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online' && window.voidmarch.squadron !== '');
+  const first = await state(page);
+  expect([first.downed, first.downPanel]).toEqual([false, undefined]);
+
+  await page.keyboard.press('c');
+  // Long enough for the screen to have shown, had C opened it.
+  await page.waitForTimeout(500);
+  const after = await state(page);
+  expect([after.squadronScreen, after.squadron]).toEqual([false, first.squadron]);
+});

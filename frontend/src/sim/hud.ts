@@ -100,6 +100,35 @@ export function panelRows(state: PanelState): PanelRow[] {
   return rows;
 }
 
+/** The space between the down panel's choices on one line. */
+const DOWN_PANEL_GAP = '      ';
+
+/** What the "You're down" panel (#47) says, as the scene knows it. */
+export interface DownPanelState {
+  canRespawn: boolean;
+  /** Seconds until the player may respawn. */
+  wait: number;
+  /** The squadmate to respawn beside, if one is up. */
+  beside: string | undefined;
+  /** Whether the touch buttons stand in for the keys. */
+  touch: boolean;
+  /** Whether the player is in a squadron they can switch from (#45). */
+  squadron: boolean;
+}
+
+/** The "You're down" panel's text: how to get back, and C to switch squadron, which is a button on touch (#45). */
+export function downPanelText(state: DownPanelState): string {
+  const respawn = state.canRespawn
+    ? state.touch
+      ? ['respawn with a button above']
+      : ['[H] respawn at home', ...(state.beside === undefined ? [] : [`[J] respawn beside ${state.beside}`])]
+    : [`respawn in ${String(Math.ceil(state.wait))} s`];
+  // On one line with the respawns, so the panel keeps its height on a short window.
+  const choices = [...respawn, ...(state.squadron && !state.touch ? ['[C] switch squadron'] : [])].join(DOWN_PANEL_GAP);
+
+  return ["You're down", '', choices, 'or stay: a friend close by revives you'].join('\n');
+}
+
 /** The connection's toast, which stays up while the game isn't online; undefined when it is. */
 export function connectionToast(status: string | undefined): string | undefined {
   switch (status) {

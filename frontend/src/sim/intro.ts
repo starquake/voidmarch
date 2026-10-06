@@ -77,6 +77,7 @@ const KEYBOARD: ControlColumn = {
     { keys: ['M'], text: 'map' },
     { keys: ['Tab'], text: 'hold for the standings' },
     { keys: ['H', 'J'], text: 'when down: respawn home, or by a squadmate' },
+    { keys: ['C'], text: 'when down: switch squadrons' },
     { keys: ['O'], text: "the season's victory screen" },
     { keys: ['Esc'], text: 'settings, or close a screen' },
     { keys: ['F1'], text: 'this screen' },
@@ -102,8 +103,7 @@ const THUMBS: ControlColumn = {
     { keys: ['left half'], text: 'a stick where your thumb lands: move that way' },
     { keys: ['right half'], text: 'a stick: aim that way and fire while pushed; the big space gun fires on release' },
     { keys: ['minimap'], text: 'the full map: tap a sector to send your squadron there' },
-    { keys: ['a slot'], text: 'bottom left: tap it, then a part you own' },
-  ],
+    { keys: ['a slot'], text: 'bottom left: tap it, then a part you own' },  ],
 };
 
 const BUTTONS: ControlColumn = {
@@ -113,6 +113,7 @@ const BUTTONS: ControlColumn = {
     { keys: ['Summon'], text: 'draw a companion, at home' },
     { keys: ['Orders'], text: 'hold for the order ring, tap to repeat' },
     { keys: ['Respawn'], text: 'when down: at home, or beside a squadmate' },
+    { keys: ['Squadron'], text: 'when down: switch squadrons' },
     { keys: ['Settings'], text: 'sound, controls, effects' },
     { keys: ['Help'], text: 'this screen' },
   ],
