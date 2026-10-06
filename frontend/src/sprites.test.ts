@@ -3,26 +3,77 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
+import { bakeGlow, double } from './glow.ts';
+import { pieceFrames, type LayerLayout } from './layers.ts';
 import { ENEMY_FACTIONS } from './sim/enemies.ts';
 import { WEAPONS } from './sim/loadout.ts';
 import { PROJECTILE_KINDS } from './sim/rules.gen.ts';
-import { keys, sheets, weaponTiming } from './sprites.ts';
+import { ENEMY_FIRE_GLOW_COLOR, ENEMY_FIRE_GLOW_DISTANCE, ENEMY_FIRE_GLOW_QUALITY, ENEMY_FIRE_GLOW_STRENGTH } from './sim/tuning.ts';
+import { glowSheets, keys, layerSheets, sheets, weaponTiming } from './sprites.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
+/** The largest texture side every WebGL GPU in use holds (#222). */
+const MAX_TEXTURE_SIZE = 4096;
+
+/** Sheets still over it, each with its ticket; the test fails once one fits, so the list shrinks with them. */
+const KNOWN_OVER: Readonly<Record<string, string>> = {
+  [keys.enemyWeapons('klaed', 'dreadnought')]: '#236',
+  [keys.enemyWeapons('nairan', 'dreadnought')]: '#236',
+  [keys.enemyWeapons('nautolan', 'dreadnought')]: '#236',
+};
+
+const staticFile = (url: string): string => path.join(STATIC_DIR, url.replace(/^\/static\//, ''));
+
 /** Reads width and height from a PNG's IHDR chunk. */
-const pngSize = (file: string): { width: number; height: number } => {
-  const data = readFileSync(file);
+const pngSize = (url: string): { width: number; height: number } => {
+  const data = readFileSync(staticFile(url));
 
   return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
 };
 
-test('every sheet matches its PNG: frames laid out in one row', () => {
+const layout = (url: string): LayerLayout => JSON.parse(readFileSync(staticFile(url), 'utf8')) as LayerLayout;
+
+test('every sheet matches its PNG: frames left to right, in rows of its columns', () => {
   for (const sheet of sheets()) {
-    const file = path.join(STATIC_DIR, sheet.url.replace(/^\/static\//, ''));
-    const { width, height } = pngSize(file);
-    assert.equal(width, sheet.frameWidth * sheet.frames, `${sheet.key}: width ${width}`);
-    assert.equal(height, sheet.frameHeight, `${sheet.key}: height ${height}`);
+    const { width, height } = pngSize(sheet.url);
+    const columns = sheet.columns ?? sheet.frames;
+    assert.equal(width, sheet.frameWidth * columns, `${sheet.key}: width ${String(width)}`);
+    assert.equal(height, sheet.frameHeight * Math.ceil(sheet.frames / columns), `${sheet.key}: height ${String(height)}`);
+  }
+});
+
+test("every stars layer's sheet holds each of its pieces' frames", () => {
+  for (const sheet of layerSheets()) {
+    const { width, height } = pngSize(sheet.url);
+    for (const frame of pieceFrames(layout(sheet.layoutUrl))) {
+      assert.ok(frame.x + frame.width <= width && frame.y + frame.height <= height, `${sheet.key} ${frame.name}`);
+    }
+  }
+});
+
+test('no texture the game loads or makes is wider or taller than 4096 px, but the known ones', () => {
+  const textures = [
+    ...sheets().map((s) => ({ key: s.key, ...pngSize(s.url) })),
+    ...layerSheets().flatMap((s) => {
+      const l = layout(s.layoutUrl);
+
+      return [
+        { key: s.key, ...pngSize(s.url) },
+        { key: keys.layerFrame(s.key), width: l.width, height: l.height },
+      ];
+    }),
+    ...glowSheets().map((s) => {
+      const blank = { width: s.frameWidth, height: s.frameHeight, data: new Uint8ClampedArray(s.frameWidth * s.frameHeight * 4) };
+      const glow = { color: ENEMY_FIRE_GLOW_COLOR, strength: ENEMY_FIRE_GLOW_STRENGTH, quality: ENEMY_FIRE_GLOW_QUALITY, distance: ENEMY_FIRE_GLOW_DISTANCE };
+      const frame = bakeGlow(double(blank), glow);
+
+      return { key: s.glowKey, width: frame.width * s.frames, height: frame.height };
+    }),
+  ];
+  for (const t of textures) {
+    const fits = t.width <= MAX_TEXTURE_SIZE && t.height <= MAX_TEXTURE_SIZE;
+    assert.equal(fits, KNOWN_OVER[t.key] === undefined, `${t.key}: ${String(t.width)} x ${String(t.height)}, known over: ${KNOWN_OVER[t.key] ?? 'no'}`);
   }
 });
 

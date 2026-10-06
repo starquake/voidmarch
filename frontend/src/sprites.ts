@@ -6,13 +6,15 @@ import type { WeaponTiming } from './weaponframes.ts';
 
 export const ASSETS = '/static/assets';
 
-/** A PNG strip of equal frames, laid out left to right. */
+/** A PNG of equal frames, laid out left to right and, past `columns`, in rows below. */
 export interface Sheet {
   key: string;
   url: string;
   frameWidth: number;
   frameHeight: number;
   frames: number;
+  /** Frames per row, where a strip would be over 4096 px (#222); one row without. */
+  columns?: number;
   /** Animation speed; 0 for a still image. */
   fps: number;
   loop: boolean;
@@ -117,12 +119,13 @@ const BULLET_FRAMES: Record<FleetBulletId, BulletFiles> = {
   nautolanRay: { faction: 'nautolan', file: 'ray', width: 18, height: 38, frames: 4 },
 };
 
-const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true): Sheet => ({
+const strip = (key: string, url: string, size: number, frames: number, fps: number, loop = true, columns?: number): Sheet => ({
   key,
   url,
   frameWidth: size,
   frameHeight: size,
   frames,
+  ...(columns === undefined ? {} : { columns }),
   fps,
   loop,
 });
@@ -213,6 +216,9 @@ export const keys = {
   weapon: (id: WeaponId): string => `weapon-${id}`,
   projectile: (id: WeaponId): string => `projectile-${id}`,
   background: ['background-void', 'background-stars', 'background-big-stars'] as const,
+  /** A pieced background layer's layout (#222), and the texture its frame is drawn into. */
+  layerLayout: (key: string): string => `${key}-layout`,
+  layerFrame: (key: string): string => `${key}-frame`,
   planet: 'planet',
   asteroid: 'asteroid',
   enemyBase: (faction: EnemyFaction, kind: EnemyKind): string => `${faction}-${kind}-base`,
@@ -225,6 +231,31 @@ export const keys = {
   enemyBulletGlow: (id: FleetBulletId): string => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}-glow`,
   pickup: (part: PartId): string => `pickup-${part}`,
 };
+
+/** The background layers' frame size, and their animation's frame count and speed. */
+const LAYER_WIDTH = 640;
+const LAYER_HEIGHT = 360;
+export const LAYER_FRAMES = 9;
+export const LAYER_FPS = 6;
+
+/** The void's shimmer covers the whole layer, so its frames stay whole, as a 3 x 3 grid. */
+const VOID = keys.background[0];
+
+/** A background layer cut into a still piece and the regions that animate (#222), with their layout. */
+export interface LayerSheet {
+  key: string;
+  url: string;
+  layoutUrl: string;
+}
+
+/** The stars layers, each one sheet of pieces that cmd/cutsheets cut. */
+export function layerSheets(): LayerSheet[] {
+  const env = `${ASSETS}/environment`;
+
+  return keys.background
+    .filter((key) => key !== VOID)
+    .map((key) => ({ key, url: `${env}/${key}.png`, layoutUrl: `${env}/${key}.json` }));
+}
 
 /** A pickup's sheet (#77): its slot, then its part in kebab case, as in assets/pickups. */
 export const pickupFile = (part: PartId): string =>
@@ -259,16 +290,18 @@ export function sheets(): Sheet[] {
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12),
       ];
     }),
-    ...keys.background.map((key) => ({
-      key,
-      url: `${env}/${key}.png`,
-      frameWidth: 640,
-      frameHeight: 360,
-      frames: 9,
-      fps: 6,
+    {
+      key: VOID,
+      url: `${env}/${VOID}.png`,
+      frameWidth: LAYER_WIDTH,
+      frameHeight: LAYER_HEIGHT,
+      frames: LAYER_FRAMES,
+      columns: 3,
+      fps: LAYER_FPS,
       loop: true,
-    })),
-    strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
+    },
+    // Cropped to the 76 px its back glow reaches, around the same center (#222).
+    strip(keys.planet, `${env}/planet-earth-like.png`, 76, 77, 8, true, 9),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
     ...ENEMY_FACTIONS.flatMap((faction) =>

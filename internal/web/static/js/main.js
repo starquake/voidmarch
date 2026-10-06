@@ -225,6 +225,17 @@ function musicFiles() {
   return Object.values(MUSIC).map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
 }
 
+// src/layers.ts
+var frameName = (piece, frame) => `${String(piece)}/${String(frame)}`;
+function pieceFrames(layout) {
+  return layout.pieces.flatMap(
+    (p, i) => Array.from({ length: p.frames }, (_, f) => ({ name: frameName(i, f), x: p.sheetX + f * p.width, y: p.sheetY, width: p.width, height: p.height }))
+  );
+}
+function stamps(layout, frame) {
+  return layout.pieces.map((p, i) => ({ name: frameName(i, frame % p.frames), x: p.x, y: p.y }));
+}
+
 // src/sim/rules.gen.ts
 var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
@@ -652,12 +663,13 @@ var BULLET_FRAMES = {
   // The Nautolan Dreadnought's beam (#153).
   nautolanRay: { faction: "nautolan", file: "ray", width: 18, height: 38, frames: 4 }
 };
-var strip = (key2, url, size, frames, fps, loop = true) => ({
+var strip = (key2, url, size, frames, fps, loop = true, columns) => ({
   key: key2,
   url,
   frameWidth: size,
   frameHeight: size,
   frames,
+  ...columns === void 0 ? {} : { columns },
   fps,
   loop
 });
@@ -730,6 +742,9 @@ var keys = {
   weapon: (id) => `weapon-${id}`,
   projectile: (id) => `projectile-${id}`,
   background: ["background-void", "background-stars", "background-big-stars"],
+  /** A pieced background layer's layout (#222), and the texture its frame is drawn into. */
+  layerLayout: (key2) => `${key2}-layout`,
+  layerFrame: (key2) => `${key2}-frame`,
   planet: "planet",
   asteroid: "asteroid",
   enemyBase: (faction, kind) => `${faction}-${kind}-base`,
@@ -742,6 +757,15 @@ var keys = {
   enemyBulletGlow: (id) => `${BULLET_FRAMES[id].faction}-${BULLET_FRAMES[id].file}-glow`,
   pickup: (part) => `pickup-${part}`
 };
+var LAYER_WIDTH = 640;
+var LAYER_HEIGHT = 360;
+var LAYER_FRAMES = 9;
+var LAYER_FPS = 6;
+var VOID = keys.background[0];
+function layerSheets() {
+  const env = `${ASSETS}/environment`;
+  return keys.background.filter((key2) => key2 !== VOID).map((key2) => ({ key: key2, url: `${env}/${key2}.png`, layoutUrl: `${env}/${key2}.json` }));
+}
 var pickupFile = (part) => `${WEAPONS.includes(part) ? "weapon" : ENGINES.includes(part) ? "engine" : "shield"}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 var PICKUP_FRAMES = 15;
 function sheets() {
@@ -766,16 +790,18 @@ function sheets() {
         strip(keys.projectile(id), `${ship}/${f.projectile}.png`, 32, f.projectileFrames, 12)
       ];
     }),
-    ...keys.background.map((key2) => ({
-      key: key2,
-      url: `${env}/${key2}.png`,
-      frameWidth: 640,
-      frameHeight: 360,
-      frames: 9,
-      fps: 6,
+    {
+      key: VOID,
+      url: `${env}/${VOID}.png`,
+      frameWidth: LAYER_WIDTH,
+      frameHeight: LAYER_HEIGHT,
+      frames: LAYER_FRAMES,
+      columns: 3,
+      fps: LAYER_FPS,
       loop: true
-    })),
-    strip(keys.planet, `${env}/planet-earth-like.png`, 96, 77, 8),
+    },
+    // Cropped to the 76 px its back glow reaches, around the same center (#222).
+    strip(keys.planet, `${env}/planet-earth-like.png`, 76, 77, 8, true, 9),
     ...PARTS.map((part) => strip(keys.pickup(part), `${ASSETS}/pickups/${pickupFile(part)}.png`, 32, PICKUP_FRAMES, 12)),
     still(keys.asteroid, `${env}/asteroid.png`, 96),
     ...ENEMY_FACTIONS.flatMap(
@@ -814,6 +840,15 @@ function glowSheets() {
     frames: BULLET_FRAMES[id].frames,
     fps: BULLET_FPS
   }));
+}
+
+// src/scenes/starlayer.ts
+function drawLayer(texture, sheet, layout, frame) {
+  texture.clear();
+  for (const stamp of stamps(layout, frame)) {
+    texture.stamp(sheet, stamp.name, stamp.x, stamp.y, { originX: 0, originY: 0 });
+  }
+  texture.render();
 }
 
 // src/scenes/boot.ts
@@ -855,8 +890,14 @@ var BootScene = class extends Phaser.Scene {
     for (const sheet of sheets()) {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
-        frameHeight: sheet.frameHeight
+        frameHeight: sheet.frameHeight,
+        // A grid's last row can have empty cells.
+        endFrame: sheet.frames - 1
       });
+    }
+    for (const layer of layerSheets()) {
+      this.load.image(layer.key, layer.url);
+      this.load.json(keys.layerLayout(layer.key), layer.layoutUrl);
     }
     for (const sound of effectFiles()) {
       this.load.audio(sound.key, sound.urls);
@@ -881,6 +922,20 @@ var BootScene = class extends Phaser.Scene {
       });
     }
   }
+  /** Names each stars layer's pieces in its sheet, and makes the texture its frames are drawn into (#222). */
+  cutLayers() {
+    for (const layer of layerSheets()) {
+      const layout = this.cache.json.get(keys.layerLayout(layer.key));
+      const sheet = this.textures.get(layer.key);
+      for (const frame of pieceFrames(layout)) {
+        sheet.add(frame.name, 0, frame.x, frame.y, frame.width, frame.height);
+      }
+      const texture = this.textures.addDynamicTexture(keys.layerFrame(layer.key), layout.width, layout.height);
+      if (texture !== null) {
+        drawLayer(texture, layer.key, layout, 0);
+      }
+    }
+  }
   create() {
     for (const sheet of sheets()) {
       if (sheet.fps > 0) {
@@ -893,6 +948,7 @@ var BootScene = class extends Phaser.Scene {
       }
     }
     this.bakeEnemyFireGlow();
+    this.cutLayers();
     this.scene.start("sandbox");
   }
 };
@@ -6537,8 +6593,6 @@ function describe(gl) {
 
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
-var BACKGROUND_FPS = 6;
-var BACKGROUND_FRAMES = 9;
 var CAMERA_LERP = 0.15;
 var BLOOM_BLUR = 3;
 var BLOOM_THRESHOLD = 0.55;
@@ -6910,9 +6964,12 @@ var SandboxScene = class extends Phaser12.Scene {
   }
   createBackgrounds() {
     this.backgrounds = keys.background.map((key2, i) => {
-      const sprite = this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key2, 0).setScrollFactor(0);
+      const layout = this.cache.json.get(keys.layerLayout(key2));
+      const texture = layout === void 0 ? void 0 : this.textures.get(keys.layerFrame(key2));
+      const pieces = layout !== void 0 && texture instanceof Phaser12.Textures.DynamicTexture ? { sheet: key2, layout, texture } : void 0;
+      const sprite = (pieces === void 0 ? this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key2, 0) : this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, pieces.texture)).setScrollFactor(0);
       this.world.add(sprite);
-      return { sprite, factor: PARALLAX[i] ?? 0 };
+      return { sprite, factor: PARALLAX[i] ?? 0, pieces };
     });
   }
   createScenery() {
@@ -8038,15 +8095,17 @@ ${modeName(info)}`,
   /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
   scrollBackgrounds(time, deltaMs) {
     const camera = this.cameras.main;
-    const frame = Math.floor(time / 1e3 * BACKGROUND_FPS) % BACKGROUND_FRAMES;
+    const frame = Math.floor(time / 1e3 * LAYER_FPS) % LAYER_FRAMES;
     const frameChanged = frame !== this.backgroundFrame;
     this.backgroundFrame = frame;
     const tint = fadeColor(this.backgroundTint, ringTint(this.sim.ship.x, this.sim.ship.y), deltaMs / RING_TINT_FADE_MS);
     const tintChanged = tint !== this.backgroundTint;
     this.backgroundTint = tint;
-    for (const { sprite, factor } of this.backgrounds) {
+    for (const { sprite, factor, pieces } of this.backgrounds) {
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
-      if (frameChanged) {
+      if (frameChanged && pieces !== void 0) {
+        drawLayer(pieces.texture, pieces.sheet, pieces.layout, frame);
+      } else if (frameChanged) {
         sprite.setFrame(frame);
       }
       if (tintChanged) {

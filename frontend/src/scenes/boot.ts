@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 
 import { bakeGlow, double, type Pixels } from '../glow.ts';
 import { effectFiles } from '../sounds.ts';
-import { glowSheets, sheets, type GlowSheet } from '../sprites.ts';
+import { pieceFrames, type LayerLayout } from '../layers.ts';
+import { glowSheets, keys, layerSheets, sheets, type GlowSheet } from '../sprites.ts';
+import { drawLayer } from './starlayer.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
   ENEMY_FIRE_GLOW_DISTANCE,
@@ -56,7 +58,13 @@ export class BootScene extends Phaser.Scene {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight,
+        // A grid's last row can have empty cells.
+        endFrame: sheet.frames - 1,
       });
+    }
+    for (const layer of layerSheets()) {
+      this.load.image(layer.key, layer.url);
+      this.load.json(keys.layerLayout(layer.key), layer.layoutUrl);
     }
     for (const sound of effectFiles()) {
       this.load.audio(sound.key, sound.urls);
@@ -83,6 +91,21 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  /** Names each stars layer's pieces in its sheet, and makes the texture its frames are drawn into (#222). */
+  private cutLayers(): void {
+    for (const layer of layerSheets()) {
+      const layout = this.cache.json.get(keys.layerLayout(layer.key)) as LayerLayout;
+      const sheet = this.textures.get(layer.key);
+      for (const frame of pieceFrames(layout)) {
+        sheet.add(frame.name, 0, frame.x, frame.y, frame.width, frame.height);
+      }
+      const texture = this.textures.addDynamicTexture(keys.layerFrame(layer.key), layout.width, layout.height);
+      if (texture !== null) {
+        drawLayer(texture, layer.key, layout, 0);
+      }
+    }
+  }
+
   create(): void {
     for (const sheet of sheets()) {
       if (sheet.fps > 0) {
@@ -95,6 +118,7 @@ export class BootScene extends Phaser.Scene {
       }
     }
     this.bakeEnemyFireGlow();
+    this.cutLayers();
     this.scene.start('sandbox');
   }
 }

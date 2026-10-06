@@ -30,7 +30,9 @@ import {
   type AudioSettings,
   type DisplaySettings,
 } from '../settings.ts';
-import { keys, pickupFile, weaponTiming } from '../sprites.ts';
+import { LAYER_FPS, LAYER_FRAMES, keys, pickupFile, weaponTiming } from '../sprites.ts';
+import type { LayerLayout } from '../layers.ts';
+import { drawLayer } from './starlayer.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
@@ -117,8 +119,6 @@ import { Diagnostics } from '../diag.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
-const BACKGROUND_FPS = 6;
-const BACKGROUND_FRAMES = 9;
 const CAMERA_LERP = 0.15;
 /** Bloom's blur reach, in screen pixels at EFFECT_ZOOM. */
 const BLOOM_BLUR = 3;
@@ -217,6 +217,8 @@ function destroyRing(press: OrderPress): void {
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
   factor: number;
+  /** A stars layer's pieces (#222), drawn into the texture the sprite tiles; without, the sprite steps its sheet's frames. */
+  pieces: { sheet: string; layout: LayerLayout; texture: Phaser.Textures.DynamicTexture } | undefined;
 }
 
 /** The single-player sandbox: fly, aim and shoot around the home planet. */
@@ -561,10 +563,17 @@ export class SandboxScene extends Phaser.Scene {
 
   private createBackgrounds(): void {
     this.backgrounds = keys.background.map((key, i) => {
-      const sprite = this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key, 0).setScrollFactor(0);
+      const layout = this.cache.json.get(keys.layerLayout(key)) as LayerLayout | undefined;
+      const texture = layout === undefined ? undefined : this.textures.get(keys.layerFrame(key));
+      const pieces = layout !== undefined && texture instanceof Phaser.Textures.DynamicTexture ? { sheet: key, layout, texture } : undefined;
+      const sprite = (
+        pieces === undefined
+          ? this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key, 0)
+          : this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, pieces.texture)
+      ).setScrollFactor(0);
       this.world.add(sprite);
 
-      return { sprite, factor: PARALLAX[i] ?? 0 };
+      return { sprite, factor: PARALLAX[i] ?? 0, pieces };
     });
   }
 
@@ -1837,15 +1846,17 @@ export class SandboxScene extends Phaser.Scene {
   /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
   private scrollBackgrounds(time: number, deltaMs: number): void {
     const camera = this.cameras.main;
-    const frame = Math.floor((time / 1000) * BACKGROUND_FPS) % BACKGROUND_FRAMES;
+    const frame = Math.floor((time / 1000) * LAYER_FPS) % LAYER_FRAMES;
     const frameChanged = frame !== this.backgroundFrame;
     this.backgroundFrame = frame;
     const tint = fadeColor(this.backgroundTint, ringTint(this.sim.ship.x, this.sim.ship.y), deltaMs / RING_TINT_FADE_MS);
     const tintChanged = tint !== this.backgroundTint;
     this.backgroundTint = tint;
-    for (const { sprite, factor } of this.backgrounds) {
+    for (const { sprite, factor, pieces } of this.backgrounds) {
       sprite.setTilePosition(camera.scrollX * factor, camera.scrollY * factor);
-      if (frameChanged) {
+      if (frameChanged && pieces !== undefined) {
+        drawLayer(pieces.texture, pieces.sheet, pieces.layout, frame);
+      } else if (frameChanged) {
         sprite.setFrame(frame);
       }
       if (tintChanged) {

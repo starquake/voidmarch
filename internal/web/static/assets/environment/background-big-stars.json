@@ -1,0 +1,25 @@
+{
+  "width": 640,
+  "height": 360,
+  "frames": 9,
+  "pieces": [
+    {
+      "x": 95,
+      "y": 52,
+      "width": 286,
+      "height": 286,
+      "sheetX": 0,
+      "sheetY": 0,
+      "frames": 9
+    },
+    {
+      "x": 461,
+      "y": 170,
+      "width": 179,
+      "height": 180,
+      "sheetX": 0,
+      "sheetY": 286,
+      "frames": 9
+    }
+  ]
+}

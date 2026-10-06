@@ -59,3 +59,26 @@ shading.
   green to blue (#137).
 - `nautolan/ray-blue.png`: `Nautolan - Ray.png` turned 172 degrees, from
   yellow to blue (#153).
+
+Some strips are laid out differently, so that no texture is over 4096 px and
+older GPUs can hold every one (#222). Every pixel is the pack's own; only
+where it sits changes. `cmd/cutsheets` makes them from the pack's PNGs:
+
+- `environment/background-void.png`: the Environment Pack's
+  `Backgrounds/PNGs/Condesed/Starry background  - Layer 01 - Void.png`, its
+  9 frames of 640 x 360 as a 3 x 3 grid
+  (`cutsheets grid -frame 640x360 -columns 3`).
+- `environment/background-stars.png` and `background-stars.json`:
+  `Starry background  - Layer 02 - Stars.png` from the same folder, as one
+  sheet of pieces (`cutsheets layer -frame 640x360`): the first frame with
+  every region that changes cleared, then each changing region's 9 frames
+  side by side (the Rotary Star, Rotary Star 2, the Black hole and 68
+  twinkling stars). The JSON says where each piece sits in the sheet and on
+  the frame; drawing them rebuilds every frame exactly.
+- `environment/background-big-stars.png` and `background-big-stars.json`:
+  `Starry background  - Layer 03 - Stars.png` the same way: its two big
+  stars, with nothing still around them.
+- `environment/planet-earth-like.png`: `Planets/PNGs/Earth-Like planet.png`,
+  its 77 frames of 96 px cropped by the 10 px that are transparent around
+  every frame, to 76 px with the back glow, 9 to a row
+  (`cutsheets grid -frame 96x96 -columns 9 -crop`).
