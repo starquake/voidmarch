@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,6 +8,27 @@ const port = process.env.E2E_PORT ?? '8181';
 const ci = process.env.CI !== undefined;
 // A fresh database per run, so no hangar or player carries over between runs.
 const dbPath = join(tmpdir(), `voidmarch-e2e-${String(Date.now())}.db`);
+
+/**
+ * Firefox's launch environment. macOS keeps other apps out of the installed
+ * Firefox's ~/Library/Application Support/Firefox, and Firefox won't start
+ * without it, so on macOS it gets a home folder of its own (#247).
+ */
+function firefoxEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+  if (process.platform === 'darwin') {
+    const home = join(tmpdir(), 'voidmarch-e2e-firefox-home');
+    mkdirSync(home, { recursive: true });
+    env.CFFIXED_USER_HOME = home;
+  }
+
+  return env;
+}
 
 export default defineConfig({
   testDir: './e2e',
@@ -34,7 +56,7 @@ export default defineConfig({
     { name: 'firefox', use: {
       ...devices['Desktop Firefox'],
       viewport: { width: 640, height: 360 },
-      launchOptions: { firefoxUserPrefs: { 'media.volume_scale': '0.0' } },
+      launchOptions: { env: firefoxEnv(), firefoxUserPrefs: { 'media.volume_scale': '0.0' } },
     } },
   ],
   webServer: {
