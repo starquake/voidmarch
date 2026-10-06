@@ -170,7 +170,12 @@ answer given in chat is written back into the issue body before acting on it.
   iterations, behaviour against the ticket, input and state edge cases, the
   art rule). Defects are fixed straight away and listed in the PR; judgement
   calls are a review comment on their line, left for the maintainer to answer
-  `fix`, `skip` or `ticket` (`build-slice`).
+  `fix`, `skip` or `ticket` (`build-slice`). **The comment ends with what each
+  of the three does for that finding**, one concrete line each, the
+  recommended one marked: `fix` names the change it makes (the alternative,
+  when the recommendation is to keep it as built), `skip` what stays as built,
+  `ticket` what gets filed for later while the PR stays as it is. A bare
+  "Reply `fix`, `skip` or `ticket`" is unclear (@starquake, 2026-10-06, #267).
 - **Everything lands via a pull request** with an issue behind it, including
   chores and docs. One issue, one deliverable; a ticket that needs several PRs
   in different states is split into sub-issues. A PR says `Closes #NN` only

@@ -147,8 +147,21 @@ The gates prove it compiles, lints and passes its tests. They cannot see:
   it; ask.** When unsure which kind a finding is, it is a judgement call.
 
 Ask by posting a review comment on the line it is about. It opens with the 🤖
-attribution line, says what is wrong, gives the recommended fix, and ends
-with the three words the maintainer can reply with:
+attribution line, says what is wrong and what you recommend, and **ends with
+what each of the three replies does for this finding**, one concrete line
+each, the recommended one marked (#267). A bare "Reply `fix`, `skip` or
+`ticket`" is unclear, above all when the recommendation is to keep it as
+built:
+
+```markdown
+What each reply does here:
+- **`fix`:** screens behind the intro are only made inert again, so the join
+  screen shows faintly through the intro.
+- **`skip` (recommended):** they stay hidden until the intro closes.
+- **`ticket`:** this PR stays as it is, and the choice is filed in Backlog.
+```
+
+Post it with:
 
 ```bash
 gh api repos/starquake/voidmarch/pulls/<n>/comments \
@@ -158,7 +171,7 @@ gh api repos/starquake/voidmarch/pulls/<n>/comments \
 
 | reply starts with | Claude |
 |---|---|
-| `fix` | fixes it as recommended (or as the reply amends), pushes, replies with the commit, and resolves the thread |
+| `fix` | makes the change the comment's `fix` line names (or as the reply amends), pushes, replies with the commit, and resolves the thread |
 | `skip` | leaves it, replies to acknowledge, and resolves the thread |
 | `ticket` | files it as a Backlog issue, replies with the link, and resolves the thread |
 
