@@ -111,6 +111,8 @@ type BrainView struct {
 	// SpreadKey tells this companion apart from the others, so they spread
 	// over the nearest enemies instead of all picking one (#165).
 	SpreadKey uint32
+	// Bullets are the enemy bullets in flight, which it dodges (#249).
+	Bullets []Bullet
 }
 
 // Friend is another friendly ship as a companion sees it.
@@ -596,7 +598,8 @@ func Think(view BrainView, orders Orders, random *Random) BrainStep {
 		}
 	}
 	g := chooseGoal(&view, &orders, target)
-	move := Arrive(self, spaced(&view, g.point), g.velocity)
+	g.point = spaced(&view, g.point)
+	move := dodge(&view, g, Arrive(self, g.point, g.velocity))
 
 	var aim Vec
 	fire := false

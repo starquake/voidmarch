@@ -124,7 +124,8 @@ game keeps running on its own and reconnects when it can.
 ## Companions
 
 Press **G** at the home planet to draw a companion from the hangar, up to
-three: AI wingmates that fly in formation with you, in your colour. The hangar
+three: AI wingmates that fly in formation with you, in your colour, and dodge
+enemy fire as they fight. The hangar
 is shared by everyone on the server; the HUD shows its ships while you're at
 the home planet. A companion sent home, or one whose player leaves, docks back
 into it. A new server starts with `POOL_START` ships in it (3 unless set), and

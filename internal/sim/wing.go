@@ -43,6 +43,9 @@ type Wing struct {
 	// Derelicts are the derelict ships its companions may rescue, set before
 	// each Step (#52).
 	Derelicts []Vec
+	// Bullets are the enemy bullets in flight, set before each Step, which
+	// its companions dodge (#249).
+	Bullets []Bullet
 	// Frontier is which sectors its companions may fly in (#123).
 	Frontier Frontier
 	// Key tells this wing's companions apart from other wings', so all of a
@@ -167,6 +170,7 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 					Enemies:   enemies,
 					Friends:   friends,
 					Derelicts: w.Derelicts,
+					Bullets:   w.Bullets,
 					SpreadKey: spreadKey(w.Key, c.Number),
 				},
 				c.Orders,
