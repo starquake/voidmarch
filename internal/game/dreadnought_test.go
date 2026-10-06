@@ -713,25 +713,28 @@ func TestDreadnought_StandsDownAGarrisonOutWhenItWoke(t *testing.T) {
 	}
 }
 
-func TestDreadnought_AnAttackOnItsSectorStillFights(t *testing.T) {
+func TestDreadnought_NoAttackComesToItsSector(t *testing.T) {
 	t.Parallel()
 
-	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithDevelopment(), WithDreadnoughtInClearedSector())
+	m := &world.Map{Name: "test", DreadnoughtAwake: true}
+	hub, tick := testHub(
+		t, WithMap(m), WithDevelopment(), WithDreadnoughtInClearedSector(),
+		WithEventTimes(20, 200, 1<<30, 1<<30),
+	)
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
 	s := dreadnoughtSector(t, d)
 	a.Send(devAttack(s.Name()))
-	x, y := d.GetX(), d.GetY()+150
-	for range 5 * TickRate {
-		if len(guardsIn(must(latest(t, a, tick, 1, x, y)), s)) > 0 {
-			return
+	started, _, _ := eventMessages(t, a, tick, 41, 0, 0)
+	for _, e := range started {
+		ev := e.GetEvent()
+		if ev.GetKind() == pb.WorldEventKind_WORLD_EVENT_KIND_ATTACK && ev.GetSector() == s.Name() {
+			t.Errorf(
+				"an attack came to %s, the awake Dreadnought's sector, want none there",
+				s.Name(),
+			)
 		}
 	}
-	t.Errorf(
-		"no attack force came into %s, the Dreadnought's cleared sector, want it to fight",
-		s.Name(),
-	)
 }
 
 // sectorSaves collects the sectors a hub saves as cleared, off its tick

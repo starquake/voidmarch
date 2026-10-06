@@ -210,16 +210,18 @@ func (h *Hub) stepGarrisons(ships []upShip) {
 	}
 }
 
-// heldByDreadnought reports whether g is the own garrison of the sector an
+// heldByDreadnought reports whether g is the garrison of the sector an
 // awake Dreadnought holds, which stays off the field while it's awake
-// (#223); an attack's force there still fights.
+// (#223); no attack comes to that sector.
 func (h *Hub) heldByDreadnought(g *garrison) bool {
-	e, awake := h.enemies[h.dreadnoughtID]
-	if !awake || e.dread.sector != g.sector {
-		return false
-	}
+	return h.dreadnoughtHolds(g.sector)
+}
 
-	return h.event == nil || h.event.force != g
+// dreadnoughtHolds reports whether an awake Dreadnought holds s.
+func (h *Hub) dreadnoughtHolds(s sim.Sector) bool {
+	e, awake := h.enemies[h.dreadnoughtID]
+
+	return awake && e.dread.sector == s
 }
 
 // fillGarrison brings the garrison's reserve onto the field, up to
