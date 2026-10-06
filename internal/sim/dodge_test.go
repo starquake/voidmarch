@@ -70,12 +70,14 @@ func TestDodge_ABulletOnACollisionCourseIsAvoided(t *testing.T) {
 			t.Parallel()
 
 			from := Vec{X: -150 * math.Cos(tc.angle), Y: -150 * math.Sin(tc.angle)}
-			hit := float64(ShipRadius + ShotRadius)
-			if got := closestPass(bulletAt(from.X, from.Y, tc.angle, 0.5), blind); got > hit {
+			hull := float64(ShipRadius + ShotRadius)
+			if got := closestPass(bulletAt(from.X, from.Y, tc.angle, 0.5), blind); got > hull {
 				t.Fatalf("unseen, it passed %.1f px away, want a hit to dodge", got)
 			}
-			if got := closestPass(bulletAt(from.X, from.Y, tc.angle, 0.5), seeing); got <= hit {
-				t.Errorf("seen, it passed %.1f px away, want more than %v", got, hit)
+			// Clear of the shield too, which meets a bullet first where it covers.
+			met := math.Max(ShipRadius, DefaultLoadout().ShieldStats().Radius) + ShotRadius
+			if got := closestPass(bulletAt(from.X, from.Y, tc.angle, 0.5), seeing); got <= met {
+				t.Errorf("seen, it passed %.1f px away, want more than %v", got, met)
 			}
 		})
 	}
