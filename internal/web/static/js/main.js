@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser13 from "./vendor/phaser.js";
+import Phaser14 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -488,6 +488,8 @@ var FIELD_STRAND_ALPHA = 0.55;
 var FIELD_GLOW_ALPHA = 0.035;
 var FIELD_GLOW_RADIUS = 9;
 var FIELD_CORE_RADIUS = 4;
+var FIELD_DOT_TEXELS = 4;
+var FIELD_VIEW_MARGIN = 48;
 var FIELD_SPARK_COLOR = 16765120;
 var FIELD_SPARK_JUMP = 6;
 var FIELD_ZAP_EVERY_MS = 600;
@@ -954,7 +956,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser12 from "./vendor/phaser.js";
+import Phaser13 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -3360,18 +3362,58 @@ function distanceToSide(side, p) {
 function nearestSide(sides, p) {
   return sides.reduce((nearest, side) => Math.min(nearest, distanceToSide(side, p)), Number.POSITIVE_INFINITY);
 }
-function fieldSides(sides, ship, t) {
-  return sides.filter((side) => distanceToSide(side, ship) <= FIELD_DRAW_RANGE).map((side) => sampleSide(side, ship, t));
+function fieldSides(sides, ship, t, view) {
+  const grown = {
+    left: view.left - FIELD_VIEW_MARGIN,
+    top: view.top - FIELD_VIEW_MARGIN,
+    right: view.right + FIELD_VIEW_MARGIN,
+    bottom: view.bottom + FIELD_VIEW_MARGIN
+  };
+  const out = [];
+  for (const side of sides) {
+    const span = distanceToSide(side, ship) <= FIELD_DRAW_RANGE ? clip(side, grown) : void 0;
+    if (span !== void 0) {
+      out.push(sampleSide(side, ship, t, span));
+    }
+  }
+  return out;
 }
-function sampleSide(side, ship, t) {
+function clip(side, view) {
+  const dx = side.b.x - side.a.x;
+  const dy = side.b.y - side.a.y;
+  let from = 0;
+  let to = 1;
+  for (const [p, q] of [
+    [-dx, side.a.x - view.left],
+    [dx, view.right - side.a.x],
+    [-dy, side.a.y - view.top],
+    [dy, view.bottom - side.a.y]
+  ]) {
+    if (p === 0) {
+      if (q < 0) {
+        return void 0;
+      }
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) {
+      from = Math.max(from, r);
+    } else {
+      to = Math.min(to, r);
+    }
+  }
+  return from <= to ? [from, to] : void 0;
+}
+function sampleSide(side, ship, t, [from, to]) {
   const length = Math.hypot(side.b.x - side.a.x, side.b.y - side.a.y);
   const nx = -(side.b.y - side.a.y) / length;
   const ny = (side.b.x - side.a.x) / length;
   const steps = Math.ceil(length / FIELD_STEP);
+  const first = Math.floor(from * steps);
   const [r1, r2, r3, r4] = FIELD_RIPPLES;
   const wave = (r, s) => r.amplitude * Math.sin(s * r.along + t * r.speed + r.phase);
   const samples = [];
-  for (let i = 0; i <= steps; i++) {
+  for (let i = first; i <= Math.ceil(to * steps); i++) {
     const s = i / steps * length;
     const x = side.a.x + (side.b.x - side.a.x) * (i / steps);
     const y = side.a.y + (side.b.y - side.a.y) * (i / steps);
@@ -3389,7 +3431,7 @@ function sampleSide(side, ship, t) {
       flicker: 0.65 + 0.35 * Math.sin(t * 9 + s * 0.021) * Math.sin(t * 13.7 - s * 9e-3)
     });
   }
-  return { samples, nx, ny };
+  return { samples, first, nx, ny };
 }
 function fieldColor(flare) {
   const channel = (shift) => {
@@ -3398,6 +3440,19 @@ function fieldColor(flare) {
     return Math.round(from + (to - from) * flare) << shift;
   };
   return channel(16) | channel(8) | channel(0);
+}
+function fieldDotImage() {
+  const radius = FIELD_GLOW_RADIUS * FIELD_DOT_TEXELS;
+  const core = FIELD_CORE_RADIUS * FIELD_DOT_TEXELS;
+  const size = radius * 2;
+  const data = new Uint8ClampedArray(size * size * 4).fill(255);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const d = Math.hypot(x + 0.5 - radius, y + 0.5 - radius);
+      data[(y * size + x) * 4 + 3] = d <= core ? 255 : d <= radius ? 128 : 0;
+    }
+  }
+  return { size, data };
 }
 function sparks(i, t) {
   return Math.sin(i * 12.9898 + Math.floor(t * 20) * 78.233) > 0.93;
@@ -4231,6 +4286,58 @@ var BossBarView = class {
   }
 };
 
+// src/scenes/fieldglow.ts
+import Phaser5 from "./vendor/phaser.js";
+var DOT_KEY = "field-dot";
+var FieldGlow = class {
+  scene;
+  layer;
+  below;
+  dots = [];
+  used = 0;
+  shown = 0;
+  /** The dots go into layer, just under below. */
+  constructor(scene, layer, below) {
+    this.scene = scene;
+    this.layer = layer;
+    this.below = below;
+    if (!scene.textures.exists(DOT_KEY)) {
+      const { size, data } = fieldDotImage();
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(data), size, size), 0, 0);
+      scene.textures.addCanvas(DOT_KEY, canvas)?.setFilter(Phaser5.Textures.FilterMode.LINEAR);
+    }
+  }
+  /** Starts a frame's dots. */
+  begin() {
+    this.used = 0;
+  }
+  /** Adds a dot at (x, y): its glow's radius times scale, in color, each of its two disks at alpha. */
+  add(x, y, scale, color, alpha) {
+    let dot = this.dots[this.used];
+    if (dot === void 0) {
+      dot = new Phaser5.GameObjects.Image(this.scene, 0, 0, DOT_KEY).setBlendMode(Phaser5.BlendModes.ADD);
+      this.layer.addAt(dot, this.layer.getIndex(this.below));
+      this.dots.push(dot);
+    }
+    dot.setPosition(x, y).setScale(scale / FIELD_DOT_TEXELS).setTint(color).setAlpha(alpha * 2).setVisible(true);
+    this.used++;
+  }
+  /** How many dots the last frame drew. */
+  get drawn() {
+    return this.shown;
+  }
+  /** Hides the dots this frame didn't use. */
+  end() {
+    for (let i = this.used; i < this.shown; i++) {
+      this.dots[i]?.setVisible(false);
+    }
+    this.shown = this.used;
+  }
+};
+
 // src/net/clock.ts
 var ServerClock = class _ServerClock {
   offset;
@@ -4599,10 +4706,10 @@ var TimedQueue = class {
 };
 
 // src/scenes/enemyview.ts
-import Phaser7 from "./vendor/phaser.js";
+import Phaser8 from "./vendor/phaser.js";
 
 // src/scenes/shipview.ts
-import Phaser5 from "./vendor/phaser.js";
+import Phaser6 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
 var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
@@ -4682,7 +4789,7 @@ var ShipView = class {
   setTint(color) {
     this.tint = color;
     for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
-      part.setTint(color).setTintMode(Phaser5.TintModes.MULTIPLY);
+      part.setTint(color).setTintMode(Phaser6.TintModes.MULTIPLY);
     }
   }
   /** Fits the parts; unchanged parts keep their animation running. */
@@ -4705,7 +4812,7 @@ var ShipView = class {
   }
   /** A part's own tint: the owner's color for a companion, else its tier's (#77, decision 12). */
   restoreTint(part) {
-    part.setTintMode(Phaser5.TintModes.MULTIPLY);
+    part.setTintMode(Phaser6.TintModes.MULTIPLY);
     const l = this.loadout;
     const tier = l === void 0 ? 0 : part === this.weapon ? l.weaponTier : part === this.engine ? l.engineTier : part === this.shield ? l.shieldTier : 0;
     const color = this.tint ?? tierColor(tier);
@@ -4799,7 +4906,7 @@ var ShipView = class {
   }
   /** A short white flash of a part; the shield then shows only while charged. */
   flash(part) {
-    part.setVisible(true).setTint(16777215).setTintMode(Phaser5.TintModes.FILL);
+    part.setVisible(true).setTint(16777215).setTintMode(Phaser6.TintModes.FILL);
     this.scene.time.delayedCall(HIT_FLASH_MS, () => {
       this.restoreTint(part);
       if (part === this.shield) {
@@ -4820,7 +4927,7 @@ function drawReviveBar(bar, fill) {
 }
 
 // src/scenes/teleportview.ts
-import Phaser6 from "./vendor/phaser.js";
+import Phaser7 from "./vendor/phaser.js";
 
 // src/sim/teleport.ts
 var TELEPORT_DURATION_S = TELEPORT_CLOSE_S + TELEPORT_HOLD_S + TELEPORT_SHRINK_S + TELEPORT_FLASH_S;
@@ -4870,9 +4977,9 @@ var TeleportEffect = class {
   constructor(scene, layer, x, y, rotation, now2, size) {
     this.start = now2;
     this.size = size;
-    this.shield = scene.add.sprite(x, y, keys.shield("invincibility")).setRotation(rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser6.TintModes.FILL).setBlendMode(Phaser6.BlendModes.ADD);
+    this.shield = scene.add.sprite(x, y, keys.shield("invincibility")).setRotation(rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser7.TintModes.FILL).setBlendMode(Phaser7.BlendModes.ADD);
     this.shield.play(keys.shield("invincibility"));
-    this.flash = scene.add.graphics().setPosition(x, y).setBlendMode(Phaser6.BlendModes.ADD);
+    this.flash = scene.add.graphics().setPosition(x, y).setBlendMode(Phaser7.BlendModes.ADD);
     layer.add([this.shield, this.flash]);
   }
   /** Draws the shield and flash at now, in seconds, and returns the frame, for the hull to follow. */
@@ -4920,7 +5027,7 @@ var EnemyView = class {
     const parts = [engine, this.base];
     if (scene.textures.exists(keys.enemyWeapons(faction, kind))) {
       const weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
-      weapon.on(Phaser7.Animations.Events.ANIMATION_COMPLETE, () => {
+      weapon.on(Phaser8.Animations.Events.ANIMATION_COMPLETE, () => {
         weapon.setFrame(0);
       });
       this.weapon = weapon;
@@ -4956,16 +5063,16 @@ var EnemyView = class {
       this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
       return;
     }
-    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser7.TintModes.ADD);
+    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser8.TintModes.ADD);
     this.scene.time.delayedCall(ms, () => {
-      this.base.clearTint().setTintMode(Phaser7.TintModes.MULTIPLY);
+      this.base.clearTint().setTintMode(Phaser8.TintModes.MULTIPLY);
     });
   }
   /** A short white flash where a shot landed. */
   flash() {
-    this.base.setTint(16777215).setTintMode(Phaser7.TintModes.FILL);
+    this.base.setTint(16777215).setTintMode(Phaser8.TintModes.FILL);
     this.scene.time.delayedCall(FLASH_MS, () => {
-      this.base.clearTint().setTintMode(Phaser7.TintModes.MULTIPLY);
+      this.base.clearTint().setTintMode(Phaser8.TintModes.MULTIPLY);
     });
   }
   /** Starts teleporting out at now, in seconds (#223): the derelict's teleport (#190), size times as big. */
@@ -4984,7 +5091,7 @@ var EnemyView = class {
       return false;
     }
     if (f.white) {
-      this.base.setTint(TELEPORT_WHITE).setTintMode(Phaser7.TintModes.FILL);
+      this.base.setTint(TELEPORT_WHITE).setTintMode(Phaser8.TintModes.FILL);
     }
     this.root.setScale(f.hullScale).setVisible(f.hullScale > 0);
     return f.done;
@@ -5000,7 +5107,7 @@ var EnemyView = class {
     const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.faction, this.kind)).setRotation(this.root.rotation);
     this.root.parentContainer.add(boom);
     this.root.destroy();
-    boom.once(Phaser7.Animations.Events.ANIMATION_COMPLETE, () => {
+    boom.once(Phaser8.Animations.Events.ANIMATION_COMPLETE, () => {
       boom.destroy();
     });
     boom.play(keys.enemyDestruction(this.faction, this.kind));
@@ -5008,7 +5115,7 @@ var EnemyView = class {
 };
 
 // src/scenes/derelictview.ts
-import Phaser8 from "./vendor/phaser.js";
+import Phaser9 from "./vendor/phaser.js";
 var DERELICT_TINT = 9080729;
 var DERELICT_HELD_TINT = 4869724;
 var DerelictView = class {
@@ -5022,7 +5129,7 @@ var DerelictView = class {
   constructor(scene, layer, x, y, angle, resolution) {
     this.scene = scene;
     this.layer = layer;
-    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser8.TintModes.MULTIPLY);
+    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser9.TintModes.MULTIPLY);
     this.label = scene.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bar = scene.add.graphics();
     this.place(x, y);
@@ -5074,7 +5181,7 @@ var DerelictView = class {
       return false;
     }
     if (f.white) {
-      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser8.TintModes.FILL);
+      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser9.TintModes.FILL);
     }
     this.hull.setScale(f.hullScale).setVisible(f.hullScale > 0);
     return f.done;
@@ -6355,7 +6462,7 @@ var PickupsView = class {
 };
 
 // src/scenes/resample.ts
-import Phaser10 from "./vendor/phaser.js";
+import Phaser11 from "./vendor/phaser.js";
 var RESAMPLE_NODE = "FilterResample";
 var FRAGMENT = [
   "#pragma phaserTemplate(shaderName)",
@@ -6381,14 +6488,14 @@ var FRAGMENT = [
   "    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);",
   "}"
 ].join("\n");
-var Resample = class extends Phaser10.Filters.Controller {
+var Resample = class extends Phaser11.Filters.Controller {
   scale;
   constructor(camera, scale) {
     super(camera, RESAMPLE_NODE);
     this.scale = scale;
   }
 };
-var ResampleNode = class extends Phaser10.Renderer.WebGL.RenderNodes.BaseFilterShader {
+var ResampleNode = class extends Phaser11.Renderer.WebGL.RenderNodes.BaseFilterShader {
   inputSize = [1, 1];
   constructor(manager) {
     super(RESAMPLE_NODE, manager, void 0, FRAGMENT);
@@ -6400,7 +6507,7 @@ var ResampleNode = class extends Phaser10.Renderer.WebGL.RenderNodes.BaseFilterS
       Math.max(1, Math.round(inputDrawingContext.width * scale)),
       Math.max(1, Math.round(inputDrawingContext.height * scale))
     );
-    return super.run(controller, inputDrawingContext, output, new Phaser10.Geom.Rectangle());
+    return super.run(controller, inputDrawingContext, output, new Phaser11.Geom.Rectangle());
   }
   setupUniforms() {
     this.programManager.setUniform("inputSize", this.inputSize);
@@ -6482,7 +6589,7 @@ var TouchView = class {
 };
 
 // src/scenes/blend.ts
-import Phaser11 from "./vendor/phaser.js";
+import Phaser12 from "./vendor/phaser.js";
 var FRAGMENT2 = [
   "#pragma phaserTemplate(shaderName)",
   "precision mediump float;",
@@ -6507,12 +6614,12 @@ var FRAGMENT2 = [
   "}"
 ].join("\n");
 function modeOf(blendMode) {
-  if (blendMode === Phaser11.BlendModes.COPY) {
+  if (blendMode === Phaser12.BlendModes.COPY) {
     return 2;
   }
-  return blendMode === Phaser11.BlendModes.ADD ? 1 : 0;
+  return blendMode === Phaser12.BlendModes.ADD ? 1 : 0;
 }
-var SmallBlendNode = class extends Phaser11.Renderer.WebGL.RenderNodes.BaseFilterShader {
+var SmallBlendNode = class extends Phaser12.Renderer.WebGL.RenderNodes.BaseFilterShader {
   constructor(manager) {
     super("FilterBlend", manager, void 0, FRAGMENT2);
   }
@@ -6642,7 +6749,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser12.Scene {
+var SandboxScene = class extends Phaser13.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -6692,6 +6799,7 @@ var SandboxScene = class extends Phaser12.Scene {
   /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
   closedSides = [];
   fieldLayer;
+  fieldGlow;
   lastZap = Number.NEGATIVE_INFINITY;
   fieldZaps = 0;
   projectileSprites = [];
@@ -6772,11 +6880,11 @@ var SandboxScene = class extends Phaser12.Scene {
     }
     if (asked.get("diag") === "1") {
       const renderer = this.renderer;
-      this.diagnostics = new Diagnostics(renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
     }
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser12.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser13.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -6823,7 +6931,7 @@ var SandboxScene = class extends Phaser12.Scene {
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
       enemyFireGlow: false,
-      field: { distance: null, zaps: 0 },
+      field: { distance: null, zaps: 0, dots: 0 },
       hitsTaken: 0,
       rams: 0,
       downed: false,
@@ -6966,7 +7074,7 @@ var SandboxScene = class extends Phaser12.Scene {
     this.backgrounds = keys.background.map((key2, i) => {
       const layout = this.cache.json.get(keys.layerLayout(key2));
       const texture = layout === void 0 ? void 0 : this.textures.get(keys.layerFrame(key2));
-      const pieces = layout !== void 0 && texture instanceof Phaser12.Textures.DynamicTexture ? { sheet: key2, layout, texture } : void 0;
+      const pieces = layout !== void 0 && texture instanceof Phaser13.Textures.DynamicTexture ? { sheet: key2, layout, texture } : void 0;
       const sprite = (pieces === void 0 ? this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key2, 0) : this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, pieces.texture)).setScrollFactor(0);
       this.world.add(sprite);
       return { sprite, factor: PARALLAX[i] ?? 0, pieces };
@@ -6987,8 +7095,9 @@ var SandboxScene = class extends Phaser12.Scene {
     this.world.add(lines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
-    this.fieldLayer = this.add.graphics().setBlendMode(Phaser12.BlendModes.ADD);
+    this.fieldLayer = this.add.graphics().setBlendMode(Phaser13.BlendModes.ADD);
     this.world.add(this.fieldLayer);
+    this.fieldGlow = new FieldGlow(this, this.world, this.fieldLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -7018,7 +7127,7 @@ var SandboxScene = class extends Phaser12.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -7028,7 +7137,7 @@ var SandboxScene = class extends Phaser12.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -7061,7 +7170,7 @@ var SandboxScene = class extends Phaser12.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser12.BlendModes.ADD,
+      blendMode: Phaser13.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -7070,7 +7179,7 @@ var SandboxScene = class extends Phaser12.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser12.BlendModes.ADD,
+      blendMode: Phaser13.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -7080,7 +7189,7 @@ var SandboxScene = class extends Phaser12.Scene {
    * blur at half the screen's size between two smooth resamples (#143).
    */
   createBloom(main) {
-    if (!(this.renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer)) {
+    if (!(this.renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     registerResample(this.renderer);
@@ -7090,7 +7199,7 @@ var SandboxScene = class extends Phaser12.Scene {
     bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
     bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
-    bloom.blend.blendMode = Phaser12.BlendModes.ADD;
+    bloom.blend.blendMode = Phaser13.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
   }
@@ -7104,7 +7213,7 @@ var SandboxScene = class extends Phaser12.Scene {
       canvas.width = VIGNETTE_SIZE;
       canvas.height = VIGNETTE_SIZE;
       canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
-      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser12.Textures.FilterMode.LINEAR);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser13.Textures.FilterMode.LINEAR);
     }
     return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
   }
@@ -7148,7 +7257,7 @@ var SandboxScene = class extends Phaser12.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser12.Input.Keyboard.KeyCodes;
+    const codes = Phaser13.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -7206,7 +7315,7 @@ var SandboxScene = class extends Phaser12.Scene {
       this.closeOrderRing();
       this.standingsHeld = false;
     };
-    this.input.on(Phaser12.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser13.Input.Events.POINTER_DOWN, (pointer) => {
       if (this.touchOn) {
         return;
       }
@@ -7218,7 +7327,7 @@ var SandboxScene = class extends Phaser12.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -7278,16 +7387,18 @@ var SandboxScene = class extends Phaser12.Scene {
   drawField(time) {
     const g = this.fieldLayer.clear();
     const ship = this.sim.ship;
-    for (const { samples, nx, ny } of fieldSides(this.closedSides, ship, time / 1e3)) {
+    const { worldView } = this.cameras.main;
+    const view = { left: worldView.x, top: worldView.y, right: worldView.right, bottom: worldView.bottom };
+    this.fieldGlow.begin();
+    for (const { samples, first, nx, ny } of fieldSides(this.closedSides, ship, time / 1e3, view)) {
       if (this.effects) {
         for (const s of samples) {
-          g.fillStyle(fieldColor(s.flare), FIELD_GLOW_ALPHA * s.flicker * (1 + s.flare * 3));
-          g.fillCircle(s.x, s.y, FIELD_GLOW_RADIUS * (1 + s.flare));
-          g.fillCircle(s.x, s.y, FIELD_CORE_RADIUS * (1 + s.flare));
+          this.fieldGlow.add(s.x, s.y, 1 + s.flare, fieldColor(s.flare), FIELD_GLOW_ALPHA * s.flicker * (1 + s.flare * 3));
         }
       }
-      samples.forEach((s, i) => {
-        const prev = samples[i - 1];
+      samples.forEach((s, at2) => {
+        const i = first + at2;
+        const prev = samples[at2 - 1];
         if (prev === void 0) {
           return;
         }
@@ -7304,6 +7415,7 @@ var SandboxScene = class extends Phaser12.Scene {
         }
       });
     }
+    this.fieldGlow.end();
     const volume = zapVolume(nearestSide(this.closedSides, ship), this.sim.downed);
     if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
       this.lastZap = time;
@@ -7615,11 +7727,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser12.Math.Vector2(cx, cy)];
+    const points = [new Phaser13.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser12.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser13.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -7770,7 +7882,7 @@ ${modeName(info)}`,
       this.victoryScreen.hide();
     };
     victory?.addEventListener("click", closeVictory);
-    this.events.once(Phaser12.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => {
       canvas.removeEventListener("touchstart", onStart);
       canvas.removeEventListener("touchmove", onMove);
       canvas.removeEventListener("touchend", onEnd);
@@ -8116,7 +8228,7 @@ ${modeName(info)}`,
   /** Times the GPU's work for each frame, where the browser can (#143). */
   timeGpu() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer)) {
+    if (!(renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     const timer = new GpuTimer(renderer.gl);
@@ -8124,10 +8236,10 @@ ${modeName(info)}`,
       return;
     }
     this.gpuTimer = timer;
-    renderer.on(Phaser12.Renderer.Events.PRE_RENDER, () => {
+    renderer.on(Phaser13.Renderer.Events.PRE_RENDER, () => {
       timer.begin();
     });
-    renderer.on(Phaser12.Renderer.Events.POST_RENDER, () => {
+    renderer.on(Phaser13.Renderer.Events.POST_RENDER, () => {
       timer.end();
     });
   }
@@ -8148,7 +8260,7 @@ ${modeName(info)}`,
    */
   checkBloom() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser12.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
+    if (!(renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
       return;
     }
     if (loadBloomBroken()) {
@@ -8162,7 +8274,7 @@ ${modeName(info)}`,
       if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
         return;
       }
-      renderer.off(Phaser12.Renderer.Events.POST_RENDER, check);
+      renderer.off(Phaser13.Renderer.Events.POST_RENDER, check);
       const gl = renderer.gl;
       const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -8178,7 +8290,7 @@ ${modeName(info)}`,
         saveBloomBroken();
       }
     };
-    renderer.on(Phaser12.Renderer.Events.POST_RENDER, check);
+    renderer.on(Phaser13.Renderer.Events.POST_RENDER, check);
   }
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   fpsLine() {
@@ -8261,7 +8373,7 @@ ${modeName(info)}`,
     this.debug.enemyFireGlow = this.effects;
     this.debug.hud = { panel: this.hudView.rowTexts, toasts: this.hudView.toastTexts };
     const distance = nearestSide(this.closedSides, this.sim.ship);
-    this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps };
+    this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps, dots: this.fieldGlow.drawn };
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
@@ -8346,8 +8458,8 @@ async function start() {
   ]);
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
-  const game = new Phaser13.Game({
-    type: Phaser13.AUTO,
+  const game = new Phaser14.Game({
+    type: Phaser14.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -8356,7 +8468,7 @@ async function start() {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser13.Scale.NONE,
+      mode: Phaser14.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

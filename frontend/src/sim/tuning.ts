@@ -133,6 +133,10 @@ export const FIELD_STRAND_ALPHA = 0.55;
 export const FIELD_GLOW_ALPHA = 0.035;
 export const FIELD_GLOW_RADIUS = 9;
 export const FIELD_CORE_RADIUS = 4;
+/** The glow's dot texture, in texels per world px: at full flare it doubles, and stays sharp. */
+export const FIELD_DOT_TEXELS = 4;
+/** World px past the camera's view still sampled: a flared glow, the ripples, and the camera's lag behind the ship. */
+export const FIELD_VIEW_MARGIN = 48;
 /** A spark's color, and how far it jumps off the strand in px. */
 export const FIELD_SPARK_COLOR = 0xffd0c0;
 export const FIELD_SPARK_JUMP = 6;

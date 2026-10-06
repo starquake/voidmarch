@@ -68,9 +68,7 @@ import {
   VIEW_WIDTH,
   WEAPON_STATS,
   CLOSED_SHADE_ALPHA,
-  FIELD_CORE_RADIUS,
   FIELD_GLOW_ALPHA,
-  FIELD_GLOW_RADIUS,
   FIELD_SPARK_COLOR,
   FIELD_SPARK_JUMP,
   FIELD_STRAND_ALPHA,
@@ -106,6 +104,7 @@ import { WeaponAnimator } from '../weaponframes.ts';
 import { bossBar } from '../net/boss.ts';
 import { ShipAudio } from './audio.ts';
 import { BossBarView } from './bossbar.ts';
+import { FieldGlow } from './fieldglow.ts';
 import { NetPlay, type NetFrame } from './netplay.ts';
 import { PickupsView } from './pickups.ts';
 import { Resample, registerResample } from './resample.ts';
@@ -273,6 +272,7 @@ export class SandboxScene extends Phaser.Scene {
   /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
   private closedSides: Side[] = [];
   private fieldLayer!: Phaser.GameObjects.Graphics;
+  private fieldGlow!: FieldGlow;
   private lastZap = Number.NEGATIVE_INFINITY;
   private fieldZaps = 0;
   private projectileSprites: Phaser.GameObjects.Sprite[] = [];
@@ -408,7 +408,7 @@ export class SandboxScene extends Phaser.Scene {
       enemiesDestroyed: 0,
       lastEnemyDestroyed: undefined,
       enemyFireGlow: false,
-      field: { distance: null, zaps: 0 },
+      field: { distance: null, zaps: 0, dots: 0 },
       hitsTaken: 0,
       rams: 0,
       downed: false,
@@ -594,6 +594,7 @@ export class SandboxScene extends Phaser.Scene {
     this.world.add(this.closedLayer);
     this.fieldLayer = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
     this.world.add(this.fieldLayer);
+    this.fieldGlow = new FieldGlow(this, this.world, this.fieldLayer);
     for (const rock of asteroidField()) {
       this.world.add(this.add.image(rock.x, rock.y, keys.asteroid).setRotation(rock.rotation).setFlipX(rock.flip));
     }
@@ -929,16 +930,18 @@ export class SandboxScene extends Phaser.Scene {
   private drawField(time: number): void {
     const g = this.fieldLayer.clear();
     const ship = this.sim.ship;
-    for (const { samples, nx, ny } of fieldSides(this.closedSides, ship, time / 1000)) {
+    const { worldView } = this.cameras.main;
+    const view = { left: worldView.x, top: worldView.y, right: worldView.right, bottom: worldView.bottom };
+    this.fieldGlow.begin();
+    for (const { samples, first, nx, ny } of fieldSides(this.closedSides, ship, time / 1000, view)) {
       if (this.effects) {
         for (const s of samples) {
-          g.fillStyle(fieldColor(s.flare), FIELD_GLOW_ALPHA * s.flicker * (1 + s.flare * 3));
-          g.fillCircle(s.x, s.y, FIELD_GLOW_RADIUS * (1 + s.flare));
-          g.fillCircle(s.x, s.y, FIELD_CORE_RADIUS * (1 + s.flare));
+          this.fieldGlow.add(s.x, s.y, 1 + s.flare, fieldColor(s.flare), FIELD_GLOW_ALPHA * s.flicker * (1 + s.flare * 3));
         }
       }
-      samples.forEach((s, i) => {
-        const prev = samples[i - 1];
+      samples.forEach((s, at) => {
+        const i = first + at;
+        const prev = samples[at - 1];
         if (prev === undefined) {
           return;
         }
@@ -955,6 +958,7 @@ export class SandboxScene extends Phaser.Scene {
         }
       });
     }
+    this.fieldGlow.end();
     const volume = zapVolume(nearestSide(this.closedSides, ship), this.sim.downed);
     if (volume > 0 && time - this.lastZap >= FIELD_ZAP_EVERY_MS) {
       this.lastZap = time;
@@ -2027,7 +2031,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.enemyFireGlow = this.effects;
     this.debug.hud = { panel: this.hudView.rowTexts, toasts: this.hudView.toastTexts };
     const distance = nearestSide(this.closedSides, this.sim.ship);
-    this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps };
+    this.debug.field = { distance: Number.isFinite(distance) ? distance : null, zaps: this.fieldZaps, dots: this.fieldGlow.drawn };
     this.debug.projectiles = projectiles.activeCount;
     this.debug.unlocks = Object.fromEntries(this.net?.unlocks ?? []);
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
