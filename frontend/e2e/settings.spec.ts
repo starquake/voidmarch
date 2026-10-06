@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures.ts';
-import { state } from './hunt.ts';
+import { state, thrustSeen } from './hunt.ts';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -20,12 +20,9 @@ test('Esc opens the settings, the ship holds still, and changes apply and are re
     'Resolutionfull',
   ]);
 
-  const before = (await state(page)).ship;
   await page.keyboard.down('w');
-  await page.waitForTimeout(400);
+  expect(await thrustSeen(page, 400), 'the ship holds still under the screen').toBe(false);
   await page.keyboard.up('w');
-  const held = (await state(page)).ship;
-  expect(Math.hypot(held.x - before.x, held.y - before.y), 'the ship holds still under the screen').toBeLessThan(2);
 
   for (let i = 0; i < 4; i++) {
     await page.keyboard.press('ArrowDown');
@@ -38,6 +35,9 @@ test('Esc opens the settings, the ship holds still, and changes apply and are re
 
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await state(page)).settingsScreen).toBe(false);
+  await page.keyboard.down('w');
+  expect(await thrustSeen(page, 400), 'W flies once it closes').toBe(true);
+  await page.keyboard.up('w');
 
   await page.reload();
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');

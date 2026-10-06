@@ -2,7 +2,7 @@ import { test as fresh, type Page } from '@playwright/test';
 
 import { touchButtons } from '../src/sim/touch.ts';
 import { expect, registerPlayer, test } from './fixtures.ts';
-import { state } from './hunt.ts';
+import { state, thrustSeen } from './hunt.ts';
 
 const online = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
@@ -70,11 +70,9 @@ test('F1 opens and closes the intro, Esc closes it, and the ship holds still und
 
   await page.keyboard.press('F1');
   await expect(intro).toBeVisible();
-  const before = (await state(page)).ship;
   await page.keyboard.down('w');
-  await page.waitForTimeout(400);
+  expect(await thrustSeen(page, 400), 'the ship holds still under the screen').toBe(false);
   const held = (await state(page)).ship;
-  expect(Math.hypot(held.x - before.x, held.y - before.y), 'the ship holds still under the screen').toBeLessThan(2);
 
   await page.keyboard.press('F1');
   await expect(intro).toBeHidden();
