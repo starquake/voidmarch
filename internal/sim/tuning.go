@@ -261,6 +261,21 @@ const (
 	// BrainOrderJitter is how much longer, at most, an order waits, fresh for
 	// every order.
 	BrainOrderJitter = 0.25
+	// BrainDodgeReaction is how old, in seconds, an enemy bullet must be
+	// before a companion reacts to it (#249).
+	BrainDodgeReaction = 0.25
+	// BrainDodgeRadius: a companion sees enemy bullets this close to it,
+	// farther than the fastest (220 px/s) flies in the look-ahead.
+	BrainDodgeRadius = 250
+	// BrainDodgeLookAhead is how many seconds ahead a companion predicts
+	// the bullets, each flying on as it flies now.
+	BrainDodgeLookAhead = 1.0
+	// BrainDodgeMargin is the room a companion leaves between a bullet and
+	// its shield or hull.
+	BrainDodgeMargin = 6
+	// BrainDodgeWays is how many ways, evenly around, a dodging companion
+	// weighs: the way it was going and the rest.
+	BrainDodgeWays = 8
 )
 
 // Damage and recovery (docs/design.md, section 4; #46).
