@@ -215,12 +215,12 @@ with a Bomber among their escorts and bigger rings of their own faction's shots.
 
 Once four of the six sectors around home are cleared, the Kla'ed Dreadnought
 wakes in one of the ring-2 sectors, which opens for it. It guards that sector
-alone: the sector's garrison stays away while it's awake. Its health is 1,400
-plus 3,750 for every player online, about 20 minutes' fighting alone and 15 for
-twelve; the share left is kept between sessions and regenerates 1% an hour. It
-fires rings of big bullets, sweeping Ray beams and spreads of Waves from behind
-its shield. Destroying it opens ring 2, clears its sector, gives every player
-near it a part, and leaves 3 derelicts by the wreck.
+alone: the sector's garrison stays away while it's awake. Its health is 1,100
+plus 2,900 for every player online, about 10 minutes' fighting alone and 7.5 for
+twelve at a good player's pace; the share left is kept between sessions and
+regenerates 1% an hour. It fires rings of big bullets, sweeping Ray beams and
+spreads of Waves from behind its shield. Destroying it opens ring 2, clears its
+sector, gives every player near it a part, and leaves 3 derelicts by the wreck.
 
 Before then it raids ring 1: once a sector there is cleared, every 10 to 15
 minutes it teleports into the hostile sector someone is in, out of sight, after

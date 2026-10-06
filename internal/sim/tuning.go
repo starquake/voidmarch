@@ -166,11 +166,11 @@ const (
 const (
 	// DreadnoughtBaseHP and DreadnoughtHPPerPlayer make its maximum health:
 	// the base plus the per-player amount for each player online (#132).
-	// From the measured 258 health a ship takes off a minute
-	// (TestDreadnought_DamageRate), one player takes about 20 minutes and
-	// twelve about 15 (#223).
-	DreadnoughtBaseHP      = 1400
-	DreadnoughtHPPerPlayer = 3750
+	// From the measured 400 health a dodging ship takes off a minute
+	// (TestDreadnought_DamageRate over 24 seeds, #252), a player at that
+	// rate takes about 10 minutes alone and twelve about 7.5 (#223).
+	DreadnoughtBaseHP      = 1100
+	DreadnoughtHPPerPlayer = 2900
 	// DreadnoughtRegenPerHour is the share of its health it gets back an
 	// hour; the share left is what's kept across sessions.
 	DreadnoughtRegenPerHour = 0.01
