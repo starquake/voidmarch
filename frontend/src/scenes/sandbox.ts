@@ -34,7 +34,7 @@ import { drawLayer } from './starlayer.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
-import { IntroScreen } from '../introscreen.ts';
+import type { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
 import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';

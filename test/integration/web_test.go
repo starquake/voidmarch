@@ -22,6 +22,11 @@ func TestWebClient_Embedded(t *testing.T) {
 		wantContain string
 	}{
 		{path: "/", wantType: "text/html", wantContain: `src="/static/wasm/wasm_exec.js"`},
+		{
+			path:        "/static/js/entry.js",
+			wantType:    "text/javascript",
+			wantContain: `import("./main.js")`,
+		},
 		{path: "/static/css/style.css", wantType: "text/css"},
 		{
 			path:        "/static/js/main.js",
@@ -57,6 +62,28 @@ func TestWebClient_Embedded(t *testing.T) {
 				t.Errorf("body should contain %q", want)
 			}
 		})
+	}
+}
+
+func TestWebClient_EntryModule(t *testing.T) {
+	t.Parallel()
+
+	baseURL := startServer(t, nil)
+
+	index := get(t, baseURL+"/")
+	script := `<script type="module" src="/static/js/entry.js">`
+	if !strings.Contains(index.body, script) {
+		t.Errorf("index.html should contain %q", script)
+	}
+	if got, notWant := index.body, "/static/js/main.js"; strings.Contains(got, notWant) {
+		t.Errorf("index.html should not load %q: the entry module imports it", notWant)
+	}
+
+	entry := get(t, baseURL+"/static/js/entry.js")
+	for _, notWant := range []string{"vendor/phaser.js", "vendor/protobuf"} {
+		if strings.Contains(entry.body, notWant) {
+			t.Errorf("entry.js should not import %q", notWant)
+		}
 	}
 }
 

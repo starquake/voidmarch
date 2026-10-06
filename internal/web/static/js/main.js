@@ -212,177 +212,92 @@ var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 
 // src/sim/loading.ts
 var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
-var LOAD_CATEGORY_NAMES = {
-  ships: "Ships",
-  enemies: "Enemies",
-  space: "Space",
-  sounds: "Sounds"
-};
 var SHIP_PREFIXES = ["hull-", "engine-", "flame-", "shield-", "weapon-", "projectile-", "pickup-"];
 var SPACE_KEYS = ["planet", "asteroid"];
-function loadCategory(key2) {
-  if (ENEMY_FACTIONS.some((faction) => key2.startsWith(`${faction}-`))) {
+function loadCategory(key) {
+  if (ENEMY_FACTIONS.some((faction) => key.startsWith(`${faction}-`))) {
     return "enemies";
   }
-  if (SHIP_PREFIXES.some((prefix) => key2.startsWith(prefix))) {
+  if (SHIP_PREFIXES.some((prefix) => key.startsWith(prefix))) {
     return "ships";
   }
-  if (key2.startsWith("background-") || SPACE_KEYS.includes(key2)) {
+  if (key.startsWith("background-") || SPACE_KEYS.includes(key)) {
     return "space";
   }
-  if (key2.startsWith("sfx-")) {
+  if (key.startsWith("sfx-")) {
     return "sounds";
   }
   return void 0;
 }
-function loadRank(key2) {
-  const category = loadCategory(key2);
+function loadRank(key) {
+  const category = loadCategory(key);
   return category === void 0 ? LOAD_CATEGORIES.length : LOAD_CATEGORIES.indexOf(category);
 }
-var LoadProgress = class {
-  pending;
-  total;
-  constructor(keys2) {
-    this.pending = new Set(keys2);
-    this.total = this.pending.size;
-  }
-  /** A file is in, or failed: either way it's no longer waited for. */
-  finish(key2) {
-    this.pending.delete(key2);
-  }
-  get complete() {
-    return this.pending.size === 0;
-  }
-  view() {
-    const left = /* @__PURE__ */ new Map();
-    for (const key2 of this.pending) {
-      const category = loadCategory(key2);
-      if (category !== void 0) {
-        left.set(category, (left.get(category) ?? 0) + 1);
-      }
-    }
-    const current = LOAD_CATEGORIES.find((c) => left.has(c));
-    const categories = LOAD_CATEGORIES.map((category) => ({
-      category,
-      name: LOAD_CATEGORY_NAMES[category],
-      state: stateOf(category, current, left)
-    }));
-    const done = this.total - this.pending.size;
-    const percent = this.complete ? 100 : Math.min(99, Math.floor(done * 100 / this.total));
-    let label = "Loading";
-    if (this.complete) {
-      label = "Starting";
-    } else if (current !== void 0) {
-      label = `Loading ${LOAD_CATEGORY_NAMES[current].toLowerCase()}`;
-    }
-    return { label, percent, categories };
-  }
+
+// src/sounds.ts
+var AUDIO = "/static/audio";
+var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
+var SHOT_SOUNDS = {
+  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
+  rockets: ["sfx-rocket-launch"],
+  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
+  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
 };
-function stateOf(category, current, left) {
-  if (!left.has(category)) {
-    return "done";
-  }
-  return category === current ? "loading" : "waiting";
+var EXPIRE_SOUNDS = {
+  rockets: "sfx-rocket-blast",
+  bigSpaceGun: "sfx-big-blast"
+};
+var CHARGE_SOUNDS = {
+  bigSpaceGun: "sfx-charge"
+};
+var ENGINE_LOOPS = {
+  base: "sfx-engine-base",
+  bigPulse: "sfx-engine-big-pulse",
+  burst: "sfx-engine-burst",
+  supercharged: "sfx-engine-supercharged"
+};
+var SHIELD_SOUND = "sfx-shield";
+var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
+var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
+var PART_SWITCH_SOUND = "sfx-part-switch";
+var TELEPORT_SOUND = "sfx-teleport";
+var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
+var MUSIC = {
+  home: "music-title-screen",
+  ring1: "music-level-1",
+  ring2: "music-level-2",
+  ring3: "music-level-3",
+  ending: "music-ending"
+};
+function effectFiles() {
+  const files = [
+    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
+    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
+    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
+    both("sfx-rocket-launch", "sfx/rocket-launch"),
+    both("sfx-rocket-blast", "sfx/rocket-blast"),
+    both("sfx-big-blast", "sfx/big-blast"),
+    both("sfx-charge", "sfx/charge"),
+    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
+    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
+    both(SHIELD_SOUND, "sfx/shield"),
+    both(PART_SWITCH_SOUND, "sfx/part-switch"),
+    both(TELEPORT_SOUND, "sfx/teleport"),
+    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
+    both("sfx-engine-base", "sfx/engine-base"),
+    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
+    both("sfx-engine-burst", "sfx/engine-burst"),
+    both("sfx-engine-supercharged", "sfx/engine-supercharged")
+  ];
+  return files;
+}
+function musicFiles() {
+  return Object.values(MUSIC).map((key) => both(key, `music/${key.replace(/^music-/, "")}`));
 }
 
-// src/frontdoor.ts
-var LoadingStrip = class {
-  doc;
-  strip;
-  what;
-  percent;
-  bar;
-  fill;
-  categories;
-  constructor(doc) {
-    this.doc = doc;
-    this.strip = doc.querySelector("#loading-strip");
-    this.what = doc.querySelector("#loading-what");
-    this.percent = doc.querySelector("#loading-percent");
-    this.bar = doc.querySelector("#loading-bar");
-    this.fill = doc.querySelector("#loading-fill");
-    this.categories = doc.querySelector("#loading-categories");
-  }
-  show(view) {
-    if (this.strip === null) {
-      return;
-    }
-    const percent = `${String(view.percent)}%`;
-    if (this.what !== null) {
-      this.what.textContent = view.label;
-    }
-    if (this.percent !== null) {
-      this.percent.textContent = percent;
-    }
-    this.bar?.setAttribute("aria-valuenow", String(view.percent));
-    if (this.fill !== null) {
-      this.fill.style.width = percent;
-    }
-    this.categories?.replaceChildren(
-      ...view.categories.map((c) => {
-        const li = this.doc.createElement("li");
-        li.className = c.state;
-        li.textContent = c.name;
-        return li;
-      })
-    );
-    this.strip.hidden = false;
-    this.doc.documentElement.classList.add("loading");
-  }
-  hide() {
-    if (this.strip !== null) {
-      this.strip.hidden = true;
-    }
-    this.doc.documentElement.classList.remove("loading");
-  }
-};
-var FrontDoor = class {
-  doc;
-  progress;
-  strip;
-  intro;
-  entered = false;
-  started = false;
-  /** Until the game is up, F1 has nothing to toggle, and some browsers would open their own help. */
-  keepHelpClosed = (event) => {
-    if (event.code === "F1") {
-      event.preventDefault();
-    }
-  };
-  /** keys are everything the strip counts. */
-  constructor(keys2, intro, doc = document) {
-    this.doc = doc;
-    this.progress = new LoadProgress(keys2);
-    this.strip = new LoadingStrip(doc);
-    this.intro = intro;
-    doc.addEventListener("keydown", this.keepHelpClosed);
-  }
-  /** A file is in, or failed. */
-  loaded(key2) {
-    this.progress.finish(key2);
-    this.draw();
-  }
-  /** Past the name screen: the intro on a first visit, and the strip until the game is up. */
-  enter(showIntro, touch) {
-    this.entered = true;
-    if (showIntro) {
-      this.intro.show(touch, !this.started);
-    }
-    this.draw();
-  }
-  /** The game is up: the strip goes, and the intro can be closed. */
-  start() {
-    this.started = true;
-    this.doc.removeEventListener("keydown", this.keepHelpClosed);
-    this.strip.hide();
-    this.intro.ready();
-  }
-  draw() {
-    if (this.entered && !this.started) {
-      this.strip.show(this.progress.view());
-    }
-  }
-};
+// src/sim/loadout.ts
+var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
+var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
 
 // src/sim/tuning.ts
 var VIEW_WIDTH = 640;
@@ -495,648 +410,6 @@ var TELEPORT_WHITE = 14219519;
 var TELEPORT_SOUND_RANGE = 400;
 var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
 
-// src/sim/sectors.ts
-var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-var SQRT3 = Math.sqrt(3);
-function ring({ q, r }) {
-  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
-}
-function hexName({ q, r }) {
-  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
-  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
-}
-function sectorAxial(name) {
-  return parseHex(name);
-}
-function parseHex(name) {
-  const col = LETTERS.indexOf(name.charAt(0));
-  const row = Number(name.slice(1)) - 1;
-  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
-    return void 0;
-  }
-  const q = col - GRID_RINGS;
-  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
-  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
-}
-function hexCenter({ q, r }) {
-  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
-}
-function sectorName(x, y) {
-  const q = 2 / 3 * x / SECTOR_RADIUS;
-  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
-  const s = -q - r;
-  let rq = Math.round(q);
-  let rr = Math.round(r);
-  const rs = Math.round(s);
-  const dq = Math.abs(rq - q);
-  const dr = Math.abs(rr - r);
-  const ds = Math.abs(rs - s);
-  if (dq > dr && dq > ds) {
-    rq = -rr - rs;
-  } else if (dr > ds) {
-    rr = -rq - rs;
-  }
-  const hex2 = { q: rq + 0, r: rr + 0 };
-  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
-}
-var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
-function sectorRing(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : ring(hex2);
-}
-var SECTOR_NAMES = (() => {
-  const names = [];
-  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
-    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
-      if (ring({ q, r }) <= GRID_RINGS) {
-        names.push(hexName({ q, r }));
-      }
-    }
-  }
-  return names;
-})();
-var HOME_SECTOR = sectorName(0, 0) ?? "";
-var ALL_OPEN = { openRings: 0, opened: /* @__PURE__ */ new Set() };
-function sectorOpen(name, frontier) {
-  const ring2 = sectorRing(name);
-  return ring2 !== void 0 && (frontier.openRings === 0 || ring2 <= frontier.openRings || frontier.opened.has(name));
-}
-function closedEdges(frontier) {
-  const edges = [];
-  for (const name of SECTOR_NAMES) {
-    if (sectorOpen(name, frontier)) {
-      continue;
-    }
-    const center = sectorCenter(name) ?? { x: 0, y: 0 };
-    const corners = sectorCorners(name);
-    corners.forEach((a, i) => {
-      const b = corners[(i + 1) % corners.length] ?? a;
-      const side = (2 * i + 1) * Math.PI / 6;
-      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
-      if (across !== void 0 && sectorOpen(across, frontier)) {
-        edges.push({ a, b });
-      }
-    });
-  }
-  return edges;
-}
-function sectorState(name, cleared, frontier = ALL_OPEN) {
-  if (name === HOME_SECTOR) {
-    return "home";
-  }
-  if (!sectorOpen(name, frontier)) {
-    return "closed";
-  }
-  if (cleared === void 0) {
-    return "unknown";
-  }
-  return cleared.has(name) ? "cleared" : "hostile";
-}
-function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
-  const name = sectorName(x, y);
-  if (name === void 0) {
-    return "";
-  }
-  const state = sectorState(name, cleared, frontier);
-  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
-}
-function sectorCorners(name) {
-  const hex2 = parseHex(name);
-  if (hex2 === void 0) {
-    return [];
-  }
-  const center = hexCenter(hex2);
-  return Array.from({ length: 6 }, (_, i) => ({
-    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
-    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
-  }));
-}
-function sectorCenter(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : hexCenter(hex2);
-}
-function missionArrow(ship, target, width, height, margin) {
-  const center = sectorCenter(target);
-  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
-    return void 0;
-  }
-  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
-  const halfW = width / 2 - margin;
-  const halfH = height / 2 - margin;
-  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
-  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
-}
-function sectorFaction(name) {
-  const ring2 = sectorRing(name);
-  return (ring2 === void 0 ? void 0 : RING_FACTIONS[ring2]) ?? "klaed";
-}
-function missionBanner(sector) {
-  return [
-    `New mission: sector ${sector}`,
-    `Destroy every ${FACTION_NAMES[sectorFaction(sector)]} ship in ${sector} to clear it.`,
-    "Follow the gold arrow at the edge of the screen."
-  ];
-}
-function missionCompleteBanner(sector, part, stats) {
-  const lines = [`Mission complete: sector ${sector} cleared`];
-  if (stats !== void 0) {
-    lines.push(stats);
-  }
-  if (part !== void 0) {
-    lines.push(`Your reward: ${part}`);
-  }
-  return lines;
-}
-var WHITE = 16777215;
-var CHANNELS = [16, 8, 0];
-var CHANNEL_MAX = 255;
-function ringTint(x, y) {
-  const name = sectorName(x, y);
-  const ring2 = name === void 0 ? void 0 : sectorRing(name);
-  return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
-}
-function fadeColor(a, b, t) {
-  const share = Math.min(1, Math.max(0, t));
-  let out = 0;
-  for (const shift of CHANNELS) {
-    const from = a >> shift & CHANNEL_MAX;
-    const to = b >> shift & CHANNEL_MAX;
-    const step = (to - from) * share;
-    const moved = share > 0 && Math.abs(step) < 1 ? from + Math.sign(to - from) : Math.round(from + step);
-    out |= moved << shift;
-  }
-  return out;
-}
-
-// src/sim/intro.ts
-var plain = (text) => ({ text });
-var gold = (text) => ({ text, mark: "gold" });
-var blue = (text) => ({ text, mark: "blue" });
-var red = (text) => ({ text, mark: "red" });
-var key = (text) => ({ text, mark: "key" });
-var NUMBER_WORDS = ["no", "one", "two", "three", "four", "five"];
-function numberWord(n, capital = false) {
-  const word = NUMBER_WORDS[n] ?? String(n);
-  return capital ? word.charAt(0).toUpperCase() + word.slice(1) : word;
-}
-var PREMISE = [
-  plain("The "),
-  gold("Kla'ed"),
-  plain(", "),
-  gold("Nairan"),
-  plain(" and "),
-  gold("Nautolan"),
-  plain(
-    " fleets hold the sectors around your home planet. Clear them ring by ring with your friends and your companions. Rescue derelict ships for the hangar, and bring down each ring's Dreadnought to open the next. Win the season together."
-  )
-];
-var KEYBOARD = {
-  title: "Keyboard",
-  style: "keys",
-  rows: [
-    { keys: ["W", "A", "S", "D"], text: "move" },
-    { keys: ["G"], text: "draw a companion, at home" },
-    { keys: ["Q"], text: "hold for orders, tap to repeat" },
-    { keys: ["1", "2", "3"], text: "switch weapon, engine, shield" },
-    { keys: ["M"], text: "map" },
-    { keys: ["Tab"], text: "hold for the standings" },
-    { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
-    { keys: ["C"], text: "when down: switch squadrons" },
-    { keys: ["O"], text: "the season's victory screen" },
-    { keys: ["Esc"], text: "settings, or close a screen" },
-    { keys: ["F1"], text: "this screen" }
-  ]
-};
-var MOUSE = {
-  title: "Mouse",
-  style: "plain",
-  rows: [
-    { keys: ["point"], text: "aim" },
-    { keys: ["hold left"], text: "fire; the big space gun charges, and fires when you let go" },
-    { keys: ["click"], text: "on the map: send your squadron to a sector" },
-    { keys: ["click a slot"], text: "bottom left: pick another part you own" }
-  ],
-  note: "W flies up the screen, or toward the mouse with ship-relative controls in the settings."
-};
-var THUMBS = {
-  title: "Thumbs",
-  style: "plain",
-  rows: [
-    { keys: ["left half"], text: "a stick where your thumb lands: move that way" },
-    { keys: ["right half"], text: "a stick: aim that way and fire while pushed; the big space gun fires on release" },
-    { keys: ["minimap"], text: "the full map: tap a sector to send your squadron there" },
-    { keys: ["a slot"], text: "bottom left: tap it, then a part you own" }
-  ]
-};
-var BUTTONS = {
-  title: "Buttons",
-  style: "buttons",
-  rows: [
-    { keys: ["Summon"], text: "draw a companion, at home" },
-    { keys: ["Orders"], text: "hold for the order ring, tap to repeat" },
-    { keys: ["Respawn"], text: "when down: at home, or beside a squadmate" },
-    { keys: ["Squadron"], text: "when down: switch squadrons" },
-    { keys: ["Settings"], text: "sound, controls, effects" },
-    { keys: ["Help"], text: "this screen" }
-  ]
-};
-var SECTORS = [
-  [
-    plain("The world is "),
-    blue(`${String(SECTOR_NAMES.length)} hexagonal sectors`),
-    plain(`: home in ${HOME_SECTOR} and ${numberWord(GRID_RINGS)} rings around it.`)
-  ],
-  [plain("Destroy a sector's whole garrison to "), blue("clear it"), plain(" for good. Its losses stay, so you can wear it down over several visits.")],
-  [
-    plain("Your squadron's "),
-    gold("mission"),
-    plain(" is the nearest uncleared sector: the "),
-    gold("gold arrow"),
-    plain(" at the screen's edge points the way.")
-  ],
-  [plain("A "), red("red force field"), plain(" closes the outer rings until the ring's Dreadnought falls.")]
-];
-function extras(touch) {
-  return [
-    [blue("Companions"), plain(" are AI wingmates from the shared hangar, up to three. They follow your squadron's orders from the order ring.")],
-    [
-      blue("Parts"),
-      plain(
-        ` drop from enemies: fly over one to take it for your squadron, or raise its tier. Switch anywhere with ${touch ? "the slots bottom left" : "1, 2, 3 or the slots"}.`
-      )
-    ],
-    [
-      blue("Going down:"),
-      plain(
-        ` ${numberWord(MAX_DAMAGE, true)} hull hits. A friend hovering beside you revives you, or after ${String(RESPAWN_DELAY)} s respawn at home or beside a squadmate.`
-      )
-    ],
-    [blue("Squadrons"), plain(" are up to 4 ships, companions included. An order from anyone reaches every companion in it.")],
-    [blue("The season"), plain(" is won when the Nautolan Dreadnought in ring 3 falls; the victory screen then shows everyone's stats.")]
-  ];
-}
-function hint(touch, loading) {
-  if (touch) {
-    return [key("Help"), plain(loading ? ", top left, opens this again" : ", top left, opens this again \xB7 tap beside it to close")];
-  }
-  return loading ? [key("F1"), plain(" opens and closes this")] : [key("F1"), plain(" opens and closes this \xB7 "), key("Esc"), plain(" closes \xB7 the world keeps playing behind it")];
-}
-function introContent(touch, loading = false) {
-  return {
-    premise: PREMISE,
-    hint: hint(touch, loading),
-    controls: touch ? [THUMBS, BUTTONS] : [KEYBOARD, MOUSE],
-    sectors: SECTORS,
-    extras: extras(touch),
-    friends: "Everyone with this link plays in the same world, up to 16 ships."
-  };
-}
-function shareLink(location) {
-  return location.origin + location.pathname;
-}
-
-// src/introscreen.ts
-var COPIED_MS = 2e3;
-var IntroScreen = class {
-  doc;
-  form;
-  link;
-  copy;
-  share;
-  play;
-  closed = [];
-  copiedTimer;
-  touch = false;
-  /** While the game loads behind it, Play waits and the screen stays (#227, decision 5). */
-  loading = false;
-  constructor(doc = document) {
-    this.doc = doc;
-    this.form = doc.querySelector("#intro-form");
-    this.link = doc.querySelector("#intro-link");
-    this.copy = doc.querySelector("#intro-copy");
-    this.share = doc.querySelector("#intro-share");
-    this.play = doc.querySelector("#intro-play");
-    this.form?.addEventListener("submit", (event) => {
-      event.preventDefault();
-      this.hide();
-    });
-    this.copy?.addEventListener("click", () => {
-      this.copyLink();
-    });
-    this.share?.addEventListener("click", () => {
-      this.shareLink();
-    });
-  }
-  get open() {
-    return this.form !== null && !this.form.hidden;
-  }
-  /** listener runs each time the screen closes. */
-  onClose(listener) {
-    this.closed.push(listener);
-  }
-  /**
-   * Opens the screen with the controls of the device, keeping the screens
-   * behind it hidden and from taking focus or clicks. While loading, Play
-   * waits until ready.
-   */
-  show(touch, loading = false) {
-    if (this.form === null) {
-      return;
-    }
-    this.touch = touch;
-    this.loading = loading;
-    this.fill();
-    for (const other of this.doc.querySelectorAll(".name-screen")) {
-      other.inert = other !== this.form;
-    }
-    this.form.hidden = false;
-    this.form.scrollTop = 0;
-    this.focusPlay();
-  }
-  /** The game is up behind the screen: Play is enabled, and the screen can close. */
-  ready() {
-    if (!this.loading) {
-      return;
-    }
-    this.loading = false;
-    this.fillLoading();
-    if (this.open) {
-      this.focusPlay();
-    }
-  }
-  hide() {
-    if (!this.open || this.loading || this.form === null) {
-      return;
-    }
-    this.form.hidden = true;
-    for (const other of this.doc.querySelectorAll(".name-screen")) {
-      other.inert = false;
-    }
-    for (const listener of this.closed) {
-      listener();
-    }
-  }
-  /** Enter plays, once it can; on touch there's no keyboard to press it. */
-  focusPlay() {
-    if (!this.touch && !this.loading) {
-      this.play?.focus({ preventScroll: true });
-    }
-  }
-  fill() {
-    const touch = this.touch;
-    const content = introContent(touch, this.loading);
-    const location = this.doc.defaultView?.location;
-    this.fillLoading();
-    this.text("#intro-premise", content.premise);
-    this.doc.querySelector("#intro-friends")?.replaceChildren(content.friends);
-    if (this.link !== null && location !== void 0) {
-      this.link.value = shareLink(location);
-    }
-    this.resetCopy();
-    if (this.share !== null) {
-      this.share.hidden = !touch || typeof this.doc.defaultView?.navigator.share !== "function";
-    }
-    this.doc.querySelector("#intro-controls")?.replaceChildren(...content.controls.map((column) => this.column(column)));
-    this.list("#intro-sectors", content.sectors);
-    this.list("#intro-extras", content.extras);
-  }
-  /** What changes once the game is up: the hint, and Play. */
-  fillLoading() {
-    this.text("#intro-hint", introContent(this.touch, this.loading).hint);
-    if (this.play !== null) {
-      this.play.disabled = this.loading;
-    }
-  }
-  /** Copies the link and says so for a moment; where the clipboard is out of reach, selects it to copy by hand. */
-  copyLink() {
-    const link = this.link?.value ?? "";
-    const clipboard = this.doc.defaultView?.navigator.clipboard;
-    const fallback = () => {
-      this.link?.focus();
-      this.link?.select();
-    };
-    if (clipboard === void 0) {
-      fallback();
-      return;
-    }
-    clipboard.writeText(link).then(() => {
-      this.copied();
-    }, fallback);
-  }
-  copied() {
-    const view = this.doc.defaultView;
-    if (this.copy === null || view === null) {
-      return;
-    }
-    this.copy.textContent = "Copied";
-    this.copy.classList.add("copied");
-    view.clearTimeout(this.copiedTimer);
-    this.copiedTimer = view.setTimeout(() => {
-      this.resetCopy();
-    }, COPIED_MS);
-  }
-  resetCopy() {
-    this.doc.defaultView?.clearTimeout(this.copiedTimer);
-    this.copiedTimer = void 0;
-    if (this.copy !== null) {
-      this.copy.textContent = "Copy link";
-      this.copy.classList.remove("copied");
-    }
-  }
-  /** Opens the device's share sheet with the link; closing it unshared is fine. */
-  shareLink() {
-    const nav = this.doc.defaultView?.navigator;
-    nav?.share({ title: "Voidmarch", url: this.link?.value ?? "" }).catch(() => void 0);
-  }
-  text(selector, line) {
-    this.doc.querySelector(selector)?.replaceChildren(...this.spans(line));
-  }
-  list(selector, lines) {
-    this.doc.querySelector(selector)?.replaceChildren(
-      ...lines.map((line) => {
-        const li = this.doc.createElement("li");
-        li.append(...this.spans(line));
-        return li;
-      })
-    );
-  }
-  spans(line) {
-    return line.map(({ text, mark }) => {
-      if (mark === void 0) {
-        return text;
-      }
-      const el = this.doc.createElement(mark === "key" ? "b" : "span");
-      if (mark !== "key") {
-        el.className = `mark-${mark}`;
-      }
-      el.textContent = text;
-      return el;
-    });
-  }
-  column(column) {
-    const el = this.doc.createElement("div");
-    const title = this.doc.createElement("h3");
-    title.textContent = column.title;
-    const rows = this.doc.createElement("div");
-    rows.className = "intro-rows";
-    for (const row of column.rows) {
-      const keys2 = this.doc.createElement("span");
-      keys2.className = column.style === "buttons" ? "intro-keys buttons" : "intro-keys";
-      keys2.append(
-        ...row.keys.map((k) => {
-          if (column.style !== "keys") {
-            return k;
-          }
-          const cap = this.doc.createElement("kbd");
-          cap.textContent = k;
-          return cap;
-        })
-      );
-      const text = this.doc.createElement("span");
-      text.textContent = row.text;
-      rows.append(keys2, text);
-    }
-    el.append(title, rows);
-    if (column.note !== void 0) {
-      const note = this.doc.createElement("p");
-      note.className = "intro-note";
-      note.textContent = column.note;
-      el.append(note);
-    }
-    return el;
-  }
-};
-
-// src/name.ts
-var MAX_NAME_LENGTH = 16;
-var NAME = /^[\p{L}\p{N} _-]+$/u;
-function nameProblem(raw) {
-  const name = raw.trim();
-  if (name === "") {
-    return "Pick a name first.";
-  }
-  if (Array.from(name).length > MAX_NAME_LENGTH) {
-    return `A name is at most ${MAX_NAME_LENGTH} characters.`;
-  }
-  if (!NAME.test(name)) {
-    return "Use letters, digits, spaces, - or _.";
-  }
-  return void 0;
-}
-async function register(name, fetcher = fetch) {
-  const response = await fetcher("/api/players", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: name.trim() })
-  });
-  const body = await response.json();
-  if (!response.ok || body.token === void 0) {
-    throw new RegisterError(body.error ?? `The server said ${response.status}.`);
-  }
-  return body.token;
-}
-var RegisterError = class extends Error {
-  name = "RegisterError";
-};
-function askName() {
-  const form = document.querySelector("#name-form");
-  const input = document.querySelector("#name");
-  const error = document.querySelector("#name-error");
-  const alone = document.querySelector("#play-alone");
-  if (form === null || input === null || error === null || alone === null) {
-    return Promise.resolve(void 0);
-  }
-  form.hidden = false;
-  input.focus();
-  return new Promise((resolve) => {
-    const done = (token) => {
-      form.hidden = true;
-      resolve(token);
-    };
-    alone.addEventListener("click", () => {
-      done(void 0);
-    });
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const problem = nameProblem(input.value);
-      if (problem !== void 0) {
-        error.textContent = problem;
-        return;
-      }
-      error.textContent = "";
-      register(input.value).then(done).catch((err) => {
-        error.textContent = err instanceof RegisterError ? err.message : "Can't reach the server. Try again, or play alone for now.";
-        alone.hidden = false;
-      });
-    });
-  });
-}
-
-// src/sounds.ts
-var AUDIO = "/static/audio";
-var both = (key2, path) => ({ key: key2, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
-var SHOT_SOUNDS = {
-  autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
-  rockets: ["sfx-rocket-launch"],
-  bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
-  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
-};
-var EXPIRE_SOUNDS = {
-  rockets: "sfx-rocket-blast",
-  bigSpaceGun: "sfx-big-blast"
-};
-var CHARGE_SOUNDS = {
-  bigSpaceGun: "sfx-charge"
-};
-var ENGINE_LOOPS = {
-  base: "sfx-engine-base",
-  bigPulse: "sfx-engine-big-pulse",
-  burst: "sfx-engine-burst",
-  supercharged: "sfx-engine-supercharged"
-};
-var SHIELD_SOUND = "sfx-shield";
-var ENEMY_EXPLOSION_SOUND = "sfx-enemy-explosion";
-var ENEMY_SHOT_SOUND = "sfx-enemy-shot";
-var PART_SWITCH_SOUND = "sfx-part-switch";
-var TELEPORT_SOUND = "sfx-teleport";
-var FIELD_ZAP_SOUNDS = ["sfx-field-zap-0", "sfx-field-zap-1", "sfx-field-zap-2"];
-var MUSIC = {
-  home: "music-title-screen",
-  ring1: "music-level-1",
-  ring2: "music-level-2",
-  ring3: "music-level-3",
-  ending: "music-ending"
-};
-function effectFiles() {
-  const files = [
-    ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
-    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
-    ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
-    both("sfx-rocket-launch", "sfx/rocket-launch"),
-    both("sfx-rocket-blast", "sfx/rocket-blast"),
-    both("sfx-big-blast", "sfx/big-blast"),
-    both("sfx-charge", "sfx/charge"),
-    both(ENEMY_EXPLOSION_SOUND, "sfx/enemy-explosion"),
-    both(ENEMY_SHOT_SOUND, "sfx/enemy-shot"),
-    both(SHIELD_SOUND, "sfx/shield"),
-    both(PART_SWITCH_SOUND, "sfx/part-switch"),
-    both(TELEPORT_SOUND, "sfx/teleport"),
-    ...[0, 1, 2].map((i) => both(`sfx-field-zap-${i}`, `sfx/field-zap-${i}`)),
-    both("sfx-engine-base", "sfx/engine-base"),
-    both("sfx-engine-big-pulse", "sfx/engine-big-pulse"),
-    both("sfx-engine-burst", "sfx/engine-burst"),
-    both("sfx-engine-supercharged", "sfx/engine-supercharged")
-  ];
-  return files;
-}
-function musicFiles() {
-  return Object.values(MUSIC).map((key2) => both(key2, `music/${key2.replace(/^music-/, "")}`));
-}
-
-// src/sim/loadout.ts
-var DAMAGE_STATES = ["fullHealth", "slightDamage", "damaged", "veryDamaged"];
-var damageState = (damage) => DAMAGE_STATES[Math.min(Math.max(0, Math.floor(damage)), DAMAGE_STATES.length - 1)] ?? "fullHealth";
-
 // src/sim/parts.ts
 var PARTS = [...WEAPONS, ...ENGINES, ...SHIELDS];
 var PART_NAMES = {
@@ -1207,8 +480,8 @@ function nextPart(parts, current, unlocks) {
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
-var still = (key2, url, size) => ({
-  key: key2,
+var still = (key, url, size) => ({
+  key,
   url,
   frameWidth: size,
   frameHeight: size,
@@ -1268,8 +541,8 @@ var BULLET_FRAMES = {
   // The Nautolan Dreadnought's beam (#153).
   nautolanRay: { faction: "nautolan", file: "ray", width: 18, height: 38, frames: 4 }
 };
-var strip = (key2, url, size, frames, fps, loop = true, columns) => ({
-  key: key2,
+var strip = (key, url, size, frames, fps, loop = true, columns) => ({
+  key,
   url,
   frameWidth: size,
   frameHeight: size,
@@ -1348,8 +621,8 @@ var keys = {
   projectile: (id) => `projectile-${id}`,
   background: ["background-void", "background-stars", "background-big-stars"],
   /** A pieced background layer's layout (#222), and the texture its frame is drawn into. */
-  layerLayout: (key2) => `${key2}-layout`,
-  layerFrame: (key2) => `${key2}-frame`,
+  layerLayout: (key) => `${key}-layout`,
+  layerFrame: (key) => `${key}-frame`,
   planet: "planet",
   asteroid: "asteroid",
   enemyBase: (faction, kind) => `${faction}-${kind}-base`,
@@ -1369,7 +642,7 @@ var LAYER_FPS = 6;
 var VOID = keys.background[0];
 function layerSheets() {
   const env = `${ASSETS}/environment`;
-  return keys.background.filter((key2) => key2 !== VOID).map((key2) => ({ key: key2, url: `${env}/${key2}.png`, layoutUrl: `${env}/${key2}.json` }));
+  return keys.background.filter((key) => key !== VOID).map((key) => ({ key, url: `${env}/${key}.png`, layoutUrl: `${env}/${key}.json` }));
 }
 var pickupFile = (part) => `${WEAPONS.includes(part) ? "weapon" : ENGINES.includes(part) ? "engine" : "shield"}-${part.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 var PICKUP_FRAMES = 15;
@@ -1462,16 +735,16 @@ function bootKeys() {
 import Phaser from "./vendor/phaser.js";
 
 // src/glow.ts
-var CHANNELS2 = 4;
+var CHANNELS = 4;
 var MAX = 255;
 function double(src) {
   const width = src.width * 2;
   const height = src.height * 2;
-  const data = new Uint8ClampedArray(width * height * CHANNELS2);
+  const data = new Uint8ClampedArray(width * height * CHANNELS);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const from = (Math.floor(y / 2) * src.width + Math.floor(x / 2)) * CHANNELS2;
-      data.set(src.data.subarray(from, from + CHANNELS2), (y * width + x) * CHANNELS2);
+      const from = (Math.floor(y / 2) * src.width + Math.floor(x / 2)) * CHANNELS;
+      data.set(src.data.subarray(from, from + CHANNELS), (y * width + x) * CHANNELS);
     }
   }
   return { width, height, data };
@@ -1481,7 +754,7 @@ function alphaAt(src, x, y) {
   const y0 = Math.floor(y - 0.5);
   const fx = x - 0.5 - x0;
   const fy = y - 0.5 - y0;
-  const at2 = (px, py) => px < 0 || py < 0 || px >= src.width || py >= src.height ? 0 : (src.data[(py * src.width + px) * CHANNELS2 + 3] ?? 0) / MAX;
+  const at2 = (px, py) => px < 0 || py < 0 || px >= src.width || py >= src.height ? 0 : (src.data[(py * src.width + px) * CHANNELS + 3] ?? 0) / MAX;
   return at2(x0, y0) * (1 - fx) * (1 - fy) + at2(x0 + 1, y0) * fx * (1 - fy) + at2(x0, y0 + 1) * (1 - fx) * fy + at2(x0 + 1, y0 + 1) * fx * fy;
 }
 function jitter(ring2, u, v) {
@@ -1492,11 +765,11 @@ function bakeGlow(src, glow) {
   const pad = glow.distance;
   const width = src.width + 2 * pad;
   const height = src.height + 2 * pad;
-  const data = new Uint8ClampedArray(width * height * CHANNELS2);
+  const data = new Uint8ClampedArray(width * height * CHANNELS);
   const maxAlpha = glow.distance * (glow.distance + 1) * glow.quality / 2;
-  const red2 = (glow.color >> 16 & MAX) / MAX;
+  const red = (glow.color >> 16 & MAX) / MAX;
   const green = (glow.color >> 8 & MAX) / MAX;
-  const blue2 = (glow.color & MAX) / MAX;
+  const blue = (glow.color & MAX) / MAX;
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const sx = x - pad + 0.5;
@@ -1511,18 +784,18 @@ function bakeGlow(src, glow) {
         }
       }
       const inside = sx > 0 && sy > 0 && sx < src.width && sy < src.height;
-      const from = (Math.floor(sy) * src.width + Math.floor(sx)) * CHANNELS2;
+      const from = (Math.floor(sy) * src.width + Math.floor(sx)) * CHANNELS;
       const r = inside ? (src.data[from] ?? 0) / MAX : 0;
       const g = inside ? (src.data[from + 1] ?? 0) / MAX : 0;
       const b = inside ? (src.data[from + 2] ?? 0) / MAX : 0;
       const a = inside ? (src.data[from + 3] ?? 0) / MAX : 0;
       const outer = Math.min(1 - a, total / maxAlpha * glow.strength * (1 - a));
       const alpha = a + outer;
-      const to = (y * width + x) * CHANNELS2;
+      const to = (y * width + x) * CHANNELS;
       if (alpha > 0) {
-        data[to] = Math.round((r * a + outer * red2) / alpha * MAX);
+        data[to] = Math.round((r * a + outer * red) / alpha * MAX);
         data[to + 1] = Math.round((g * a + outer * green) / alpha * MAX);
-        data[to + 2] = Math.round((b * a + outer * blue2) / alpha * MAX);
+        data[to + 2] = Math.round((b * a + outer * blue) / alpha * MAX);
         data[to + 3] = Math.round(alpha * MAX);
       }
     }
@@ -1594,8 +867,8 @@ var BootScene = class extends Phaser.Scene {
     this.load.on(Phaser.Loader.Events.FILE_LOAD, loaded2);
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, loaded2);
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
-      for (const key2 of bootKeys()) {
-        this.options.loaded(key2);
+      for (const key of bootKeys()) {
+        this.options.loaded(key);
       }
     });
     const files = bootFiles();
@@ -2207,12 +1480,6 @@ function loadToken(store = browserStorage()) {
     return void 0;
   }
 }
-function saveToken(token, store = browserStorage()) {
-  try {
-    store?.setItem(TOKEN_KEY, token);
-  } catch {
-  }
-}
 function clearToken(store = browserStorage()) {
   try {
     store?.removeItem(TOKEN_KEY);
@@ -2244,20 +1511,6 @@ function loadSeenSeason(store = browserStorage()) {
 function saveSeenSeason(season, store = browserStorage()) {
   try {
     store?.setItem(SEEN_SEASON_KEY, season);
-  } catch {
-  }
-}
-var INTRO_SEEN_KEY = "voidmarch.introSeen";
-function loadIntroSeen(store = browserStorage()) {
-  try {
-    return store?.getItem(INTRO_SEEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-function saveIntroSeen(store = browserStorage()) {
-  try {
-    store?.setItem(INTRO_SEEN_KEY, "1");
   } catch {
   }
 }
@@ -2470,11 +1723,11 @@ var HudView = class _HudView {
     this.drawToasts(frame.toasts);
   }
   drawGauge(frame) {
-    const key2 = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
-    if (this.gauge === null || key2 === this.gaugeKey) {
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
+    if (this.gauge === null || key === this.gaugeKey) {
       return;
     }
-    this.gaugeKey = key2;
+    this.gaugeKey = key;
     const doc = this.gauge.ownerDocument;
     const slots = doc.createElement("div");
     slots.className = "hud-slots";
@@ -2530,10 +1783,10 @@ var HudView = class _HudView {
       name.className = "name";
       name.textContent = option.name;
       name.style.color = option.color;
-      const hint2 = doc.createElement("span");
-      hint2.className = "hint";
-      hint2.textContent = option.hint;
-      text.append(name, hint2);
+      const hint = doc.createElement("span");
+      hint.className = "hint";
+      hint.textContent = option.hint;
+      text.append(name, hint);
       row.append(_HudView.icon(doc, option.file), text);
       drop.append(row);
     }
@@ -2554,11 +1807,11 @@ var HudView = class _HudView {
     return icon;
   }
   drawPanel(rows) {
-    const key2 = JSON.stringify(rows);
-    if (this.panel === null || key2 === this.panelKey) {
+    const key = JSON.stringify(rows);
+    if (this.panel === null || key === this.panelKey) {
       return;
     }
-    this.panelKey = key2;
+    this.panelKey = key;
     const doc = this.panel.ownerDocument;
     this.panel.hidden = rows.length === 0;
     this.panel.replaceChildren(
@@ -2636,8 +1889,8 @@ function panelRows(state) {
     const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? "" : "s"}`];
     const others = [...squadron.others, ...companions];
     row("Squadron", others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
-    const hint2 = ORDER_HINTS[squadron.mode];
-    row("Orders", hint2 === void 0 ? squadron.order : `${squadron.order}: ${hint2}`);
+    const hint = ORDER_HINTS[squadron.mode];
+    row("Orders", hint === void 0 ? squadron.order : `${squadron.order}: ${hint}`);
   }
   if (state.hangar !== void 0) {
     row("Hangar", state.hangar === 0 ? "empty" : `${String(state.hangar)} ship${state.hangar === 1 ? "" : "s"} to summon`);
@@ -2877,6 +2130,179 @@ var StandingsPanel = class _StandingsPanel {
 
 // src/scenes/mapview.ts
 import "./vendor/phaser.js";
+
+// src/sim/sectors.ts
+var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+var SQRT3 = Math.sqrt(3);
+function ring({ q, r }) {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+function hexName({ q, r }) {
+  const row = r + (q - (q & 1)) / 2 + GRID_RINGS;
+  return `${LETTERS.charAt(q + GRID_RINGS)}${String(row + 1)}`;
+}
+function sectorAxial(name) {
+  return parseHex(name);
+}
+function parseHex(name) {
+  const col = LETTERS.indexOf(name.charAt(0));
+  const row = Number(name.slice(1)) - 1;
+  if (col < 0 || !/^[1-9]\d*$/.test(name.slice(1))) {
+    return void 0;
+  }
+  const q = col - GRID_RINGS;
+  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
+  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
+}
+function hexCenter({ q, r }) {
+  return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
+}
+function sectorName(x, y) {
+  const q = 2 / 3 * x / SECTOR_RADIUS;
+  const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
+  const s = -q - r;
+  let rq = Math.round(q);
+  let rr = Math.round(r);
+  const rs = Math.round(s);
+  const dq = Math.abs(rq - q);
+  const dr = Math.abs(rr - r);
+  const ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) {
+    rq = -rr - rs;
+  } else if (dr > ds) {
+    rr = -rq - rs;
+  }
+  const hex2 = { q: rq + 0, r: rr + 0 };
+  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
+}
+var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
+function sectorRing(name) {
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : ring(hex2);
+}
+var SECTOR_NAMES = (() => {
+  const names = [];
+  for (let q = -GRID_RINGS; q <= GRID_RINGS; q++) {
+    for (let r = -GRID_RINGS; r <= GRID_RINGS; r++) {
+      if (ring({ q, r }) <= GRID_RINGS) {
+        names.push(hexName({ q, r }));
+      }
+    }
+  }
+  return names;
+})();
+var HOME_SECTOR = sectorName(0, 0) ?? "";
+var ALL_OPEN = { openRings: 0, opened: /* @__PURE__ */ new Set() };
+function sectorOpen(name, frontier) {
+  const ring2 = sectorRing(name);
+  return ring2 !== void 0 && (frontier.openRings === 0 || ring2 <= frontier.openRings || frontier.opened.has(name));
+}
+function closedEdges(frontier) {
+  const edges = [];
+  for (const name of SECTOR_NAMES) {
+    if (sectorOpen(name, frontier)) {
+      continue;
+    }
+    const center = sectorCenter(name) ?? { x: 0, y: 0 };
+    const corners = sectorCorners(name);
+    corners.forEach((a, i) => {
+      const b = corners[(i + 1) % corners.length] ?? a;
+      const side = (2 * i + 1) * Math.PI / 6;
+      const across = sectorName(center.x + SQRT3 * SECTOR_RADIUS * Math.cos(side), center.y + SQRT3 * SECTOR_RADIUS * Math.sin(side));
+      if (across !== void 0 && sectorOpen(across, frontier)) {
+        edges.push({ a, b });
+      }
+    });
+  }
+  return edges;
+}
+function sectorState(name, cleared, frontier = ALL_OPEN) {
+  if (name === HOME_SECTOR) {
+    return "home";
+  }
+  if (!sectorOpen(name, frontier)) {
+    return "closed";
+  }
+  if (cleared === void 0) {
+    return "unknown";
+  }
+  return cleared.has(name) ? "cleared" : "hostile";
+}
+function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
+  const name = sectorName(x, y);
+  if (name === void 0) {
+    return "";
+  }
+  const state = sectorState(name, cleared, frontier);
+  return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
+}
+function sectorCorners(name) {
+  const hex2 = parseHex(name);
+  if (hex2 === void 0) {
+    return [];
+  }
+  const center = hexCenter(hex2);
+  return Array.from({ length: 6 }, (_, i) => ({
+    x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
+    y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
+  }));
+}
+function sectorCenter(name) {
+  const hex2 = parseHex(name);
+  return hex2 === void 0 ? void 0 : hexCenter(hex2);
+}
+function missionArrow(ship, target, width, height, margin) {
+  const center = sectorCenter(target);
+  if (center === void 0 || sectorName(ship.x, ship.y) === target) {
+    return void 0;
+  }
+  const angle = Math.atan2(center.y - ship.y, center.x - ship.x);
+  const halfW = width / 2 - margin;
+  const halfH = height / 2 - margin;
+  const scale = Math.min(halfW / Math.max(Math.abs(Math.cos(angle)), 1e-9), halfH / Math.max(Math.abs(Math.sin(angle)), 1e-9));
+  return { x: width / 2 + Math.cos(angle) * scale, y: height / 2 + Math.sin(angle) * scale, angle };
+}
+function sectorFaction(name) {
+  const ring2 = sectorRing(name);
+  return (ring2 === void 0 ? void 0 : RING_FACTIONS[ring2]) ?? "klaed";
+}
+function missionBanner(sector) {
+  return [
+    `New mission: sector ${sector}`,
+    `Destroy every ${FACTION_NAMES[sectorFaction(sector)]} ship in ${sector} to clear it.`,
+    "Follow the gold arrow at the edge of the screen."
+  ];
+}
+function missionCompleteBanner(sector, part, stats) {
+  const lines = [`Mission complete: sector ${sector} cleared`];
+  if (stats !== void 0) {
+    lines.push(stats);
+  }
+  if (part !== void 0) {
+    lines.push(`Your reward: ${part}`);
+  }
+  return lines;
+}
+var WHITE = 16777215;
+var CHANNELS2 = [16, 8, 0];
+var CHANNEL_MAX = 255;
+function ringTint(x, y) {
+  const name = sectorName(x, y);
+  const ring2 = name === void 0 ? void 0 : sectorRing(name);
+  return (ring2 === void 0 ? void 0 : RING_TINTS[ring2]) ?? WHITE;
+}
+function fadeColor(a, b, t) {
+  const share = Math.min(1, Math.max(0, t));
+  let out = 0;
+  for (const shift of CHANNELS2) {
+    const from = a >> shift & CHANNEL_MAX;
+    const to = b >> shift & CHANNEL_MAX;
+    const step = (to - from) * share;
+    const moved = share > 0 && Math.abs(step) < 1 ? from + Math.sign(to - from) : Math.round(from + step);
+    out |= moved << shift;
+  }
+  return out;
+}
 
 // src/sim/sectormap.ts
 function layoutForWidth(x, y, width) {
@@ -4294,9 +3720,9 @@ var ShipAudio = class {
       this.engine.setRate(mix.rate);
     }
     for (const weapon of events.charges) {
-      const key2 = CHARGE_SOUNDS[weapon];
-      if (key2 !== void 0) {
-        this.scene.sound.play(key2, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
+      const key = CHARGE_SOUNDS[weapon];
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
       }
     }
     const volleys = /* @__PURE__ */ new Set();
@@ -4306,23 +3732,23 @@ var ShipAudio = class {
         continue;
       }
       volleys.add(volley);
-      const key2 = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
-      if (key2 !== void 0) {
-        this.scene.sound.play(key2, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
+      const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
       }
     }
     for (const expired of events.expired) {
-      const key2 = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : void 0;
-      if (key2 !== void 0) {
-        this.scene.sound.play(key2, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+      const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : void 0;
+      if (key !== void 0) {
+        this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
     }
   }
   /** Another player's shot: the same sound, quieter. */
   remoteShot(weapon) {
-    const key2 = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
-    if (key2 !== void 0) {
-      this.scene.sound.play(key2, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
+    const key = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
+    if (key !== void 0) {
+      this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
   }
   /** An enemy's shot: their own laser, soft and a little low. */
@@ -4347,10 +3773,10 @@ var ShipAudio = class {
   }
   /** A force field zap (#127), at a volume from 0 to 1: a random one, never the last one again. */
   fieldZap(volume) {
-    const key2 = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
-    this.lastZap = key2;
-    if (key2 !== void 0) {
-      this.scene.sound.play(key2, { volume });
+    const key = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
+    this.lastZap = key;
+    if (key !== void 0) {
+      this.scene.sound.play(key, { volume });
     }
   }
   partSwitched() {
@@ -4412,8 +3838,8 @@ var ShipAudio = class {
       }
       return;
     }
-    const key2 = MUSIC[this.place];
-    const fading = [...this.fading].find((sound) => sound.key === key2);
+    const key = MUSIC[this.place];
+    const fading = [...this.fading].find((sound) => sound.key === key);
     if (fading !== void 0) {
       this.fading.delete(fading);
       this.music = fading;
@@ -4421,10 +3847,10 @@ var ShipAudio = class {
       this.fadeTo(fading, MUSIC_VOLUME);
       return;
     }
-    if (!this.scene.cache.audio.exists(key2)) {
+    if (!this.scene.cache.audio.exists(key)) {
       return;
     }
-    const music = this.scene.sound.add(key2, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME, loop: true });
+    const music = this.scene.sound.add(key, { volume: this.fadeInNext ? 0 : MUSIC_VOLUME, loop: true });
     this.music = music;
     music.play();
     if (this.fadeInNext) {
@@ -6369,12 +5795,12 @@ var NetPlay = class {
   }
   /** A number naming another ship for the ram cooldown, the same for as long as the page runs. */
   bumpKey(name) {
-    let key2 = this.bumpKeys.get(name);
-    if (key2 === void 0) {
-      key2 = this.bumpKeys.size + 1;
-      this.bumpKeys.set(name, key2);
+    let key = this.bumpKeys.get(name);
+    if (key === void 0) {
+      key = this.bumpKeys.size + 1;
+      this.bumpKeys.set(name, key);
     }
-    return key2;
+    return key;
   }
   /** Whether a point is within range of the player or one of their companions. */
   nearWing(x, y, range) {
@@ -7319,11 +6745,11 @@ var SandboxScene = class extends Phaser13.Scene {
     label.setText(mission).setFontSize(HUD_FONT_PX * dpr).setPosition(at2.x - Math.cos(at2.angle) * size * MISSION_LABEL_OFFSET, at2.y - Math.sin(at2.angle) * size * MISSION_LABEL_OFFSET);
   }
   createBackgrounds() {
-    this.backgrounds = keys.background.map((key2, i) => {
-      const layout = this.cache.json.get(keys.layerLayout(key2));
-      const texture = layout === void 0 ? void 0 : this.textures.get(keys.layerFrame(key2));
-      const pieces = layout !== void 0 && texture instanceof Phaser13.Textures.DynamicTexture ? { sheet: key2, layout, texture } : void 0;
-      const sprite = (pieces === void 0 ? this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key2, 0) : this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, pieces.texture)).setScrollFactor(0);
+    this.backgrounds = keys.background.map((key, i) => {
+      const layout = this.cache.json.get(keys.layerLayout(key));
+      const texture = layout === void 0 ? void 0 : this.textures.get(keys.layerFrame(key));
+      const pieces = layout !== void 0 && texture instanceof Phaser13.Textures.DynamicTexture ? { sheet: key, layout, texture } : void 0;
+      const sprite = (pieces === void 0 ? this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key, 0) : this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, pieces.texture)).setScrollFactor(0);
       this.world.add(sprite);
       return { sprite, factor: PARALLAX[i] ?? 0, pieces };
     });
@@ -8568,10 +7994,10 @@ ${modeName(info)}`,
     const owned = this.ownedUnlocks;
     const unlocks = this.net?.unlocks ?? defaultUnlocks();
     const view = (part, tier) => ({ part, file: pickupFile(part), name: partLabel(part, tier), color: tierCss(tier), hint: PART_HINTS[part] });
-    const slot = (kind, key2, parts, part, tier) => ({
+    const slot = (kind, key, parts, part, tier) => ({
       ...view(part, tier),
       kind,
-      key: key2,
+      key,
       options: ownedParts(parts, owned).map((p) => view(p, unlocks.get(p) ?? 0))
     });
     const info = net?.squadronInfo;
@@ -8695,13 +8121,8 @@ var loadoutKey = (l) => `${l.weapon}:${l.engine}:${l.shield}:${String(l.weaponTi
 var RULES_KEY = "rules";
 var FONTS = [UI_FONT_NAME, HEADING_FONT_NAME];
 var fontKey = (name) => `font-${name}`;
-function start() {
-  const touch = touchMode((query) => window.matchMedia(query).matches, window.location.search);
-  const intro = new IntroScreen();
-  intro.onClose(() => {
-    saveIntroSeen();
-  });
-  const door = new FrontDoor([RULES_KEY, ...FONTS.map(fontKey), ...bootKeys()], intro);
+function start({ door, intro, token }) {
+  door.count([RULES_KEY, ...FONTS.map(fontKey), ...bootKeys()]);
   const assets = Promise.all([
     loadSim("/static/wasm/sim.wasm").then(() => {
       door.loaded(RULES_KEY);
@@ -8711,15 +8132,11 @@ function start() {
       door.loaded(fontKey(name));
     })
   ]);
-  const token = askToken().then((t) => {
-    door.enter(!loadIntroSeen(), touch);
-    return t;
-  });
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
   const boot = new BootScene({
-    loaded: (key2) => {
-      door.loaded(key2);
+    loaded: (key) => {
+      door.loaded(key);
     },
     go: Promise.all([assets, token]).then(([, t]) => t),
     game: () => new SandboxScene({
@@ -8750,17 +8167,6 @@ function start() {
   });
   fitToWindow(game);
 }
-async function askToken() {
-  const saved = loadToken();
-  if (saved !== void 0) {
-    return saved;
-  }
-  const token = await askName();
-  if (token !== void 0) {
-    saveToken(token);
-  }
-  return token;
-}
 function fitToWindow(game) {
   const fit = () => {
     const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, loadDisplaySettings().cssPixels));
@@ -8780,4 +8186,6 @@ function fitToWindow(game) {
   };
   watchRatio();
 }
-start();
+export {
+  start
+};

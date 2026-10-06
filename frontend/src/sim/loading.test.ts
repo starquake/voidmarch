@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { LOAD_CATEGORIES, LoadProgress, loadCategory, loadRank, type LoadView } from './loading.ts';
+import { LOAD_CATEGORIES, LoadProgress, codeView, loadCategory, loadRank, type LoadView } from './loading.ts';
 
 test('each kind of key has its category', () => {
   const cases: [string, string | undefined][] = [
@@ -88,4 +88,11 @@ test('nothing to load is complete', () => {
   const progress = new LoadProgress([]);
   assert.equal(progress.complete, true);
   assert.equal(progress.view().percent, 100);
+});
+
+test("while the game's code downloads it says Loading game, with no percentage and every category to come", () => {
+  const view = codeView();
+  assert.equal(view.label, 'Loading game');
+  assert.equal(view.percent, undefined);
+  assert.deepEqual(states(view), ['Ships:waiting', 'Enemies:waiting', 'Space:waiting', 'Sounds:waiting']);
 });

@@ -5,19 +5,26 @@ import { expect, test } from './fixtures.ts';
 /** The enemies' sheets, held back so the strip stays up mid-load. */
 const ENEMY_SHEETS = /\/static\/assets\/(klaed|nairan|nautolan)\//;
 
-/** Holds the enemies' sheets until the returned function lets them through. */
-async function holdEnemies(page: Page): Promise<() => void> {
+/** Phaser, the largest part of the game's code, held back to keep the entry module's screens up (#227, decision 8). */
+const PHASER = /\/static\/js\/vendor\/phaser\.js$/;
+
+/** Holds the requests matching url until the returned function lets them through. */
+async function hold(page: Page, url: RegExp): Promise<() => void> {
   let release = (): void => undefined;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(ENEMY_SHEETS, async (route) => {
+  await page.route(url, async (route) => {
     await gate;
     await route.continue();
   });
 
   return release;
 }
+
+/** Whether phaser.js has finished downloading. */
+const phaserLoaded = (page: Page): Promise<boolean> =>
+  page.evaluate(() => performance.getEntriesByType('resource').some((entry) => entry.name.endsWith('/static/js/vendor/phaser.js')));
 
 /** Each category on the strip, with its state. */
 const categories = (page: Page): Promise<string[]> =>
@@ -27,8 +34,38 @@ const online = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
 };
 
+fresh("the name screen shows before the game's code is in, and the strip reads Loading game until it is", async ({ page }) => {
+  const release = await hold(page, PHASER);
+  const phaser = page.waitForRequest(PHASER);
+  await page.goto('/', { waitUntil: 'commit' });
+  await phaser;
+  const name = page.locator('#name-form');
+  await expect(name).toBeVisible();
+  expect(await phaserLoaded(page), 'phaser.js is still downloading').toBe(false);
+
+  // Typing a name overlaps the download.
+  await page.getByLabel('Pick a name').fill('Early');
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(name).toBeHidden();
+
+  const strip = page.locator('#loading-strip');
+  const play = page.locator('#intro-play');
+  await expect(strip).toBeVisible();
+  await expect(page.locator('#intro-form')).toBeVisible();
+  await expect(page.locator('#loading-what')).toHaveText('Loading game');
+  await expect(page.locator('#loading-amount'), "the code's download has no percentage").toBeHidden();
+  await expect.poll(() => categories(page)).toEqual(['Ships:waiting', 'Enemies:waiting', 'Space:waiting', 'Sounds:waiting']);
+  await expect(play).toBeDisabled();
+  expect(await phaserLoaded(page), 'phaser.js is still downloading').toBe(false);
+
+  release();
+  await expect(strip).toBeHidden();
+  await expect(play).toBeEnabled();
+  await online(page);
+});
+
 fresh('a first visit loads behind the name screen, then shows the intro with the strip until the game is up', async ({ page }) => {
-  const release = await holdEnemies(page);
+  const release = await hold(page, ENEMY_SHEETS);
   const sockets: string[] = [];
   page.on('websocket', (ws) => sockets.push(ws.url()));
   const registered: string[] = [];
@@ -93,14 +130,23 @@ fresh('a first visit loads behind the name screen, then shows the intro with the
   await expect(intro).toBeHidden();
 });
 
-test('a returning player sees the strip alone, then the game', async ({ page }) => {
-  const release = await holdEnemies(page);
-  await page.goto('/');
+test("a returning player sees the strip alone, reading Loading game until the game's code is in, then the game", async ({ page }) => {
+  const releaseCode = await hold(page, PHASER);
+  const release = await hold(page, ENEMY_SHEETS);
+  const phaser = page.waitForRequest(PHASER);
+  await page.goto('/', { waitUntil: 'commit' });
+  await phaser;
   const strip = page.locator('#loading-strip');
   await expect(strip).toBeVisible();
-  await expect(page.locator('#loading-what')).toHaveText('Loading enemies');
+  await expect(page.locator('#loading-what')).toHaveText('Loading game');
+  await expect(page.locator('#loading-amount')).toBeHidden();
+  expect(await phaserLoaded(page), 'phaser.js is still downloading').toBe(false);
   await expect(page.locator('#name-form')).toBeHidden();
   await expect(page.locator('#intro-form')).toBeHidden();
+
+  releaseCode();
+  await expect(page.locator('#loading-what')).toHaveText('Loading enemies');
+  await expect(page.locator('#loading-amount')).toBeVisible();
   expect(await page.evaluate(() => window.voidmarch?.ready ?? false), 'the game waits for its files').toBe(false);
 
   release();

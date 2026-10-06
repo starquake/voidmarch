@@ -12,6 +12,9 @@ board.
   into `internal/web/static/js`. The bundle is committed, so `go build` and
   the Docker image need no Node.js. Phaser is a separate vendor module
   (`js/vendor/phaser.js`), and the game bundle imports it as `./vendor/phaser.js`.
+  The page loads `js/entry.js` (`frontend/src/entry.ts`), which has no Phaser
+  or protobuf in it (the build refuses them): it shows the name screen or the
+  loading strip at once, then imports the game bundle, `main.js` (#227).
 - **Game rules live once, in Go** (`internal/sim`, #13 decision 26): plain
   functions and data, unit-tested in Go. The server imports it natively. The
   browser runs its part (its own ship and the projectiles) as WebAssembly:

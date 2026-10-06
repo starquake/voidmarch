@@ -1,7 +1,8 @@
 // Bundles the client into internal/web/static/js. Phaser and the protobuf
 // runtime are separate vendor modules, kept external, so the committed game
 // bundle stays small and its diffs readable; vendor files change only when
-// a dependency is bumped.
+// a dependency is bumped. The page loads entry.js, which has none of them, and
+// it imports main.js, the game (#227).
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -56,17 +57,44 @@ const protobufVendor = {
   logLevel: 'info',
 };
 
+/**
+ * The entry imports the game as its own bundle, main.js, instead of bundling it in.
+ * @type {esbuild.Plugin}
+ */
+const gameExternal = {
+  name: 'game-external',
+  setup(build) {
+    build.onResolve({ filter: /^\.\/main\.ts$/ }, () => ({ path: './main.js', external: true }));
+  },
+};
+
+/**
+ * The entry shows the first screens before the vendor modules arrive, so it must not import them.
+ * @type {esbuild.Plugin}
+ */
+const noVendor = {
+  name: 'no-vendor',
+  setup(build) {
+    build.onResolve({ filter: /^(phaser|@bufbuild\/protobuf(\/codegenv2)?)$/ }, (args) => ({
+      errors: [{ text: `the entry module must not import ${args.path} (#227): import it from main.ts's side` }],
+    }));
+  },
+};
+
 /** @type {esbuild.BuildOptions} */
-const options = {
-  entryPoints: [path.join(root, 'src/main.ts')],
-  outfile: path.join(outdir, 'main.js'),
+const common = {
   bundle: true,
   format: 'esm',
   target: 'es2022',
   legalComments: 'none',
-  plugins: [vendorExternal],
   logLevel: 'info',
 };
+
+/** @type {esbuild.BuildOptions[]} */
+const bundles = [
+  { ...common, entryPoints: [path.join(root, 'src/entry.ts')], outfile: path.join(outdir, 'entry.js'), plugins: [gameExternal, noVendor] },
+  { ...common, entryPoints: [path.join(root, 'src/main.ts')], outfile: path.join(outdir, 'main.js'), plugins: [vendorExternal] },
+];
 
 await mkdir(path.join(outdir, 'vendor'), { recursive: true });
 await copyFile(
@@ -95,10 +123,14 @@ const collect = (result) => {
 collect(await esbuild.build({ ...protobufVendor, metafile: true }));
 
 if (values.watch) {
-  const ctx = await esbuild.context(options);
-  await ctx.watch();
+  for (const options of bundles) {
+    const ctx = await esbuild.context(options);
+    await ctx.watch();
+  }
 } else {
-  collect(await esbuild.build({ ...options, metafile: true }));
+  for (const options of bundles) {
+    collect(await esbuild.build({ ...options, metafile: true }));
+  }
   if (values.packages !== undefined) {
     await writeFile(values.packages, `${JSON.stringify([...shipped].sort(), null, 2)}\n`);
   }

@@ -47,11 +47,25 @@ export type CategoryState = 'done' | 'loading' | 'waiting';
 
 /** What the strip shows. */
 export interface LoadView {
-  /** "Loading enemies", or "Loading" while only uncategorized files are left, or "Starting" once all are in. */
+  /** "Loading game" for the game's code, "Loading enemies", "Loading" while only uncategorized files are left, or "Starting" once all are in. */
   label: string;
-  /** Of everything that loads; 100 only once all of it is in. */
-  percent: number;
+  /** Of everything that loads; 100 only once all of it is in. Undefined while the game's code downloads. */
+  percent: number | undefined;
   categories: readonly { category: LoadCategory; name: string; state: CategoryState }[];
+}
+
+/**
+ * What the strip shows while the game's code downloads, before its files
+ * (#227, decision 8). It has no percentage: the browser reports none for a
+ * module's download, and counting it as one file would leave 0% up for the
+ * longest part of the load.
+ */
+export function codeView(): LoadView {
+  return {
+    label: 'Loading game',
+    percent: undefined,
+    categories: LOAD_CATEGORIES.map((category) => ({ category, name: LOAD_CATEGORY_NAMES[category], state: 'waiting' })),
+  };
 }
 
 /** Counts the files still to come, every one of them, for the loading strip (#227). */

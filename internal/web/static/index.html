@@ -13,7 +13,7 @@
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="/static/wasm/wasm_exec.js"></script>
-    <script type="module" src="/static/js/main.js"></script>
+    <script type="module" src="/static/js/entry.js"></script>
   </head>
   <body>
     <main id="game"></main>
@@ -69,7 +69,7 @@
       <section class="intro-panel"><h2>Good to know</h2><ul id="intro-extras" class="intro-list intro-extras"></ul></section>
     </form>
     <div id="loading-strip" class="loading-strip" hidden>
-      <p class="loading-label"><span id="loading-what">Loading</span> · <b id="loading-percent">0%</b></p>
+      <p class="loading-label"><span id="loading-what">Loading</span><span id="loading-amount"> · <b id="loading-percent">0%</b></span></p>
       <div id="loading-bar" class="loading-bar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="loading-fill" class="loading-fill"></div></div>
       <ol id="loading-categories" class="loading-categories"></ol>
     </div>
