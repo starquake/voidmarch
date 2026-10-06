@@ -14,6 +14,23 @@ export const state = (page: Page): Promise<DebugState> =>
     return structuredClone(window.voidmarch);
   });
 
+/**
+ * Watches every frame for ms and reports whether the ship thrust on any. A
+ * screen's hold shows here: unlike the ship's position, a bump or the server
+ * placing the ship can't change it.
+ */
+export const thrustSeen = (page: Page, ms: number): Promise<boolean> =>
+  page.evaluate(async (duration) => {
+    let seen = false;
+    const end = performance.now() + duration;
+    while (performance.now() < end) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      seen ||= window.voidmarch?.ship.thrusting === true;
+    }
+
+    return seen;
+  }, ms);
+
 /** Goes down and respawns this many times at most before the hunt fails. */
 export const TRIES = 5;
 

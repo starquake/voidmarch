@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 import type { DebugState } from '../src/debug.ts';
 import { expect, test } from './fixtures.ts';
+import { thrustSeen } from './hunt.ts';
 
 const state = (page: Page): Promise<DebugState> =>
   page.evaluate(() => {
@@ -26,12 +27,9 @@ test('M opens the full map, the ship holds still under it, and a click sends the
 
   await page.keyboard.press('m');
   await expect.poll(async () => (await state(page)).mapOpen).toBe(true);
-  const before = (await state(page)).ship;
   await page.keyboard.down('w');
-  await page.waitForTimeout(500);
+  expect(await thrustSeen(page, 500), 'the ship holds still under the map').toBe(false);
   await page.keyboard.up('w');
-  const held = (await state(page)).ship;
-  expect(Math.hypot(held.x - before.x, held.y - before.y), 'the ship holds still under the map').toBeLessThan(2);
 
   const { mapLayout } = await state(page);
   const dpr = await page.evaluate(() => window.devicePixelRatio);
