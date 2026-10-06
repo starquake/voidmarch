@@ -69,20 +69,27 @@ test('hovering beside a derelict fills its rescue bar and docks it in the hangar
   await expect.poll(async () => (await state(page)).departing, { message: 'the teleport is over' }).toBe(0);
 });
 
-test("the Frigate's derelict waits beside it, held by its fleet", async ({ page }) => {
+test("the Frigate's derelict waits beside it, held by its fleet, drawn there as it's towed", async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-  // Held, it's towed 160 px below the patrolling Frigate (#114, #121); the
+  // Held, it's towed 160 px below the patrolling Frigate (#114, #121), and
+  // drawn where it's towed to, not where it was first seen (#218). The
   // Frigate is drawn a moment in the past, so allow for a few pixels.
+  let start: { x: number; y: number } | undefined;
   await expect
     .poll(
       async () => {
         const s = await state(page);
         const f = s.enemies.find((e) => e.kind === 'frigate');
+        if (f === undefined) {
+          return false;
+        }
+        start ??= { x: f.x, y: f.y };
+        const towed = Math.hypot(f.x - start.x, f.y - start.y) > 40;
 
-        return f !== undefined && s.derelicts.some((d) => d.held && Math.hypot(d.x - f.x, d.y - (f.y + 160)) < 10);
+        return towed && s.derelicts.some((d) => d.held && Math.hypot(d.x - f.x, d.y - (f.y + 160)) < 10);
       },
-      { message: "the Frigate's derelict is beside it, held" },
+      { message: "the Frigate's derelict is drawn beside it, held, once the Frigate moved on" },
     )
     .toBe(true);
 });

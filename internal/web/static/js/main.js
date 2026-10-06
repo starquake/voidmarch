@@ -4840,9 +4840,23 @@ var DerelictView = class {
     this.scene = scene;
     this.layer = layer;
     this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser7.TintModes.MULTIPLY);
-    this.label = scene.add.text(x, y + DOWN_OFFSET, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
-    this.bar = scene.add.graphics().setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
+    this.label = scene.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
+    this.bar = scene.add.graphics();
+    this.place(x, y);
     layer.add([this.hull, this.label, this.bar]);
+  }
+  /** Where the hull is drawn. */
+  get x() {
+    return this.hull.x;
+  }
+  get y() {
+    return this.hull.y;
+  }
+  /** Moves it to (x, y), with its label and bar: a held one goes where its Frigate tows it (#121). */
+  place(x, y) {
+    this.hull.setPosition(x, y);
+    this.label.setPosition(x, y + DOWN_OFFSET);
+    this.bar.setPosition(x - REVIVE_BAR_WIDTH / 2, y + DOWN_OFFSET + REVIVE_BAR_BELOW);
   }
   /** Shows the label, whether it's held, and the rescue's progress (0 to 1); the bar shows once there is some. */
   update(label, held, rescue) {
@@ -5375,8 +5389,8 @@ var NetPlay = class {
   get derelictList() {
     return [...this.derelicts.entries()].map(([id, d]) => ({
       id,
-      x: d.state.x,
-      y: d.state.y,
+      x: d.view.x,
+      y: d.view.y,
       rescue: d.state.rescue,
       held: d.state.held
     }));
@@ -5406,6 +5420,7 @@ var NetPlay = class {
       }
       drawn.state = state;
       const label = state.held ? heldLabel(holders(state.x, state.y, [...this.enemies.values()].map((e) => e.view))) : derelictLabel(state.goneTick, tick, this.tickRate);
+      drawn.view.place(state.x, state.y);
       drawn.view.update(label, state.held, state.rescue);
     }
     for (const [id, drawn] of this.derelicts) {
