@@ -5075,8 +5075,8 @@ function ringsClosedBanner(before, after) {
     `Ring ${String(after)} fell below 4 cleared sectors. Take them back to wake a new Dreadnought.`
   ];
 }
-function raidBanner(faction) {
-  return [`The ${FACTION_NAMES[faction]} Dreadnought is coming`];
+function raidBanner(faction, sector) {
+  return [`The ${FACTION_NAMES[faction]} Dreadnought is coming`, `It raids ${sector}.`];
 }
 function raidEndedBanner(faction, drivenOff, part) {
   const name = `The ${FACTION_NAMES[faction]} Dreadnought`;
@@ -5333,7 +5333,7 @@ var NetPlay = class {
           this.setStandings(standings);
         },
         raidWarned: (warned) => {
-          this.banners.push(raidBanner(fromEnemyFaction(warned.faction)));
+          this.banners.push(raidBanner(fromEnemyFaction(warned.faction), warned.sector));
           this.options.audio.raidWarned();
         },
         raidEnded: (ended) => {

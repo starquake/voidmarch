@@ -40,9 +40,9 @@ export function ringsClosedBanner(before: number, after: number): string[] | und
   ];
 }
 
-/** The banner a few seconds before a Dreadnought raids a sector (#223), which keeps how to drive it off a surprise. */
-export function raidBanner(faction: EnemyFaction): string[] {
-  return [`The ${FACTION_NAMES[faction]} Dreadnought is coming`];
+/** The banner a few seconds before a Dreadnought raids sector (#223): where, but not how to drive it off. */
+export function raidBanner(faction: EnemyFaction, sector: string): string[] {
+  return [`The ${FACTION_NAMES[faction]} Dreadnought is coming`, `It raids ${sector}.`];
 }
 
 /**

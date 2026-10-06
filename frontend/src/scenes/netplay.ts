@@ -426,7 +426,7 @@ export class NetPlay {
           this.setStandings(standings);
         },
         raidWarned: (warned) => {
-          this.banners.push(raidBanner(fromEnemyFaction(warned.faction)));
+          this.banners.push(raidBanner(fromEnemyFaction(warned.faction), warned.sector));
           this.options.audio.raidWarned();
         },
         raidEnded: (ended) => {
