@@ -264,22 +264,21 @@ answer given in chat is written back into the issue body before acting on it.
   exist yet. Mockups are committed under `docs/mockups/`.
 - **Nothing becomes public without asking**: the board, a release or a tag.
 
-### Attribution: issues, comments and PR descriptions yes, commits no
+### Attribution: issues and comments yes, PR descriptions and commits no
 
 `gh` acts as @starquake, so an unmarked Claude comment reads as the
 maintainer's own answer — and the board monitor tells them apart by exactly
-that prefix. So **every issue, comment and pull request description Claude
-posts** opens with one of these lines, posted via `--body-file`:
+that prefix. So **every issue and comment Claude posts** opens with one of
+these lines, posted via `--body-file`:
 
 - `> 🤖 **Issue by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
 - `> 🤖 **Comment by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
-- `> 🤖 **Pull request by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
 
-The line on a pull request says what happens: Claude opens it, the maintainer
-reviews and merges it, and takes accountability for what is merged
-(@starquake, 2026-09-15). **Commit messages carry no attribution line and no
-trailer**: the squash-merge commit on `main` is the maintainer's own, signed
-by GitHub.
+**Pull request descriptions and commit messages carry no attribution line**
+(#257): the maintainer reviews and merges a pull request and takes
+accountability for what is merged, and the squash-merge commit on `main` is
+their own, signed by GitHub. Line comments on a pull request are comments,
+so they keep their line.
 
 The procedure behind each step lives in the skills: `work-the-board` (and its
 `/board` alias), `design-slice`, `mockup`, `build-slice`, `merge-pr`,
