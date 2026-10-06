@@ -117,7 +117,9 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   its health, shield and scaling go out in `EnemyState`.
 - **Companion brains are Go sim code** (`internal/sim/brain.go`): `Think`
   turns a companion's view and orders into the same `Command` the keyboard
-  makes, pure and seeded, and `sim.Wing` flies a player's companions.
+  makes, pure and seeded, and `sim.Wing` flies a player's companions. The
+  view holds the enemy bullets the hub flies, which it dodges
+  (`internal/sim/dodge.go`, #249).
 - **Companions are the hub's seats** (`internal/game/companions.go`,
   `flight.go`): the server grants `Summon`, and a companion is then the seat
   `<playerId>/<n>`, flown by the hub at the sim's 60 Hz (three steps per hub
