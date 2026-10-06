@@ -55,6 +55,9 @@ type dreadnoughtFight struct {
 	dealt map[string]*dealing
 	// raid is the raid it's on, nil for the gate fight (#223).
 	raid *raid
+	// hpScale multiplies its maximum health; 0 means 1. Tests that measure
+	// a long fight raise it so it doesn't fall mid-measurement.
+	hpScale float64
 }
 
 // drivenOff reports whether a raiding Dreadnought has taken enough this
@@ -72,6 +75,10 @@ type dealing struct {
 
 // maxHP is its maximum health for the players online now.
 func (f *dreadnoughtFight) maxHP() float64 {
+	if f.hpScale > 0 {
+		return sim.DreadnoughtMaxHP(f.weight) * f.hpScale
+	}
+
 	return sim.DreadnoughtMaxHP(f.weight)
 }
 

@@ -153,6 +153,20 @@ func WithWokenThenLost(name string) HubOption {
 	}
 }
 
+// WithDreadnoughtHealthScale wakes the Dreadnought at the start with its
+// maximum health multiplied by scale, so a measuring fight outlasts it.
+func WithDreadnoughtHealthScale(scale float64) HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) {
+			h.wakeDreadnought()
+			if e, awake := h.enemies[h.dreadnoughtID]; awake {
+				e.dread.hpScale = scale
+				e.hp = e.dread.hp()
+			}
+		})
+	}
+}
+
 // WithDreadnoughtGarrisonOut wakes the Dreadnought at the start with its
 // sector's garrison on the field, killed of it destroyed already, as if it
 // was fought before the Dreadnought woke.

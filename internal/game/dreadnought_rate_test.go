@@ -18,6 +18,9 @@ const (
 	rateStandOff = 380
 	rateWingSize = 3
 	rateTicks    = rateMinutes * 60 * TickRate
+	// rateHealthScale gives the Dreadnought enough health to outlast the
+	// fight at any weapon and tier; the rate is per minute, whatever it has.
+	rateHealthScale = 10
 )
 
 // noGarrisons is a map whose sectors hold no garrison, so a companion's
@@ -89,7 +92,9 @@ func fightDreadnought(t *testing.T, weapon sim.WeaponID, tier sim.Tier) wingFigh
 	m := &world.Map{
 		Name: "rate", DreadnoughtAwake: true, NoEvents: true, Garrisons: noGarrisons(),
 	}
-	hub, tick := testHub(t, WithMap(m), WithPoolStart(rateWingSize))
+	hub, tick := testHub(
+		t, WithMap(m), WithPoolStart(rateWingSize), WithDreadnoughtHealthScale(rateHealthScale),
+	)
 	a, _ := joinWith(t, hub, "a", sim.Unlocks{sim.Part(weapon): tier})
 	chooseAndWait(t, a, "")
 	a.Send(state(0, sim.HomeSpawnY))
