@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 import { bakeGlow, double, type Pixels } from '../glow.ts';
-import { effectFiles } from '../sounds.ts';
 import { pieceFrames, type LayerLayout } from '../layers.ts';
+import { bootFiles, bootKeys } from '../preload.ts';
 import { glowSheets, keys, layerSheets, sheets, type GlowSheet } from '../sprites.ts';
 import { drawLayer } from './starlayer.ts';
 import {
@@ -47,14 +47,45 @@ function bakeSheet(source: CanvasImageSource, sheet: GlowSheet): { canvas: HTMLC
   return { canvas, frameWidth, frameHeight };
 }
 
-/** Loads every sprite sheet and creates its animation, then starts the sandbox. */
+/** What the boot scene needs from the page (#227). */
+export interface BootOptions {
+  /** A file's key and the fraction of it in so far, while it downloads. */
+  loading: (key: string, fraction: number) => void;
+  /** Each file's key once it has arrived, or failed. */
+  loaded: (key: string) => void;
+  /** Resolves with the player's token, or undefined to play alone, once the rules, the fonts and the name are in. */
+  go: Promise<string | undefined>;
+  /** The game scene, made once go resolves, since it needs the rules from its construction. */
+  game: () => Phaser.Scene;
+}
+
+/** Loads every sprite sheet and creates its animation, then starts the game scene. */
 export class BootScene extends Phaser.Scene {
-  constructor() {
+  private readonly options: BootOptions;
+
+  constructor(options: BootOptions) {
     super('boot');
+    this.options = options;
   }
 
   preload(): void {
-    for (const sheet of sheets()) {
+    const loaded = (file: Phaser.Loader.File): void => {
+      this.options.loaded(file.key);
+    };
+    // Only where the response gives its length; a compressed one counts its transferred bytes against it.
+    this.load.on(Phaser.Loader.Events.FILE_PROGRESS, (file: Phaser.Loader.File, fraction: number) => {
+      this.options.loading(file.key, fraction);
+    });
+    this.load.on(Phaser.Loader.Events.FILE_LOAD, loaded);
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, loaded);
+    // The loader skips a file it can't use, such as a sound where the browser has no audio.
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      for (const key of bootKeys()) {
+        this.options.loaded(key);
+      }
+    });
+    const files = bootFiles();
+    for (const sheet of files.sheets) {
       this.load.spritesheet(sheet.key, sheet.url, {
         frameWidth: sheet.frameWidth,
         frameHeight: sheet.frameHeight,
@@ -66,7 +97,7 @@ export class BootScene extends Phaser.Scene {
       this.load.image(layer.key, layer.url);
       this.load.json(keys.layerLayout(layer.key), layer.layoutUrl);
     }
-    for (const sound of effectFiles()) {
+    for (const sound of files.sounds) {
       this.load.audio(sound.key, sound.urls);
     }
   }
@@ -119,6 +150,11 @@ export class BootScene extends Phaser.Scene {
     }
     this.bakeEnemyFireGlow();
     this.cutLayers();
-    this.scene.start('sandbox');
+    void this.options.go.then((token) => {
+      // The registry carries the token even where the browser refuses storage.
+      this.registry.set('token', token);
+      this.scene.add('sandbox', this.options.game(), true);
+      this.scene.stop();
+    });
   }
 }

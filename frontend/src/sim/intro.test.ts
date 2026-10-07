@@ -64,6 +64,11 @@ test('the hint says how to open and close the screen on each device', () => {
   assert.match(lineText(introContent(true).hint), /Help.*tap beside it/);
 });
 
+test('while the game loads behind it, the hint leaves out Esc and a tap beside it', () => {
+  assert.equal(lineText(introContent(false, true).hint), 'F1 opens and closes this');
+  assert.equal(lineText(introContent(true, true).hint), 'Help, top left, opens this again');
+});
+
 test('the sectors and the five extras each get a line', () => {
   for (const touch of [false, true]) {
     const { sectors, extras } = introContent(touch);

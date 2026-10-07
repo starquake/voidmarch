@@ -12,6 +12,12 @@ board.
   into `internal/web/static/js`. The bundle is committed, so `go build` and
   the Docker image need no Node.js. Phaser is a separate vendor module
   (`js/vendor/phaser.js`), and the game bundle imports it as `./vendor/phaser.js`.
+  The page loads `js/entry.js` (`frontend/src/entry.ts`), which has no Phaser
+  or protobuf in it (the build refuses them): it shows the name screen or the
+  loading strip at once, then imports the game bundle, `main.js` (#227).
+  Its loading bar counts bytes: `make js` writes every boot file's size into
+  `frontend/src/bootsizes.gen.ts` after building `main.js`, and the entry
+  streams the game's modules itself before importing them.
 - **Game rules live once, in Go** (`internal/sim`, #13 decision 26): plain
   functions and data, unit-tested in Go. The server imports it natively. The
   browser runs its part (its own ship and the projectiles) as WebAssembly:
@@ -48,6 +54,7 @@ board.
 - **ASCII only in `.go` sources.** `make lint-ascii` fails on anything else.
 - **Never edit the bundle by hand.** `internal/web/static/js/` is build output
   of `make js`; `make js-check` fails when it is stale. The same goes for
+  `frontend/src/bootsizes.gen.ts` (`make js`, also run by `make wasm`), and for
   `internal/web/static/wasm/` and `frontend/src/sim/rules.gen.ts` (`make
   wasm`, checked by `make wasm-check`).
 - **Never `kill` a process you didn't start.** Ask first.

@@ -1,33 +1,68 @@
 import Phaser from 'phaser';
 
 import { deviceSize, renderRatio } from './display.ts';
-import { askName } from './name.ts';
+import type { FrontDoor } from './frontdoor.ts';
+import type { IntroScreen } from './introscreen.ts';
+import { orDownload } from './net/download.ts';
+import { FONTS } from './preload.ts';
 import { BootScene } from './scenes/boot.ts';
 import { SandboxScene } from './scenes/sandbox.ts';
-import { loadDisplaySettings, loadToken, saveToken } from './settings.ts';
+import { loadDisplaySettings } from './settings.ts';
 import { loadSim } from './simwasm.ts';
-import { FPS_CAP, HEADING_FONT_NAME, UI_FONT_NAME } from './sim/tuning.ts';
+import { RULES } from './sim/loading.ts';
+import { FPS_CAP } from './sim/tuning.ts';
 
-/** Asks for a name on the first visit, then starts the game with the player's token. */
-async function start(): Promise<void> {
-  let token = loadToken();
-  if (token === undefined) {
-    token = await askName();
-    if (token !== undefined) {
-      saveToken(token);
-    }
-  }
+/** What the entry module (entry.ts) hands over once the game's code is in. */
+export interface Handover {
+  /** The screens before the game, already showing. */
+  door: FrontDoor;
+  intro: IntroScreen;
+  /** Resolves with the player's token, or undefined to play alone, once past the name screen. */
+  token: Promise<string | undefined>;
+  /** The rules' module, downloading since the code came in; undefined if that failed. */
+  rules: Promise<Uint8Array<ArrayBuffer> | undefined>;
+}
 
-  // The rules run in WebAssembly (internal/sim); the scenes need them from their first frame.
+/**
+ * Starts loading behind the screens the entry module shows (#227): the rules,
+ * the fonts and the boot scene's files download while the player types a
+ * name, and the game starts once all of them and the name are in.
+ */
+export function start({ door, intro, token, rules }: Handover): void {
+  // The rules run in WebAssembly (internal/sim); the game scene needs them from its construction.
   // Phaser draws a text into its canvas once, so the fonts have to be loaded before the first one (#170);
   // if one fails, its text falls back to sans-serif.
-  await Promise.all([
-    loadSim('/static/wasm/sim.wasm'),
-    ...[UI_FONT_NAME, HEADING_FONT_NAME].map(async (name) => document.fonts.load(`16px '${name}'`).catch(() => [])),
+  const assets = Promise.all([
+    loadSim(
+      orDownload(rules, RULES.url, (bytes) => {
+        door.receive(RULES.key, bytes);
+      }),
+    ).then(() => {
+      door.loaded(RULES.key);
+    }),
+    ...FONTS.map(async (font) => {
+      await document.fonts.load(`16px '${font.name}'`).catch(() => []);
+      door.loaded(font.key);
+    }),
   ]);
-
   const display = loadDisplaySettings();
   const size = deviceSize(window.innerWidth, window.innerHeight, renderRatio(window.devicePixelRatio, display.cssPixels));
+  const boot = new BootScene({
+    loading: (key, fraction) => {
+      door.advance(key, fraction);
+    },
+    loaded: (key) => {
+      door.loaded(key);
+    },
+    go: Promise.all([assets, token]).then(([, t]) => t),
+    game: () =>
+      new SandboxScene({
+        intro,
+        ready: () => {
+          door.start();
+        },
+      }),
+  });
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
@@ -43,15 +78,9 @@ async function start(): Promise<void> {
       height: size.height,
       zoom: size.zoom,
     },
-    scene: [BootScene, SandboxScene],
+    scene: [boot],
     // V caps it at 60 (#143); 0 follows the display.
     fps: { limit: display.fpsCap ? FPS_CAP : 0 },
-    callbacks: {
-      // The registry carries the token even where the browser refuses storage.
-      preBoot: (game) => {
-        game.registry.set('token', token);
-      },
-    },
   });
   fitToWindow(game);
 }
@@ -78,5 +107,3 @@ function fitToWindow(game: Phaser.Game): void {
   };
   watchRatio();
 }
-
-void start();

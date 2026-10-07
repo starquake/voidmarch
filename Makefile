@@ -201,6 +201,8 @@ wasm: $(TINYGO_BIN) $(WASM_OPT) simgen ## Build the browser's sim into internal/
 	@mkdir -p $(WASM_OUT)
 	$(TINYGO) build $(SIM_WASM_FLAGS) -o $(WASM_OUT)/sim.wasm ./cmd/simwasm
 	cp $(TOOLCHAINS)/tinygo/targets/wasm_exec.js $(WASM_OUT)/wasm_exec.js
+	@# The loading bar's sizes (bootsizes.gen.ts, in entry.js) include sim.wasm's.
+	$(MAKE) js
 
 .PHONY: wasm-check
 wasm-check: $(TINYGO_BIN) $(WASM_OPT) ## Fail when the committed sim module or its generated TypeScript is stale
@@ -240,7 +242,7 @@ $(JS_DEPS): $(FRONTEND)/package.json $(FRONTEND)/package-lock.json
 	@touch $@
 
 .PHONY: js
-js: $(JS_DEPS) ## Bundle the client into internal/web/static/js
+js: $(JS_DEPS) ## Bundle the client into internal/web/static/js, and the boot files' sizes into frontend/src/bootsizes.gen.ts
 	cd $(FRONTEND) && npm run build
 
 .PHONY: js-watch
@@ -266,7 +268,7 @@ third-party-inputs: $(GO_LICENSES) $(JS_DEPS)
 		--template internal/thirdparty/report.tpl >$(THIRD_PARTY_DIR)/go.tsv 2>$(THIRD_PARTY_DIR)/go-licenses.log || \
 		{ cat $(THIRD_PARTY_DIR)/go-licenses.log; exit 1; }
 	@tmp=$$(mktemp -d); \
-	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp" --packages ../$(THIRD_PARTY_DIR)/packages.json) >/dev/null; \
+	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp/js" --sizes "$$tmp/bootsizes.gen.ts" --packages ../$(THIRD_PARTY_DIR)/packages.json) >/dev/null; \
 	rc=$$?; rm -rf "$$tmp"; exit $$rc
 
 .PHONY: third-party
@@ -280,10 +282,11 @@ third-party-check: third-party-inputs ## Fail when THIRD-PARTY.md is stale, or a
 	{ echo "THIRD-PARTY.md is stale: run make third-party"; exit 1; }
 
 .PHONY: js-check
-js-check: $(JS_DEPS) ## Fail when the committed bundle differs from a fresh build
+js-check: $(JS_DEPS) ## Fail when the committed bundle or the boot files' sizes differ from a fresh build
 	@tmp=$$(mktemp -d); \
-	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp") >/dev/null && \
-	diff -r "$$tmp" $(JS_OUT) || { echo "the committed bundle is stale: run make js"; rm -rf "$$tmp"; exit 1; }; \
+	(cd $(FRONTEND) && node build.mjs --outdir "$$tmp/js" --sizes "$$tmp/bootsizes.gen.ts") >/dev/null && \
+	diff -r "$$tmp/js" $(JS_OUT) && \
+	diff "$$tmp/bootsizes.gen.ts" $(FRONTEND)/src/bootsizes.gen.ts || { echo "the committed bundle is stale: run make js"; rm -rf "$$tmp"; exit 1; }; \
 	rm -rf "$$tmp"
 
 .PHONY: ts-check

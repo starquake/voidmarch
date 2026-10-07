@@ -713,17 +713,16 @@ export function isWeapon(kind: ProjectileKind): kind is WeaponId {
 let loaded: Sandbox | undefined;
 
 /**
- * Fetches and starts the sim once, with the Go runtime the page loaded
- * (wasm/wasm_exec.js defines Go), and returns the page's one Sandbox.
+ * Starts the sim from its module's bytes once, with the Go runtime the page
+ * loaded (wasm/wasm_exec.js defines Go), and returns the page's one Sandbox.
  */
-export async function loadSim(url: string): Promise<Sandbox> {
+export async function loadSim(body: Promise<Uint8Array<ArrayBuffer>>): Promise<Sandbox> {
   if (loaded === undefined) {
     const Go = (globalThis as unknown as { Go?: new () => GoRuntime }).Go;
     if (Go === undefined) {
       throw new Error('wasm_exec.js did not load: no Go runtime');
     }
-    const response = await fetch(url);
-    loaded = new Sandbox(await instantiate(await response.arrayBuffer(), new Go()));
+    loaded = new Sandbox(await instantiate(await body, new Go()));
   }
 
   return loaded;

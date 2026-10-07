@@ -29,7 +29,7 @@ fresh('a first visit shows the intro after the name screen, and Play closes it f
   await expect(intro).toBeHidden();
 });
 
-test('on a first visit with a squadron to join, the intro opens over the join screen, which waits behind it', async ({ page, browser, baseURL }) => {
+test('on a first visit with a squadron to join, the join screen waits hidden behind the intro', async ({ page, browser, baseURL }) => {
   test.setTimeout(60_000);
   await page.goto('/');
   await online(page);
@@ -48,10 +48,12 @@ test('on a first visit with a squadron to join, the intro opens over the join sc
     await online(newcomer);
     await expect.poll(async () => (await state(newcomer)).squadronScreen).toBe(true);
     expect((await state(newcomer)).introScreen).toBe(true);
+    await expect(newcomer.locator('#squadron-form'), 'one screen at a time (#227)').toBeHidden();
 
     // Enter plays, and doesn't join the squadron behind the screen.
     await newcomer.keyboard.press('Enter');
     await expect.poll(async () => (await state(newcomer)).introScreen).toBe(false);
+    await expect(newcomer.locator('#squadron-form')).toBeVisible();
     expect((await state(newcomer)).squadron).toBe('');
     // The join screen has the focus back: Enter joins the picked squadron.
     await newcomer.keyboard.press('Enter');

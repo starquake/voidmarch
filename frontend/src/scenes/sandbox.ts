@@ -19,13 +19,11 @@ import {
   loadAudioSettings,
   loadControlMode,
   loadDisplaySettings,
-  loadIntroSeen,
   loadToken,
   loadViewSettings,
   saveAudioSettings,
   saveControlMode,
   saveDisplaySettings,
-  saveIntroSeen,
   saveViewSettings,
   type AudioSettings,
   type DisplaySettings,
@@ -36,7 +34,7 @@ import { drawLayer } from './starlayer.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
-import { IntroScreen } from '../introscreen.ts';
+import type { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
 import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
@@ -220,6 +218,14 @@ interface Background {
   pieces: { sheet: string; layout: LayerLayout; texture: Phaser.Textures.DynamicTexture } | undefined;
 }
 
+/** What the game scene shares with the front door (#227). */
+export interface SandboxOptions {
+  /** The intro screen, which the front door opens on a first visit. */
+  intro: IntroScreen;
+  /** Runs once the scene is up. */
+  ready: () => void;
+}
+
 /** The single-player sandbox: fly, aim and shoot around the home planet. */
 export class SandboxScene extends Phaser.Scene {
   private readonly sim = sandbox();
@@ -245,14 +251,10 @@ export class SandboxScene extends Phaser.Scene {
     this.setOption(row.id);
   });
   private readonly squadronScreen = new SquadronScreen();
-  /** The intro screen (#193), on the first visit and from F1; it saves itself as seen when closed. */
-  private readonly introScreen = new IntroScreen(() => {
-    saveIntroSeen();
-    // On a first visit the join screen waited behind it; Enter joins again.
-    if (this.squadronScreen.open) {
-      this.squadronScreen.focusPick();
-    }
-  });
+  /** The intro screen (#193), from the first visit's front door (#227) and from F1. */
+  private readonly introScreen: IntroScreen;
+  /** Tells the front door the game is up. */
+  private readonly ready: () => void;
   /** The season so far on the join screen, and above the down panel while down or while Tab is held (#167). */
   private readonly standingsJoin = new StandingsPanel('#standings-join');
   private readonly standingsDown = new StandingsPanel('#standings-down');
@@ -318,8 +320,16 @@ export class SandboxScene extends Phaser.Scene {
   private orderPress: OrderPress | undefined;
   private lastOrder: OrderItem | undefined;
 
-  constructor() {
+  constructor(options: SandboxOptions) {
     super('sandbox');
+    this.introScreen = options.intro;
+    this.ready = options.ready;
+    this.introScreen.onClose(() => {
+      // On a first visit the join screen waited behind it; Enter joins again.
+      if (this.squadronScreen.open) {
+        this.squadronScreen.focusPick();
+      }
+    });
   }
 
   create(): void {
@@ -364,9 +374,6 @@ export class SandboxScene extends Phaser.Scene {
       this.resize();
     });
     this.startNetPlay();
-    if (!loadIntroSeen()) {
-      this.introScreen.show(this.touchOn);
-    }
 
     this.debug = {
       ready: true,
@@ -452,6 +459,7 @@ export class SandboxScene extends Phaser.Scene {
       squadronMode: undefined,
     };
     this.publish();
+    this.ready();
   }
 
   override update(time: number, deltaMs: number): void {

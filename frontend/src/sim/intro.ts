@@ -159,13 +159,22 @@ function extras(touch: boolean): Line[] {
   ];
 }
 
+/** How to open and close the screen; while the game loads behind it (#227), it closes only once that is done. */
+function hint(touch: boolean, loading: boolean): Line {
+  if (touch) {
+    return [key('Help'), plain(loading ? ', top left, opens this again' : ', top left, opens this again · tap beside it to close')];
+  }
+
+  return loading
+    ? [key('F1'), plain(' opens and closes this')]
+    : [key('F1'), plain(' opens and closes this · '), key('Esc'), plain(' closes · the world keeps playing behind it')];
+}
+
 /** The intro screen's content, with the controls of the device: keyboard and mouse, or touch (decision 6). */
-export function introContent(touch: boolean): IntroContent {
+export function introContent(touch: boolean, loading = false): IntroContent {
   return {
     premise: PREMISE,
-    hint: touch
-      ? [key('Help'), plain(', top left, opens this again · tap beside it to close')]
-      : [key('F1'), plain(' opens and closes this · '), key('Esc'), plain(' closes · the world keeps playing behind it')],
+    hint: hint(touch, loading),
     controls: touch ? [THUMBS, BUTTONS] : [KEYBOARD, MOUSE],
     sectors: SECTORS,
     extras: extras(touch),
