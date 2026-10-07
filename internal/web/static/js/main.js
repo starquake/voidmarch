@@ -393,6 +393,7 @@ var TELEPORT_WHITE = 14219519;
 var TELEPORT_SOUND_RANGE = 400;
 var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
 var PART_HOLD_MS = 250;
+var PART_LIST_IDLE_MS = 2e3;
 
 // src/sounds.ts
 var AUDIO = `${STATIC}audio`;
@@ -1853,6 +1854,82 @@ var SettingsScreen = class {
   }
 };
 
+// src/sim/partkeys.ts
+function stepIndex(index, by, count) {
+  return count === 0 ? 0 : ((index + by) % count + count) % count;
+}
+var PartKeys = class {
+  press;
+  list;
+  /** A part key goes down: the open list's key fits at once, and any other waits to tell a tap from a hold. */
+  down(slot, at2, open) {
+    this.see(open);
+    this.touch(at2, open);
+    if (this.list?.slot === slot) {
+      return [{ kind: "cycle", slot }];
+    }
+    this.press = { slot, at: at2, opened: false };
+    return [];
+  }
+  /** A part key comes up: a tap cycles, closing another slot's list, and a hold that no frame saw opens. */
+  up(slot, at2, open) {
+    this.see(open);
+    const press = this.press;
+    if (press?.slot !== slot) {
+      return [];
+    }
+    this.press = void 0;
+    if (press.opened) {
+      this.touch(at2, open);
+      return [];
+    }
+    if (at2 - press.at >= PART_HOLD_MS) {
+      this.list = { slot, at: at2, keyed: true };
+      return [{ kind: "open", slot }];
+    }
+    const closing = this.list !== void 0;
+    this.list = void 0;
+    return closing ? [{ kind: "cycle", slot }, { kind: "close" }] : [{ kind: "cycle", slot }];
+  }
+  /** Every frame: a key held long enough opens its list, once, and a list left alone long enough closes. */
+  tick(at2, open) {
+    this.see(open);
+    const press = this.press;
+    if (press !== void 0 && !press.opened && at2 - press.at >= PART_HOLD_MS) {
+      press.opened = true;
+      this.list = { slot: press.slot, at: at2, keyed: true };
+      return [{ kind: "open", slot: press.slot }];
+    }
+    const list = this.list;
+    const held = press?.opened === true && press.slot === list?.slot;
+    if (list?.keyed === true && !held && at2 - list.at >= PART_LIST_IDLE_MS) {
+      this.list = void 0;
+      return [{ kind: "close" }];
+    }
+    return [];
+  }
+  /** A key acted on the open list, an arrow or Enter: its idle time starts again. */
+  touch(at2, open) {
+    this.see(open);
+    if (this.list !== void 0) {
+      this.list.at = at2;
+      this.list.keyed = true;
+    }
+  }
+  /** Drops a pending press: the window lost focus, or a screen opened. */
+  cancel() {
+    this.press = void 0;
+  }
+  /** Follows the list that is open now, which the pointer may have opened, closed or moved. */
+  see(open) {
+    if (open === void 0) {
+      this.list = void 0;
+    } else if (this.list?.slot !== open) {
+      this.list = { slot: open, at: 0, keyed: false };
+    }
+  }
+};
+
 // src/hud.ts
 var ASSETS2 = `${STATIC}assets`;
 var TOAST_FADE_MS = 600;
@@ -1867,6 +1944,12 @@ var HudView = class _HudView {
   fit;
   /** The slot whose drop-up is open (#191). */
   open;
+  /** Whether the keys have the open drop-up, which then shows their highlight (#259). */
+  keyed = false;
+  /** The part the keys' highlight is on, or undefined to follow the fitted part. */
+  highlight;
+  /** The slots as last drawn, for the highlight to step through. */
+  slots = [];
   constructor(fit, doc = document) {
     this.fit = fit;
     this.root = doc.querySelector("#hud");
@@ -1898,6 +1981,33 @@ var HudView = class _HudView {
   /** Opens a slot's drop-up, as holding its key does (#259). */
   show(kind) {
     this.setOpen(kind);
+    this.keyed = true;
+  }
+  /** Moves the keys' highlight up (-1) or down (1) the open drop-up, wrapping round. */
+  moveHighlight(by) {
+    const slot = this.slots.find((s) => s.kind === this.open);
+    if (slot === void 0) {
+      return;
+    }
+    const parts = slot.options.map((o) => o.part);
+    const from = parts.indexOf(this.highlight ?? slot.part);
+    this.highlight = parts[stepIndex(Math.max(from, 0), by, parts.length)];
+    this.keyed = true;
+    this.gaugeKey = "";
+  }
+  /** Fits the highlighted part, and the highlight follows the fitted part again; the drop-up stays. */
+  fitHighlighted() {
+    const part = this.highlight;
+    this.followFitted();
+    if (this.open !== void 0 && part !== void 0) {
+      this.fit(this.open, part);
+    }
+  }
+  /** Puts the keys' highlight back on the fitted part, after a key fitted one. */
+  followFitted() {
+    this.highlight = void 0;
+    this.keyed = this.open !== void 0;
+    this.gaugeKey = "";
   }
   /** Closes the drop-up, if it's open. */
   close() {
@@ -1908,6 +2018,8 @@ var HudView = class _HudView {
       return;
     }
     this.open = kind;
+    this.keyed = false;
+    this.highlight = void 0;
     this.gaugeKey = "";
   }
   /** The panel's rows as "Label: value", for the E2E tests. */
@@ -1951,7 +2063,8 @@ var HudView = class _HudView {
     this.drawToasts(frame.toasts);
   }
   drawGauge(frame) {
-    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
+    this.slots = frame.slots;
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open, this.keyed, this.highlight]);
     if (this.gauge === null || key === this.gaugeKey) {
       return;
     }
@@ -2004,7 +2117,9 @@ var HudView = class _HudView {
     drop.append(title);
     for (const option of slot.options) {
       const row = doc.createElement("div");
-      row.className = option.part === slot.part ? "option fitted" : "option";
+      row.classList.add("option");
+      row.classList.toggle("fitted", option.part === slot.part);
+      row.classList.toggle("highlight", this.keyed && option.part === (this.highlight ?? slot.part));
       row.dataset.part = option.part;
       const text = doc.createElement("span");
       const name = doc.createElement("span");
@@ -2206,41 +2321,6 @@ function connectionToast(status) {
       return "Connecting";
   }
 }
-
-// src/sim/partkeys.ts
-var PartKeys = class {
-  press;
-  /** A part key goes down; the newest key down is the one that counts. */
-  down(slot, at2) {
-    this.press = { slot, at: at2, opened: false };
-    return [];
-  }
-  /** A part key comes up: a tap cycles, and a hold that no frame saw opens. */
-  up(slot, at2) {
-    const press = this.press;
-    if (press?.slot !== slot) {
-      return [];
-    }
-    this.press = void 0;
-    if (press.opened) {
-      return [];
-    }
-    return [at2 - press.at < PART_HOLD_MS ? { kind: "cycle", slot } : { kind: "open", slot }];
-  }
-  /** Every frame: a key held long enough opens its list, once. */
-  tick(at2) {
-    const press = this.press;
-    if (press === void 0 || press.opened || at2 - press.at < PART_HOLD_MS) {
-      return [];
-    }
-    press.opened = true;
-    return [{ kind: "open", slot: press.slot }];
-  }
-  /** Drops a pending press: the window lost focus, or a screen opened. */
-  cancel() {
-    this.press = void 0;
-  }
-};
 
 // src/sim/standings.ts
 var PERCENT = 100;
@@ -6905,6 +6985,7 @@ var PART_KEY_SLOTS = /* @__PURE__ */ new Map([
   ["Digit2", "engine"],
   ["Digit3", "shield"]
 ]);
+var LIST_KEYS = /* @__PURE__ */ new Set(["ArrowUp", "ArrowDown", "Enter"]);
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
 var ORDER_COLORS = { mode: 9427199, oneShot: 16769162 };
@@ -7459,6 +7540,8 @@ var SandboxScene = class extends Phaser14.Scene {
         this.introKey(event);
       } else if (this.hudView.dropOpen !== void 0 && event.code === "Escape") {
         this.hudView.close();
+      } else if (this.hudView.dropOpen !== void 0 && LIST_KEYS.has(event.code)) {
+        this.listKey(event);
       } else if (this.settingsScreen.open) {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
@@ -7481,7 +7564,7 @@ var SandboxScene = class extends Phaser14.Scene {
       } else if (event.code === "Escape") {
         this.openSettings();
       } else if (partSlot !== void 0) {
-        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp));
+        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp, this.hudView.dropOpen));
       } else {
         this.handleDebugKey(event.code);
       }
@@ -7495,7 +7578,7 @@ var SandboxScene = class extends Phaser14.Scene {
       } else if (slot !== void 0 && this.screenOpen) {
         this.partPress.cancel();
       } else if (slot !== void 0) {
-        this.runPartKeys(this.partPress.up(slot, event.timeStamp));
+        this.runPartKeys(this.partPress.up(slot, event.timeStamp, this.hudView.dropOpen));
       }
     };
     const onBlur = () => {
@@ -7793,19 +7876,39 @@ var SandboxScene = class extends Phaser14.Scene {
     if (this.screenOpen) {
       this.partPress.cancel();
     } else {
-      this.runPartKeys(this.partPress.tick(performance.now()));
+      this.runPartKeys(this.partPress.tick(performance.now(), this.hudView.dropOpen));
     }
   }
   /** Does what the part keys decided (#259). */
   runPartKeys(actions) {
     for (const action of actions) {
-      if (action.kind === "cycle") {
-        this.cyclePart(action.slot);
-      } else {
-        this.hudView.show(action.slot);
-        this.updateHud();
+      switch (action.kind) {
+        case "cycle":
+          this.cyclePart(action.slot);
+          this.hudView.followFitted();
+          break;
+        case "open":
+          this.hudView.show(action.slot);
+          break;
+        case "close":
+          this.hudView.close();
+          break;
       }
     }
+    if (actions.length > 0) {
+      this.updateHud();
+    }
+  }
+  /** Up, Down or Enter on an open drop-up (#259): move the keys' highlight, or fit the part it's on. */
+  listKey(event) {
+    event.preventDefault();
+    if (event.code === "Enter") {
+      this.hudView.fitHighlighted();
+    } else {
+      this.hudView.moveHighlight(event.code === "ArrowUp" ? -1 : 1);
+    }
+    this.partPress.touch(event.timeStamp, this.hudView.dropOpen);
+    this.updateHud();
   }
   /** Fits a slot's next part, as a tap of its key does (#191). */
   cyclePart(kind) {

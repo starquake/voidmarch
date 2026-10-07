@@ -927,6 +927,13 @@ body.touch {
   border-color: #fff08a;
 }
 
+/* The keys' highlight (#259): the open slot's yellow, outside the row's own border. */
+.hud-drop .option.highlight {
+  outline: 1px solid #fff08a;
+  outline-offset: 1px;
+  background: rgb(143 216 255 / 18%);
+}
+
 .hud-drop .option.fitted .name::after {
   content: " · fitted";
   color: #fff08a;

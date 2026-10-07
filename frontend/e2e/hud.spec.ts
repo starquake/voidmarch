@@ -106,6 +106,48 @@ test('a tap of 1 cycles the weapon on release, and a hold opens its drop-up with
   expect((await state(page)).loadout.weapon, 'a hold does not cycle').toBe(cycled);
 });
 
+test("while a held key's list is open, its taps fit the next part, the arrows and Enter pick, and Esc closes it (#259)", async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const drop = page.locator('#hud-gauge .hud-drop');
+  const fitted = drop.locator('.option.fitted');
+  const highlight = drop.locator('.option.highlight');
+
+  await page.keyboard.down('1');
+  await expect(drop).toBeVisible();
+  await page.keyboard.up('1');
+  const parts = await drop.locator('[data-part]').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.part ?? ''));
+  const at = (i: number): string => parts[((i % parts.length) + parts.length) % parts.length] ?? '';
+  const first = parts.indexOf((await state(page)).loadout.weapon);
+  await expect(highlight, 'the highlight starts on the fitted part').toHaveAttribute('data-part', at(first));
+
+  await page.keyboard.press('1');
+  await expect(fitted, 'a tap fits the next part at once').toHaveAttribute('data-part', at(first + 1));
+  await expect(highlight, 'and the highlight follows it').toHaveAttribute('data-part', at(first + 1));
+  await page.keyboard.press('1');
+  await expect(fitted).toHaveAttribute('data-part', at(first + 2));
+  await expect(drop, 'the list stays').toBeVisible();
+
+  await page.keyboard.press('ArrowDown');
+  await expect(highlight).toHaveAttribute('data-part', at(first + 3));
+  await expect(fitted, 'an arrow only moves the highlight').toHaveAttribute('data-part', at(first + 2));
+  await page.keyboard.press('Enter');
+  await expect(fitted, 'Enter fits the highlighted part').toHaveAttribute('data-part', at(first + 3));
+  await expect.poll(async () => (await state(page)).loadout.weapon).toBe(at(first + 3));
+  await expect(drop, 'the list stays after Enter').toBeVisible();
+
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect(highlight, 'the highlight wraps round').toHaveAttribute('data-part', at(first + 5));
+  await page.keyboard.press('ArrowUp');
+  await expect(highlight).toHaveAttribute('data-part', at(first + 4));
+
+  await page.keyboard.press('Escape');
+  await expect(drop, 'Esc closes it at once').toHaveCount(0);
+  expect((await state(page)).settingsScreen, 'Esc closed the list, not opened the settings').toBe(false);
+  expect((await state(page)).loadout.weapon, 'closing fits nothing').toBe(at(first + 3));
+});
+
 test('a newly fitted weapon waits out the swap before it fires (#191)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');

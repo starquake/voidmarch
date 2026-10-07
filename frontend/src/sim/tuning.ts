@@ -218,3 +218,5 @@ export const TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
 
 /** Holding 1, 2 or 3 this long opens that slot's list instead of cycling it (#259). */
 export const PART_HOLD_MS = 250;
+/** A part list the keys opened or moved closes after this long without a key press (#259). */
+export const PART_LIST_IDLE_MS = 2000;

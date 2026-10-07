@@ -163,6 +163,8 @@ const PART_KEY_SLOTS: ReadonlyMap<string, SlotKind> = new Map([
   ['Digit2', 'engine'],
   ['Digit3', 'shield'],
 ]);
+/** The keys an open drop-up takes: the highlight's arrows, and Enter to fit (#259). */
+const LIST_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'Enter']);
 /** The order ring's height radius and its dead center, in CSS pixels. */
 const ORDER_RING_PX = 88;
 const ORDER_DEAD_ZONE_PX = 24;
@@ -814,6 +816,8 @@ export class SandboxScene extends Phaser.Scene {
         this.introKey(event);
       } else if (this.hudView.dropOpen !== undefined && event.code === 'Escape') {
         this.hudView.close();
+      } else if (this.hudView.dropOpen !== undefined && LIST_KEYS.has(event.code)) {
+        this.listKey(event);
       } else if (this.settingsScreen.open) {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
@@ -837,7 +841,7 @@ export class SandboxScene extends Phaser.Scene {
         this.openSettings();
       } else if (partSlot !== undefined) {
         // The events' own times: a key-up that waited behind a slow frame is still a tap.
-        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp));
+        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp, this.hudView.dropOpen));
       } else {
         this.handleDebugKey(event.code);
       }
@@ -851,7 +855,7 @@ export class SandboxScene extends Phaser.Scene {
       } else if (slot !== undefined && this.screenOpen) {
         this.partPress.cancel();
       } else if (slot !== undefined) {
-        this.runPartKeys(this.partPress.up(slot, event.timeStamp));
+        this.runPartKeys(this.partPress.up(slot, event.timeStamp, this.hudView.dropOpen));
       }
     };
     // Letting go of Q or a part key in another window never reaches us: drop the press unused.
@@ -1177,20 +1181,41 @@ export class SandboxScene extends Phaser.Scene {
     if (this.screenOpen) {
       this.partPress.cancel();
     } else {
-      this.runPartKeys(this.partPress.tick(performance.now()));
+      this.runPartKeys(this.partPress.tick(performance.now(), this.hudView.dropOpen));
     }
   }
 
   /** Does what the part keys decided (#259). */
   private runPartKeys(actions: readonly PartKeyAction<SlotKind>[]): void {
     for (const action of actions) {
-      if (action.kind === 'cycle') {
-        this.cyclePart(action.slot);
-      } else {
-        this.hudView.show(action.slot);
-        this.updateHud();
+      switch (action.kind) {
+        case 'cycle':
+          this.cyclePart(action.slot);
+          this.hudView.followFitted();
+          break;
+        case 'open':
+          this.hudView.show(action.slot);
+          break;
+        case 'close':
+          this.hudView.close();
+          break;
       }
     }
+    if (actions.length > 0) {
+      this.updateHud();
+    }
+  }
+
+  /** Up, Down or Enter on an open drop-up (#259): move the keys' highlight, or fit the part it's on. */
+  private listKey(event: KeyboardEvent): void {
+    event.preventDefault();
+    if (event.code === 'Enter') {
+      this.hudView.fitHighlighted();
+    } else {
+      this.hudView.moveHighlight(event.code === 'ArrowUp' ? -1 : 1);
+    }
+    this.partPress.touch(event.timeStamp, this.hudView.dropOpen);
+    this.updateHud();
   }
 
   /** Fits a slot's next part, as a tap of its key does (#191). */
