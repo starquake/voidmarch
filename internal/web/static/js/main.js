@@ -1,5 +1,5 @@
 // src/main.ts
-import Phaser14 from "./vendor/phaser.js";
+import Phaser15 from "./vendor/phaser.js";
 
 // src/display.ts
 function deviceSize(cssWidth, cssHeight, devicePixelRatio) {
@@ -886,7 +886,7 @@ function bootKeys() {
 }
 
 // src/scenes/boot.ts
-import Phaser from "./vendor/phaser.js";
+import Phaser2 from "./vendor/phaser.js";
 
 // src/glow.ts
 var CHANNELS = 4;
@@ -968,6 +968,25 @@ function stamps(layout, frame) {
   return layout.pieces.map((p, i) => ({ name: frameName(i, frame % p.frames), x: p.x, y: p.y }));
 }
 
+// src/scenes/dynamictexture.ts
+import Phaser from "./vendor/phaser.js";
+function addDynamicTexture(textures, key, width, height) {
+  const renderer = textures.game.renderer;
+  const before = new Set(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer.glTextureWrappers : []);
+  const texture = textures.addDynamicTexture(key, width, height);
+  if (texture === null) {
+    return null;
+  }
+  if (!(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
+    return { texture, glTextures: 0 };
+  }
+  const used = /* @__PURE__ */ new Set([texture.drawingContext.texture, ...texture.source.map((source) => source.glTexture)]);
+  for (const wrapper of renderer.glTextureWrappers.filter((made) => !before.has(made) && !used.has(made))) {
+    renderer.deleteTexture(wrapper);
+  }
+  return { texture, glTextures: renderer.glTextureWrappers.filter((wrapper) => !before.has(wrapper)).length };
+}
+
 // src/scenes/starlayer.ts
 function drawLayer(texture, sheet, layout, frame) {
   texture.clear();
@@ -1008,7 +1027,7 @@ function bakeSheet(source, sheet) {
   });
   return { canvas, frameWidth, frameHeight };
 }
-var BootScene = class extends Phaser.Scene {
+var BootScene = class extends Phaser2.Scene {
   options;
   constructor(options) {
     super("boot");
@@ -1018,12 +1037,12 @@ var BootScene = class extends Phaser.Scene {
     const loaded2 = (file) => {
       this.options.loaded(file.key);
     };
-    this.load.on(Phaser.Loader.Events.FILE_PROGRESS, (file, fraction) => {
+    this.load.on(Phaser2.Loader.Events.FILE_PROGRESS, (file, fraction) => {
       this.options.loading(file.key, fraction);
     });
-    this.load.on(Phaser.Loader.Events.FILE_LOAD, loaded2);
-    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, loaded2);
-    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+    this.load.on(Phaser2.Loader.Events.FILE_LOAD, loaded2);
+    this.load.on(Phaser2.Loader.Events.FILE_LOAD_ERROR, loaded2);
+    this.load.once(Phaser2.Loader.Events.COMPLETE, () => {
       for (const key of bootKeys()) {
         this.options.loaded(key);
       }
@@ -1064,19 +1083,25 @@ var BootScene = class extends Phaser.Scene {
       });
     }
   }
-  /** Names each stars layer's pieces in its sheet, and makes the texture its frames are drawn into (#222). */
+  /**
+   * Names each stars layer's pieces in its sheet, and makes the texture its frames are drawn into (#222).
+   * The registry's `layerTextures` says how many WebGL textures each holds (#260).
+   */
   cutLayers() {
+    const glTextures = [];
     for (const layer of layerSheets()) {
       const layout = this.cache.json.get(keys.layerLayout(layer.key));
       const sheet = this.textures.get(layer.key);
       for (const frame of pieceFrames(layout)) {
         sheet.add(frame.name, 0, frame.x, frame.y, frame.width, frame.height);
       }
-      const texture = this.textures.addDynamicTexture(keys.layerFrame(layer.key), layout.width, layout.height);
-      if (texture !== null) {
-        drawLayer(texture, layer.key, layout, 0);
+      const made = addDynamicTexture(this.textures, keys.layerFrame(layer.key), layout.width, layout.height);
+      if (made !== null) {
+        drawLayer(made.texture, layer.key, layout, 0);
+        glTextures.push(made.glTextures);
       }
     }
+    this.registry.set("layerTextures", glTextures);
   }
   create() {
     for (const sheet of sheets()) {
@@ -1100,7 +1125,7 @@ var BootScene = class extends Phaser.Scene {
 };
 
 // src/scenes/sandbox.ts
-import Phaser13 from "./vendor/phaser.js";
+import Phaser14 from "./vendor/phaser.js";
 
 // src/background.ts
 var BACKGROUND_INTERVAL_MS = 50;
@@ -3839,7 +3864,7 @@ function bossBar(bosses, x, y) {
 }
 
 // src/scenes/audio.ts
-import Phaser3 from "./vendor/phaser.js";
+import Phaser4 from "./vendor/phaser.js";
 
 // src/mix.ts
 var ENGINE_IDLE_VOLUME = 0.12;
@@ -3935,10 +3960,10 @@ var ShipAudio = class {
   /** Which sound backend Phaser picked for this browser. */
   get backend() {
     const sound = this.scene.sound;
-    if (sound instanceof Phaser3.Sound.WebAudioSoundManager) {
+    if (sound instanceof Phaser4.Sound.WebAudioSoundManager) {
       return "webaudio";
     }
-    return sound instanceof Phaser3.Sound.HTML5AudioSoundManager ? "html5" : "none";
+    return sound instanceof Phaser4.Sound.HTML5AudioSoundManager ? "html5" : "none";
   }
   /** The key of the playing track, or null. */
   get playingMusic() {
@@ -4077,9 +4102,9 @@ var ShipAudio = class {
     const loaded2 = () => {
       this.playMusic();
     };
-    loader.on(Phaser3.Loader.Events.FILE_COMPLETE, loaded2);
-    loader.once(Phaser3.Loader.Events.COMPLETE, () => {
-      loader.off(Phaser3.Loader.Events.FILE_COMPLETE, loaded2);
+    loader.on(Phaser4.Loader.Events.FILE_COMPLETE, loaded2);
+    loader.once(Phaser4.Loader.Events.COMPLETE, () => {
+      loader.off(Phaser4.Loader.Events.FILE_COMPLETE, loaded2);
       this.musicLoaded = true;
       this.playMusic();
     });
@@ -4092,7 +4117,7 @@ var ShipAudio = class {
     if (this.scene.sound.locked) {
       if (!this.awaitingUnlock) {
         this.awaitingUnlock = true;
-        this.scene.sound.once(Phaser3.Sound.Events.UNLOCKED, () => {
+        this.scene.sound.once(Phaser4.Sound.Events.UNLOCKED, () => {
           this.awaitingUnlock = false;
           this.playMusic();
         });
@@ -4220,7 +4245,7 @@ var BossBarView = class {
 };
 
 // src/scenes/fieldglow.ts
-import Phaser5 from "./vendor/phaser.js";
+import Phaser6 from "./vendor/phaser.js";
 var DOT_KEY = "field-dot";
 var FieldGlow = class {
   scene;
@@ -4240,7 +4265,7 @@ var FieldGlow = class {
       canvas.width = size;
       canvas.height = size;
       canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(data), size, size), 0, 0);
-      scene.textures.addCanvas(DOT_KEY, canvas)?.setFilter(Phaser5.Textures.FilterMode.LINEAR);
+      scene.textures.addCanvas(DOT_KEY, canvas)?.setFilter(Phaser6.Textures.FilterMode.LINEAR);
     }
   }
   /** Starts a frame's dots. */
@@ -4251,7 +4276,7 @@ var FieldGlow = class {
   add(x, y, scale, color, alpha) {
     let dot = this.dots[this.used];
     if (dot === void 0) {
-      dot = new Phaser5.GameObjects.Image(this.scene, 0, 0, DOT_KEY).setBlendMode(Phaser5.BlendModes.ADD);
+      dot = new Phaser6.GameObjects.Image(this.scene, 0, 0, DOT_KEY).setBlendMode(Phaser6.BlendModes.ADD);
       this.layer.addAt(dot, this.layer.getIndex(this.below));
       this.dots.push(dot);
     }
@@ -4639,10 +4664,10 @@ var TimedQueue = class {
 };
 
 // src/scenes/enemyview.ts
-import Phaser8 from "./vendor/phaser.js";
+import Phaser9 from "./vendor/phaser.js";
 
 // src/scenes/shipview.ts
-import Phaser6 from "./vendor/phaser.js";
+import Phaser7 from "./vendor/phaser.js";
 var SPRITE_FACING = Math.PI / 2;
 var HIT_FLASH_MS = 70;
 var LABEL_OFFSET = 26;
@@ -4722,7 +4747,7 @@ var ShipView = class {
   setTint(color) {
     this.tint = color;
     for (const part of [this.engine, this.flame, this.hull, this.weapon, this.shield]) {
-      part.setTint(color).setTintMode(Phaser6.TintModes.MULTIPLY);
+      part.setTint(color).setTintMode(Phaser7.TintModes.MULTIPLY);
     }
   }
   /** Fits the parts; unchanged parts keep their animation running. */
@@ -4745,7 +4770,7 @@ var ShipView = class {
   }
   /** A part's own tint: the owner's color for a companion, else its tier's (#77, decision 12). */
   restoreTint(part) {
-    part.setTintMode(Phaser6.TintModes.MULTIPLY);
+    part.setTintMode(Phaser7.TintModes.MULTIPLY);
     const l = this.loadout;
     const tier = l === void 0 ? 0 : part === this.weapon ? l.weaponTier : part === this.engine ? l.engineTier : part === this.shield ? l.shieldTier : 0;
     const color = this.tint ?? tierColor(tier);
@@ -4839,7 +4864,7 @@ var ShipView = class {
   }
   /** A short white flash of a part; the shield then shows only while charged. */
   flash(part) {
-    part.setVisible(true).setTint(16777215).setTintMode(Phaser6.TintModes.FILL);
+    part.setVisible(true).setTint(16777215).setTintMode(Phaser7.TintModes.FILL);
     this.scene.time.delayedCall(HIT_FLASH_MS, () => {
       this.restoreTint(part);
       if (part === this.shield) {
@@ -4860,7 +4885,7 @@ function drawReviveBar(bar, fill) {
 }
 
 // src/scenes/teleportview.ts
-import Phaser7 from "./vendor/phaser.js";
+import Phaser8 from "./vendor/phaser.js";
 
 // src/sim/teleport.ts
 var TELEPORT_DURATION_S = TELEPORT_CLOSE_S + TELEPORT_HOLD_S + TELEPORT_SHRINK_S + TELEPORT_FLASH_S;
@@ -4910,9 +4935,9 @@ var TeleportEffect = class {
   constructor(scene, layer, x, y, rotation, now2, size) {
     this.start = now2;
     this.size = size;
-    this.shield = scene.add.sprite(x, y, keys.shield("invincibility")).setRotation(rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser7.TintModes.FILL).setBlendMode(Phaser7.BlendModes.ADD);
+    this.shield = scene.add.sprite(x, y, keys.shield("invincibility")).setRotation(rotation).setTint(TELEPORT_COLOR).setTintMode(Phaser8.TintModes.FILL).setBlendMode(Phaser8.BlendModes.ADD);
     this.shield.play(keys.shield("invincibility"));
-    this.flash = scene.add.graphics().setPosition(x, y).setBlendMode(Phaser7.BlendModes.ADD);
+    this.flash = scene.add.graphics().setPosition(x, y).setBlendMode(Phaser8.BlendModes.ADD);
     layer.add([this.shield, this.flash]);
   }
   /** Draws the shield and flash at now, in seconds, and returns the frame, for the hull to follow. */
@@ -4960,7 +4985,7 @@ var EnemyView = class {
     const parts = [engine, this.base];
     if (scene.textures.exists(keys.enemyWeapons(faction, kind))) {
       const weapon = scene.add.sprite(0, 0, keys.enemyWeapons(faction, kind), 0);
-      weapon.on(Phaser8.Animations.Events.ANIMATION_COMPLETE, () => {
+      weapon.on(Phaser9.Animations.Events.ANIMATION_COMPLETE, () => {
         weapon.setFrame(0);
       });
       this.weapon = weapon;
@@ -4996,16 +5021,16 @@ var EnemyView = class {
       this.weapon.play(keys.enemyWeapons(this.faction, this.kind));
       return;
     }
-    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser8.TintModes.ADD);
+    this.base.setTint(BOMBER_WARN_TINT).setTintMode(Phaser9.TintModes.ADD);
     this.scene.time.delayedCall(ms, () => {
-      this.base.clearTint().setTintMode(Phaser8.TintModes.MULTIPLY);
+      this.base.clearTint().setTintMode(Phaser9.TintModes.MULTIPLY);
     });
   }
   /** A short white flash where a shot landed. */
   flash() {
-    this.base.setTint(16777215).setTintMode(Phaser8.TintModes.FILL);
+    this.base.setTint(16777215).setTintMode(Phaser9.TintModes.FILL);
     this.scene.time.delayedCall(FLASH_MS, () => {
-      this.base.clearTint().setTintMode(Phaser8.TintModes.MULTIPLY);
+      this.base.clearTint().setTintMode(Phaser9.TintModes.MULTIPLY);
     });
   }
   /** Starts teleporting out at now, in seconds (#223): the derelict's teleport (#190), size times as big. */
@@ -5024,7 +5049,7 @@ var EnemyView = class {
       return false;
     }
     if (f.white) {
-      this.base.setTint(TELEPORT_WHITE).setTintMode(Phaser8.TintModes.FILL);
+      this.base.setTint(TELEPORT_WHITE).setTintMode(Phaser9.TintModes.FILL);
     }
     this.root.setScale(f.hullScale).setVisible(f.hullScale > 0);
     return f.done;
@@ -5040,7 +5065,7 @@ var EnemyView = class {
     const boom = this.scene.add.sprite(this.root.x, this.root.y, keys.enemyDestruction(this.faction, this.kind)).setRotation(this.root.rotation);
     this.root.parentContainer.add(boom);
     this.root.destroy();
-    boom.once(Phaser8.Animations.Events.ANIMATION_COMPLETE, () => {
+    boom.once(Phaser9.Animations.Events.ANIMATION_COMPLETE, () => {
       boom.destroy();
     });
     boom.play(keys.enemyDestruction(this.faction, this.kind));
@@ -5048,7 +5073,7 @@ var EnemyView = class {
 };
 
 // src/scenes/derelictview.ts
-import Phaser9 from "./vendor/phaser.js";
+import Phaser10 from "./vendor/phaser.js";
 var DERELICT_TINT = 9080729;
 var DERELICT_HELD_TINT = 4869724;
 var DerelictView = class {
@@ -5062,7 +5087,7 @@ var DerelictView = class {
   constructor(scene, layer, x, y, angle, resolution) {
     this.scene = scene;
     this.layer = layer;
-    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser9.TintModes.MULTIPLY);
+    this.hull = scene.add.image(x, y, keys.hull("veryDamaged")).setRotation(angle + SPRITE_FACING).setTint(DERELICT_TINT).setTintMode(Phaser10.TintModes.MULTIPLY);
     this.label = scene.add.text(x, y, "", { fontFamily: UI_FONT, fontSize: "8px", color: DOWN_COLOR, resolution }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0);
     this.bar = scene.add.graphics();
     this.place(x, y);
@@ -5114,7 +5139,7 @@ var DerelictView = class {
       return false;
     }
     if (f.white) {
-      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser9.TintModes.FILL);
+      this.hull.setTint(TELEPORT_WHITE).setTintMode(Phaser10.TintModes.FILL);
     }
     this.hull.setScale(f.hullScale).setVisible(f.hullScale > 0);
     return f.done;
@@ -6395,7 +6420,7 @@ var PickupsView = class {
 };
 
 // src/scenes/resample.ts
-import Phaser11 from "./vendor/phaser.js";
+import Phaser12 from "./vendor/phaser.js";
 var RESAMPLE_NODE = "FilterResample";
 var FRAGMENT = [
   "#pragma phaserTemplate(shaderName)",
@@ -6421,14 +6446,14 @@ var FRAGMENT = [
   "    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);",
   "}"
 ].join("\n");
-var Resample = class extends Phaser11.Filters.Controller {
+var Resample = class extends Phaser12.Filters.Controller {
   scale;
   constructor(camera, scale) {
     super(camera, RESAMPLE_NODE);
     this.scale = scale;
   }
 };
-var ResampleNode = class extends Phaser11.Renderer.WebGL.RenderNodes.BaseFilterShader {
+var ResampleNode = class extends Phaser12.Renderer.WebGL.RenderNodes.BaseFilterShader {
   inputSize = [1, 1];
   constructor(manager) {
     super(RESAMPLE_NODE, manager, void 0, FRAGMENT);
@@ -6440,7 +6465,7 @@ var ResampleNode = class extends Phaser11.Renderer.WebGL.RenderNodes.BaseFilterS
       Math.max(1, Math.round(inputDrawingContext.width * scale)),
       Math.max(1, Math.round(inputDrawingContext.height * scale))
     );
-    return super.run(controller, inputDrawingContext, output, new Phaser11.Geom.Rectangle());
+    return super.run(controller, inputDrawingContext, output, new Phaser12.Geom.Rectangle());
   }
   setupUniforms() {
     this.programManager.setUniform("inputSize", this.inputSize);
@@ -6522,7 +6547,7 @@ var TouchView = class {
 };
 
 // src/scenes/blend.ts
-import Phaser12 from "./vendor/phaser.js";
+import Phaser13 from "./vendor/phaser.js";
 var FRAGMENT2 = [
   "#pragma phaserTemplate(shaderName)",
   "precision mediump float;",
@@ -6547,12 +6572,12 @@ var FRAGMENT2 = [
   "}"
 ].join("\n");
 function modeOf(blendMode) {
-  if (blendMode === Phaser12.BlendModes.COPY) {
+  if (blendMode === Phaser13.BlendModes.COPY) {
     return 2;
   }
-  return blendMode === Phaser12.BlendModes.ADD ? 1 : 0;
+  return blendMode === Phaser13.BlendModes.ADD ? 1 : 0;
 }
-var SmallBlendNode = class extends Phaser12.Renderer.WebGL.RenderNodes.BaseFilterShader {
+var SmallBlendNode = class extends Phaser13.Renderer.WebGL.RenderNodes.BaseFilterShader {
   constructor(manager) {
     super("FilterBlend", manager, void 0, FRAGMENT2);
   }
@@ -6682,7 +6707,7 @@ function destroyRing(press) {
   }
   press.backdrop?.destroy();
 }
-var SandboxScene = class extends Phaser13.Scene {
+var SandboxScene = class extends Phaser14.Scene {
   sim = sandbox();
   world;
   backgrounds = [];
@@ -6821,11 +6846,11 @@ var SandboxScene = class extends Phaser13.Scene {
     }
     if (asked.get("diag") === "1") {
       const renderer = this.renderer;
-      this.diagnostics = new Diagnostics(renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
+      this.diagnostics = new Diagnostics(renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
     }
     this.applyLoadout();
     this.resize();
-    this.scale.on(Phaser13.Scale.Events.RESIZE, () => {
+    this.scale.on(Phaser14.Scale.Events.RESIZE, () => {
       this.resize();
     });
     this.startNetPlay();
@@ -6848,6 +6873,7 @@ var SandboxScene = class extends Phaser13.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      layerTextures: this.registry.get("layerTextures") ?? [],
       frameMs: { average: 0, worst: 0 },
       fpsCap: false,
       cssPixels: false,
@@ -7013,7 +7039,7 @@ var SandboxScene = class extends Phaser13.Scene {
     this.backgrounds = keys.background.map((key, i) => {
       const layout = this.cache.json.get(keys.layerLayout(key));
       const texture = layout === void 0 ? void 0 : this.textures.get(keys.layerFrame(key));
-      const pieces = layout !== void 0 && texture instanceof Phaser13.Textures.DynamicTexture ? { sheet: key, layout, texture } : void 0;
+      const pieces = layout !== void 0 && texture instanceof Phaser14.Textures.DynamicTexture ? { sheet: key, layout, texture } : void 0;
       const sprite = (pieces === void 0 ? this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, key, 0) : this.add.tileSprite(0, 0, VIEW_WIDTH, VIEW_HEIGHT, pieces.texture)).setScrollFactor(0);
       this.world.add(sprite);
       return { sprite, factor: PARALLAX[i] ?? 0, pieces };
@@ -7024,7 +7050,7 @@ var SandboxScene = class extends Phaser13.Scene {
     this.world.add(this.sectorLines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
-    this.fieldLayer = this.add.graphics().setBlendMode(Phaser13.BlendModes.ADD);
+    this.fieldLayer = this.add.graphics().setBlendMode(Phaser14.BlendModes.ADD);
     this.world.add(this.fieldLayer);
     this.fieldGlow = new FieldGlow(this, this.world, this.fieldLayer);
     for (const rock of asteroidField()) {
@@ -7056,7 +7082,7 @@ var SandboxScene = class extends Phaser13.Scene {
       pickups: this.pickups
     });
     this.net.start();
-    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => this.net?.stop());
+    this.events.once(Phaser14.Scenes.Events.SHUTDOWN, () => this.net?.stop());
     const background = new BackgroundTicker(
       (deltaMs) => {
         this.stepHidden(deltaMs);
@@ -7066,7 +7092,7 @@ var SandboxScene = class extends Phaser13.Scene {
       () => performance.now()
     );
     background.start();
-    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser14.Scenes.Events.SHUTDOWN, () => {
       background.stop();
     });
   }
@@ -7099,7 +7125,7 @@ var SandboxScene = class extends Phaser13.Scene {
       speed: { min: 10, max: 40 },
       scale: { start: 0.35, end: 0 },
       alpha: { start: 0.9, end: 0 },
-      blendMode: Phaser13.BlendModes.ADD,
+      blendMode: Phaser14.BlendModes.ADD,
       emitting: false
     });
     this.puff = this.add.particles(0, 0, keys.projectile("bigSpaceGun"), {
@@ -7108,7 +7134,7 @@ var SandboxScene = class extends Phaser13.Scene {
       speed: { min: 15, max: 60 },
       scale: { start: 0.4, end: 0 },
       alpha: { start: 0.8, end: 0 },
-      blendMode: Phaser13.BlendModes.ADD,
+      blendMode: Phaser14.BlendModes.ADD,
       emitting: false
     });
     this.world.add([this.muzzleFlash, this.puff]);
@@ -7118,7 +7144,7 @@ var SandboxScene = class extends Phaser13.Scene {
    * blur at half the screen's size between two smooth resamples (#143).
    */
   createBloom(main) {
-    if (!(this.renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer)) {
+    if (!(this.renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     registerResample(this.renderer);
@@ -7128,7 +7154,7 @@ var SandboxScene = class extends Phaser13.Scene {
     bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
     bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
-    bloom.blend.blendMode = Phaser13.BlendModes.ADD;
+    bloom.blend.blendMode = Phaser14.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
   }
@@ -7142,7 +7168,7 @@ var SandboxScene = class extends Phaser13.Scene {
       canvas.width = VIGNETTE_SIZE;
       canvas.height = VIGNETTE_SIZE;
       canvas.getContext("2d")?.putImageData(new ImageData(new Uint8ClampedArray(vignetteImage(VIGNETTE_SIZE, VIGNETTE)), VIGNETTE_SIZE, VIGNETTE_SIZE), 0, 0);
-      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser13.Textures.FilterMode.LINEAR);
+      this.textures.addCanvas(VIGNETTE_KEY, canvas)?.setFilter(Phaser14.Textures.FilterMode.LINEAR);
     }
     return this.add.image(0, 0, VIGNETTE_KEY).setOrigin(0, 0);
   }
@@ -7186,7 +7212,7 @@ var SandboxScene = class extends Phaser13.Scene {
     if (keyboard === null) {
       throw new Error("keyboard input is disabled");
     }
-    const codes = Phaser13.Input.Keyboard.KeyCodes;
+    const codes = Phaser14.Input.Keyboard.KeyCodes;
     this.moveKeys = {
       up: keyboard.addKey(codes.W),
       down: keyboard.addKey(codes.S),
@@ -7244,7 +7270,7 @@ var SandboxScene = class extends Phaser13.Scene {
       this.closeOrderRing();
       this.standingsHeld = false;
     };
-    this.input.on(Phaser13.Input.Events.POINTER_DOWN, (pointer) => {
+    this.input.on(Phaser14.Input.Events.POINTER_DOWN, (pointer) => {
       if (this.touchOn) {
         return;
       }
@@ -7256,7 +7282,7 @@ var SandboxScene = class extends Phaser13.Scene {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
-    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser14.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
@@ -7666,11 +7692,11 @@ ${modeName(info)}`,
     }
     const n = ORDER_ITEMS.length;
     const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser13.Math.Vector2(cx, cy)];
+    const points = [new Phaser14.Math.Vector2(cx, cy)];
     const steps = 8;
     for (let k = 0; k <= steps; k++) {
       const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser13.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+      points.push(new Phaser14.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
     }
     g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
   }
@@ -7821,7 +7847,7 @@ ${modeName(info)}`,
       this.victoryScreen.hide();
     };
     victory?.addEventListener("click", closeVictory);
-    this.events.once(Phaser13.Scenes.Events.SHUTDOWN, () => {
+    this.events.once(Phaser14.Scenes.Events.SHUTDOWN, () => {
       canvas.removeEventListener("touchstart", onStart);
       canvas.removeEventListener("touchmove", onMove);
       canvas.removeEventListener("touchend", onEnd);
@@ -8167,7 +8193,7 @@ ${modeName(info)}`,
   /** Times the GPU's work for each frame, where the browser can (#143). */
   timeGpu() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer)) {
+    if (!(renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer)) {
       return;
     }
     const timer = new GpuTimer(renderer.gl);
@@ -8175,10 +8201,10 @@ ${modeName(info)}`,
       return;
     }
     this.gpuTimer = timer;
-    renderer.on(Phaser13.Renderer.Events.PRE_RENDER, () => {
+    renderer.on(Phaser14.Renderer.Events.PRE_RENDER, () => {
       timer.begin();
     });
-    renderer.on(Phaser13.Renderer.Events.POST_RENDER, () => {
+    renderer.on(Phaser14.Renderer.Events.POST_RENDER, () => {
       timer.end();
     });
   }
@@ -8199,7 +8225,7 @@ ${modeName(info)}`,
    */
   checkBloom() {
     const renderer = this.renderer;
-    if (!(renderer instanceof Phaser13.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
+    if (!(renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer) || this.bloom === void 0) {
       return;
     }
     if (loadBloomBroken()) {
@@ -8213,7 +8239,7 @@ ${modeName(info)}`,
       if (frames < BLOOM_CHECK_FRAME || this.bloom?.active !== true) {
         return;
       }
-      renderer.off(Phaser13.Renderer.Events.POST_RENDER, check);
+      renderer.off(Phaser14.Renderer.Events.POST_RENDER, check);
       const gl = renderer.gl;
       const bound = gl.getParameter(gl.FRAMEBUFFER_BINDING);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -8229,7 +8255,7 @@ ${modeName(info)}`,
         saveBloomBroken();
       }
     };
-    renderer.on(Phaser13.Renderer.Events.POST_RENDER, check);
+    renderer.on(Phaser14.Renderer.Events.POST_RENDER, check);
   }
   /** The HUD's frame rate: frames a second, the worst frame of the last second, and the GPU's time where known. */
   fpsLine() {
@@ -8415,8 +8441,8 @@ function start({ door, intro, token, rules }) {
       }
     })
   });
-  const game = new Phaser14.Game({
-    type: Phaser14.AUTO,
+  const game = new Phaser15.Game({
+    type: Phaser15.AUTO,
     parent: "game",
     backgroundColor: "#05030a",
     pixelArt: true,
@@ -8425,7 +8451,7 @@ function start({ door, intro, token, rules }) {
     // Sized in device pixels and shown at CSS size, so pixel art stays even
     // at any display scaling (see display.ts).
     scale: {
-      mode: Phaser14.Scale.NONE,
+      mode: Phaser15.Scale.NONE,
       width: size.width,
       height: size.height,
       zoom: size.zoom

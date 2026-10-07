@@ -399,6 +399,7 @@ export class SandboxScene extends Phaser.Scene {
       shotsFired: 0,
       zoom: 1,
       fps: 0,
+      layerTextures: (this.registry.get('layerTextures') as number[] | undefined) ?? [],
       frameMs: { average: 0, worst: 0 },
       fpsCap: false,
       cssPixels: false,
