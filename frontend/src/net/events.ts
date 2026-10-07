@@ -7,7 +7,7 @@ function timeLeft(endsTick: number, tick: number, tickRate: number): string {
   return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** The HUD's line for the world event running (#102): "D3 under attack · 9:12". */
+/** The HUD's line for the world event running (#102): "D3 under attack · 9:12 to save it" (#272). */
 export function eventLine(event: WorldEvent | undefined, tick: number, tickRate: number): string {
   if (event === undefined) {
     return '';
@@ -15,7 +15,7 @@ export function eventLine(event: WorldEvent | undefined, tick: number, tickRate:
   const left = timeLeft(event.endsTick, tick, tickRate);
 
   return event.kind === WorldEventKind.ATTACK
-    ? `${event.sector} under attack · ${left}`
+    ? `${event.sector} under attack · ${left} to save it`
     : `Distress call in ${event.sector} · ${left}`;
 }
 

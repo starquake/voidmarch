@@ -10,8 +10,8 @@ const attack = create(WorldEventSchema, { kind: WorldEventKind.ATTACK, sector: '
 const distress = create(WorldEventSchema, { kind: WorldEventKind.DISTRESS, sector: 'C4', endsTick: 2400 });
 
 test('the HUD line names the event and counts down', () => {
-  assert.equal(eventLine(attack, 0, 20), 'D3 under attack · 10:00');
-  assert.equal(eventLine(attack, 10_960, 20), 'D3 under attack · 0:52');
+  assert.equal(eventLine(attack, 0, 20), 'D3 under attack · 10:00 to save it');
+  assert.equal(eventLine(attack, 10_960, 20), 'D3 under attack · 0:52 to save it');
   assert.equal(eventLine(distress, 360, 20), 'Distress call in C4 · 1:42');
   assert.equal(eventLine(distress, 9999, 20), 'Distress call in C4 · 0:00');
   assert.equal(eventLine(undefined, 0, 20), '');

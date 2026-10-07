@@ -5267,7 +5267,7 @@ function eventLine(event, tick, tickRate) {
     return "";
   }
   const left = timeLeft(event.endsTick, tick, tickRate);
-  return event.kind === WorldEventKind.ATTACK ? `${event.sector} under attack \xB7 ${left}` : `Distress call in ${event.sector} \xB7 ${left}`;
+  return event.kind === WorldEventKind.ATTACK ? `${event.sector} under attack \xB7 ${left} to save it` : `Distress call in ${event.sector} \xB7 ${left}`;
 }
 function eventStartBanner(event) {
   return event.kind === WorldEventKind.ATTACK ? [
