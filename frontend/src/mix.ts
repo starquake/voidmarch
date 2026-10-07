@@ -19,6 +19,36 @@ export function engineMix(speed: number, maxSpeed: number, thrusting: boolean): 
   };
 }
 
+/**
+ * Tells when a looping sound's rate or volume is worth setting again: the first
+ * time, once it has moved a step from what was set, or once it settles anywhere
+ * else. Phaser restarts a loop's source on every rate change (#263).
+ */
+export class LoopLevel {
+  private readonly step: number;
+  private applied: number | undefined;
+  private last: number | undefined;
+
+  constructor(step: number) {
+    this.step = step;
+  }
+
+  /** The value to set now, or undefined to leave the sound as it is. */
+  next(value: number): number | undefined {
+    const settled = value === this.last;
+    this.last = value;
+    if (value === this.applied) {
+      return undefined;
+    }
+    if (this.applied !== undefined && Math.abs(value - this.applied) < this.step && !settled) {
+      return undefined;
+    }
+    this.applied = value;
+
+    return value;
+  }
+}
+
 /** Picks the next of several variants, cycling through them. */
 export function nextVariant(variants: readonly string[], counter: number): string | undefined {
   if (variants.length === 0) {

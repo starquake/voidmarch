@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 
-import { engineMix, nextVariant, randomVariant, shotDetune } from '../mix.ts';
+import { LoopLevel, engineMix, nextVariant, randomVariant, shotDetune } from '../mix.ts';
 import type { AudioSettings } from '../settings.ts';
 import type { EngineId, WeaponId } from '../sim/loadout.ts';
 import type { MusicPlace } from '../sim/music.ts';
 import { isWeapon, type FrameEvents, type Ship } from '../simwasm.ts';
-import { ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
+import { ENGINE_MIX_STEP, ENGINE_STATS, WEAPON_STATS } from '../sim/tuning.ts';
 import {
   CHARGE_SOUNDS,
   ENEMY_EXPLOSION_SOUND,
@@ -47,6 +47,8 @@ const MUSIC_FADE_MS = 2000;
 export class ShipAudio {
   private engine: Sound | undefined;
   private engineId: EngineId | undefined;
+  private engineVolume = new LoopLevel(ENGINE_MIX_STEP);
+  private engineRate = new LoopLevel(ENGINE_MIX_STEP);
   /** The track playing or fading in, and those fading out. */
   private music: Sound | undefined;
   private readonly fading = new Set<Sound>();
@@ -110,6 +112,8 @@ export class ShipAudio {
     }
     this.engine?.destroy();
     this.engineId = id;
+    this.engineVolume = new LoopLevel(ENGINE_MIX_STEP);
+    this.engineRate = new LoopLevel(ENGINE_MIX_STEP);
     this.engine = this.scene.sound.add(ENGINE_LOOPS[id], { loop: true, volume: 0 });
     this.engine.play();
   }
@@ -117,8 +121,14 @@ export class ShipAudio {
   update(ship: Ship, events: FrameEvents): void {
     if (this.engine !== undefined) {
       const mix = engineMix(Math.hypot(ship.vx, ship.vy), ENGINE_STATS[ship.loadout.engine].maxSpeed, ship.thrusting);
-      this.engine.setVolume(mix.volume);
-      this.engine.setRate(mix.rate);
+      const volume = this.engineVolume.next(mix.volume);
+      if (volume !== undefined) {
+        this.engine.setVolume(volume);
+      }
+      const rate = this.engineRate.next(mix.rate);
+      if (rate !== undefined) {
+        this.engine.setRate(rate);
+      }
     }
     for (const weapon of events.charges) {
       const key = CHARGE_SOUNDS[weapon];
