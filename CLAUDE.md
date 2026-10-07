@@ -243,6 +243,13 @@ answer given in chat is written back into the issue body before acting on it.
   first commit, and built, with no sign-off round (zx-sidekick#27).
 - **The `Backlog` column's order is the priority.** Nothing leaves `Backlog`
   without the maintainer; "pick up the next one" means its top card.
+- **A release is planned as a GitHub milestone named after its version**
+  (`v1.0.0`): its tickets are the milestone's, and a ticket in none is
+  unplanned. One ticket in it holds the release steps (notes, the tag, the
+  health check). The README's Versions section says which number goes up; when
+  the release is cut, Claude proposes the level and the milestone is renamed
+  if it changed. The issues titled "Milestone 1" to "Milestone 10" are the
+  design's stages, not releases (#279).
 - **Merging needs the `ready to merge` label** on the PR, re-read from the API
   at the moment of merging. Claude never adds it and never merges without it.
 - **A position in the flow is a Status; a property of a ticket is a label**:
@@ -392,7 +399,8 @@ A required context that no job produces blocks every PR.
 `:edge`, production from a `v*.*.*` tag (`ci.yml`'s `promote` retags main's
 signed image, no rebuild), and development from a PR labeled `deploy:dev`.
 Staging and production only run images `ci.yml` signed on `main`. Tags and
-releases are the maintainer's to make.
+releases are the maintainer's to make, numbered as the README's Versions
+section says.
 
 ## Comments
 

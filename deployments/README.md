@@ -8,7 +8,7 @@ do, and the jobs done by hand afterwards.
 
 | Environment | Address                                         | Deployed when                       | Image                        |
 | ----------- | ----------------------------------------------- | ----------------------------------- | ---------------------------- |
-| production  | `https://voidmarch.bananajuice.net`             | CI passes on a `v*.*.*` tag         | the release, e.g. `:0.1.0`   |
+| production  | `https://voidmarch.bananajuice.net`             | CI passes on a `v*.*.*` tag         | the release, e.g. `:1.0.0`   |
 | staging     | `https://voidmarch-staging.bananajuice.net`     | CI passes on `main`                 | `:edge`                      |
 | development | `https://voidmarch-development.bananajuice.net` | a PR carries the `deploy:dev` label | `:pr-<n>`, built from the PR |
 

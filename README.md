@@ -265,6 +265,22 @@ what you fitted.
 Add `?wire=json` to the address to see the game's messages as readable JSON in
 the browser's network panel.
 
+## Versions
+
+Releases are numbered `vBIG.SMALL.FIX`, and a bigger number is always newer.
+The numbers say how big a change is, not what stays compatible: this is not
+Semantic Versioning. Everything merged since the last release decides which
+number goes up, and the biggest kind wins:
+
+- **BIG** (`v2.0.0`): a milestone-sized change, like mining and escorts or a
+  new ring, or anything that resets the world or forces a new season.
+- **SMALL** (`v1.1.0`): at least one new thing a player can see or use, such
+  as a weapon, an enemy, a HUD change or a control. A big rebalance counts too.
+- **FIX** (`v1.0.1`): only fixes, tuning, docs and dependency updates.
+
+The tickets for a release are planned in a GitHub milestone named after its
+version.
+
 ## Configuration
 
 | Variable  | Default      | Meaning |
