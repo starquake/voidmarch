@@ -19,7 +19,7 @@ func addRoutes(
 	svc Services,
 ) {
 	// Files served from disk can change under a running server, so their
-	// ETags are not cached.
+	// ETags and gzip are not cached.
 	files := newStaticFiles(static, cfg.WebDir == "")
 
 	mux.Handle("GET /{$}", handleIndex(files))

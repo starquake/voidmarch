@@ -8,6 +8,9 @@ const ENEMY_SHEETS = /\/static\/assets\/(klaed|nairan|nautolan)\//;
 /** Phaser, the largest part of the game's code, held back to keep the entry module's screens up (#227, decision 8). */
 const PHASER = /\/static\/js\/vendor\/phaser\.js$/;
 
+/** Files the bar counts that the server gzips (#230): the game's code, the rules, and a layout Phaser's loader fetches. */
+const GZIPPED = [PHASER, /\/static\/wasm\/sim\.wasm$/, /\/static\/assets\/environment\/background-stars\.json$/];
+
 /** Holds the requests matching url until the returned function lets them through. */
 async function hold(page: Page, url: RegExp): Promise<() => void> {
   let release = (): void => undefined;
@@ -180,8 +183,9 @@ test("a returning player sees the strip alone, reading Loading game until the ga
   await online(page);
 });
 
-test("one bar by bytes: it counts the game's code as it streams, never goes back, and reaches 100 once", async ({ page }) => {
+test("one bar by bytes: it counts the game's gzipped code as it streams, never goes back, and reaches 100 once", async ({ page }) => {
   await recordBar(page);
+  const gzipped = Promise.all(GZIPPED.map((url) => page.waitForResponse(url)));
   const release = await hold(page, PHASER);
   const phaser = page.waitForRequest(PHASER);
   await page.goto('/', { waitUntil: 'commit' });
@@ -205,6 +209,11 @@ test("one bar by bytes: it counts the game's code as it streams, never goes back
   expect(values.filter((v) => v === 100).length, 'and gets there once').toBe(1);
   expect(steps.some((s) => s.label === 'Loading game' && s.value > 0), 'the code counts before it runs').toBe(true);
   expect(steps.some((s) => s.label !== 'Loading game' && s.value < 100), 'then the files count').toBe(true);
+  for (const response of await gzipped) {
+    const headers = await response.allHeaders();
+    expect(headers['content-encoding'], `${response.url()} arrives gzipped`).toBe('gzip');
+    expect(Number(headers['content-length']), `${response.url()} gives its length, for the loader's progress`).toBeGreaterThan(0);
+  }
 });
 
 test('the rules download once, starting when the code is in (decision 10)', async ({ page }) => {
