@@ -3079,6 +3079,7 @@ func (x *DerelictState) GetHeld() bool {
 // from the seed, so bullets are never streamed. It is announced ahead: the
 // weapon animates from tick - warn_ticks, and the bullets leave at tick from
 // where the enemy is then. x and y are where it was when announced.
+// It goes to the players who were sent the enemy in the last snapshot (#231).
 type EnemyFired struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	EnemyId   uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
@@ -3188,7 +3189,8 @@ func (x *EnemyFired) GetFaction() EnemyFaction {
 	return EnemyFaction_ENEMY_FACTION_UNSPECIFIED
 }
 
-// EnemyDestroyed is an enemy shot down, at the tick and place it died.
+// EnemyDestroyed is an enemy shot down, at the tick and place it died. It
+// goes to the players who were sent the enemy in the last snapshot (#231).
 type EnemyDestroyed struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EnemyId       uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`

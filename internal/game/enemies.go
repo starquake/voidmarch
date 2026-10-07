@@ -475,17 +475,20 @@ func (h *Hub) fireAt(e *enemy, angle float64, seed uint32) {
 		h.volleys,
 		volley{tick: h.tick + warning, enemyID: e.id, angle: angle, seed: seed},
 	)
-	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
-		EnemyId:   e.id,
-		Kind:      e.kind,
-		Tick:      h.tick + warning,
-		WarnTicks: warning,
-		Faction:   pbEnemyFaction(e.faction),
-		Seed:      seed,
-		X:         float32(e.x),
-		Y:         float32(e.y),
-		Angle:     float32(angle),
-	}}}, "")
+	h.sendNear(
+		e.id,
+		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
+			EnemyId:   e.id,
+			Kind:      e.kind,
+			Tick:      h.tick + warning,
+			WarnTicks: warning,
+			Faction:   pbEnemyFaction(e.faction),
+			Seed:      seed,
+			X:         float32(e.x),
+			Y:         float32(e.y),
+			Angle:     float32(angle),
+		}}},
+	)
 }
 
 // hit applies shooter's shot hitting enemyID: a player's, as their client
@@ -537,7 +540,8 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 		h.garrisonLost(e)
 	}
 	h.forgetEnemy(e.id)
-	h.broadcast(
+	h.sendNear(
+		e.id,
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{
 			EnemyId:    e.id,
 			Kind:       e.kind,
@@ -546,7 +550,6 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 			X:          float32(e.x),
 			Y:          float32(e.y),
 		}}},
-		"",
 	)
 	h.dropPickup(e)
 }

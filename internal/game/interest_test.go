@@ -34,8 +34,8 @@ type at struct {
 }
 
 // stepAll reports each ship where it is, steps the hub one tick and returns
-// each session's snapshot of it, in order.
-func stepAll(t *testing.T, tick func(int), ships ...at) []*pb.Snapshot {
+// each session's snapshot of it, in order, with the other messages each got.
+func stepAll(t *testing.T, tick func(int), ships ...at) ([]*pb.Snapshot, [][]*pb.ServerMessage) {
 	t.Helper()
 
 	for _, ship := range ships {
@@ -43,13 +43,17 @@ func stepAll(t *testing.T, tick func(int), ships ...at) []*pb.Snapshot {
 	}
 	tick(1)
 	snaps := make([]*pb.Snapshot, len(ships))
+	others := make([][]*pb.ServerMessage, len(ships))
 	for i, ship := range ships {
 		for snaps[i] == nil {
-			snaps[i] = next(t, ship.s).GetSnapshot()
+			msg := next(t, ship.s)
+			if snaps[i] = msg.GetSnapshot(); snaps[i] == nil {
+				others[i] = append(others[i], msg)
+			}
 		}
 	}
 
-	return snaps
+	return snaps, others
 }
 
 // enemyIDs are the ids of the enemies in snap, in its order.
@@ -82,7 +86,7 @@ func TestInterest_SendsTheEnemiesInRange(t *testing.T) {
 	beside, _ := join(t, hub, "beside")
 	near, _ := join(t, hub, "near")
 	far, _ := join(t, hub, "far")
-	snaps := stepAll(t, tick,
+	snaps, _ := stepAll(t, tick,
 		at{beside, 0, -1500},
 		at{near, 1000, -1600},
 		at{far, 2000, -1600},
@@ -102,7 +106,7 @@ func TestInterest_EachMemberGetsTheirOwn(t *testing.T) {
 	hub, tick := interestHub(t, scoutAt(-2000, 0), scoutAt(2000, 0))
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
-	snaps := stepAll(t, tick, at{a, -2000, 300}, at{b, 2000, 300})
+	snaps, _ := stepAll(t, tick, at{a, -2000, 300}, at{b, 2000, 300})
 
 	if got, want := enemyIDs(snaps[0]), []uint32{1}; !slices.Equal(got, want) {
 		t.Errorf("a's enemies = %v, want %v", got, want)
@@ -133,7 +137,7 @@ func TestInterest_KeepsAnEnemyUntilItsPastTheMargin(t *testing.T) {
 		{sim.InterestRadius + 100, false, "inside the margin, once dropped"},
 		{sim.InterestRadius - 100, true, "inside the radius again"},
 	} {
-		snaps := stepAll(t, tick, at{beside, 0, -1500}, at{a, ex + tc.distance, ey})
+		snaps, _ := stepAll(t, tick, at{beside, 0, -1500}, at{a, ex + tc.distance, ey})
 		if got := slices.Contains(enemyIDs(snaps[1]), 1); got != tc.want {
 			t.Errorf("enemy sent %v %.0f px away, %s; want %v", got, tc.distance, tc.why, tc.want)
 		}
@@ -159,7 +163,7 @@ func TestInterest_BossesReachEveryone(t *testing.T) {
 	} {
 		hub, tick := testHub(t, WithMap(tc.m), NoEvents)
 		a, _ := join(t, hub, "a")
-		snaps := stepAll(t, tick, at{a, 0, 180})
+		snaps, _ := stepAll(t, tick, at{a, 0, 180})
 		if !slices.ContainsFunc(snaps[0].GetEnemies(), func(e *pb.EnemyState) bool {
 			return e.GetKind() == tc.boss
 		}) {
@@ -186,7 +190,7 @@ func TestInterest_ACompanionExtendsTheRange(t *testing.T) {
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
-	snaps := stepAll(t, tick, at{a, 3000, 0})
+	snaps, _ := stepAll(t, tick, at{a, 3000, 0})
 
 	if !slices.Contains(enemyIDs(snaps[0]), 1) {
 		t.Errorf(
@@ -212,6 +216,82 @@ func TestInterest_BeforeItsFirstStateAMemberGetsTheEnemiesNearItsSpawn(t *testin
 	}
 	if got, want := enemyIDs(snap), []uint32{1}; !slices.Equal(got, want) {
 		t.Errorf("enemies before the first state = %v, want %v, the one near the spawn", got, want)
+	}
+}
+
+// firedBy reports whether messages announce a volley by enemy id.
+func firedBy(messages []*pb.ServerMessage, id uint32) bool {
+	return slices.ContainsFunc(messages, func(msg *pb.ServerMessage) bool {
+		return msg.GetEnemyFired().GetEnemyId() == id
+	})
+}
+
+func TestInterest_AVolleyGoesToThoseWhoHaveItsEnemy(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := interestHub(t, scoutAt(0, -1600))
+	beside, _ := join(t, hub, "beside")
+	far, _ := join(t, hub, "far")
+	heard := false
+	for range 10 * TickRate {
+		_, others := stepAll(t, tick, at{beside, 0, -1500}, at{far, 2000, -1600})
+		if firedBy(others[1], 1) {
+			t.Fatal("a volley by an enemy 2000 px away was sent")
+		}
+		if firedBy(others[0], 1) {
+			heard = true
+
+			break
+		}
+	}
+	if !heard {
+		t.Error("the Scout never fired at the ship beside it")
+	}
+}
+
+func TestInterest_ABossVolleyGoesToEveryone(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithMap(frigateMap), NoEvents)
+	fighting, _ := join(t, hub, "fighting")
+	home, _ := join(t, hub, "home")
+	x, y := inFrigateRange(t, fighting, tick)
+	drain(home)
+	var frigate uint32
+	for range 10 * TickRate {
+		snaps, others := stepAll(t, tick, at{fighting, x, y}, at{home, 0, 180})
+		frigate = frigateIn(snaps[0]).GetEnemyId()
+		if firedBy(others[0], frigate) {
+			if !firedBy(others[1], frigate) {
+				t.Error("the Frigate's volley didn't reach the player at home")
+			}
+
+			return
+		}
+	}
+	t.Error("the Frigate never fired at the ship in its range")
+}
+
+func TestInterest_AKillGoesToThoseWhoHadTheEnemy(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := interestHub(t, scoutAt(0, -1600))
+	beside, _ := join(t, hub, "beside")
+	far, _ := join(t, hub, "far")
+	stepAll(t, tick, at{beside, 0, -1500}, at{far, 2000, -1600})
+	killAll(beside, &pb.Snapshot{Enemies: []*pb.EnemyState{{EnemyId: 1}}})
+	_, others := stepAll(t, tick, at{beside, 0, -1500}, at{far, 2000, -1600})
+
+	destroyed := func(messages []*pb.ServerMessage) bool {
+		return slices.ContainsFunc(messages, func(msg *pb.ServerMessage) bool {
+			return msg.GetEnemyDestroyed().GetEnemyId() == 1
+		})
+	}
+	if !destroyed(others[0]) {
+		t.Error("the player who shot the Scout down wasn't told")
+	}
+	if destroyed(others[1]) {
+		t.Error("a player 2000 px away was told of the kill")
 	}
 }
 

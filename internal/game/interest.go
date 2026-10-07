@@ -47,6 +47,16 @@ func (h *Hub) nearEnemies(m *member, all []*pb.EnemyState) []*pb.EnemyState {
 	return out
 }
 
+// sendNear sends msg to the members who were sent enemy id with the last
+// snapshot: the clients that have it.
+func (h *Hub) sendNear(id uint32, msg *pb.ServerMessage) {
+	for memberID, m := range h.members {
+		if m.near[id] {
+			h.send(memberID, msg)
+		}
+	}
+}
+
 // boss reports whether kind is a boss, which every member is sent: the maps
 // and the boss bar show them from afar.
 func boss(kind pb.EnemyKind) bool {

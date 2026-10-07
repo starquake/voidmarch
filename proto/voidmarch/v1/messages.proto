@@ -437,6 +437,7 @@ message DerelictState {
 // from the seed, so bullets are never streamed. It is announced ahead: the
 // weapon animates from tick - warn_ticks, and the bullets leave at tick from
 // where the enemy is then. x and y are where it was when announced.
+// It goes to the players who were sent the enemy in the last snapshot (#231).
 message EnemyFired {
   uint32 enemy_id = 1;
   EnemyKind kind = 2;
@@ -450,7 +451,8 @@ message EnemyFired {
   EnemyFaction faction = 9;
 }
 
-// EnemyDestroyed is an enemy shot down, at the tick and place it died.
+// EnemyDestroyed is an enemy shot down, at the tick and place it died. It
+// goes to the players who were sent the enemy in the last snapshot (#231).
 message EnemyDestroyed {
   uint32 enemy_id = 1;
   EnemyKind kind = 2;

@@ -1318,6 +1318,7 @@ export declare const DerelictStateSchema: GenMessage<DerelictState>;
  * from the seed, so bullets are never streamed. It is announced ahead: the
  * weapon animates from tick - warn_ticks, and the bullets leave at tick from
  * where the enemy is then. x and y are where it was when announced.
+ * It goes to the players who were sent the enemy in the last snapshot (#231).
  *
  * @generated from message voidmarch.v1.EnemyFired
  */
@@ -1377,7 +1378,8 @@ export declare type EnemyFired = Message<"voidmarch.v1.EnemyFired"> & {
 export declare const EnemyFiredSchema: GenMessage<EnemyFired>;
 
 /**
- * EnemyDestroyed is an enemy shot down, at the tick and place it died.
+ * EnemyDestroyed is an enemy shot down, at the tick and place it died. It
+ * goes to the players who were sent the enemy in the last snapshot (#231).
  *
  * @generated from message voidmarch.v1.EnemyDestroyed
  */
