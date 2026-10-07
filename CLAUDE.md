@@ -100,9 +100,11 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   (new field numbers, never reused).
 - **Clients are trusted for their own ships** (design §9). `internal/game`'s
   hub relays: it keeps each player's latest state and stamps shots with its
-  tick. The client draws others 2 ticks (100 ms) in the past
-  (`frontend/src/net/interpolation.ts`), and their shots on the same delayed
-  timeline, so both line up.
+  tick. The client draws others 2 to 5 ticks (100 to 250 ms) in the past,
+  following how late snapshots arrive (`frontend/src/net/timeline.ts`, #232),
+  flies them on along their velocity for up to 150 ms when snapshots run late
+  (`frontend/src/net/interpolation.ts`), and draws their shots on the same
+  delayed timeline, so both line up.
 - **Enemies are the server's** (`internal/game/enemies.go`): it spawns, steers
   and fires them, and applies the clients' `Hit` reports. Each of the 37
   hexagonal sectors (`internal/sim/sectors.go`, #117) holds a garrison that takes the
