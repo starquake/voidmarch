@@ -133,6 +133,10 @@ type member struct {
 	// lastHitShot is the last shot counted as a hit, so a piercing shot
 	// counts once (#154).
 	lastHitShot uint32
+	// near are the enemies sent in the last snapshot, and from is where the
+	// player's interest is measured from until their first state (#231).
+	near map[uint32]bool
+	from point
 }
 
 // Hub owns the shared world. All of its state is touched only by the goroutine
@@ -234,6 +238,8 @@ type Hub struct {
 	volleys []volley
 	// rams are the recent rams between bodies, for the cooldown.
 	rams sim.Rams[ramPair]
+	// interestRadius is how near a member's ships an enemy is sent to them.
+	interestRadius float64
 }
 
 // HubOption configures a [Hub].
@@ -330,6 +336,8 @@ func NewHub(logger *slog.Logger, opts ...HubOption) *Hub {
 		saveLoadout:   o.saveLoadout,
 		development:   o.development,
 		frigates:      frigateSpots(o.worldMap),
+
+		interestRadius: sim.InterestRadius,
 	}
 	h.garrisons = newGarrisons(o.worldMap, h.cleared)
 	h.lastStraggler = make(map[sim.Sector]uint32)
@@ -507,6 +515,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	var squadron string
 	var held int
 	unlocks, loadout := h.newestKept(player)
+	from := lastPlace(h.members[player.ID])
 	if old, ok := h.members[player.ID]; ok {
 		// The hub's copies are the newest: saving them may still be under way.
 		unlocks, loadout = old.unlocks, old.loadout
@@ -543,6 +552,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		held:       held,
 		unlocks:    unlocks,
 		loadout:    loadout,
+		from:       placeOr(from, spawnX, spawnY),
 	}
 	h.members[player.ID] = m
 	h.logger.Info(
@@ -578,6 +588,31 @@ func (h *Hub) welcome(player players.Player, m *member, spawnX, spawnY float32) 
 		MapName:        h.mapName(),
 		Frontier:       h.frontierMessage(),
 	}
+}
+
+// lastPlace is where a player who is back last was: their latest state, or
+// where they were last seen if they dropped; nil for a new player, or one
+// who never sent a state.
+func lastPlace(old *member) *point {
+	switch {
+	case old == nil:
+		return nil
+	case old.state != nil:
+		return &point{float64(old.state.GetX()), float64(old.state.GetY())}
+	case old.gone:
+		return &point{old.last.X, old.last.Y}
+	default:
+		return nil
+	}
+}
+
+// placeOr is p, or (x, y) when p is nil.
+func placeOr(p *point, x, y float32) point {
+	if p == nil {
+		return point{float64(x), float64(y)}
+	}
+
+	return *p
 }
 
 func (h *Hub) handleMessage(in inbound) {
@@ -678,7 +713,11 @@ func (h *Hub) step() {
 		if m.gone {
 			continue
 		}
-		snapshot := &pb.Snapshot{Tick: h.tick, Enemies: enemies, Derelicts: derelicts}
+		snapshot := &pb.Snapshot{
+			Tick:      h.tick,
+			Enemies:   h.nearEnemies(m, enemies),
+			Derelicts: derelicts,
+		}
 		for otherID, other := range h.members {
 			if otherID == id || other.state == nil {
 				continue

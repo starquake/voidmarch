@@ -2,6 +2,7 @@ package game
 
 import (
 	"log/slog"
+	"math"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/players"
@@ -51,6 +52,14 @@ func WarningTravel() float64 {
 	}
 
 	return most
+}
+
+// WithEveryEnemy sends every member every enemy, as before #231, for tests
+// about the whole world.
+func WithEveryEnemy() HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) { h.interestRadius = math.Inf(1) })
+	}
 }
 
 // WithEnemyAt starts the hub with an enemy at (x, y).

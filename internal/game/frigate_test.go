@@ -69,7 +69,7 @@ func hitFrigate(s *Session, id, shot uint32) {
 func TestFrigate_TakesASpotInItsSectorWithEscorts(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithMap(frigateMap))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(frigateMap))
 	s, _ := join(t, hub, "a")
 	snap, _ := latest(t, s, tick, 1, 0, 0)
 
@@ -105,7 +105,7 @@ func TestFrigate_TakesASpotInItsSectorWithEscorts(t *testing.T) {
 func TestFrigate_EscortsStayWhileItIsThere(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithMap(frigateMap))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(frigateMap))
 	s, _ := join(t, hub, "a")
 	var snap *pb.Snapshot
 	for range DespawnAfter/TickRate + 2 {
@@ -290,7 +290,7 @@ func must(snap *pb.Snapshot, _ []*pb.ServerMessage) *pb.Snapshot {
 func TestFrigate_PatrolsItsSectorWhileNoShipIsInRange(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithMap(frigateMap), NoEvents)
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(frigateMap), NoEvents)
 	a, _ := join(t, hub, "a")
 	d3, _ := sim.ParseSector("D3")
 	start := frigateIn(must(latest(t, a, tick, 1, 0, 0)))
@@ -393,7 +393,13 @@ func TestFrigate_TheLaterRingsFieldTheirFactionsOnceOpen(t *testing.T) {
 		t.Errorf("Frigate %+v in E2 with ring 2 closed, want none until it opens", f)
 	}
 
-	open, tick := testHub(t, WithMap(ringTwo), WithOpenRings(3), WithClearedSectors(ringOne(4)))
+	open, tick := testHub(
+		t,
+		WithEveryEnemy(),
+		WithMap(ringTwo),
+		WithOpenRings(3),
+		WithClearedSectors(ringOne(4)),
+	)
 	b, _ := join(t, open, "b")
 	snap := must(latest(t, b, tick, 2, 0, 0))
 	f := frigateIn(snap)

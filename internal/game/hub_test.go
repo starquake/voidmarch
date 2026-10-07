@@ -14,17 +14,17 @@ import (
 )
 
 // testHub runs a hub stepped by hand through the returned tick function.
-func testHub(t *testing.T, opts ...HubOption) (*Hub, func(n int)) {
-	t.Helper()
+func testHub(tb testing.TB, opts ...HubOption) (*Hub, func(n int)) {
+	tb.Helper()
 
-	return loggedHub(t, slog.New(slog.DiscardHandler), opts...)
+	return loggedHub(tb, slog.New(slog.DiscardHandler), opts...)
 }
 
 // loggedHub is testHub logging to logger.
-func loggedHub(t *testing.T, logger *slog.Logger, opts ...HubOption) (*Hub, func(n int)) {
-	t.Helper()
+func loggedHub(tb testing.TB, logger *slog.Logger, opts ...HubOption) (*Hub, func(n int)) {
+	tb.Helper()
 
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(tb.Context())
 	ticks := make(chan time.Time)
 	hub := NewHub(logger, append([]HubOption{WithSeed(1)}, opts...)...)
 	done := make(chan struct{})
@@ -32,7 +32,7 @@ func loggedHub(t *testing.T, logger *slog.Logger, opts ...HubOption) (*Hub, func
 		hub.Run(ctx, ticks)
 		close(done)
 	}()
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		cancel()
 		<-done
 	})
@@ -44,30 +44,30 @@ func loggedHub(t *testing.T, logger *slog.Logger, opts ...HubOption) (*Hub, func
 	}
 }
 
-func join(t *testing.T, hub *Hub, id string) (*Session, *pb.Welcome) {
-	t.Helper()
+func join(tb testing.TB, hub *Hub, id string) (*Session, *pb.Welcome) {
+	tb.Helper()
 
-	s, w, err := hub.Join(t.Context(), players.Player{ID: id, Name: "name-" + id})
+	s, w, err := hub.Join(tb.Context(), players.Player{ID: id, Name: "name-" + id})
 	if err != nil {
-		t.Fatalf("Join(%s) error = %v", id, err)
+		tb.Fatalf("Join(%s) error = %v", id, err)
 	}
 
 	return s, w
 }
 
 // next returns the next message for s, failing if none comes.
-func next(t *testing.T, s *Session) *pb.ServerMessage {
-	t.Helper()
+func next(tb testing.TB, s *Session) *pb.ServerMessage {
+	tb.Helper()
 
 	select {
 	case msg, ok := <-s.Out:
 		if !ok {
-			t.Fatal("session closed, want a message")
+			tb.Fatal("session closed, want a message")
 		}
 
 		return msg
 	case <-time.After(time.Second):
-		t.Fatal("no message for the session")
+		tb.Fatal("no message for the session")
 
 		return nil
 	}

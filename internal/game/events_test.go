@@ -154,7 +154,12 @@ func TestEvents_WithNobodyOnlineAnAttackComesEveryFewHours(t *testing.T) {
 func TestEvents_ADistressCallIsWonByTheRescueOnceItsGuardIsGone(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithPoolStart(3), WithEventTimes(1, 1<<30, 1<<30, 1<<30))
+	hub, tick := testHub(
+		t,
+		WithEveryEnemy(),
+		WithPoolStart(3),
+		WithEventTimes(1, 1<<30, 1<<30, 1<<30),
+	)
 	a, _ := join(t, hub, "a")
 	started, _, snap := eventMessages(t, a, tick, 2, 0, 0)
 	if len(started) != 1 ||
@@ -210,7 +215,12 @@ func TestEvents_ADistressCallStillHeldWhenTimeIsUpIsLost(t *testing.T) {
 func TestEvents_ADistressCallIsLostWhenTheFreedDerelictDriftsOff(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithPoolStart(3), WithEventTimes(1, 1<<30, 1<<30, 1<<30))
+	hub, tick := testHub(
+		t,
+		WithEveryEnemy(),
+		WithPoolStart(3),
+		WithEventTimes(1, 1<<30, 1<<30, 1<<30),
+	)
 	a, _ := join(t, hub, "a")
 	_, _, snap := eventMessages(t, a, tick, 2, 0, 0)
 	killAll(a, snap)

@@ -1238,6 +1238,9 @@ export declare type Snapshot = Message<"voidmarch.v1.Snapshot"> & {
   players: PlayerSnapshot[];
 
   /**
+   * The enemies near this player, and every boss (#231): those within 1200 px
+   * of their ship or companions, kept until they're past 1400 px.
+   *
    * @generated from field: repeated voidmarch.v1.EnemyState enemies = 3;
    */
   enemies: EnemyState[];

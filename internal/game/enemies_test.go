@@ -42,7 +42,7 @@ func latest(
 func TestEnemies_NoneWithoutPlayers(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithEveryEnemy())
 	tick(3 * TickRate)
 	s, _ := join(t, hub, "a")
 	tick(1)
