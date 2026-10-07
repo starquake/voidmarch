@@ -166,7 +166,8 @@ test('a downed player joins a friend\'s squadron, and a revive closes the screen
     expect([moved.squadronScreen, moved.downed, moved.notice]).toEqual([false, true, `Moved to ${theirs}`]);
 
     // Mo flies over and revives them under the reopened screen, which closes: moving is for the downed.
-    // The burst engine stops within a few pixels, so Mo stays beside on a slow runner, and the round shield holds out.
+    // The burst engine stops within a few pixels, so Mo stays beside on a slow runner.
+    // D5's garrison never runs out, so Mo can go down mid-revive (#284): Mo then respawns at home and flies back.
     await mo.keyboard.press('2');
     await mo.keyboard.press('2');
     await mo.keyboard.press('3');
@@ -178,19 +179,25 @@ test('a downed player joins a friend\'s squadron, and a revive closes the screen
       .poll(
         async () => {
           const [mine, theirShip] = await Promise.all([state(page), state(mo)]);
-          await steerTo(mo, theirShip, mine.ship.x, mine.ship.y);
+          if (theirShip.downed) {
+            await mo.keyboard.up('w');
+            await mo.keyboard.press('h');
+          } else {
+            await steerTo(mo, theirShip, mine.ship.x, mine.ship.y);
+          }
 
-          // Mo's side too, so a failure says whether Mo went down or never got there.
+          // The revive itself, not the ship being up: revived beside the garrison, it can go down again
+          // before the next poll (#288). Mo's side too, so a failure says whether Mo went down or never got there.
           return {
-            downed: mine.downed,
+            revived: mine.revives > 0,
             revive: mine.revive,
             moDowned: theirShip.downed,
             apart: Math.round(Math.hypot(mine.ship.x - theirShip.ship.x, mine.ship.y - theirShip.ship.y)),
           };
         },
-        { message: 'Mo revives the downed player', timeout: 90_000, intervals: [100] },
+        { message: 'Mo revives the downed player', timeout: 150_000, intervals: [100] },
       )
-      .toMatchObject({ downed: false });
+      .toMatchObject({ revived: true });
     await mo.keyboard.up('w');
     const up = await state(page);
     expect([up.squadronScreen, up.squadron]).toEqual([false, theirs]);
