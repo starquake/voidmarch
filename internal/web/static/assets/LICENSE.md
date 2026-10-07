@@ -90,7 +90,8 @@ where it sits changes. `cmd/cutsheets` makes them from the pack's PNGs:
   apart, so each frame keeps its center; in rows of the columns below
   (`cutsheets grid -frame 128x128 -columns N -crop -distinct`). The game
   plays them in the pack's order: `frontend/src/sprites.ts` lists the frames
-  of each strip that repeats some.
+  of each strip that repeats some. Each cell is the frames kept (of the
+  strip's, where it repeats some), their size, and how many to a row.
 
   | Strip       | Kla'ed            | Nairan           | Nautolan          |
   |-------------|-------------------|------------------|-------------------|
