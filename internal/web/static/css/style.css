@@ -220,9 +220,9 @@ body {
 
 /* The settings screen (#145), in the loadout screen's style, scrolling where it doesn't fit (#221). */
 .loadout-screen.settings-screen {
-  box-sizing: border-box;
-  width: min(26rem, calc(100% - 2rem));
-  max-height: calc(100% - 2rem);
+  /* Its padding is outside the width and height: 1rem clear all around. */
+  width: min(26rem, calc(100% - 5rem));
+  max-height: calc(100% - 4.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -259,9 +259,9 @@ body {
 
 /* A row per player of the season, so it scrolls where it doesn't fit, like the join screen (#221). */
 .name-screen.victory-screen {
-  box-sizing: border-box;
-  width: min(44rem, calc(100% - 2rem));
-  max-height: calc(100% - 2rem);
+  /* Its padding is outside the width and height: 1rem clear all around. */
+  width: min(44rem, calc(100% - 5rem));
+  max-height: calc(100% - 4.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 1.25rem 1.5rem;
