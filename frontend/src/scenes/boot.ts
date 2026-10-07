@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import { bakeGlow, double, type Pixels } from '../glow.ts';
 import { pieceFrames, type LayerLayout } from '../layers.ts';
 import { bootFiles, bootKeys } from '../preload.ts';
-import { glowSheets, keys, layerSheets, sheets, type GlowSheet } from '../sprites.ts';
+import { animationFrames, glowSheets, keys, layerSheets, sheets, type GlowSheet } from '../sprites.ts';
 import { drawLayer } from './starlayer.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
@@ -142,7 +142,7 @@ export class BootScene extends Phaser.Scene {
       if (sheet.fps > 0) {
         this.anims.create({
           key: sheet.key,
-          frames: this.anims.generateFrameNumbers(sheet.key, { start: 0, end: sheet.frames - 1 }),
+          frames: this.anims.generateFrameNumbers(sheet.key, { frames: animationFrames(sheet) }),
           frameRate: sheet.fps,
           repeat: sheet.loop ? -1 : 0,
         });

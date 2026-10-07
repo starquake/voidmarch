@@ -13,12 +13,18 @@ export interface Sheet {
   frameWidth: number;
   frameHeight: number;
   frames: number;
-  /** Frames per row, where a strip would be over 4096 px (#222); one row without. */
+  /** Frames per row, where cmd/cutsheets laid the sheet out as a grid (#222, #236); one row without. */
   columns?: number;
+  /** The frames its animation plays, in order, where that isn't each frame once (#236). */
+  animation?: readonly number[];
   /** Animation speed; 0 for a still image. */
   fps: number;
   loop: boolean;
 }
+
+/** The frames a sheet's animation plays, in order. */
+export const animationFrames = (sheet: Sheet): number[] =>
+  sheet.animation === undefined ? Array.from({ length: sheet.frames }, (_, i) => i) : [...sheet.animation];
 
 const still = (key: string, url: string, size: number): Sheet => ({
   key,
@@ -31,6 +37,82 @@ const still = (key: string, url: string, size: number): Sheet => ({
 });
 
 
+/** A ship's strips, by part. */
+type EnemyPart = 'base' | 'engine' | 'weapons' | 'destruction' | 'shield';
+
+/**
+ * A strip cmd/cutsheets laid out again (#236): each different frame once, in
+ * the order the pack's strip first shows it, cropped around its center, in
+ * rows of columns.
+ */
+interface Cut {
+  width: number;
+  height: number;
+  frames: number;
+  columns: number;
+  /** The frames its animation plays, where the pack's strip shows some more than once. */
+  animation?: readonly number[];
+}
+
+/** The Dreadnoughts' strips, cut so each fits a 4096 px texture and holds no frame twice (#236). */
+const DREADNOUGHT_CUTS: Record<EnemyFaction, Record<EnemyPart, Cut>> = {
+  klaed: {
+    base: { width: 72, height: 102, frames: 1, columns: 1 },
+    engine: { width: 70, height: 104, frames: 6, columns: 6, animation: [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5] },
+    weapons: {
+      width: 72,
+      height: 102,
+      frames: 39,
+      columns: 13,
+      animation: [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 20, 27, 22, 23, 24, 25, 26, 20, 21, 22, 23, 24, 25,
+        26, 20, 27, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 33, 34, 12, 35, 36, 37, 38,
+      ],
+    },
+    destruction: { width: 126, height: 106, frames: 12, columns: 6 },
+    shield: { width: 118, height: 118, frames: 10, columns: 5 },
+  },
+  nairan: {
+    base: { width: 68, height: 102, frames: 1, columns: 1 },
+    engine: { width: 34, height: 116, frames: 8, columns: 8 },
+    weapons: {
+      width: 68,
+      height: 102,
+      frames: 7,
+      columns: 7,
+      animation: [0, 1, 2, 3, 4, 5, 5, 0, 0, 5, 5, 5, 0, 0, 5, 5, 5, 0, 0, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    },
+    destruction: { width: 112, height: 108, frames: 18, columns: 6 },
+    shield: { width: 124, height: 124, frames: 8, columns: 8 },
+  },
+  nautolan: {
+    base: { width: 72, height: 104, frames: 1, columns: 1 },
+    engine: { width: 36, height: 116, frames: 7, columns: 7, animation: [0, 1, 2, 3, 0, 4, 5, 6] },
+    weapons: {
+      width: 72,
+      height: 104,
+      frames: 22,
+      columns: 11,
+      animation: [0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 9, 9, 10, 11, 12, 13, 14, 15, 16, 17, 14, 15, 16, 17, 14, 15, 16, 17, 14, 15, 16, 18, 19, 20, 21],
+    },
+    destruction: { width: 72, height: 106, frames: 12, columns: 6 },
+    shield: { width: 112, height: 116, frames: 20, columns: 5 },
+  },
+};
+
+/** sheet as cut lays it out, where cmd/cutsheets laid it out again. */
+const withCut = (sheet: Sheet, cut: Cut | undefined): Sheet =>
+  cut === undefined
+    ? sheet
+    : {
+        ...sheet,
+        frameWidth: cut.width,
+        frameHeight: cut.height,
+        frames: cut.frames,
+        columns: cut.columns,
+        ...(cut.animation === undefined ? {} : { animation: cut.animation }),
+      };
+
 interface EnemyFiles {
   size: number;
   engine: number;
@@ -42,6 +124,8 @@ interface EnemyFiles {
   shieldSize?: number;
   /** The weapon strip's speed; longer strips play faster, so every telegraph lasts about as long as the Kla'ed fodder's 6 frames at 18 fps, a Torpedo Ship's as long as its longer hold, and a Dreadnought's as long as the Kla'ed one's over its faction's fire rate (#153). */
   weaponsFps?: number;
+  /** Its strips as cmd/cutsheets laid them out again, where it did (#236); the counts above are still the pack's. */
+  cuts?: Record<EnemyPart, Cut>;
 }
 
 /** The weapon strips' speed unless a ship's files say otherwise. */
@@ -55,7 +139,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     bomber: { size: 64, engine: 10, destruction: 8 },
     torpedo: { size: 64, engine: 10, weapons: 16, destruction: 10, weaponsFps: 21 },
     frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
-    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
+    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10, cuts: DREADNOUGHT_CUTS.klaed },
     support: { size: 64, engine: 10, destruction: 10 },
   },
   nairan: {
@@ -64,7 +148,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
-    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 },
+    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15, cuts: DREADNOUGHT_CUTS.nairan },
     support: { size: 64, engine: 8, destruction: 16 },
   },
   nautolan: {
@@ -73,7 +157,7 @@ const ENEMY_FILES: Record<EnemyFaction, Partial<Record<EnemyKind, EnemyFiles>>> 
     bomber: { size: 64, engine: 8, destruction: 10 },
     torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
     frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
-    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 },
+    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21, cuts: DREADNOUGHT_CUTS.nautolan },
     support: { size: 64, engine: 8, destruction: 8 },
   },
 };
@@ -311,15 +395,18 @@ export function sheets(): Sheet[] {
           return [];
         }
         const dir = `${ASSETS}/${faction}`;
+        const cut = (part: EnemyPart, sheet: Sheet): Sheet => withCut(sheet, f.cuts?.[part]);
 
         return [
-          still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size),
-          strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
+          cut('base', still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size)),
+          cut('engine', strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12)),
           ...(f.weapons === undefined
             ? []
-            : [strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false)]),
-          strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
-          ...(f.shield === undefined ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.shieldSize ?? f.size, f.shield, 20)]),
+            : [cut('weapons', strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false))]),
+          cut('destruction', strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false)),
+          ...(f.shield === undefined
+            ? []
+            : [cut('shield', strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.shieldSize ?? f.size, f.shield, 20))]),
         ];
       }),
     ),
