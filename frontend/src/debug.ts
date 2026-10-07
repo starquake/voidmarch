@@ -42,6 +42,8 @@ export interface DebugState {
   shotsFired: number;
   zoom: number;
   fps: number;
+  /** The WebGL textures each stars layer's DynamicTexture holds: 1, or 0 on a canvas (#260). */
+  layerTextures: number[];
   /** The average and worst frame time of the last second in ms, and the GPU's time for a recent frame where the browser can time it (#143). */
   frameMs: { average: number; worst: number };
   gpuMs: number | undefined;
