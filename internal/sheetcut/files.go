@@ -22,26 +22,45 @@ type GridOptions struct {
 	Columns     int
 	// Crop trims the margin that is transparent around every frame (Inset).
 	Crop bool
+	// Distinct keeps each different frame once (Distinct).
+	Distinct bool
 }
 
-// GridFile writes the strip at o.Src laid out as a grid (Grid) to o.Out.
-func GridFile(o GridOptions) error {
+// GridFile writes the strip at o.Src laid out as a grid (Grid) to o.Out, and
+// returns which of the grid's frames each of the strip's frames is.
+func GridFile(o GridOptions) ([]int, error) {
 	s, err := ReadStrip(o.Src, o.FrameWidth, o.FrameHeight)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	inset := 0
+	order := make([]int, s.Frames())
+	for f := range order {
+		order[f] = f
+	}
+	if o.Distinct {
+		var keep []int
+		if keep, order, err = Distinct(s); err != nil {
+			return nil, err
+		}
+		if s, err = Pick(s, keep); err != nil {
+			return nil, err
+		}
+	}
+	var inset image.Point
 	if o.Crop {
 		if inset, err = Inset(s); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	img, err := Grid(s, o.Columns, inset)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if err = WritePNG(o.Out, img); err != nil {
+		return nil, err
 	}
 
-	return WritePNG(o.Out, img)
+	return order, nil
 }
 
 // SplitFile writes the background layer strip at src, of frames w by h, as a

@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	. "github.com/starquake/voidmarch/internal/sheetcut"
@@ -153,22 +154,16 @@ func TestGrid(t *testing.T) {
 		img.SetNRGBA(at.X+2, at.Y+2, colors[f])
 		img.SetNRGBA(at.X+3, at.Y+3, colors[f])
 	})
-	inset, err := Inset(s)
-	if err != nil {
-		t.Fatalf("Inset() error = %v", err)
-	}
-	if got, want := inset, 2; got != want {
-		t.Errorf("Inset() = %d, want %d", got, want)
-	}
 	for _, tc := range []struct {
 		name    string
 		columns int
-		inset   int
+		inset   image.Point
 		size    image.Point
 	}{
-		{name: "uncropped", columns: 2, inset: 0, size: image.Pt(12, 18)},
-		{name: "cropped", columns: 3, inset: 2, size: image.Pt(6, 4)},
-		{name: "one row", columns: 9, inset: 0, size: image.Pt(30, 6)},
+		{name: "uncropped", columns: 2, size: image.Pt(12, 18)},
+		{name: "cropped", columns: 3, inset: image.Pt(2, 2), size: image.Pt(6, 4)},
+		{name: "cropped across only", columns: 3, inset: image.Pt(2, 0), size: image.Pt(6, 12)},
+		{name: "one row", columns: 9, size: image.Pt(30, 6)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -179,14 +174,105 @@ func TestGrid(t *testing.T) {
 			if got := img.Bounds().Size(); got != tc.size {
 				t.Errorf("Grid() size = %v, want %v", got, tc.size)
 			}
-			w := s.FrameWidth - 2*tc.inset
+			w, h := s.FrameWidth-2*tc.inset.X, s.FrameHeight-2*tc.inset.Y
 			for f, c := range colors {
-				at := image.Pt((f%tc.columns)*w+2-tc.inset, (f/tc.columns)*w+2-tc.inset)
+				at := image.Pt((f%tc.columns)*w+2-tc.inset.X, (f/tc.columns)*h+2-tc.inset.Y)
 				if got := img.NRGBAAt(at.X, at.Y); got != c {
 					t.Errorf("frame %d at %v = %v, want %v", f, at, got, c)
 				}
 			}
 		})
+	}
+}
+
+func TestInset(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		paint func(f int, img *image.NRGBA, at image.Point)
+		want  image.Point
+	}{
+		{
+			name: "the same margin all round",
+			paint: func(_ int, img *image.NRGBA, at image.Point) {
+				img.SetNRGBA(at.X+2, at.Y+2, red)
+				img.SetNRGBA(at.X+5, at.Y+5, red)
+			},
+			want: image.Pt(2, 2),
+		},
+		{
+			name: "each axis its own, the nearer side's",
+			paint: func(f int, img *image.NRGBA, at image.Point) {
+				img.SetNRGBA(at.X+3, at.Y+1, red)
+				img.SetNRGBA(at.X+4+f, at.Y+5, red)
+			},
+			want: image.Pt(2, 1),
+		},
+		{
+			name:  "nothing visible",
+			paint: func(int, *image.NRGBA, image.Point) {},
+			want:  image.Pt(4, 4),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := Inset(strip(8, 8, 2, tc.paint))
+			if err != nil {
+				t.Fatalf("Inset() error = %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("Inset() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDistinct(t *testing.T) {
+	t.Parallel()
+	// Frames red, blue, red, a transparent pixel of another color (the same
+	// as an empty one), blue, empty.
+	paints := []color.NRGBA{red, blue, red, {R: 9}, blue, {}}
+	s := strip(2, 2, len(paints), func(f int, img *image.NRGBA, at image.Point) {
+		img.SetNRGBA(at.X+1, at.Y, paints[f])
+	})
+	keep, order, err := Distinct(s)
+	if err != nil {
+		t.Fatalf("Distinct() error = %v", err)
+	}
+	if got, want := keep, []int{0, 1, 3}; !slices.Equal(got, want) {
+		t.Errorf("Distinct() keep = %v, want %v", got, want)
+	}
+	if got, want := order, []int{0, 1, 0, 2, 1, 2}; !slices.Equal(got, want) {
+		t.Errorf("Distinct() order = %v, want %v", got, want)
+	}
+	picked, err := Pick(s, keep)
+	if err != nil {
+		t.Fatalf("Pick() error = %v", err)
+	}
+	if got, want := picked.Frames(), len(keep); got != want {
+		t.Fatalf("Pick() frames = %d, want %d", got, want)
+	}
+	for i, f := range order {
+		if at, differ := diff(t, frame(picked, f), frame(s, i)); differ {
+			t.Errorf("frame %d played from the picked strip differs at %v", i, at)
+		}
+	}
+}
+
+func TestDistinctErrors(t *testing.T) {
+	t.Parallel()
+	s := strip(4, 4, 3, func(int, *image.NRGBA, image.Point) {})
+	uneven := Strip{Image: s.Image, FrameWidth: 5, FrameHeight: 4}
+	if _, _, err := Distinct(uneven); !errors.Is(err, ErrLayout) {
+		t.Errorf("Distinct() error = %v, want ErrLayout", err)
+	}
+	if _, err := Pick(uneven, []int{0}); !errors.Is(err, ErrLayout) {
+		t.Errorf("Pick() of an uneven strip error = %v, want ErrLayout", err)
+	}
+	for _, frames := range [][]int{{3}, {-1}, {}} {
+		if _, err := Pick(s, frames); !errors.Is(err, ErrLayout) {
+			t.Errorf("Pick(%v) error = %v, want ErrLayout", frames, err)
+		}
 	}
 }
 
@@ -197,11 +283,12 @@ func TestGridErrors(t *testing.T) {
 		name    string
 		strip   Strip
 		columns int
-		inset   int
+		inset   image.Point
 		want    error
 	}{
 		{name: "no columns", strip: s, columns: 0, want: ErrLayout},
-		{name: "cropped away", strip: s, columns: 1, inset: 2, want: ErrLayout},
+		{name: "cropped away", strip: s, columns: 1, inset: image.Pt(2, 0), want: ErrLayout},
+		{name: "cropped away top to bottom", strip: s, columns: 1, inset: image.Pt(0, 2), want: ErrLayout},
 		{name: "uneven strip", strip: Strip{Image: s.Image, FrameWidth: 5, FrameHeight: 4}, columns: 1, want: ErrLayout},
 		{name: "wrong height", strip: Strip{Image: s.Image, FrameWidth: 4, FrameHeight: 3}, columns: 1, want: ErrLayout},
 		{
@@ -248,6 +335,13 @@ func writeStrip(t *testing.T, dir string, img image.Image) string {
 	}
 
 	return path
+}
+
+// gridErr is GridFile's error alone.
+func gridErr(o GridOptions) error {
+	_, err := GridFile(o)
+
+	return err
 }
 
 // readPNG reads the PNG at path as one frame.
@@ -304,18 +398,51 @@ func TestSplitFile(t *testing.T) {
 
 func TestGridFile(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	s := strip(6, 6, 4, func(_ int, img *image.NRGBA, at image.Point) {
-		img.SetNRGBA(at.X+1, at.Y+1, blue)
+	// Four frames, the third the first again.
+	s := strip(6, 6, 4, func(f int, img *image.NRGBA, at image.Point) {
+		img.SetNRGBA(at.X+1+f%2, at.Y+2, blue)
+		if f == 3 {
+			img.SetNRGBA(at.X+3, at.Y+2, red)
+		}
 	})
-	src := writeStrip(t, dir, s.Image)
-	out := filepath.Join(dir, "grid.png")
-	o := GridOptions{Src: src, Out: out, FrameWidth: 6, FrameHeight: 6, Columns: 2, Crop: true}
-	if err := GridFile(o); err != nil {
-		t.Fatalf("GridFile() error = %v", err)
-	}
-	if got, want := readPNG(t, out).Bounds().Size(), image.Pt(8, 8); got != want {
-		t.Errorf("grid size = %v, want %v: 4 frames cropped to 4 px, 2 by 2", got, want)
+	for _, tc := range []struct {
+		name     string
+		distinct bool
+		size     image.Point
+		order    []int
+	}{
+		{name: "every frame", size: image.Pt(16, 2), order: []int{0, 1, 2, 3}},
+		{name: "distinct frames", distinct: true, size: image.Pt(12, 2), order: []int{0, 1, 0, 2}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			src := writeStrip(t, dir, s.Image)
+			out := filepath.Join(dir, "grid.png")
+			o := GridOptions{
+				Src:         src,
+				Out:         out,
+				FrameWidth:  6,
+				FrameHeight: 6,
+				Columns:     4,
+				Crop:        true,
+				Distinct:    tc.distinct,
+			}
+			order, err := GridFile(o)
+			if err != nil {
+				t.Fatalf("GridFile() error = %v", err)
+			}
+			if !slices.Equal(order, tc.order) {
+				t.Errorf("GridFile() order = %v, want %v", order, tc.order)
+			}
+			if got := readPNG(t, out).Bounds().Size(); got != tc.size {
+				t.Errorf(
+					"grid size = %v, want %v: frames cropped to 4 x 2, 4 to a row",
+					got,
+					tc.size,
+				)
+			}
+		})
 	}
 }
 
@@ -332,10 +459,10 @@ func TestFileErrors(t *testing.T) {
 		name string
 		err  error
 	}{
-		{name: "grid of a missing file", err: GridFile(GridOptions{Src: missing, FrameWidth: 1, FrameHeight: 1, Columns: 1})},
-		{name: "grid of a non-PNG", err: GridFile(GridOptions{Src: notPNG, FrameWidth: 1, FrameHeight: 1, Columns: 1})},
-		{name: "grid with no columns", err: GridFile(GridOptions{Src: good, FrameWidth: 40, FrameHeight: 20, Crop: true})},
-		{name: "grid to a missing directory", err: GridFile(GridOptions{
+		{name: "grid of a missing file", err: gridErr(GridOptions{Src: missing, FrameWidth: 1, FrameHeight: 1, Columns: 1})},
+		{name: "grid of a non-PNG", err: gridErr(GridOptions{Src: notPNG, FrameWidth: 1, FrameHeight: 1, Columns: 1})},
+		{name: "grid with no columns", err: gridErr(GridOptions{Src: good, FrameWidth: 40, FrameHeight: 20, Crop: true})},
+		{name: "grid to a missing directory", err: gridErr(GridOptions{
 			Src: good, Out: filepath.Join(missing, "x.png"), FrameWidth: 40, FrameHeight: 20, Columns: 1,
 		})},
 		{name: "split of a missing file", err: SplitFile(missing, "", "", 1, 1)},

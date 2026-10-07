@@ -79,18 +79,20 @@ func same(a, b color.NRGBA) bool {
 	return a == b || (a.A == 0 && b.A == 0)
 }
 
-// Inset is the widest margin that is transparent on every side of every
-// frame, so cropping it keeps each frame's center where it was.
-func Inset(s Strip) (int, error) {
+// Inset is the widest margin across (X) and top to bottom (Y) that is
+// transparent on both sides of every frame, so cropping it keeps each frame's
+// center where it was.
+func Inset(s Strip) (image.Point, error) {
 	if err := s.check(); err != nil {
-		return 0, err
+		return image.Point{}, err
 	}
-	inset := min(s.FrameWidth, s.FrameHeight) / sides
+	inset := image.Pt(s.FrameWidth/sides, s.FrameHeight/sides)
 	for f := range s.Frames() {
 		for y := range s.FrameHeight {
 			for x := range s.FrameWidth {
 				if s.at(f, x, y).A != 0 {
-					inset = min(inset, x, y, s.FrameWidth-1-x, s.FrameHeight-1-y)
+					inset.X = min(inset.X, x, s.FrameWidth-1-x)
+					inset.Y = min(inset.Y, y, s.FrameHeight-1-y)
 				}
 			}
 		}
@@ -99,19 +101,74 @@ func Inset(s Strip) (int, error) {
 	return inset, nil
 }
 
+// Distinct finds the frames a strip repeats: keep lists the first copy of
+// each different frame, in order, and order says which of them each of the
+// strip's frames is, so frame f looks like frame keep[order[f]].
+func Distinct(s Strip) (keep, order []int, err error) {
+	if err = s.check(); err != nil {
+		return nil, nil, err
+	}
+	order = make([]int, s.Frames())
+	for f := range order {
+		i := slices.IndexFunc(keep, func(k int) bool { return s.sameFrame(f, k) })
+		if i < 0 {
+			i = len(keep)
+			keep = append(keep, f)
+		}
+		order[f] = i
+	}
+
+	return keep, order, nil
+}
+
+// sameFrame reports whether frames a and b look alike in every pixel.
+func (s Strip) sameFrame(a, b int) bool {
+	for y := range s.FrameHeight {
+		for x := range s.FrameWidth {
+			if !same(s.at(a, x, y), s.at(b, x, y)) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// Pick is a strip of only the given frames of s, in the order given.
+func Pick(s Strip, frames []int) (Strip, error) {
+	if err := s.check(); err != nil {
+		return Strip{}, err
+	}
+	outside := func(f int) bool { return f < 0 || f >= s.Frames() }
+	if len(frames) == 0 || slices.ContainsFunc(frames, outside) {
+		return Strip{}, fmt.Errorf(
+			"error picking frames %v of %d: %w", frames, s.Frames(), ErrLayout,
+		)
+	}
+	out := image.NewNRGBA(image.Rect(0, 0, len(frames)*s.FrameWidth, s.FrameHeight))
+	for i, f := range frames {
+		dst := image.Rect(i*s.FrameWidth, 0, (i+1)*s.FrameWidth, s.FrameHeight)
+		draw.Draw(out, dst, s.Image, s.frameRect(f).Min, draw.Src)
+	}
+
+	return Strip{Image: out, FrameWidth: s.FrameWidth, FrameHeight: s.FrameHeight}, nil
+}
+
 // Grid lays the strip's frames out left to right in rows of columns, each
-// frame cropped by inset pixels on every side.
-func Grid(s Strip, columns, inset int) (*image.NRGBA, error) {
+// frame cropped by inset.X pixels on the left and right and inset.Y on the
+// top and bottom.
+func Grid(s Strip, columns int, inset image.Point) (*image.NRGBA, error) {
 	if err := s.check(); err != nil {
 		return nil, err
 	}
 	frames := s.Frames()
-	if columns <= 0 || sides*inset >= min(s.FrameWidth, s.FrameHeight) {
+	if columns <= 0 || inset.X < 0 || inset.Y < 0 ||
+		sides*inset.X >= s.FrameWidth || sides*inset.Y >= s.FrameHeight {
 		return nil, fmt.Errorf(
-			"error laying out %d columns cropped by %d: %w", columns, inset, ErrLayout,
+			"error laying out %d columns cropped by %v: %w", columns, inset, ErrLayout,
 		)
 	}
-	w, h := s.FrameWidth-sides*inset, s.FrameHeight-sides*inset
+	w, h := s.FrameWidth-sides*inset.X, s.FrameHeight-sides*inset.Y
 	rows := (frames + columns - 1) / columns
 	out := image.NewNRGBA(image.Rect(0, 0, min(frames, columns)*w, rows*h))
 	if err := fits(out.Bounds()); err != nil {
@@ -119,7 +176,7 @@ func Grid(s Strip, columns, inset int) (*image.NRGBA, error) {
 	}
 	for f := range frames {
 		at := image.Pt((f%columns)*w, (f/columns)*h)
-		src := s.frameRect(f).Min.Add(image.Pt(inset, inset))
+		src := s.frameRect(f).Min.Add(inset)
 		dst := image.Rectangle{Min: at, Max: at.Add(image.Pt(w, h))}
 		draw.Draw(out, dst, s.Image, src, draw.Src)
 	}
