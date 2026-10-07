@@ -7,6 +7,7 @@ var (
 	NewStatic     = newStaticFiles
 	HandleStatic  = handleStatic
 	ErrIsDir      = errIsDir
+	AcceptsGzip   = acceptsGzip
 )
 
 // NoDirFS exposes noDirFS for tests.
