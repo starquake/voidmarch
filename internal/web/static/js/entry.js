@@ -1,6 +1,6 @@
 // src/bootsizes.gen.ts
 var CODE_BYTES = {
-  "/static/js/main.js": 310639,
+  "/static/js/main.js": 310954,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
@@ -789,6 +789,18 @@ async function download(url, received, fetcher = fetch) {
   return body;
 }
 
+// src/net/static.ts
+var UNVERSIONED = "/static/";
+function staticBase(moduleUrl) {
+  const { pathname } = new URL(moduleUrl);
+  const js = pathname.lastIndexOf("/js/");
+  return pathname.startsWith(UNVERSIONED) && js >= 0 ? pathname.slice(0, js + 1) : UNVERSIONED;
+}
+var STATIC = staticBase(import.meta.url);
+function versioned(url, base = STATIC) {
+  return url.startsWith(UNVERSIONED) ? base + url.slice(UNVERSIONED.length) : url;
+}
+
 // src/sim/math.ts
 var TAU = Math.PI * 2;
 
@@ -830,7 +842,7 @@ function saveIntroSeen(store = browserStorage()) {
 }
 
 // src/sim/loading.ts
-var RULES = { key: "rules", url: "/static/wasm/sim.wasm" };
+var RULES = { key: "rules", url: `${STATIC}wasm/sim.wasm` };
 var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
 var LOAD_CATEGORY_NAMES = {
   ships: "Ships",
@@ -981,7 +993,7 @@ function enter() {
       door.receive(RULES.key, bytes);
     }).catch(() => void 0);
     const imports = Object.keys(CODE_BYTES).filter((url) => !url.endsWith("/main.js"));
-    const [game] = await Promise.all([import("./main.js"), ...imports.map(async (url) => await import(url))]);
+    const [game] = await Promise.all([import("./main.js"), ...imports.map(async (url) => await import(versioned(url)))]);
     return game;
   }).then(({ start }) => {
     door.codeLoaded();
@@ -994,7 +1006,7 @@ function canPlay(format) {
   return type !== void 0 && !["", "no"].includes(audio.canPlayType(type));
 }
 async function prefetch(url, door) {
-  await download(url, (bytes) => {
+  await download(versioned(url), (bytes) => {
     door.receive(url, bytes);
   }).catch(() => void 0);
   door.loaded(url);

@@ -3,8 +3,9 @@ import { PARTS, type PartId } from './sim/parts.ts';
 import { ENEMY_FACTIONS, ENEMY_KINDS, type EnemyBulletId, type EnemyFaction, type EnemyKind } from './sim/enemies.ts';
 import { WEAPON_STATS } from './sim/tuning.ts';
 import type { WeaponTiming } from './weaponframes.ts';
+import { STATIC } from './net/static.ts';
 
-export const ASSETS = '/static/assets';
+export const ASSETS = `${STATIC}assets`;
 
 /** A PNG of equal frames, laid out left to right and, past `columns`, in rows below. */
 export interface Sheet {

@@ -1,6 +1,7 @@
+import { STATIC } from './net/static.ts';
 import type { PanelRow, Pips } from './sim/hud.ts';
 
-const ASSETS = '/static/assets';
+const ASSETS = `${STATIC}assets`;
 /** How long a toast takes to fade out, matching the CSS transition. */
 const TOAST_FADE_MS = 600;
 
