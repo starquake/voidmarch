@@ -323,6 +323,8 @@ As built in milestone 3 (#4), Scouts and Fighters, held in garrisons since #99 a
 - **Transport:** WebSockets.
 - **Persistence:** a database for persistent state (frontier progress, Dreadnought health, player unlocks). SQLite is a good fit.
 
+As built for the client's delivery (#227, #230, #238): the server embeds the client and gzips its code, wasm, CSS and HTML. `index.html` links every file under `/static/v/<build>/`, where the build is a hash over every served file, so a deploy that changes no file keeps the build. The running build's files are served `immutable` for a year, so a return visit asks the server only for `index.html`; relative URLs (the game's imports of its vendor modules, `style.css`'s fonts) and the client's own (it takes the prefix from its module URL) inherit the build. `index.html`, unversioned URLs, an older build's URLs and files served from disk (`WEB_DIR`) revalidate against a content-hash ETag instead.
+
 ### Trust model (friends only)
 
 Because all players are friends, **trust the client** for:

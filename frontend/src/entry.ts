@@ -3,6 +3,7 @@ import { FrontDoor } from './frontdoor.ts';
 import { IntroScreen } from './introscreen.ts';
 import { askName } from './name.ts';
 import { download } from './net/download.ts';
+import { versioned } from './net/static.ts';
 import { loadIntroSeen, loadToken, saveIntroSeen, saveToken } from './settings.ts';
 import { LoadProgress, RULES, SOUND_TYPES, fileSizes } from './sim/loading.ts';
 import { touchMode } from './sim/touch.ts';
@@ -27,13 +28,13 @@ function enter(): void {
   let rules: Promise<Uint8Array<ArrayBuffer> | undefined> = Promise.resolve(undefined);
   void Promise.all(Object.keys(CODE_BYTES).map((url) => prefetch(url, door)))
     .then(async () => {
-      // The rules' bytes keep the bar moving while the browser re-checks the code and the first images are on their way (decision 10).
+      // The rules' bytes keep the bar moving while the first images are on their way (decision 10).
       rules = download(RULES.url, (bytes) => {
         door.receive(RULES.key, bytes);
       }).catch(() => undefined);
-      // The browser revalidates each module (no-cache): all at once, rather than main.js's imports after main.js.
+      // Unversioned, the browser re-checks each module (no-cache): all at once, rather than main.js's imports after main.js.
       const imports = Object.keys(CODE_BYTES).filter((url) => !url.endsWith('/main.js'));
-      const [game] = await Promise.all([import('./main.ts'), ...imports.map(async (url) => (await import(url)) as unknown)]);
+      const [game] = await Promise.all([import('./main.ts'), ...imports.map(async (url) => (await import(versioned(url))) as unknown)]);
 
       return game;
     })
@@ -54,11 +55,13 @@ function canPlay(format: string): boolean {
 
 /**
  * Downloads one of the game's modules, counting its bytes as they arrive
- * (decision 9), so that import() finds it in the browser's cache. One that
- * fails is counted as done, and import() fetches it itself.
+ * (decision 9), so that import() finds it in the browser's cache: url is its
+ * /static/ path, fetched under the page's build (#238), as main.js's own
+ * imports are. One that fails is counted as done, and import() fetches it
+ * itself.
  */
 async function prefetch(url: string, door: FrontDoor): Promise<void> {
-  await download(url, (bytes) => {
+  await download(versioned(url), (bytes) => {
     door.receive(url, bytes);
   }).catch(() => undefined);
   door.loaded(url);

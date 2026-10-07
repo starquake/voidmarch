@@ -288,7 +288,7 @@ version.
 | `APP_ENV` | `production` | `development` or `production`. |
 | `HOST`    | (all)        | Address to listen on. |
 | `PORT`    | `8080`       | Port to listen on. |
-| `WEB_DIR` | (embedded)   | Serve the client from this directory instead of the embedded copy. Development only. |
+| `WEB_DIR` | (embedded)   | Serve the client from this directory instead of the embedded copy, never cached for good, so edits show on a reload. Development only. |
 | `WIRE_LOG` | `false`     | Log every WebSocket message, decoded. For debugging. |
 | `DB_PATH` | `voidmarch.db` (`/data/voidmarch.db` in the image) | The SQLite file that keeps players and the hangar. Its directory must exist. |
 | `POOL_START` | `3`       | Companion ships in the hangar on a fresh database; after that the saved count is used. |

@@ -20,6 +20,8 @@ import (
 
 const (
 	etagBytes = 16
+	// buildBytes is how much of the hash over every file names a build.
+	buildBytes = 8
 	// unlisted is the quality of a coding Accept-Encoding does not name.
 	unlisted    = -1.0
 	float64Bits = 64
@@ -36,13 +38,26 @@ func compressible(name string) bool {
 	}
 }
 
-// staticFiles serves the web client with content-hash ETags, so browsers
-// revalidate cheaply instead of downloading the Phaser bundle on every load,
-// and gzips its text and wasm for browsers that accept it.
+// The Cache-Control values the files are served with.
+const (
+	// revalidate is for a URL whose file can change: the browser asks first.
+	revalidate = "no-cache"
+	// forGood is for a URL of the running build, whose files never change.
+	forGood = "public, max-age=31536000, immutable"
+)
+
+// indexFile is the page, whose links name the running build.
+const indexFile = "index.html"
+
+// staticFiles serves the web client. Under /static/v/<build>/ the running
+// build's files are cached for good (#238); everything else, index.html
+// included, revalidates cheaply against a content-hash ETag. It gzips the
+// text and wasm for browsers that accept it.
 type staticFiles struct {
-	fsys      fs.FS
-	cacheInfo bool
-	info      sync.Map
+	fsys  fs.FS
+	fixed bool
+	info  sync.Map
+	build func() (string, error)
 }
 
 // fileInfo is what serving a file takes beyond the file itself.
@@ -50,16 +65,81 @@ type fileInfo struct {
 	// hash is the hex content hash the ETags are made of.
 	hash    string
 	modTime time.Time
+	// body is what is served in place of the file, when that differs from it.
+	body []byte
 	// gzipped is the file gzipped, or nil when that would not shrink it.
 	gzipped []byte
 }
 
-// newStaticFiles serves fsys. cacheInfo keeps each file's hash and gzip once
-// made, for files that never change.
-func newStaticFiles(fsys fs.FS, cacheInfo bool) *staticFiles {
+// newStaticFiles serves fsys. fixed is for files that never change, the
+// embedded ones: each file's hash and gzip are kept once made, and the running
+// build's URLs are cached for good. Files that can change under a running
+// server always revalidate, so the build is named once and never refreshed.
+func newStaticFiles(fsys fs.FS, fixed bool) *staticFiles {
 	registerTypes()
 
-	return &staticFiles{fsys: noDirFS{fsys}, cacheInfo: cacheInfo}
+	return &staticFiles{
+		fsys:  noDirFS{fsys},
+		fixed: fixed,
+		build: sync.OnceValues(func() (string, error) { return buildID(fsys) }),
+	}
+}
+
+// buildID names the files in fsys as they are: a hash over every file's name
+// and content, so it changes whenever any of them does, and only then.
+func buildID(fsys fs.FS) (string, error) {
+	h := sha256.New()
+	err := fs.WalkDir(fsys, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("error walking %q: %w", name, err)
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		data, err := fs.ReadFile(fsys, name)
+		if err != nil {
+			return fmt.Errorf("error reading %q: %w", name, err)
+		}
+		sum := sha256.Sum256(data)
+		_, _ = h.Write([]byte(name + "\x00"))
+		_, _ = h.Write(sum[:])
+
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("error hashing the files: %w", err)
+	}
+
+	return hex.EncodeToString(h.Sum(nil)[:buildBytes]), nil
+}
+
+// buildPrefix is where a build's files are served.
+func buildPrefix(build string) string {
+	return "/static/v/" + build + "/"
+}
+
+// linkBuild points the page's /static/ links at the running build, so what
+// they load, and what that loads by a relative URL, is cached for good.
+func (s *staticFiles) linkBuild(page []byte) ([]byte, error) {
+	build, err := s.build()
+	if err != nil {
+		return nil, fmt.Errorf("error naming the build: %w", err)
+	}
+
+	return bytes.ReplaceAll(page, []byte(`="/static/`), []byte(`="`+buildPrefix(build))), nil
+}
+
+// cachedForGood reports whether a URL naming build is never to be asked
+// about again: it names the running build, of files that never change. An
+// older build's URL, from a page open across a deploy, gets today's file to
+// revalidate.
+func (s *staticFiles) cachedForGood(build string) bool {
+	if !s.fixed || build == "" {
+		return false
+	}
+	running, err := s.build()
+
+	return err == nil && build == running
 }
 
 // registerTypes adds the audio and font types missing from Go's built-in
@@ -71,22 +151,27 @@ func registerTypes() {
 }
 
 // serve writes the named file, gzipped when it pays and the request accepts
-// it, or a 404 when it does not exist.
-func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, name string) {
+// it, or a 404 when it does not exist. build is the build its URL names, or
+// empty for an unversioned URL.
+func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, name, build string) {
 	if !fs.ValidPath(name) {
 		http.NotFound(w, r)
 
 		return
 	}
 
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", revalidate)
 	info, err := s.fileInfo(name)
 	if err != nil {
-		// Its error page: a 404 for a missing file or a directory.
+		// Its error page, a 404 for a missing file or a directory, or else
+		// the file as it is.
 		//nolint:gosec // name passed fs.ValidPath above, and fsys is rooted.
 		http.ServeFileFS(w, r, s.fsys, name)
 
 		return
+	}
+	if s.cachedForGood(build) {
+		w.Header().Set("Cache-Control", forGood)
 	}
 
 	if info.gzipped != nil {
@@ -107,11 +192,17 @@ func (s *staticFiles) serve(w http.ResponseWriter, r *http.Request, name string)
 	}
 
 	w.Header().Set("ETag", `"`+info.hash+`"`)
+	if info.body != nil {
+		http.ServeContent(w, r, name, info.modTime, bytes.NewReader(info.body))
+
+		return
+	}
 	//nolint:gosec // name passed fs.ValidPath above, and fsys is rooted.
 	http.ServeFileFS(w, r, s.fsys, name)
 }
 
-// fileInfo hashes the named file and gzips it when its type is compressible.
+// fileInfo hashes the named file and gzips it when its type is compressible;
+// the page's links name the build first.
 func (s *staticFiles) fileInfo(name string) (*fileInfo, error) {
 	if cached, ok := s.info.Load(name); ok {
 		if info, isInfo := cached.(*fileInfo); isInfo {
@@ -134,8 +225,15 @@ func (s *staticFiles) fileInfo(name string) (*fileInfo, error) {
 		return nil, fmt.Errorf("error reading %q: %w", name, err)
 	}
 
+	info := &fileInfo{modTime: stat.ModTime()}
+	if name == indexFile {
+		if data, err = s.linkBuild(data); err != nil {
+			return nil, fmt.Errorf("error linking %q: %w", name, err)
+		}
+		info.body = data
+	}
 	sum := sha256.Sum256(data)
-	info := &fileInfo{hash: hex.EncodeToString(sum[:etagBytes]), modTime: stat.ModTime()}
+	info.hash = hex.EncodeToString(sum[:etagBytes])
 	if compressible(name) {
 		gzipped, err := gzipBytes(data)
 		if err != nil {
@@ -146,7 +244,7 @@ func (s *staticFiles) fileInfo(name string) (*fileInfo, error) {
 		}
 	}
 
-	if s.cacheInfo {
+	if s.fixed {
 		s.info.Store(name, info)
 	}
 
@@ -236,13 +334,21 @@ func (w encodingWriter) Unwrap() http.ResponseWriter {
 
 func handleIndex(files *staticFiles) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		files.serve(w, r, "index.html")
+		files.serve(w, r, indexFile, "")
 	})
 }
 
 func handleStatic(files *staticFiles) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		files.serve(w, r, strings.TrimPrefix(r.URL.Path, "/"))
+		files.serve(w, r, strings.TrimPrefix(r.URL.Path, "/"), "")
+	})
+}
+
+// handleBuild serves a file under a build's prefix: the pattern's {file...}
+// under its {build}.
+func handleBuild(files *staticFiles) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		files.serve(w, r, r.PathValue("file"), r.PathValue("build"))
 	})
 }
 

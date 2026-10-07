@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -59,6 +60,32 @@ func embedded(t *testing.T, name string) string {
 	return string(data)
 }
 
+// forGood is the Cache-Control of a file the browser never asks about again.
+const forGood = "public, max-age=31536000, immutable"
+
+// entryScript is where index.html loads the entry module, naming the build.
+var entryScript = regexp.MustCompile(
+	`<script type="module" src="/static/v/([0-9a-f]{16})/js/entry\.js">`,
+)
+
+// pageBuild returns the build the page at baseURL links.
+func pageBuild(t *testing.T, baseURL string) string {
+	t.Helper()
+
+	match := entryScript.FindStringSubmatch(get(t, baseURL+"/").body)
+	if match == nil {
+		t.Fatalf("index.html should load the entry module as %s", entryScript)
+	}
+
+	return match[1]
+}
+
+// linkedPage is index.html as the server sends it: its /static/ links under
+// the build.
+func linkedPage(page, build string) string {
+	return strings.ReplaceAll(page, `="/static/`, `="/static/v/`+build+`/`)
+}
+
 func gunzip(t *testing.T, body string) string {
 	t.Helper()
 
@@ -78,6 +105,7 @@ func TestWebClient_Gzip(t *testing.T) {
 	t.Parallel()
 
 	baseURL := startServer(t, nil)
+	build := pageBuild(t, baseURL)
 
 	const js = "text/javascript; charset=utf-8"
 	tests := []struct {
@@ -100,6 +128,9 @@ func TestWebClient_Gzip(t *testing.T) {
 			t.Parallel()
 
 			file := embedded(t, tc.file)
+			if tc.file == "index.html" {
+				file = linkedPage(file, build)
+			}
 			gzipped := fetchRaw(t, http.MethodGet, baseURL+tc.path, http.Header{
 				"Accept-Encoding": {"gzip, deflate, br, zstd"},
 			})
@@ -282,7 +313,7 @@ func TestWebClient_Embedded(t *testing.T) {
 		wantType    string
 		wantContain string
 	}{
-		{path: "/", wantType: "text/html", wantContain: `src="/static/wasm/wasm_exec.js"`},
+		{path: "/", wantType: "text/html", wantContain: `/wasm/wasm_exec.js"></script>`},
 		{
 			path:        "/static/js/entry.js",
 			wantType:    "text/javascript",
@@ -332,9 +363,8 @@ func TestWebClient_EntryModule(t *testing.T) {
 	baseURL := startServer(t, nil)
 
 	index := get(t, baseURL+"/")
-	script := `<script type="module" src="/static/js/entry.js">`
-	if !strings.Contains(index.body, script) {
-		t.Errorf("index.html should contain %q", script)
+	if !entryScript.MatchString(index.body) {
+		t.Errorf("index.html should load the entry module as %s", entryScript)
 	}
 	if got, notWant := index.body, "/static/js/main.js"; strings.Contains(got, notWant) {
 		t.Errorf("index.html should not load %q: the entry module imports it", notWant)
@@ -378,6 +408,149 @@ func TestWebClient_WebDirOverride(t *testing.T) {
 
 	resp := get(t, baseURL+"/")
 	if got, want := resp.body, "from disk"; got != want {
+		t.Errorf("body = %q, want %q", got, want)
+	}
+}
+
+func TestWebClient_Versioned(t *testing.T) {
+	t.Parallel()
+
+	baseURL := startServer(t, nil)
+	build := pageBuild(t, baseURL)
+	stale := strings.Repeat("0", len(build))
+
+	index := get(t, baseURL+"/")
+	if got, want := index.body, linkedPage(embedded(t, "index.html"), build); got != want {
+		t.Errorf("index.html = %q, want every /static/ link under the build, %q", got, want)
+	}
+	if got, want := index.header.Get("Cache-Control"), "no-cache"; got != want {
+		t.Errorf("index.html Cache-Control = %q, want %q", got, want)
+	}
+
+	tests := []struct {
+		name      string
+		path      string
+		file      string
+		wantCache string
+	}{
+		{
+			name:      "the running build's entry module",
+			path:      "/static/v/" + build + "/js/entry.js",
+			file:      "js/entry.js",
+			wantCache: forGood,
+		},
+		{
+			name:      "the running build's game",
+			path:      "/static/v/" + build + "/js/main.js",
+			file:      "js/main.js",
+			wantCache: forGood,
+		},
+		{
+			name:      "a vendor module main.js imports",
+			path:      "/static/v/" + build + "/js/vendor/phaser.js",
+			file:      "js/vendor/phaser.js",
+			wantCache: forGood,
+		},
+		{
+			name:      "the rules",
+			path:      "/static/v/" + build + "/wasm/sim.wasm",
+			file:      "wasm/sim.wasm",
+			wantCache: forGood,
+		},
+		{
+			name:      "a font style.css loads",
+			path:      "/static/v/" + build + "/fonts/exo2.woff2",
+			file:      "fonts/exo2.woff2",
+			wantCache: forGood,
+		},
+		{
+			name:      "a sheet",
+			path:      "/static/v/" + build + "/assets/mainship/hull-full-health.png",
+			file:      "assets/mainship/hull-full-health.png",
+			wantCache: forGood,
+		},
+		{
+			name:      "unversioned",
+			path:      "/static/js/main.js",
+			file:      "js/main.js",
+			wantCache: "no-cache",
+		},
+		{
+			name:      "an older build",
+			path:      "/static/v/" + stale + "/js/main.js",
+			file:      "js/main.js",
+			wantCache: "no-cache",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			file := embedded(t, tc.file)
+			gzipped := fetchRaw(t, http.MethodGet, baseURL+tc.path, http.Header{
+				"Accept-Encoding": {"gzip, deflate, br, zstd"},
+			})
+			plain := fetchRaw(t, http.MethodGet, baseURL+tc.path, nil)
+
+			for _, resp := range []response{gzipped, plain} {
+				if got, want := resp.status, http.StatusOK; got != want {
+					t.Fatalf("status = %d, want %d", got, want)
+				}
+				if got, want := resp.header.Get("Cache-Control"), tc.wantCache; got != want {
+					t.Errorf("Cache-Control = %q, want %q", got, want)
+				}
+			}
+			body := gzipped.body
+			if gzipped.header.Get("Content-Encoding") == "gzip" {
+				body = gunzip(t, body)
+				if got, want := gzipped.header.Get("Vary"), "Accept-Encoding"; got != want {
+					t.Errorf("Vary = %q, want %q", got, want)
+				}
+				if got, want := gzipped.header.Get("ETag"), `-gz"`; !strings.HasSuffix(got, want) {
+					t.Errorf("gzip ETag = %q, should end with %q", got, want)
+				}
+			}
+			if body != file || plain.body != file {
+				t.Errorf("body differs from the embedded %s", tc.file)
+			}
+		})
+	}
+}
+
+func TestWebClient_VersionedFromDisk(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	page := `<script src="/static/js/game.js"></script>`
+	for name, data := range map[string]string{"index.html": page, "js/game.js": "play()"} {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatalf("making %s's folder: %v", name, err)
+		}
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatalf("writing %s: %v", name, err)
+		}
+	}
+
+	baseURL := startServer(t, map[string]string{"WEB_DIR": dir})
+
+	index := get(t, baseURL+"/")
+	link := regexp.MustCompile(`src="(/static/v/[0-9a-f]{16}/js/game\.js)"`).
+		FindStringSubmatch(index.body)
+	if link == nil {
+		t.Fatalf("index.html = %q, should link the game under the build", index.body)
+	}
+
+	// Files on disk can change under the running server: never cached for good.
+	resp := get(t, baseURL+link[1])
+	if got, want := resp.status, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := resp.header.Get("Cache-Control"), "no-cache"; got != want {
+		t.Errorf("Cache-Control = %q, want %q", got, want)
+	}
+	if got, want := resp.body, "play()"; got != want {
 		t.Errorf("body = %q, want %q", got, want)
 	}
 }

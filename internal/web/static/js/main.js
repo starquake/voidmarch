@@ -56,6 +56,15 @@ async function orDownload(early, url, received, fetcher = fetch) {
   return await early ?? download(url, received, fetcher);
 }
 
+// src/net/static.ts
+var UNVERSIONED = "/static/";
+function staticBase(moduleUrl) {
+  const { pathname } = new URL(moduleUrl);
+  const js = pathname.lastIndexOf("/js/");
+  return pathname.startsWith(UNVERSIONED) && js >= 0 ? pathname.slice(0, js + 1) : UNVERSIONED;
+}
+var STATIC = staticBase(import.meta.url);
+
 // src/sim/rules.gen.ts
 var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
@@ -240,7 +249,7 @@ var LAYOUT = {
 var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 
 // src/sim/loading.ts
-var RULES = { key: "rules", url: "/static/wasm/sim.wasm" };
+var RULES = { key: "rules", url: `${STATIC}wasm/sim.wasm` };
 var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
 var SHIP_PREFIXES = ["hull-", "engine-", "flame-", "shield-", "weapon-", "projectile-", "pickup-"];
 var SPACE_KEYS = ["planet", "asteroid"];
@@ -378,7 +387,7 @@ var TELEPORT_SOUND_RANGE = 400;
 var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
 
 // src/sounds.ts
-var AUDIO = "/static/audio";
+var AUDIO = `${STATIC}audio`;
 var both = (key, path) => ({ key, urls: [`${AUDIO}/${path}.ogg`, `${AUDIO}/${path}.mp3`] });
 var SHOT_SOUNDS = {
   autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
@@ -511,7 +520,7 @@ function nextPart(parts, current, unlocks) {
 }
 
 // src/sprites.ts
-var ASSETS = "/static/assets";
+var ASSETS = `${STATIC}assets`;
 var animationFrames = (sheet) => sheet.animation === void 0 ? Array.from({ length: sheet.frames }, (_, i) => i) : [...sheet.animation];
 var still = (key, url, size) => ({
   key,
@@ -1837,7 +1846,7 @@ var SettingsScreen = class {
 };
 
 // src/hud.ts
-var ASSETS2 = "/static/assets";
+var ASSETS2 = `${STATIC}assets`;
 var TOAST_FADE_MS = 600;
 var HudView = class _HudView {
   root;

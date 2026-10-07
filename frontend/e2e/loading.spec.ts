@@ -2,14 +2,20 @@ import { test as fresh, type Page } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
 
+/** A file's URL pattern under the page's build, /static/v/<build>/ (#238). */
+const STATIC = String.raw`\/static\/v\/[0-9a-f]+\/`;
+
 /** The enemies' sheets, held back so the strip stays up mid-load. */
-const ENEMY_SHEETS = /\/static\/assets\/(klaed|nairan|nautolan)\//;
+const ENEMY_SHEETS = new RegExp(String.raw`${STATIC}assets\/(klaed|nairan|nautolan)\/`);
 
 /** Phaser, the largest part of the game's code, held back to keep the entry module's screens up (#227, decision 8). */
-const PHASER = /\/static\/js\/vendor\/phaser\.js$/;
+const PHASER = new RegExp(String.raw`${STATIC}js\/vendor\/phaser\.js$`);
+
+/** The rules. */
+const RULES = new RegExp(String.raw`${STATIC}wasm\/sim\.wasm$`);
 
 /** Files the bar counts that the server gzips (#230): the game's code, the rules, and a layout Phaser's loader fetches. */
-const GZIPPED = [PHASER, /\/static\/wasm\/sim\.wasm$/, /\/static\/assets\/environment\/background-stars\.json$/];
+const GZIPPED = [PHASER, RULES, new RegExp(String.raw`${STATIC}assets\/environment\/background-stars\.json$`)];
 
 /** Holds the requests matching url until the returned function lets them through. */
 async function hold(page: Page, url: RegExp): Promise<() => void> {
@@ -27,7 +33,7 @@ async function hold(page: Page, url: RegExp): Promise<() => void> {
 
 /** Whether phaser.js has finished downloading. */
 const phaserLoaded = (page: Page): Promise<boolean> =>
-  page.evaluate(() => performance.getEntriesByType('resource').some((entry) => entry.name.endsWith('/static/js/vendor/phaser.js')));
+  page.evaluate(() => performance.getEntriesByType('resource').some((entry) => entry.name.endsWith('/js/vendor/phaser.js')));
 
 /** Each category on the strip, with its state. */
 const categories = (page: Page): Promise<string[]> =>
@@ -106,7 +112,7 @@ fresh('a first visit loads behind the name screen, then shows the intro with the
     }
   });
 
-  const shipSheet = page.waitForRequest(/\/static\/assets\/mainship\//);
+  const shipSheet = page.waitForRequest(new RegExp(String.raw`${STATIC}assets\/mainship\/`));
   await page.goto('/');
   const name = page.locator('#name-form');
   await expect(name).toBeVisible();
@@ -219,7 +225,7 @@ test("one bar by bytes: it counts the game's gzipped code as it streams, never g
 test('the rules download once, starting when the code is in (decision 10)', async ({ page }) => {
   const rules: string[] = [];
   page.on('request', (request) => {
-    if (request.url().endsWith('/static/wasm/sim.wasm')) {
+    if (RULES.test(request.url())) {
       rules.push(request.url());
     }
   });
@@ -229,14 +235,14 @@ test('the rules download once, starting when the code is in (decision 10)', asyn
   const imported = new Promise<void>((resolve) => {
     releaseImport = resolve;
   });
-  await page.route(/\/static\/js\/main\.js$/, async (route) => {
+  await page.route(new RegExp(String.raw`${STATIC}js\/main\.js$`), async (route) => {
     mainRequests += 1;
     if (mainRequests > 1) {
       await imported;
     }
     await route.continue();
   });
-  const rulesRequested = page.waitForRequest(/\/static\/wasm\/sim\.wasm$/);
+  const rulesRequested = page.waitForRequest(RULES);
   await page.goto('/', { waitUntil: 'commit' });
   await rulesRequested;
   await expect.poll(() => mainRequests, 'and the game code is held').toBe(2);
@@ -245,4 +251,48 @@ test('the rules download once, starting when the code is in (decision 10)', asyn
   await expect(page.locator('#loading-strip')).toBeHidden();
   await online(page);
   expect(rules, 'the game runs the bytes the entry module downloaded').toHaveLength(1);
+});
+
+/** What a page fetched under the static paths: each URL, and the bytes that crossed the network for it (0 from the cache). */
+const staticFetches = (page: Page): Promise<{ url: string; transferSize: number }[]> =>
+  page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .filter((entry) => new URL(entry.name).pathname.startsWith('/static/'))
+      .map((entry) => ({ url: entry.name, transferSize: (entry as PerformanceResourceTiming).transferSize })),
+  );
+
+test('a return visit takes every file the first one loaded from the cache, asking the server about none, and the bar still fills once (#238)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await online(page);
+  const first = await staticFetches(page);
+  expect(first.length, 'the first visit loads the game').toBeGreaterThan(100);
+  expect(
+    first.filter(({ url }) => !new RegExp(STATIC).test(url)),
+    "every file is under the page's build",
+  ).toEqual([]);
+  expect(first.some(({ url }) => url.endsWith('/fonts/exo2.woff2')), "style.css's fonts too").toBe(true);
+
+  await recordBar(page);
+  await page.goto('about:blank');
+  await page.goto('/');
+  await online(page);
+  const loaded = new Set(first.map(({ url }) => url));
+  const again = (await staticFetches(page)).filter(({ url }) => loaded.has(url));
+  const urls = again.map(({ url }) => url);
+  // A font may not show at all: Firefox keeps the fonts it has, and asks no cache for them.
+  for (const file of [PHASER, RULES, /\/js\/main\.js$/, /\/assets\/mainship\//]) {
+    expect(urls.some((url) => file.test(url)), `the return visit loads ${file.source}`).toBe(true);
+  }
+  expect(
+    again.filter(({ transferSize }) => transferSize > 0).map(({ url }) => url),
+    'none asks the server again',
+  ).toEqual([]);
+
+  const values = (await page.evaluate(() => (window as unknown as { barSteps: BarStep[] }).barSteps)).map((s) => s.value);
+  expect(values, 'the bar never goes back').toEqual(values.toSorted((a, b) => a - b));
+  expect(values.at(-1), 'it ends at 100').toBe(100);
+  expect(values.filter((v) => v === 100).length, 'and gets there once').toBe(1);
 });

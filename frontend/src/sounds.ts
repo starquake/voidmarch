@@ -1,7 +1,8 @@
+import { STATIC } from './net/static.ts';
 import type { EngineId, WeaponId } from './sim/loadout.ts';
 import type { MusicPlace } from './sim/music.ts';
 
-const AUDIO = '/static/audio';
+const AUDIO = `${STATIC}audio`;
 
 /** A sound and its files, best format first; Phaser plays the first the browser supports. */
 export interface SoundFile {
