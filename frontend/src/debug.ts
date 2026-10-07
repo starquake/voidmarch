@@ -148,7 +148,10 @@ declare global {
   }
 }
 
-/** Publishes state for the E2E tests. */
-export function publishDebugState(state: DebugState): void {
-  window.voidmarch = state;
+/**
+ * Publishes state for the E2E tests and debugging as target's `voidmarch`,
+ * which read builds afresh on every access rather than every frame (#264).
+ */
+export function publishDebugState(read: () => DebugState, target: { voidmarch?: DebugState } = window): void {
+  Object.defineProperty(target, 'voidmarch', { get: read, configurable: true, enumerable: true });
 }

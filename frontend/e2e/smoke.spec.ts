@@ -34,6 +34,13 @@ test('the client boots into the sandbox without errors', async ({ page }) => {
   console.log(`${test.info().project.name}: ${line}`);
 });
 
+test('the debug state is built when it is read, not every frame (#264)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+  const reader = await page.evaluate(() => typeof Object.getOwnPropertyDescriptor(window, 'voidmarch')?.get);
+  expect(reader).toBe('function');
+});
+
 test('the game\'s text is in Exo 2, with titles in Orbitron (#170)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');

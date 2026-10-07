@@ -458,7 +458,7 @@ export class SandboxScene extends Phaser.Scene {
       hangar: undefined,
       squadronMode: undefined,
     };
-    this.publish();
+    publishDebugState(() => this.debugState());
     this.ready();
   }
 
@@ -496,7 +496,6 @@ export class SandboxScene extends Phaser.Scene {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
-    this.publish();
   }
 
   /**
@@ -661,7 +660,6 @@ export class SandboxScene extends Phaser.Scene {
     const events = this.sim.advance(deltaMs / 1000, idle, this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     this.net?.update(events);
-    this.publish();
   }
 
   private createProjectiles(): void {
@@ -2022,7 +2020,8 @@ export class SandboxScene extends Phaser.Scene {
     });
   }
 
-  private publish(): void {
+  /** The state window.voidmarch shows, brought up to date as it's read. */
+  private debugState(): DebugState {
     const { ship, projectiles } = this.sim;
     this.debug.ship.x = ship.x;
     this.debug.ship.y = ship.y;
@@ -2106,7 +2105,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.rescues = this.net?.rescues ?? 0;
     this.debug.teleports = this.net?.teleports ?? 0;
     this.debug.departing = this.net?.departingCount ?? 0;
-    publishDebugState(this.debug);
+
+    return this.debug;
   }
 }
 
