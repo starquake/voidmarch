@@ -108,7 +108,10 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   hexagonal sectors (`internal/sim/sectors.go`, #117) holds a garrison that takes the
   field when a ship comes near (`internal/game/sectors.go`, #99); destroying
   it clears the sector, saved in `cleared_sectors`. The E2E map keeps a
-  garrison in D5 that never runs out, for the hunting specs. Enemy bullets are
+  garrison in D5 that never runs out, for the hunting specs. Each player is
+  sent only the enemies near their ship or companions, and every boss
+  (`internal/game/interest.go`, `sim.InterestRadius`, #231); `EnemyFired` and
+  `EnemyDestroyed` follow the same set. Enemy bullets are
   never streamed: `EnemyFired` carries a seed, and `internal/sim/patterns.go`,
   run in the browser as WebAssembly, expands it identically on every client. Hub tests use `WithSeed` and step the
   hub by hand, so enemy behaviour is deterministic.
