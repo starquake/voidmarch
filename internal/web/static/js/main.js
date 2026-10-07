@@ -6274,7 +6274,9 @@ var NetPlay = class {
     }
   }
   enemyFired(fired) {
-    this.enemyWarnings.add(fired.tick - fired.warnTicks, { enemyId: fired.enemyId, warnTicks: fired.warnTicks });
+    if (fired.warnTicks > 0) {
+      this.enemyWarnings.add(fired.tick - fired.warnTicks, { enemyId: fired.enemyId, warnTicks: fired.warnTicks });
+    }
     this.enemyVolleys.add(fired.tick, {
       enemyId: fired.enemyId,
       kind: fromEnemyKind(fired.kind),

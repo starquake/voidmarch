@@ -317,6 +317,27 @@ func TestDreadnought_TheNautolanOneSpirals(t *testing.T) {
 	}
 }
 
+func TestDreadnought_ItsSpiralWarnsOnce(t *testing.T) {
+	t.Parallel()
+
+	fired, _ := finaleFire(t, 10*TickRate)
+	run := spirals(fired)[0]
+	for i, b := range run {
+		want := uint32(0)
+		if i == 0 {
+			want = FireWarning
+		}
+		if b.warn != want {
+			t.Errorf("spiral burst %d warns %d ticks ahead, want %d", i, b.warn, want)
+		}
+	}
+	for _, f := range fired {
+		if f.volley != sim.DreadnoughtSpiral && f.warn != FireWarning {
+			t.Errorf("volley %d warns %d ticks ahead, want %d", f.volley, f.warn, FireWarning)
+		}
+	}
+}
+
 func TestDreadnought_FallsBehindItsShieldAndOpensTheRings(t *testing.T) {
 	t.Parallel()
 

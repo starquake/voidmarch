@@ -464,23 +464,35 @@ func (h *Hub) fireVolley(e *enemy, angle float64, volley sim.DreadnoughtVolley) 
 // fireAt fires e's pattern along angle with seed, after the warning; a
 // Torpedo Ship holds still through its longer one.
 func (h *Hub) fireAt(e *enemy, angle float64, seed uint32) {
-	h.noteAttack(e)
 	warning := uint32(fireWarning)
 	if e.kind == pb.EnemyKind_ENEMY_KIND_TORPEDO {
 		warning = torpedoWarning
 		e.holdUntil = h.tick + warning
 	}
+	h.launch(e, angle, seed, warning, warning)
+}
+
+// fireUnwarned fires e's pattern like fireAt, announced as far ahead, but
+// with no warning of its own: a spiral's bursts after the first (#273).
+func (h *Hub) fireUnwarned(e *enemy, angle float64, seed uint32) {
+	h.launch(e, angle, seed, fireWarning, 0)
+}
+
+// launch fires e's pattern along angle with seed ahead ticks from now,
+// its weapon animating for the last warning of them.
+func (h *Hub) launch(e *enemy, angle float64, seed, ahead, warning uint32) {
+	h.noteAttack(e)
 	// The hub flies the bullets too, against its companions (#46).
 	h.volleys = append(
 		h.volleys,
-		volley{tick: h.tick + warning, enemyID: e.id, angle: angle, seed: seed},
+		volley{tick: h.tick + ahead, enemyID: e.id, angle: angle, seed: seed},
 	)
 	h.sendNear(
 		e.id,
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyFired{EnemyFired: &pb.EnemyFired{
 			EnemyId:   e.id,
 			Kind:      e.kind,
-			Tick:      h.tick + warning,
+			Tick:      h.tick + ahead,
 			WarnTicks: warning,
 			Faction:   pbEnemyFaction(e.faction),
 			Seed:      seed,

@@ -3082,15 +3082,17 @@ func (x *DerelictState) GetHeld() bool {
 // where the enemy is then. x and y are where it was when announced.
 // It goes to the players who were sent the enemy in the last snapshot (#231).
 type EnemyFired struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	EnemyId   uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
-	Kind      EnemyKind              `protobuf:"varint,2,opt,name=kind,proto3,enum=voidmarch.v1.EnemyKind" json:"kind,omitempty"`
-	Tick      uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
-	Seed      uint32                 `protobuf:"varint,4,opt,name=seed,proto3" json:"seed,omitempty"`
-	X         float32                `protobuf:"fixed32,5,opt,name=x,proto3" json:"x,omitempty"`
-	Y         float32                `protobuf:"fixed32,6,opt,name=y,proto3" json:"y,omitempty"`
-	Angle     float32                `protobuf:"fixed32,7,opt,name=angle,proto3" json:"angle,omitempty"`
-	WarnTicks uint32                 `protobuf:"varint,8,opt,name=warn_ticks,json=warnTicks,proto3" json:"warn_ticks,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	EnemyId uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
+	Kind    EnemyKind              `protobuf:"varint,2,opt,name=kind,proto3,enum=voidmarch.v1.EnemyKind" json:"kind,omitempty"`
+	Tick    uint32                 `protobuf:"varint,3,opt,name=tick,proto3" json:"tick,omitempty"`
+	Seed    uint32                 `protobuf:"varint,4,opt,name=seed,proto3" json:"seed,omitempty"`
+	X       float32                `protobuf:"fixed32,5,opt,name=x,proto3" json:"x,omitempty"`
+	Y       float32                `protobuf:"fixed32,6,opt,name=y,proto3" json:"y,omitempty"`
+	Angle   float32                `protobuf:"fixed32,7,opt,name=angle,proto3" json:"angle,omitempty"`
+	// 0 for a volley with no warning of its own: a Dreadnought spiral's bursts
+	// after the first, whose weapon animation plays once (#273).
+	WarnTicks uint32 `protobuf:"varint,8,opt,name=warn_ticks,json=warnTicks,proto3" json:"warn_ticks,omitempty"`
 	// The firing enemy's faction, which picks its bullets (#136).
 	Faction       EnemyFaction `protobuf:"varint,9,opt,name=faction,proto3,enum=voidmarch.v1.EnemyFaction" json:"faction,omitempty"`
 	unknownFields protoimpl.UnknownFields
