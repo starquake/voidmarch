@@ -4705,8 +4705,19 @@ var Connection = class {
 // src/net/interpolation.ts
 var INTERPOLATION_DELAY_TICKS = 2;
 var MAX_SAMPLES = 32;
+var MAX_EXTRAPOLATION_TICKS = 3;
+var BLEND_TICKS = 2;
+var MAX_BLEND_PX = 150;
 var StateBuffer = class {
   samples = [];
+  ticksPerSecond;
+  /** The tick drawn last and where sampling put it then, to see a newer snapshot move it. */
+  drawn;
+  /** What is left of a correction, set at a tick and fading from there. */
+  offset;
+  constructor(tickRate) {
+    this.ticksPerSecond = tickRate;
+  }
   push(tick, state) {
     const last = this.samples.at(-1);
     if (last !== void 0 && tick <= last.tick) {
@@ -4731,7 +4742,11 @@ var StateBuffer = class {
       return first.state;
     }
     if (tick >= last.tick) {
-      return last.state;
+      const seconds = Math.min(tick - last.tick, MAX_EXTRAPOLATION_TICKS) / this.ticksPerSecond;
+      if (seconds === 0 || last.state.vx === 0 && last.state.vy === 0) {
+        return last.state;
+      }
+      return { ...last.state, x: last.state.x + last.state.vx * seconds, y: last.state.y + last.state.vy * seconds };
     }
     let i = this.samples.length - 1;
     while (i > 0 && (this.samples[i - 1]?.tick ?? 0) > tick) {
@@ -4749,6 +4764,35 @@ var StateBuffer = class {
       y: a.state.y + (b.state.y - a.state.y) * t,
       angle: wrapAngle(a.state.angle + wrapAngle(b.state.angle - a.state.angle) * t)
     };
+  }
+  /**
+   * The state to draw this frame at renderTick. Where a newer snapshot moved
+   * the tick drawn last, the difference fades out instead of showing as a jump.
+   */
+  draw(renderTick) {
+    const pose = this.sample(renderTick);
+    if (pose === void 0) {
+      return void 0;
+    }
+    const drawn = this.drawn;
+    const then = drawn === void 0 ? void 0 : this.sample(drawn.tick);
+    if (drawn !== void 0 && then !== void 0 && (then.x !== drawn.x || then.y !== drawn.y)) {
+      const left = this.offsetAt(drawn.tick);
+      const x = left.x + drawn.x - then.x;
+      const y = left.y + drawn.y - then.y;
+      this.offset = Math.hypot(x, y) > MAX_BLEND_PX ? void 0 : { tick: drawn.tick, x, y };
+    }
+    this.drawn = { tick: renderTick, x: pose.x, y: pose.y };
+    const offset = this.offsetAt(renderTick);
+    return offset.x === 0 && offset.y === 0 ? pose : { ...pose, x: pose.x + offset.x, y: pose.y + offset.y };
+  }
+  offsetAt(tick) {
+    const offset = this.offset;
+    const share = offset === void 0 ? 0 : Math.min(1, 1 - (tick - offset.tick) / BLEND_TICKS);
+    if (offset === void 0 || share <= 0) {
+      return { x: 0, y: 0 };
+    }
+    return { x: offset.x * share, y: offset.y * share };
   }
 };
 
@@ -5938,7 +5982,7 @@ var NetPlay = class {
     this.options.pickups.update(serverTick, this.tickRate);
     this.collect();
     for (const remote of this.remotes.values()) {
-      const ship = remote.buffer.sample(renderTick);
+      const ship = remote.buffer.draw(renderTick);
       remote.drawn = ship;
       if (ship === void 0) {
         continue;
@@ -6072,7 +6116,7 @@ var NetPlay = class {
   }
   drawEnemies(renderTick) {
     for (const enemy of this.enemies.values()) {
-      const pose = enemy.buffer.sample(renderTick);
+      const pose = enemy.buffer.draw(renderTick);
       enemy.drawn = enemy.destroyedAt === void 0 ? pose : void 0;
       if (pose !== void 0) {
         enemy.view.place(pose.x, pose.y, pose.angle);
@@ -6461,7 +6505,7 @@ var NetPlay = class {
       if (enemy === void 0) {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
-          buffer: new StateBuffer(),
+          buffer: new StateBuffer(this.tickRate),
           drawn: void 0,
           lastSeen: snapshot.tick,
           destroyedAt: void 0,
@@ -6490,7 +6534,7 @@ var NetPlay = class {
     view.setLabel(scene, ships, label, color, this.options.labelResolution());
     const remote = {
       view,
-      buffer: new StateBuffer(),
+      buffer: new StateBuffer(this.tickRate),
       animator: new WeaponAnimator(weaponTiming("autoCannon")),
       weapon: "autoCannon",
       name,

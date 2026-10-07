@@ -131,17 +131,11 @@ export interface NetPlayOptions {
   pickups: PickupsView;
 }
 
-/** An enemy's pose and velocity, as bumping needs it. */
-interface EnemyPose extends Pose {
-  vx: number;
-  vy: number;
-}
-
 interface Enemy {
   view: EnemyView;
-  buffer: StateBuffer<EnemyPose>;
+  buffer: StateBuffer<Pose>;
   /** Where it was drawn this frame, for bumping. */
-  drawn: EnemyPose | undefined;
+  drawn: Pose | undefined;
   /** The last snapshot tick it was in. */
   lastSeen: number;
   /** The tick it was shot down at, once the server said so. */
@@ -832,7 +826,7 @@ export class NetPlay {
     this.collect();
 
     for (const remote of this.remotes.values()) {
-      const ship = remote.buffer.sample(renderTick);
+      const ship = remote.buffer.draw(renderTick);
       remote.drawn = ship;
       if (ship === undefined) {
         continue;
@@ -981,7 +975,7 @@ export class NetPlay {
 
   private drawEnemies(renderTick: number): void {
     for (const enemy of this.enemies.values()) {
-      const pose = enemy.buffer.sample(renderTick);
+      const pose = enemy.buffer.draw(renderTick);
       enemy.drawn = enemy.destroyedAt === undefined ? pose : undefined;
       if (pose !== undefined) {
         enemy.view.place(pose.x, pose.y, pose.angle);
@@ -1410,7 +1404,7 @@ export class NetPlay {
       if (enemy === undefined) {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
-          buffer: new StateBuffer<EnemyPose>(),
+          buffer: new StateBuffer<Pose>(this.tickRate),
           drawn: undefined,
           lastSeen: snapshot.tick,
           destroyedAt: undefined,
@@ -1441,7 +1435,7 @@ export class NetPlay {
     view.setLabel(scene, ships, label, color, this.options.labelResolution());
     const remote: Remote = {
       view,
-      buffer: new StateBuffer<RemoteShip>(),
+      buffer: new StateBuffer<RemoteShip>(this.tickRate),
       animator: new WeaponAnimator(weaponTiming('autoCannon')),
       weapon: 'autoCannon',
       name,
