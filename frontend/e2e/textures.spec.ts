@@ -20,7 +20,7 @@ test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', asy
 
   const made = await page.evaluate(
     () =>
-      new Promise<{ created: number; deleted: number; used: number }>((resolve) => {
+      new Promise<{ created: number; deleted: number; held: number }>((resolve) => {
         const phaser = (window as unknown as { phaser: typeof Phaser }).phaser;
         const game = new phaser.Game({
           type: phaser.WEBGL,
@@ -42,7 +42,8 @@ test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', asy
                 deleteTexture(texture);
               };
               const texture = this.textures.addDynamicTexture('layer', 640, 360);
-              resolve({ ...count, used: texture?.source.length ?? 0 });
+              const held = new Set([texture?.drawingContext.texture?.webGLTexture, ...(texture?.source ?? []).map((source) => source.glTexture?.webGLTexture)]);
+              resolve({ ...count, held: held.size });
               game.destroy(true);
             },
           },
@@ -50,7 +51,7 @@ test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', asy
       }),
   );
 
-  expect(made).toEqual({ created: 2, deleted: 0, used: 1 });
+  expect(made).toEqual({ created: 2, deleted: 0, held: 1 });
 });
 
 test('each stars layer holds one WebGL texture (#260)', async ({ page }) => {
