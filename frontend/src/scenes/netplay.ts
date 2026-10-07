@@ -203,6 +203,15 @@ export interface EnemyDebug {
   repairing: number;
 }
 
+/** An enemy that left the page, and whether it exploded (#231). */
+export interface EnemyGone {
+  id: number;
+  exploded: boolean;
+}
+
+/** How many enemies that left the page are kept for the E2E tests. */
+const ENEMIES_GONE_KEPT = 20;
+
 /** A remote player as the E2E tests see them. */
 export interface RemoteDebug {
   id: string;
@@ -272,6 +281,8 @@ export class NetPlay {
   private shotEnds = new TimedQueue<ShotEnd>(20);
   private latestSnapshot = 0;
   private tickRate = 20;
+  /** The last enemies that left the page, oldest first (#231). */
+  private readonly gone: EnemyGone[] = [];
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed = 0;
   lastEnemyDestroyed: number | undefined;
@@ -760,6 +771,18 @@ export class NetPlay {
     }));
   }
 
+  /** The last enemies that left the page, oldest first, for the E2E tests (#231). */
+  get enemiesGone(): EnemyGone[] {
+    return this.gone.map((g) => ({ ...g }));
+  }
+
+  private noteGone(id: number, exploded: boolean): void {
+    this.gone.push({ id, exploded });
+    if (this.gone.length > ENEMIES_GONE_KEPT) {
+      this.gone.shift();
+    }
+  }
+
   /**
    * Once a frame: send the local ship, draw the others and the enemies, spawn
    * their shots, and test hits. Returns where hits landed.
@@ -968,6 +991,7 @@ export class NetPlay {
     for (const [id, enemy] of this.enemies) {
       if (enemy.destroyedAt === undefined && enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
         this.enemies.delete(id);
+        this.noteGone(id, false);
         if (this.raidersLeaving.delete(id)) {
           this.raiderLeaves(enemy.view);
         } else {
@@ -1189,6 +1213,7 @@ export class NetPlay {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    this.noteGone(destroyed.enemyId, true);
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();

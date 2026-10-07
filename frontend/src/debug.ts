@@ -1,5 +1,5 @@
 import type { BossBar } from './net/boss.ts';
-import type { DerelictDebug, EnemyDebug, NetStatus, RemoteDebug } from './scenes/netplay.ts';
+import type { DerelictDebug, EnemyDebug, EnemyGone, NetStatus, RemoteDebug } from './scenes/netplay.ts';
 import type { ControlMode } from './sim/input.ts';
 import type { DamageState, Loadout } from './sim/loadout.ts';
 import type { MusicPlace } from './sim/music.ts';
@@ -53,6 +53,8 @@ export interface DebugState {
   weaponFrame: number;
   net: { status: NetStatus; playerId: string | undefined; others: RemoteDebug[] };
   enemies: EnemyDebug[];
+  /** The last enemies that left the page, and whether each exploded or went quietly, out of range (#231). */
+  enemiesGone: EnemyGone[];
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed: number;
   /** The id of the last enemy this player shot down. */
