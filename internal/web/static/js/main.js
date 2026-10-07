@@ -273,6 +273,7 @@ var ASTEROID_COUNT = 60;
 var ASTEROID_CLEAR_RADIUS = 260;
 var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
+var ENGINE_MIX_STEP = 0.01;
 var ENEMY_FIRE_GLOW_COLOR = 4172031;
 var BOMBER_WARN_TINT = 2053248;
 var ENEMY_FIRE_GLOW_STRENGTH = 6;
@@ -3777,6 +3778,27 @@ function engineMix(speed, maxSpeed, thrusting) {
     rate: ENGINE_MIN_RATE + ENGINE_RATE_RANGE * fraction
   };
 }
+var LoopLevel = class {
+  step;
+  applied;
+  last;
+  constructor(step) {
+    this.step = step;
+  }
+  /** The value to set now, or undefined to leave the sound as it is. */
+  next(value) {
+    const settled = value === this.last;
+    this.last = value;
+    if (value === this.applied) {
+      return void 0;
+    }
+    if (this.applied !== void 0 && Math.abs(value - this.applied) < this.step && !settled) {
+      return void 0;
+    }
+    this.applied = value;
+    return value;
+  }
+};
 function nextVariant(variants, counter) {
   if (variants.length === 0) {
     return void 0;
@@ -3810,6 +3832,8 @@ var MUSIC_FADE_MS = 2e3;
 var ShipAudio = class {
   engine;
   engineId;
+  engineVolume = new LoopLevel(ENGINE_MIX_STEP);
+  engineRate = new LoopLevel(ENGINE_MIX_STEP);
   /** The track playing or fading in, and those fading out. */
   music;
   fading = /* @__PURE__ */ new Set();
@@ -3864,14 +3888,22 @@ var ShipAudio = class {
     }
     this.engine?.destroy();
     this.engineId = id;
+    this.engineVolume = new LoopLevel(ENGINE_MIX_STEP);
+    this.engineRate = new LoopLevel(ENGINE_MIX_STEP);
     this.engine = this.scene.sound.add(ENGINE_LOOPS[id], { loop: true, volume: 0 });
     this.engine.play();
   }
   update(ship, events) {
     if (this.engine !== void 0) {
       const mix = engineMix(Math.hypot(ship.vx, ship.vy), ENGINE_STATS[ship.loadout.engine].maxSpeed, ship.thrusting);
-      this.engine.setVolume(mix.volume);
-      this.engine.setRate(mix.rate);
+      const volume = this.engineVolume.next(mix.volume);
+      if (volume !== void 0) {
+        this.engine.setVolume(volume);
+      }
+      const rate = this.engineRate.next(mix.rate);
+      if (rate !== void 0) {
+        this.engine.setRate(rate);
+      }
     }
     for (const weapon of events.charges) {
       const key = CHARGE_SOUNDS[weapon];

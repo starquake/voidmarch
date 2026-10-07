@@ -40,6 +40,8 @@ export const ASTEROID_CLEAR_RADIUS = 260;
 export const ENEMY_VOLLEY_RANGE = 800;
 /** Enemies explode audibly only this close to the ship, about the view. */
 export const ENEMY_SOUND_RANGE = 400;
+/** How far the engine loop's rate or volume moves before it is set again: each rate change restarts the loop's source (#263). */
+export const ENGINE_MIX_STEP = 0.01;
 
 /**
  * Enemy bullets fly on a layer with one glow in this color (0xRRGGBB), so
