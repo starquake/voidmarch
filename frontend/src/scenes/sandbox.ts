@@ -41,7 +41,7 @@ import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, typ
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { VictoryScreen } from '../victory.ts';
 import { StandingsPanel } from '../standings.ts';
-import { MapView } from './mapview.ts';
+import { MapView, polygon } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   BRAIN_SPACING,
@@ -62,6 +62,7 @@ import {
   MISSION_CSS,
   SECTOR_LINE_ALPHA,
   SECTOR_LINE_COLOR,
+  SECTOR_VIEW_MARGIN,
   VIEW_HEIGHT,
   VIEW_WIDTH,
   WEAPON_STATS,
@@ -87,12 +88,12 @@ import {
   missionArrow,
   missionBanner,
   ringTint,
-  SECTOR_NAMES,
   sectorCorners,
   sectorLine,
   sectorName,
   sectorState,
   sectorOpen,
+  sectorsInView,
 } from '../sim/sectors.ts';
 import { musicPlace } from '../sim/music.ts';
 import { asteroidField } from '../sim/world.ts';
@@ -268,9 +269,11 @@ export class SandboxScene extends Phaser.Scene {
   /** The notch's safe area, read on resize (#180). */
   private insets = { insetLeft: 0, insetRight: 0 };
   private maps!: MapView;
-  /** The closed sectors' shade (#123), and the frontier it was drawn for. */
+  /** The sector edges near the view (#99) and the closed ones' shade (#123), with the frontier and the sectors they were drawn for (#265). */
+  private sectorLines!: Phaser.GameObjects.Graphics;
   private closedLayer!: Phaser.GameObjects.Graphics;
   private closedDrawn = -1;
+  private sectorsDrawn = '';
   /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
   private closedSides: Side[] = [];
   private fieldLayer!: Phaser.GameObjects.Graphics;
@@ -489,7 +492,7 @@ export class SandboxScene extends Phaser.Scene {
     this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), this.victoryScreen.open));
     this.drawMissionArrow();
     this.drawMaps();
-    this.drawClosed();
+    this.drawSectors();
     this.drawField(time);
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
@@ -586,18 +589,8 @@ export class SandboxScene extends Phaser.Scene {
   }
 
   private createScenery(): void {
-    const lines = this.add.graphics().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
-    for (const name of SECTOR_NAMES) {
-      const [first, ...rest] = sectorCorners(name);
-      if (first !== undefined) {
-        lines.beginPath().moveTo(first.x, first.y);
-        for (const corner of rest) {
-          lines.lineTo(corner.x, corner.y);
-        }
-        lines.closePath().strokePath();
-      }
-    }
-    this.world.add(lines);
+    this.sectorLines = this.add.graphics();
+    this.world.add(this.sectorLines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
     this.fieldLayer = this.add.graphics().setBlendMode(Phaser.BlendModes.ADD);
@@ -909,29 +902,39 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Shades the closed sectors and finds their sides with the open ones, whenever the frontier changes (#123). */
-  private drawClosed(): void {
+  /**
+   * Draws the edges of the sectors near the view and shades the closed ones
+   * (#123), only when those sectors or the frontier change: Phaser redraws a
+   * Graphics' every shape every frame (#265).
+   */
+  private drawSectors(): void {
     const version = this.net?.frontierVersion ?? 0;
-    if (version === this.closedDrawn) {
+    const frontier = this.net?.frontier ?? ALL_OPEN;
+    if (version !== this.closedDrawn) {
+      this.closedDrawn = version;
+      this.closedSides = closedEdges(frontier);
+    }
+    const { worldView } = this.cameras.main;
+    const names = sectorsInView({
+      left: worldView.x - SECTOR_VIEW_MARGIN,
+      top: worldView.y - SECTOR_VIEW_MARGIN,
+      right: worldView.right + SECTOR_VIEW_MARGIN,
+      bottom: worldView.bottom + SECTOR_VIEW_MARGIN,
+    });
+    const key = `${String(version)} ${names.join(',')}`;
+    if (key === this.sectorsDrawn) {
       return;
     }
-    this.closedDrawn = version;
-    const frontier = this.net?.frontier ?? ALL_OPEN;
-    const g = this.closedLayer.clear();
-    for (const name of SECTOR_NAMES) {
-      if (sectorOpen(name, frontier)) {
-        continue;
-      }
-      const [first, ...rest] = sectorCorners(name);
-      if (first !== undefined) {
-        g.fillStyle(0x000000, CLOSED_SHADE_ALPHA).beginPath().moveTo(first.x, first.y);
-        for (const corner of rest) {
-          g.lineTo(corner.x, corner.y);
-        }
-        g.closePath().fillPath();
+    this.sectorsDrawn = key;
+    const lines = this.sectorLines.clear().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
+    const shade = this.closedLayer.clear();
+    for (const name of names) {
+      const corners = sectorCorners(name);
+      polygon(lines, corners).strokePath();
+      if (!sectorOpen(name, frontier)) {
+        polygon(shade.fillStyle(0x000000, CLOSED_SHADE_ALPHA), corners).fillPath();
       }
     }
-    this.closedSides = closedEdges(frontier);
   }
 
   /** Draws the force field along the closed sides near the ship, and zaps while the ship is in its push-back band (#127). */

@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
   canPick,
   drawnMap,
+  gridKey,
   layoutForHeight,
   layoutForWidth,
   mapLegend,
@@ -167,4 +168,17 @@ test('the title counts ring 1, and the lines name every squadron\'s mission', ()
   assert.match(legend ?? '', /^■ Alpha \(you\): C3 {5}■ Beta: C4 {5}▲ Frigate/);
   assert.equal(hint, 'Click an uncleared sector to send Alpha there.');
   assert.equal(mapLegend([])[1], '');
+});
+
+test('the grid\'s key changes with what the hexagons show, not with the markers (#265)', () => {
+  const layout = layoutForWidth(100, 50, 170);
+  const key = (over: Partial<MapState>, flash = true): string => gridKey(drawnMap(state(over), layout, flash));
+  const base = key({});
+  assert.equal(key({ you: { x: 2000, y: 900 }, frigates: [{ x: 1500, y: 0 }], dreadnoughts: [{ x: -1500, y: 0 }] }), base);
+  assert.equal(key({ squadmates: [{ x: 10, y: 10, color: 0xff0000 }] }), base);
+  assert.notEqual(key({ cleared: new Set(['D3']) }), base, 'a sector lost');
+  assert.notEqual(key({ frontier: ringOne }), base, 'the frontier');
+  assert.notEqual(key({ missions: [{ squadron: 'Alpha', sector: 'C3', own: true }] }), base, 'a mission');
+  assert.notEqual(key({ attack: 'E4' }, true), key({ attack: 'E4' }, false), 'an attack flashing');
+  assert.notEqual(gridKey(drawnMap(state(), layoutForWidth(100, 50, 255), true)), base, 'a new size');
 });

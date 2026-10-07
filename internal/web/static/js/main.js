@@ -290,6 +290,7 @@ var PICKUP_GLOW_DISTANCE = 6;
 var PICKUP_USELESS_ALPHA = 0.45;
 var SECTOR_LINE_COLOR = 14219519;
 var SECTOR_LINE_ALPHA = 0.25;
+var SECTOR_VIEW_MARGIN = 64;
 var MISSION_COLOR = 16765562;
 var MISSION_CSS = "#ffd27a";
 var MISSION_ARROW_SIZE_PX = 24;
@@ -2313,6 +2314,14 @@ function parseHex(name) {
 function hexCenter({ q, r }) {
   return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
 }
+function sectorsInView(view) {
+  return SECTOR_NAMES.filter((name) => {
+    const c = hexCenter(parseHex(name) ?? { q: 0, r: 0 });
+    const dx = Math.max(view.left - c.x, 0, c.x - view.right);
+    const dy = Math.max(view.top - c.y, 0, c.y - view.bottom);
+    return dx * dx + dy * dy <= SECTOR_RADIUS * SECTOR_RADIUS;
+  });
+}
 function sectorName(x, y) {
   const q = 2 / 3 * x / SECTOR_RADIUS;
   const r = (-x / 3 + SQRT3 * y / 3) / SECTOR_RADIUS;
@@ -2518,6 +2527,9 @@ function drawnMap(state, layout, flash) {
     squadmates: state.squadmates.map((s) => ({ ...toScreen(layout, s), color: s.color }))
   };
 }
+function gridKey(drawn) {
+  return drawn.sectors.map((s) => `${String(s.center.x)},${String(s.center.y)}:${String(s.fill)}:${String(s.outline ?? "")}`).join(" ");
+}
 function sectorAtScreen(layout, x, y) {
   return sectorName((x - layout.x) / layout.scale, (y - layout.y) / layout.scale);
 }
@@ -2559,8 +2571,24 @@ var SQUADMATE_SHARE_OF_YOU = 0.8;
 var NAME_LIFT_SHARE = 0.55;
 var DREADNOUGHT_MARKER = 1.7;
 var MAP_DEPTH = 10;
+var MINIMAP_GRID_TEXTURE = "minimap-grid";
+var MINI_EDGE_PX = 1;
+var MINI_OUTLINE_PX = 2;
+var FULL_EDGE_PX = 2;
+var FULL_OUTLINE_PX = 3;
 var MapView = class {
   open = false;
+  /**
+   * The minimap's hexagons, drawn into a texture only when they change: Phaser
+   * redraws a Graphics' every shape every frame (#265). The markers on top are
+   * few, and stay a Graphics.
+   */
+  miniGrid;
+  miniGridImage;
+  gridStamp;
+  miniGridKey = "";
+  /** The minimap texture's size and its top left corner on screen. */
+  miniBox = { left: 0, top: 0, width: 2, height: 2 };
   mini;
   miniLabel;
   full;
@@ -2574,13 +2602,20 @@ var MapView = class {
   hideFromWorld;
   constructor(scene, hideFromWorld) {
     const text = (size) => scene.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: `${String(size)}px`, color: "#d8f8ff", align: "center" }).setShadow(1, 1, "#000000", 0);
+    const grid = scene.textures.addDynamicTexture(MINIMAP_GRID_TEXTURE, this.miniBox.width, this.miniBox.height);
+    if (grid === null) {
+      throw new Error("the minimap texture could not be made");
+    }
+    this.miniGrid = grid;
+    this.miniGridImage = scene.add.image(0, 0, grid).setOrigin(0, 0).setVisible(false);
+    this.gridStamp = scene.make.graphics({}, false);
     this.mini = scene.add.graphics();
     this.miniLabel = text(SMALL_FONT_PX).setOrigin(0.5, 0);
     this.full = scene.add.graphics();
     this.title = text(FONT_PX).setOrigin(0.5, 0);
     this.legend = text(FONT_PX).setOrigin(0.5, 0);
-    const objects = [this.mini, this.miniLabel, this.full, this.title, this.legend];
-    for (const o of [this.mini, this.miniLabel, this.full, this.title, this.legend]) {
+    const objects = [this.miniGridImage, this.mini, this.miniLabel, this.full, this.title, this.legend];
+    for (const o of [this.miniGridImage, this.mini, this.miniLabel, this.full, this.title, this.legend]) {
       o.setDepth(MAP_DEPTH);
     }
     this.setFullVisible(false);
@@ -2592,6 +2627,7 @@ var MapView = class {
   resize(width, height, dpr) {
     this.dpr = dpr;
     this.miniLayout = minimapLayout(width, dpr);
+    this.placeMiniGrid();
     const miniBottom = this.miniLayout.y + mapSize(this.miniLayout).height / 2;
     this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, miniBottom + MAP_MARGIN_PX * dpr / 2);
     const fullHeight = Math.min(FULL_MAP_HEIGHT_PX * dpr, height - (PANEL_PAD_TOP_PX + PANEL_PAD_BOTTOM_PX) * dpr);
@@ -2621,11 +2657,15 @@ var MapView = class {
     this.full.clear();
     if (state === void 0) {
       this.miniLabel.setText("");
+      this.miniGridImage.setVisible(false);
       this.close();
       return;
     }
     const flash = Math.floor(nowMs / MAP_FLASH_MS) % 2 === 0;
-    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2, MINIMAP_FILL_ALPHA);
+    const local = { x: this.miniBox.width / 2, y: this.miniBox.height / 2, scale: this.miniLayout.scale };
+    const mini = drawnMap(state, local, flash);
+    this.drawMiniGrid(mini);
+    this.drawMarkers(this.mini, mini, local);
     this.miniLabel.setText(missionsLine(state.missions));
     if (!this.open) {
       return;
@@ -2636,7 +2676,8 @@ var MapView = class {
     const bottom = this.fullLayout.y + size.height / 2 + PANEL_PAD_BOTTOM_PX * this.dpr;
     const halfWidth = size.width / 2 + PANEL_PAD_X_PX * this.dpr;
     this.full.fillStyle(MAP_PANEL_COLOR, MAP_PANEL_ALPHA).fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, PANEL_CORNER_PX * this.dpr);
-    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3, MAP_FILL_ALPHA);
+    this.drawSectors(this.full, drawn, FULL_EDGE_PX, FULL_OUTLINE_PX, MAP_FILL_ALPHA);
+    this.drawMarkers(this.full, drawn, this.fullLayout);
     this.drawNames(drawn);
     this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
@@ -2658,7 +2699,31 @@ var MapView = class {
     const name = sectorAtScreen(this.fullLayout, x, y);
     return canPick(name, cleared, frontier) ? name : void 0;
   }
-  drawGrid(g, drawn, layout, edge, outline, fill) {
+  /** Sizes the minimap's texture to the grid and its widest line, on whole pixels so it stays sharp. */
+  placeMiniGrid() {
+    const size = mapSize(this.miniLayout);
+    const pad = Math.ceil(MINI_OUTLINE_PX * this.dpr);
+    const width = 2 * Math.ceil(size.width / 2 + pad);
+    const height = 2 * Math.ceil(size.height / 2 + pad);
+    const left = Math.round(this.miniLayout.x - width / 2);
+    const top = Math.round(this.miniLayout.y - height / 2);
+    this.miniBox = { left, top, width, height };
+    this.miniGrid.setSize(width, height);
+    this.miniGridImage.setPosition(left, top).setSizeToFrame();
+    this.mini.setPosition(left, top);
+  }
+  /** Redraws the minimap's texture when its hexagons look different. */
+  drawMiniGrid(drawn) {
+    this.miniGridImage.setVisible(true);
+    const key = `${String(this.miniBox.width)}x${String(this.miniBox.height)} ${String(this.dpr)} ${gridKey(drawn)}`;
+    if (key === this.miniGridKey) {
+      return;
+    }
+    this.miniGridKey = key;
+    this.drawSectors(this.gridStamp.clear(), drawn, MINI_EDGE_PX, MINI_OUTLINE_PX, MINIMAP_FILL_ALPHA);
+    this.miniGrid.clear().draw(this.gridStamp).render();
+  }
+  drawSectors(g, drawn, edge, outline, fill) {
     const scale = this.dpr;
     for (const s of drawn.sectors) {
       g.fillStyle(s.fill, fill);
@@ -2675,6 +2740,10 @@ var MapView = class {
         g.strokePath();
       }
     }
+  }
+  /** The Frigates, the Dreadnought, your squadmates and you, over a map's hexagons. */
+  drawMarkers(g, drawn, layout) {
+    const scale = this.dpr;
     const marker = Math.max(FRIGATE_MIN_PX * scale, SECTOR_RADIUS * layout.scale * FRIGATE_SHARE);
     g.fillStyle(MAP_FRIGATE_COLOR, 1);
     for (const f of drawn.frigates) {
@@ -2713,13 +2782,13 @@ var MapView = class {
 function polygon(g, corners) {
   const [first, ...rest] = corners;
   if (first === void 0) {
-    return;
+    return g.beginPath();
   }
   g.beginPath().moveTo(first.x, first.y);
   for (const c of rest) {
     g.lineTo(c.x, c.y);
   }
-  g.closePath();
+  return g.closePath();
 }
 function within(layout, x, y) {
   const size = mapSize(layout);
@@ -6648,9 +6717,11 @@ var SandboxScene = class extends Phaser13.Scene {
   /** The notch's safe area, read on resize (#180). */
   insets = { insetLeft: 0, insetRight: 0 };
   maps;
-  /** The closed sectors' shade (#123), and the frontier it was drawn for. */
+  /** The sector edges near the view (#99) and the closed ones' shade (#123), with the frontier and the sectors they were drawn for (#265). */
+  sectorLines;
   closedLayer;
   closedDrawn = -1;
+  sectorsDrawn = "";
   /** The force field on the closed sectors' edge (#127): its sides, its layer, drawn every frame, and its zaps. */
   closedSides = [];
   fieldLayer;
@@ -6863,7 +6934,7 @@ var SandboxScene = class extends Phaser13.Scene {
     this.audio.setMusicPlace(musicPlace(sectorName(this.sim.ship.x, this.sim.ship.y), this.victoryScreen.open));
     this.drawMissionArrow();
     this.drawMaps();
-    this.drawClosed();
+    this.drawSectors();
     this.drawField(time);
     this.announceMission(time);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
@@ -6941,18 +7012,8 @@ var SandboxScene = class extends Phaser13.Scene {
     });
   }
   createScenery() {
-    const lines = this.add.graphics().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
-    for (const name of SECTOR_NAMES) {
-      const [first, ...rest] = sectorCorners(name);
-      if (first !== void 0) {
-        lines.beginPath().moveTo(first.x, first.y);
-        for (const corner of rest) {
-          lines.lineTo(corner.x, corner.y);
-        }
-        lines.closePath().strokePath();
-      }
-    }
-    this.world.add(lines);
+    this.sectorLines = this.add.graphics();
+    this.world.add(this.sectorLines);
     this.closedLayer = this.add.graphics();
     this.world.add(this.closedLayer);
     this.fieldLayer = this.add.graphics().setBlendMode(Phaser13.BlendModes.ADD);
@@ -7219,29 +7280,39 @@ var SandboxScene = class extends Phaser13.Scene {
       this.maps.close();
     }
   }
-  /** Shades the closed sectors and finds their sides with the open ones, whenever the frontier changes (#123). */
-  drawClosed() {
+  /**
+   * Draws the edges of the sectors near the view and shades the closed ones
+   * (#123), only when those sectors or the frontier change: Phaser redraws a
+   * Graphics' every shape every frame (#265).
+   */
+  drawSectors() {
     const version = this.net?.frontierVersion ?? 0;
-    if (version === this.closedDrawn) {
+    const frontier = this.net?.frontier ?? ALL_OPEN;
+    if (version !== this.closedDrawn) {
+      this.closedDrawn = version;
+      this.closedSides = closedEdges(frontier);
+    }
+    const { worldView } = this.cameras.main;
+    const names = sectorsInView({
+      left: worldView.x - SECTOR_VIEW_MARGIN,
+      top: worldView.y - SECTOR_VIEW_MARGIN,
+      right: worldView.right + SECTOR_VIEW_MARGIN,
+      bottom: worldView.bottom + SECTOR_VIEW_MARGIN
+    });
+    const key = `${String(version)} ${names.join(",")}`;
+    if (key === this.sectorsDrawn) {
       return;
     }
-    this.closedDrawn = version;
-    const frontier = this.net?.frontier ?? ALL_OPEN;
-    const g = this.closedLayer.clear();
-    for (const name of SECTOR_NAMES) {
-      if (sectorOpen(name, frontier)) {
-        continue;
-      }
-      const [first, ...rest] = sectorCorners(name);
-      if (first !== void 0) {
-        g.fillStyle(0, CLOSED_SHADE_ALPHA).beginPath().moveTo(first.x, first.y);
-        for (const corner of rest) {
-          g.lineTo(corner.x, corner.y);
-        }
-        g.closePath().fillPath();
+    this.sectorsDrawn = key;
+    const lines = this.sectorLines.clear().lineStyle(1, SECTOR_LINE_COLOR, SECTOR_LINE_ALPHA);
+    const shade = this.closedLayer.clear();
+    for (const name of names) {
+      const corners = sectorCorners(name);
+      polygon(lines, corners).strokePath();
+      if (!sectorOpen(name, frontier)) {
+        polygon(shade.fillStyle(0, CLOSED_SHADE_ALPHA), corners).fillPath();
       }
     }
-    this.closedSides = closedEdges(frontier);
   }
   /** Draws the force field along the closed sides near the ship, and zaps while the ship is in its push-back band (#127). */
   drawField(time) {

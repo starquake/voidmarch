@@ -42,6 +42,20 @@ function hexCenter({ q, r }: Hex): { x: number; y: number } {
   return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
 }
 
+/**
+ * The sectors that can show in a view of the world, a rectangle in world
+ * pixels: those whose circle through the corners reaches into it.
+ */
+export function sectorsInView(view: { left: number; top: number; right: number; bottom: number }): string[] {
+  return SECTOR_NAMES.filter((name) => {
+    const c = hexCenter(parseHex(name) ?? { q: 0, r: 0 });
+    const dx = Math.max(view.left - c.x, 0, c.x - view.right);
+    const dy = Math.max(view.top - c.y, 0, c.y - view.bottom);
+
+    return dx * dx + dy * dy <= SECTOR_RADIUS * SECTOR_RADIUS;
+  });
+}
+
 /** The name of the sector (x, y) is in ("D4"), as the Go sim names it; undefined outside the grid. */
 export function sectorName(x: number, y: number): string | undefined {
   const q = ((2 / 3) * x) / SECTOR_RADIUS;
