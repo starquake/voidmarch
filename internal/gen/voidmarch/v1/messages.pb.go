@@ -2911,8 +2911,9 @@ type Snapshot struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Tick    uint32                 `protobuf:"varint,1,opt,name=tick,proto3" json:"tick,omitempty"`
 	Players []*PlayerSnapshot      `protobuf:"bytes,2,rep,name=players,proto3" json:"players,omitempty"`
-	// The enemies near this player, and every boss (#231): those within 1200 px
-	// of their ship or companions, kept until they're past 1400 px.
+	// The enemies near this player, and every boss (#231): those within
+	// sim.InterestRadius of their ship or companions, kept until they're past it
+	// by sim.InterestMargin.
 	Enemies []*EnemyState `protobuf:"bytes,3,rep,name=enemies,proto3" json:"enemies,omitempty"`
 	// Derelict ships waiting to be rescued (#52).
 	Derelicts     []*DerelictState `protobuf:"bytes,4,rep,name=derelicts,proto3" json:"derelicts,omitempty"`
