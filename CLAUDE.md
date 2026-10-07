@@ -43,8 +43,8 @@ board.
   recoloring and tinting are allowed. The PNGs live in
   `internal/web/static/assets/`, with their license in `LICENSE.md` there.
   Things intentionally absent: currency, stations, outposts, base building, a
-  player ship explosion. A font isn't a sprite: the game's text is Exo 2 and
-  its titles and announcements Orbitron (both SIL OFL), self-hosted in
+  player ship explosion. A font isn't a sprite: the game's text, announcements
+  included (#254), is Exo 2 and its titles Orbitron (both SIL OFL), self-hosted in
   `internal/web/static/fonts/` (#170); Phaser text takes `UI_FONT` or
   `HEADING_FONT` from `frontend/src/sim/tuning.ts`.
 - **Players are friends.** The client is trusted for its own movement and hit
