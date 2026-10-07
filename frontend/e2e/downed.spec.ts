@@ -87,7 +87,8 @@ test('a downed player respawns at home, whole', async ({ page }) => {
     .poll(async () => {
       const s = await state(page);
 
-      return [s.downed, s.damage, s.shield, Math.round(s.ship.x), s.downPanel];
+      // + 0 turns a drifting ship's -0 into the 0 that toEqual expects (#245).
+      return [s.downed, s.damage, s.shield, Math.round(s.ship.x) + 0, s.downPanel];
     })
     .toEqual([false, 'fullHealth', 1, 0, undefined]);
   expect((await state(page)).revives).toBe(0);
