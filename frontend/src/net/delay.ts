@@ -10,27 +10,15 @@ const WINDOW = 200;
 /** The share of snapshots the delay waits for; the rest arrive after their tick is drawn. */
 const PERCENTILE = 0.95;
 
-/** The range a DelayEstimator keeps its target in. */
-export interface DelayRange {
-  minTicks: number;
-  maxTicks: number;
-}
-
 /**
  * Picks how far in the past to draw the others: long enough that 95% of
  * snapshots arrive before their tick is drawn, and a tick more, so the one
  * after is there to blend toward.
  */
 export class DelayEstimator {
-  private readonly range: DelayRange;
   private readonly late: number[] = [];
   private next = 0;
-  private cached: number;
-
-  constructor(range: DelayRange = { minTicks: MIN_DELAY_TICKS, maxTicks: MAX_DELAY_TICKS }) {
-    this.range = range;
-    this.cached = range.minTicks;
-  }
+  private cached = MIN_DELAY_TICKS;
 
   /** Records how many ticks after the clock's estimate a snapshot arrived. */
   observe(lateTicks: number): void {
@@ -42,7 +30,7 @@ export class DelayEstimator {
     }
     const sorted = [...this.late].sort((a, b) => a - b);
     const p = sorted[Math.floor(PERCENTILE * (sorted.length - 1))] ?? 0;
-    this.cached = Math.min(this.range.maxTicks, Math.max(this.range.minTicks, p + 1));
+    this.cached = Math.min(MAX_DELAY_TICKS, Math.max(MIN_DELAY_TICKS, p + 1));
   }
 
   /** The delay to draw at, in ticks. */

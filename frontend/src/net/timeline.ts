@@ -1,5 +1,5 @@
 import { ServerClock } from './clock.ts';
-import { DelayEstimator, type DelayRange } from './delay.ts';
+import { DelayEstimator } from './delay.ts';
 
 /** How much slower than real time the render clock may run while the delay grows. */
 const MAX_SLOWDOWN = 0.1;
@@ -28,9 +28,9 @@ export class Timeline {
   private render: { tick: number; atMs: number } | undefined;
   private lastDelay = 0;
 
-  constructor(tickRate: number, range?: DelayRange) {
+  constructor(tickRate: number) {
     this.clock = new ServerClock(tickRate);
-    this.estimator = new DelayEstimator(range);
+    this.estimator = new DelayEstimator();
     this.ticksPerMs = tickRate / 1000;
   }
 

@@ -57,9 +57,3 @@ test('a calm 10 seconds forgets an old spike', () => {
   feed(estimator, 200, 0);
   assert.equal(estimator.target, MIN_DELAY_TICKS);
 });
-
-test('the range is an option, so a fixed delay can be measured against', () => {
-  const fixed = new DelayEstimator({ minTicks: 2, maxTicks: 2 });
-  feed(fixed, 200, 3);
-  assert.equal(fixed.target, 2);
-});

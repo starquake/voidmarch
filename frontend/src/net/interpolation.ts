@@ -3,7 +3,7 @@ import { wrapAngle } from '../sim/math.ts';
 const MAX_SAMPLES = 32;
 
 /** How far past its newest snapshot a ship or enemy flies on along its velocity (150 ms at 20 Hz). */
-export const MAX_EXTRAPOLATION_TICKS = 3;
+const MAX_EXTRAPOLATION_TICKS = 3;
 
 /** How long a correction from a newer snapshot takes to fade out (100 ms at 20 Hz). */
 const BLEND_TICKS = 2;
