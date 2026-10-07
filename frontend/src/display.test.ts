@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { allBlack, blankSamples, deviceSize, renderRatio } from './display.ts';
+import { allBlack, blankSamples, deviceSize, enlargedSize, renderRatio } from './display.ts';
 
 test('the canvas is as large as the device pixels it covers', () => {
   assert.deepEqual(deviceSize(1280, 720, 1.5), { width: 1920, height: 1080, zoom: 1 / 1.5, dpr: 1.5 });
@@ -42,4 +42,11 @@ test('a black world is told by a grid of pure black samples across the middle', 
   assert.equal(allBlack([black, black]), true);
   assert.equal(allBlack([black, space]), false, 'the background drew somewhere');
   assert.equal(allBlack([]), false);
+});
+
+test('the half-size glow of the bloom enlarges by whole numbers, a pixel past an odd screen (#234)', () => {
+  assert.deepEqual(enlargedSize({ width: 640, height: 360 }, { width: 1280, height: 720 }), { width: 1280, height: 720 });
+  assert.deepEqual(enlargedSize({ width: 641, height: 361 }, { width: 1281, height: 721 }), { width: 1282, height: 722 });
+  assert.deepEqual(enlargedSize({ width: 1266, height: 585 }, { width: 2532, height: 1170 }), { width: 2532, height: 1170 });
+  assert.deepEqual(enlargedSize({ width: 800, height: 600 }, { width: 800, height: 600 }), { width: 800, height: 600 }, 'the same size stays');
 });

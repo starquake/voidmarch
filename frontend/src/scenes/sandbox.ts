@@ -137,7 +137,7 @@ const VIGNETTE_SIZE = 256;
 const EFFECT_ZOOM = 2;
 /** The scale the baked glowing enemy bullets are drawn at, having been baked at twice the art's size. */
 const BAKED_GLOW_SCALE = 0.5;
-/** Bloom's threshold and blur run at this share of the screen's size, then scale back up (#143). */
+/** Bloom's threshold and blur run at this share of the screen's size (#143). */
 const BLOOM_SCALE = 0.5;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
@@ -706,7 +706,9 @@ export class SandboxScene extends Phaser.Scene {
 
   /**
    * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
-   * blur at half the screen's size between two smooth resamples (#143).
+   * blur at half the screen's size (#143): the threshold in the halving
+   * resample, and the blur added back by the blend, smoothly, with no
+   * full-size pass between (#234).
    */
   private createBloom(main: Phaser.Cameras.Scene2D.Camera): void {
     if (!(this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
@@ -715,10 +717,8 @@ export class SandboxScene extends Phaser.Scene {
     registerResample(this.renderer);
     registerSmallBlend(this.renderer);
     const bloom = main.filters.external.addParallelFilters();
-    bloom.top.add(new Resample(main, BLOOM_SCALE));
-    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    bloom.top.add(new Resample(main, BLOOM_SCALE, BLOOM_THRESHOLD));
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 0xffffff, BLOOM_BLUR_STEPS);
-    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
     bloom.blend.blendMode = Phaser.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;

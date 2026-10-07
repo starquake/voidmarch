@@ -26,6 +26,12 @@ function blankSamples(width, height) {
 function allBlack(samples) {
   return samples.length > 0 && samples.every((p) => p[0] === 0 && p[1] === 0 && p[2] === 0);
 }
+function enlargedSize(small, output) {
+  return {
+    width: small.width * Math.max(1, Math.round(output.width / small.width)),
+    height: small.height * Math.max(1, Math.round(output.height / small.height))
+  };
+}
 
 // src/net/download.ts
 async function download(url, received, fetcher = fetch) {
@@ -6475,6 +6481,7 @@ var FRAGMENT = [
   "#endif",
   "uniform sampler2D uMainSampler;",
   "uniform vec2 inputSize;",
+  "uniform float threshold;",
   "varying vec2 outTexCoord;",
   "#pragma phaserTemplate(fragmentHeader)",
   "void main ()",
@@ -6486,23 +6493,29 @@ var FRAGMENT = [
   "    vec4 b = texture2D(uMainSampler, (i + vec2(1.5, 0.5)) / inputSize);",
   "    vec4 c = texture2D(uMainSampler, (i + vec2(0.5, 1.5)) / inputSize);",
   "    vec4 d = texture2D(uMainSampler, (i + vec2(1.5, 1.5)) / inputSize);",
-  "    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);",
+  "    vec4 color = floor(mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 255.0 + 0.5) / 255.0;",
+  "    gl_FragColor = clamp((color - threshold) / (1.0 - threshold), 0.0, 1.0);",
   "}"
 ].join("\n");
 var Resample = class extends Phaser12.Filters.Controller {
   scale;
-  constructor(camera, scale) {
+  threshold;
+  constructor(camera, scale, threshold = 0) {
     super(camera, RESAMPLE_NODE);
     this.scale = scale;
+    this.threshold = threshold;
   }
 };
 var ResampleNode = class extends Phaser12.Renderer.WebGL.RenderNodes.BaseFilterShader {
   inputSize = [1, 1];
+  threshold = 0;
   constructor(manager) {
     super(RESAMPLE_NODE, manager, void 0, FRAGMENT);
   }
   run(controller, inputDrawingContext, outputDrawingContext) {
-    const scale = controller instanceof Resample ? controller.scale : 1;
+    const resample = controller instanceof Resample ? controller : void 0;
+    const scale = resample?.scale ?? 1;
+    this.threshold = resample?.threshold ?? 0;
     this.inputSize = [inputDrawingContext.width, inputDrawingContext.height];
     const output = outputDrawingContext ?? this.manager.renderer.drawingContextPool.get(
       Math.max(1, Math.round(inputDrawingContext.width * scale)),
@@ -6512,6 +6525,7 @@ var ResampleNode = class extends Phaser12.Renderer.WebGL.RenderNodes.BaseFilterS
   }
   setupUniforms() {
     this.programManager.setUniform("inputSize", this.inputSize);
+    this.programManager.setUniform("threshold", this.threshold);
   }
 };
 function registerResample(renderer) {
@@ -6593,18 +6607,40 @@ var TouchView = class {
 import Phaser13 from "./vendor/phaser.js";
 var FRAGMENT2 = [
   "#pragma phaserTemplate(shaderName)",
+  // mediump can be 16 bits on a phone, too coarse for pixel positions past 2048 (#180).
+  "#ifdef GL_FRAGMENT_PRECISION_HIGH",
+  "precision highp float;",
+  "#else",
   "precision mediump float;",
+  "#endif",
   "uniform sampler2D uMainSampler;",
   "uniform sampler2D uMainSampler2;",
+  "uniform vec2 topSize;",
+  "uniform vec2 copySize;",
   "uniform float amount;",
   "uniform vec4 color;",
   "uniform float mode;",
   "varying vec2 outTexCoord;",
   "#pragma phaserTemplate(fragmentHeader)",
+  "vec4 top ()",
+  "{",
+  "    if (topSize.x == 0.0) {",
+  "        return texture2D(uMainSampler2, outTexCoord);",
+  "    }",
+  "    vec2 at = (floor(outTexCoord * copySize) + 0.5) / copySize;",
+  "    vec2 p = at * topSize - 0.5;",
+  "    vec2 f = fract(p);",
+  "    vec2 i = floor(p);",
+  "    vec4 a = texture2D(uMainSampler2, (i + vec2(0.5, 0.5)) / topSize);",
+  "    vec4 b = texture2D(uMainSampler2, (i + vec2(1.5, 0.5)) / topSize);",
+  "    vec4 c = texture2D(uMainSampler2, (i + vec2(0.5, 1.5)) / topSize);",
+  "    vec4 d = texture2D(uMainSampler2, (i + vec2(1.5, 1.5)) / topSize);",
+  "    return floor(mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 255.0 + 0.5) / 255.0;",
+  "}",
   "void main ()",
   "{",
   "    vec4 base = texture2D(uMainSampler, outTexCoord);",
-  "    vec4 blend = texture2D(uMainSampler2, outTexCoord) * color;",
+  "    vec4 blend = top() * color;",
   "    vec4 blended = blend + base * (1.0 - blend.a);",
   "    if (mode > 1.5) {",
   "        blended = blend;",
@@ -6627,9 +6663,14 @@ var SmallBlendNode = class extends Phaser13.Renderer.WebGL.RenderNodes.BaseFilte
   setupTextures(controller, textures) {
     textures[1] = controller.glTexture;
   }
-  setupUniforms(controller) {
+  setupUniforms(controller, drawingContext) {
     const blend = controller;
+    const top = blend.glTexture;
+    const sameSize = top.width === drawingContext.width && top.height === drawingContext.height;
+    const copy = enlargedSize(top, drawingContext);
     this.programManager.setUniform("uMainSampler2", 1);
+    this.programManager.setUniform("topSize", sameSize ? [0, 0] : [top.width, top.height]);
+    this.programManager.setUniform("copySize", [copy.width, copy.height]);
     this.programManager.setUniform("amount", blend.amount);
     this.programManager.setUniform("color", blend.color);
     this.programManager.setUniform("mode", modeOf(blend.blendMode));
@@ -7209,7 +7250,9 @@ var SandboxScene = class extends Phaser14.Scene {
   }
   /**
    * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
-   * blur at half the screen's size between two smooth resamples (#143).
+   * blur at half the screen's size (#143): the threshold in the halving
+   * resample, and the blur added back by the blend, smoothly, with no
+   * full-size pass between (#234).
    */
   createBloom(main) {
     if (!(this.renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer)) {
@@ -7218,10 +7261,8 @@ var SandboxScene = class extends Phaser14.Scene {
     registerResample(this.renderer);
     registerSmallBlend(this.renderer);
     const bloom = main.filters.external.addParallelFilters();
-    bloom.top.add(new Resample(main, BLOOM_SCALE));
-    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    bloom.top.add(new Resample(main, BLOOM_SCALE, BLOOM_THRESHOLD));
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 16777215, BLOOM_BLUR_STEPS);
-    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
     bloom.blend.blendMode = Phaser14.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
