@@ -99,6 +99,7 @@ import { integerZoom } from '../sim/zoom.ts';
 import { SquadronScreen, modeName } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { bossBar } from '../net/boss.ts';
+import { delayLine } from '../net/timeline.ts';
 import { ShipAudio } from './audio.ts';
 import { BossBarView } from './bossbar.ts';
 import { FieldGlow } from './fieldglow.ts';
@@ -431,7 +432,7 @@ export class SandboxScene extends Phaser.Scene {
         musicVolume: 0,
         fadingMusic: 0,
       },
-      net: { status: 'offline', playerId: undefined, others: [] },
+      net: { status: 'offline', playerId: undefined, others: [], delayTicks: 0, targetDelayTicks: 0 },
       enemies: [],
       enemiesGone: [],
       enemiesDestroyed: 0,
@@ -1994,6 +1995,7 @@ export class SandboxScene extends Phaser.Scene {
       ...(this.touchOn ? [] : [KEY_HINT]),
       ...(this.showFps ? [this.fpsLine()] : []),
       ...(this.diagnostics?.lines() ?? []),
+      ...(this.diagnostics !== undefined && this.net?.status === 'online' ? [delayLine(this.net.delayTicks, this.net.targetDelayTicks)] : []),
     ]);
     this.layoutHud();
     this.updateHudView();
@@ -2093,6 +2095,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.net.status = this.net?.status ?? 'offline';
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
+    this.debug.net.delayTicks = this.net?.delayTicks ?? 0;
+    this.debug.net.targetDelayTicks = this.net?.targetDelayTicks ?? 0;
     this.debug.enemies = this.net?.enemyList ?? [];
     this.debug.enemiesGone = this.net?.enemiesGone ?? [];
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;

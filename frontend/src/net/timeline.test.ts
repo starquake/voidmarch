@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { Timeline } from './timeline.ts';
+import { Timeline, delayLine } from './timeline.ts';
 
 const TICK_MS = 50;
 const FRAME_MS = 1000 / 60;
@@ -32,6 +32,10 @@ function play(
     }
   }
 }
+
+test('the HUD line shows the delay and its target to a tenth of a tick', () => {
+  assert.equal(delayLine(2, 3.333), 'delay 2.0 / 3.3 ticks');
+});
 
 test('nothing is drawn before the first snapshot', () => {
   const timeline = new Timeline(20);

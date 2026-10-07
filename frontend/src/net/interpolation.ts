@@ -1,8 +1,5 @@
 import { wrapAngle } from '../sim/math.ts';
 
-/** Remote ships and enemies are drawn this many ticks in the past, between two snapshots. */
-export const INTERPOLATION_DELAY_TICKS = 2;
-
 const MAX_SAMPLES = 32;
 
 /** Anything drawn at a position and facing. */

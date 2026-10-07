@@ -10,6 +10,11 @@ const MAX_SPEEDUP = 0.05;
 /** How far behind its goal the render clock may fall before it jumps there (1 s at 20 Hz). */
 const SNAP_TICKS = 20;
 
+/** The ?diag=1 HUD's line about the delay: the current one, then the one it heads for. */
+export function delayLine(delayTicks: number, targetTicks: number): string {
+  return `delay ${delayTicks.toFixed(1)} / ${targetTicks.toFixed(1)} ticks`;
+}
+
 /**
  * The delayed timeline others are drawn on (#232): the server's tick, as the
  * snapshots tell it, less a delay that follows how late they arrive. The

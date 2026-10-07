@@ -20,10 +20,9 @@ import type {
   Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import { CompanionMode, CompanionOneShot, WorldEventKind } from '../gen/voidmarch/v1/messages_pb.js';
-import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
-import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interpolation.ts';
+import { StateBuffer, type Pose } from '../net/interpolation.ts';
 import {
   fromCompanionMode,
   fromCompanionOneShot,
@@ -47,6 +46,7 @@ import type { SeasonResult } from '../victory.ts';
 import { missionStatsLine, type PlayerStatsRow } from '../sim/standings.ts';
 import { moveNotice, squadronChoices, type Move, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
+import { Timeline } from '../net/timeline.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyFaction, type EnemyKind } from '../sim/enemies.ts';
 import type { WeaponId } from '../sim/loadout.ts';
@@ -311,7 +311,7 @@ export class NetPlay {
   development = false;
   /** Pickups this ship reported flying over, until it leaves them. */
   private readonly collecting = new Set<number>();
-  private clock = new ServerClock(20);
+  private timeline = new Timeline(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
   private spawned = false;
 
@@ -505,6 +505,16 @@ export class NetPlay {
     }));
   }
 
+  /** How far in the past the others were last drawn, in ticks (#232). */
+  get delayTicks(): number {
+    return this.timeline.delay;
+  }
+
+  /** The delay the timeline heads for, from how late snapshots arrive (#232). */
+  get targetDelayTicks(): number {
+    return this.timeline.target;
+  }
+
   /** The latest notice for the HUD, while it lasts. */
   get noticeText(): string | undefined {
     return this.notice !== undefined && now() < this.notice.untilMs ? this.notice.text : undefined;
@@ -527,7 +537,7 @@ export class NetPlay {
 
   /** The HUD's line for the world event running, counting down (#102). */
   eventLine(nowMs: number): string {
-    const tick = this.clock.tickAt(nowMs);
+    const tick = this.timeline.serverTick(nowMs);
 
     return tick === undefined ? '' : eventLine(this.worldEvent, tick, this.tickRate);
   }
@@ -809,11 +819,11 @@ export class NetPlay {
       }
     }
 
-    const serverTick = this.clock.tickAt(nowMs);
-    if (serverTick === undefined) {
+    const serverTick = this.timeline.serverTick(nowMs);
+    const renderTick = this.timeline.renderTick(nowMs);
+    if (serverTick === undefined || renderTick === undefined) {
       return frame;
     }
-    const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     const reminder = this.attackReminder.check(this.worldEvent, serverTick, this.tickRate);
     if (reminder !== undefined) {
       this.banners.push(reminder);
@@ -1275,10 +1285,10 @@ export class NetPlay {
     if (welcome.squadron === '') {
       this.pickSquadron(welcome.squadrons);
     }
-    this.clock = new ServerClock(welcome.tickRate);
+    this.timeline = new Timeline(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
-    this.clock.observe(welcome.tick, now());
+    this.timeline.snapshot(welcome.tick, now());
     // A reconnect keeps the ship where it is; only the first join places it,
     // with the loadout the player last fitted at home (#78).
     if (!this.spawned) {
@@ -1372,7 +1382,7 @@ export class NetPlay {
   }
 
   private snapshot(snapshot: Snapshot): void {
-    this.clock.observe(snapshot.tick, now());
+    this.timeline.snapshot(snapshot.tick, now());
     this.latestSnapshot = snapshot.tick;
     for (const player of snapshot.players) {
       if (player.state === undefined) {
