@@ -531,11 +531,10 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 
 	out := make(chan *pb.ServerMessage, sendQueue)
 	s := &Session{Player: player, Out: out, queue: out, hub: h}
-	color := h.freeColor()
 	spawnX, spawnY := h.freeSpawn()
-	h.members[player.ID] = &member{
+	m := &member{
 		session:    s,
-		color:      color,
+		color:      h.freeColor(),
 		lastSeen:   h.tick,
 		companions: companions,
 		wing:       wing,
@@ -545,35 +544,40 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		unlocks:    unlocks,
 		loadout:    loadout,
 	}
+	h.members[player.ID] = m
 	h.logger.Info(
 		"player joined",
 		slog.String("playerId", player.ID),
 		slog.String("name", player.Name),
 	)
 
-	welcome := &pb.Welcome{
+	return joinResult{session: s, welcome: h.welcome(player, m, spawnX, spawnY)}
+}
+
+// welcome is what a joining player is told: who they are, where their ship
+// starts, and the world as it stands.
+func (h *Hub) welcome(player players.Player, m *member, spawnX, spawnY float32) *pb.Welcome {
+	return &pb.Welcome{
 		PlayerId:       player.ID,
 		Name:           player.Name,
-		Color:          color,
+		Color:          m.color,
 		SpawnX:         spawnX,
 		SpawnY:         spawnY,
 		Tick:           h.tick,
 		TickRate:       TickRate,
 		CompanionLimit: companionLimit,
-		Companions:     slices.Sorted(maps.Keys(companions)),
+		Companions:     slices.Sorted(maps.Keys(m.companions)),
 		Squadrons:      h.squadronsMessage(),
-		Squadron:       squadron,
-		Unlocks:        pbUnlocks(unlocks),
+		Squadron:       m.squadron,
+		Unlocks:        pbUnlocks(m.unlocks),
 		Pickups:        h.pickupMessages(),
-		Loadout:        savedLoadout(loadout, unlocks),
+		Loadout:        savedLoadout(m.loadout, m.unlocks),
 		Development:    h.development,
 		ClearedSectors: h.clearedNames(),
 		WorldEvent:     eventMessage(h.event),
 		MapName:        h.mapName(),
 		Frontier:       h.frontierMessage(),
 	}
-
-	return joinResult{session: s, welcome: welcome}
 }
 
 func (h *Hub) handleMessage(in inbound) {
