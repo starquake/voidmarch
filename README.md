@@ -50,7 +50,8 @@ From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
 | Mouse | Aim |
 | Left button (hold) | Fire |
 | G | Draw a companion from the hangar (at the home planet) |
-| 1 / 2 / 3 | Cycle the weapon / engine / shield through the parts you own, anywhere; a new weapon fires after a half-second swap |
+| 1 / 2 / 3 (tap) | Cycle the weapon / engine / shield through the parts you own, anywhere; a new weapon fires after a half-second swap |
+| 1 / 2 / 3 (hold) | That slot's list of parts: taps of its key keep switching, Up and Down move a highlight and Enter fits it, Esc closes it, and it closes by itself 2 s after the last key |
 | Click a part slot | Bottom left: a list of that slot's parts above it; click one to fit it, Esc or a click elsewhere closes it |
 | M | Full map: click an uncleared sector to send your squadron there; M or Esc closes it |
 | Tab (hold) | The season so far: the top players by kills, and you, while held |
@@ -257,8 +258,10 @@ collect it for your whole squadron, wherever they are. A part you don't have
 is yours for good; one you have goes up a tier, Super, Mega, then Hyper,
 each about 15% stronger, shown in blue, violet and gold. A pickup glows in the
 tier it would give you, blinks after 20 s and is gone at 30 s. Switch parts
-anywhere, in a fight too: **1**, **2** and **3** cycle the weapon, engine and
-shield through the parts you own, or click a slot in the gauge for its list.
+anywhere, in a fight too: a tap of **1**, **2** or **3** cycles the weapon,
+engine or shield through the parts you own. Hold the key, or click a slot in
+the gauge, for that slot's list; while it's open, taps of the key keep
+switching, and a list the keys have used closes 2 s after the last key.
 A newly fitted weapon fires after a half-second swap. The server remembers
 what you fitted.
 

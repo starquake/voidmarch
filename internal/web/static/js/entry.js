@@ -388,7 +388,7 @@ var KEYBOARD = {
     { keys: ["W", "A", "S", "D"], text: "move" },
     { keys: ["G"], text: "draw a companion, at home" },
     { keys: ["Q"], text: "hold for orders, tap to repeat" },
-    { keys: ["1", "2", "3"], text: "switch weapon, engine, shield" },
+    { keys: ["1", "2", "3"], text: "switch weapon, engine, shield; hold for a list" },
     { keys: ["M"], text: "map" },
     { keys: ["Tab"], text: "hold for the standings" },
     { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },
