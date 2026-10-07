@@ -15,6 +15,17 @@ test('an item waits until the delayed timeline reaches it', () => {
   assert.deepEqual(queue.due(20), [], 'each item is due once');
 });
 
+test('an item taken off the queue is never due', () => {
+  const queue = new TimedQueue<string>(20);
+  queue.add(10, 'a');
+  queue.add(10, 'b');
+  queue.remove((item) => item === 'a');
+  assert.deepEqual(
+    queue.due(10).map((d) => d.item),
+    ['b'],
+  );
+});
+
 test('late items are aged by how late they are', () => {
   const queue = new TimedQueue<string>(20);
   queue.add(10, 'a');

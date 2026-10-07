@@ -21,6 +21,11 @@ export class TimedQueue<T> {
     this.pending.push({ tick, item });
   }
 
+  /** Drops what matches before it is due. */
+  remove(match: (item: T) => boolean): void {
+    this.pending = this.pending.filter((p) => !match(p.item));
+  }
+
   /** Removes and returns what is at or before renderTick, with its age. */
   due(renderTick: number): Due<T>[] {
     const due: Due<T>[] = [];

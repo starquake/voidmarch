@@ -274,6 +274,8 @@ export class NetPlay {
   private enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
   private shotEnds = new TimedQueue<ShotEnd>(20);
+  /** Dropped parts, shown with the explosion of the enemy that dropped them (#232). */
+  private pickupDrops = new TimedQueue<Pickup>(20);
   private latestSnapshot = 0;
   private tickRate = 20;
   /** The last enemies that left the page, oldest first (#231). */
@@ -407,7 +409,7 @@ export class NetPlay {
         pickupDropped: (dropped) => {
           const pickup = fromPickup(dropped);
           if (pickup !== undefined) {
-            options.pickups.add(pickup, this.unlocks);
+            this.pickupDrops.add(dropped.tick, pickup);
           }
         },
         sectorCleared: (cleared) => {
@@ -821,6 +823,9 @@ export class NetPlay {
     const reminder = this.attackReminder.check(this.worldEvent, serverTick, this.tickRate);
     if (reminder !== undefined) {
       this.banners.push(reminder);
+    }
+    for (const { item: pickup } of this.pickupDrops.due(renderTick)) {
+      this.options.pickups.add(pickup, this.unlocks);
     }
     this.options.pickups.update(serverTick, this.tickRate);
     this.collect();
@@ -1339,6 +1344,7 @@ export class NetPlay {
 
   /** A pickup is gone; the parts this player gained are theirs now. */
   private pickupTaken(taken: PickupTaken): void {
+    this.pickupDrops.remove((p) => p.id === taken.id);
     this.options.pickups.remove(taken.id);
     this.collecting.delete(taken.id);
     const collector =
@@ -1373,6 +1379,7 @@ export class NetPlay {
     this.enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(tickRate);
     this.destructions = new TimedQueue<EnemyDestroyed>(tickRate);
     this.shotEnds = new TimedQueue<ShotEnd>(tickRate);
+    this.pickupDrops = new TimedQueue<Pickup>(tickRate);
   }
 
   private snapshot(snapshot: Snapshot): void {
