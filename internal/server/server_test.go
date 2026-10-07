@@ -99,6 +99,12 @@ func TestNew_Routes(t *testing.T) {
 			wantType:    "text/css",
 			wantContain: "body",
 		},
+		{
+			path:        "/static/v/0123456789abcdef/js/main.js",
+			wantStatus:  http.StatusOK,
+			wantType:    "text/javascript",
+			wantContain: "voidmarch",
+		},
 		{path: "/static/js/", wantStatus: http.StatusNotFound},
 		{path: "/static/", wantStatus: http.StatusNotFound},
 		{path: "/static/missing.js", wantStatus: http.StatusNotFound},

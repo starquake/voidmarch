@@ -408,3 +408,295 @@ func TestHandleStatic_GzipFollowsDiskChanges(t *testing.T) {
 		t.Errorf("gunzipped body = %q, want the changed file", got)
 	}
 }
+
+// forGood is the Cache-Control of a file the browser never asks about again.
+const forGood = "public, max-age=31536000, immutable"
+
+// page links the files of gzipFS the way index.html does.
+const page = `<link rel="stylesheet" href="/static/css/tiny.css">` +
+	`<script src="/static/js/main.js"></script><a href="/elsewhere">`
+
+// buildFS is gzipFS with a page.
+func buildFS() fstest.MapFS {
+	fsys := gzipFS()
+	fsys["index.html"] = &fstest.MapFile{Data: []byte(page)}
+
+	return fsys
+}
+
+// newBuildRoutes serves fsys's page and its files under a build's prefix, as
+// the server does, and its files unversioned from the root.
+func newBuildRoutes(fsys fs.FS, fixed bool) http.Handler {
+	files := NewStatic(fsys, fixed)
+	mux := http.NewServeMux()
+	mux.Handle("GET /{$}", HandleIndex(files))
+	mux.Handle("GET /static/v/{build}/{file...}", HandleBuild(files))
+	mux.Handle("GET /", HandleStatic(files))
+
+	return mux
+}
+
+func runningBuild(t *testing.T, fsys fs.FS) string {
+	t.Helper()
+
+	build, err := BuildID(fsys)
+	if err != nil {
+		t.Fatalf("BuildID() error = %v", err)
+	}
+
+	return build
+}
+
+func TestBuildID(t *testing.T) {
+	t.Parallel()
+
+	build := runningBuild(t, buildFS())
+	if got, want := len(build), 16; got != want {
+		t.Errorf("BuildID() = %q, want %d hex digits", build, want)
+	}
+	if got := runningBuild(t, buildFS()); got != build {
+		t.Errorf("BuildID() of the same files = %q, want %q", got, build)
+	}
+
+	changed := buildFS()
+	changed["img/ship.png"] = &fstest.MapFile{Data: []byte("another ship")}
+	moved := buildFS()
+	moved["img/ship2.png"] = moved["img/ship.png"]
+	delete(moved, "img/ship.png")
+	added := buildFS()
+	added["audio/new.ogg"] = &fstest.MapFile{Data: []byte("new")}
+
+	for name, fsys := range map[string]fstest.MapFS{"changed": changed, "moved": moved, "added": added} {
+		if got := runningBuild(t, fsys); got == build {
+			t.Errorf("BuildID() with a file %s = %q, the same as before", name, got)
+		}
+	}
+}
+
+// walkFailFS opens its files but cannot list them.
+type walkFailFS struct{ fstest.MapFS }
+
+var errWalk = errors.New("walk failed")
+
+func (walkFailFS) ReadDir(string) ([]fs.DirEntry, error) { return nil, errWalk }
+
+func TestBuildID_Error(t *testing.T) {
+	t.Parallel()
+
+	_, err := BuildID(walkFailFS{buildFS()})
+
+	if got, want := err, errWalk; !errors.Is(got, want) {
+		t.Errorf("BuildID() error = %v, want %v", got, want)
+	}
+}
+
+func TestHandleStatic_PageLinksTheBuild(t *testing.T) {
+	t.Parallel()
+
+	fsys := buildFS()
+	prefix := "/static/v/" + runningBuild(t, fsys) + "/"
+	wantBody := `<link rel="stylesheet" href="` + prefix + `css/tiny.css">` +
+		`<script src="` + prefix + `js/main.js"></script><a href="/elsewhere">`
+
+	for _, fixed := range []bool{true, false} {
+		t.Run(fmt.Sprintf("fixed %t", fixed), func(t *testing.T) {
+			t.Parallel()
+
+			handler := newBuildRoutes(fsys, fixed)
+			w := serveStatic(t, handler, http.MethodGet, "/", nil)
+
+			if got, want := w.Code, http.StatusOK; got != want {
+				t.Fatalf("status = %d, want %d", got, want)
+			}
+			if got, want := w.Body.String(), wantBody; got != want {
+				t.Errorf("body = %q, want %q", got, want)
+			}
+			if got, want := w.Header().Get("Cache-Control"), "no-cache"; got != want {
+				t.Errorf("Cache-Control = %q, want %q", got, want)
+			}
+			wantLength := strconv.Itoa(len(wantBody))
+			if got, want := w.Header().Get("Content-Length"), wantLength; got != want {
+				t.Errorf("Content-Length = %q, want %q", got, want)
+			}
+
+			again := serveStatic(t, handler, http.MethodGet, "/", http.Header{
+				"If-None-Match": {w.Header().Get("ETag")},
+			})
+			if got, want := again.Code, http.StatusNotModified; got != want {
+				t.Errorf("revalidated status = %d, want %d", got, want)
+			}
+		})
+	}
+}
+
+func TestHandleStatic_PageWithoutABuild(t *testing.T) {
+	t.Parallel()
+
+	w := serveStatic(t, newBuildRoutes(walkFailFS{buildFS()}, true), http.MethodGet, "/", nil)
+
+	if got, want := w.Code, http.StatusOK; got != want {
+		t.Fatalf("status = %d, want %d", got, want)
+	}
+	if got, want := w.Body.String(), page; got != want {
+		t.Errorf("body = %q, want the page as it is, %q", got, want)
+	}
+	if got, want := w.Header().Get("Cache-Control"), "no-cache"; got != want {
+		t.Errorf("Cache-Control = %q, want %q", got, want)
+	}
+}
+
+func TestHandleBuild(t *testing.T) {
+	t.Parallel()
+
+	build := runningBuild(t, buildFS())
+	stale := strings.Repeat("0", len(build))
+
+	tests := []struct {
+		name       string
+		fixed      bool
+		path       string
+		accept     string
+		wantStatus int
+		wantCache  string
+		wantVary   string
+		// wantFile is the file the body is, gunzipped when gzipped.
+		wantFile     string
+		wantEncoding string
+	}{
+		{
+			name:         "the running build, gzipped",
+			fixed:        true,
+			path:         "/static/v/" + build + "/js/main.js",
+			accept:       "gzip",
+			wantStatus:   http.StatusOK,
+			wantCache:    forGood,
+			wantVary:     "Accept-Encoding",
+			wantFile:     "js/main.js",
+			wantEncoding: "gzip",
+		},
+		{
+			name:       "the running build, plain",
+			fixed:      true,
+			path:       "/static/v/" + build + "/js/main.js",
+			wantStatus: http.StatusOK,
+			wantCache:  forGood,
+			wantVary:   "Accept-Encoding",
+			wantFile:   "js/main.js",
+		},
+		{
+			name:       "the running build, an image",
+			fixed:      true,
+			path:       "/static/v/" + build + "/img/ship.png",
+			accept:     "gzip",
+			wantStatus: http.StatusOK,
+			wantCache:  forGood,
+			wantFile:   "img/ship.png",
+		},
+		{
+			name:         "an older build",
+			fixed:        true,
+			path:         "/static/v/" + stale + "/js/main.js",
+			accept:       "gzip",
+			wantStatus:   http.StatusOK,
+			wantCache:    "no-cache",
+			wantVary:     "Accept-Encoding",
+			wantFile:     "js/main.js",
+			wantEncoding: "gzip",
+		},
+		{
+			name:       "unversioned",
+			fixed:      true,
+			path:       "/js/main.js",
+			wantStatus: http.StatusOK,
+			wantCache:  "no-cache",
+			wantVary:   "Accept-Encoding",
+			wantFile:   "js/main.js",
+		},
+		{
+			name:       "from disk",
+			path:       "/static/v/" + build + "/js/main.js",
+			wantStatus: http.StatusOK,
+			wantCache:  "no-cache",
+			wantVary:   "Accept-Encoding",
+			wantFile:   "js/main.js",
+		},
+		{
+			name:       "missing",
+			fixed:      true,
+			path:       "/static/v/" + build + "/js/missing.js",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "a directory",
+			fixed:      true,
+			path:       "/static/v/" + build + "/js",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "no file",
+			fixed:      true,
+			path:       "/static/v/" + build + "/",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fsys := buildFS()
+			header := http.Header{}
+			if tc.accept != "" {
+				header.Set("Accept-Encoding", tc.accept)
+			}
+			w := serveStatic(t, newBuildRoutes(fsys, tc.fixed), http.MethodGet, tc.path, header)
+
+			if got, want := w.Code, tc.wantStatus; got != want {
+				t.Fatalf("status = %d, want %d", got, want)
+			}
+			if got, want := w.Header().Get("Cache-Control"), tc.wantCache; got != want {
+				t.Errorf("Cache-Control = %q, want %q", got, want)
+			}
+			if got, want := w.Header().Get("Vary"), tc.wantVary; got != want {
+				t.Errorf("Vary = %q, want %q", got, want)
+			}
+			if got, want := w.Header().Get("Content-Encoding"), tc.wantEncoding; got != want {
+				t.Errorf("Content-Encoding = %q, want %q", got, want)
+			}
+			if tc.wantFile == "" {
+				return
+			}
+			body := w.Body.Bytes()
+			if tc.wantEncoding == "gzip" {
+				body = gunzip(t, body)
+			}
+			if got, want := body, fsys[tc.wantFile].Data; !bytes.Equal(got, want) {
+				t.Errorf("body = %q, want %s", got, tc.wantFile)
+			}
+		})
+	}
+}
+
+func TestHandleBuild_Revalidated(t *testing.T) {
+	t.Parallel()
+
+	handler := newBuildRoutes(buildFS(), true)
+	path := "/static/v/" + runningBuild(t, buildFS()) + "/js/main.js"
+	gzipped := http.Header{"Accept-Encoding": {"gzip"}}
+	etag := serveStatic(t, handler, http.MethodGet, path, gzipped).Header().Get("ETag")
+
+	w := serveStatic(t, handler, http.MethodGet, path, http.Header{
+		"Accept-Encoding": {"gzip"},
+		"If-None-Match":   {etag},
+	})
+
+	if got, want := w.Code, http.StatusNotModified; got != want {
+		t.Errorf("status = %d, want %d", got, want)
+	}
+	if got, want := etag, `-gz"`; !strings.HasSuffix(got, want) {
+		t.Errorf("ETag = %q, should end with %q", got, want)
+	}
+	if got, want := w.Header().Get("Cache-Control"), forGood; got != want {
+		t.Errorf("Cache-Control = %q, want %q", got, want)
+	}
+}
