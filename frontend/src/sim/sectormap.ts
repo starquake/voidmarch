@@ -137,6 +137,11 @@ export function drawnMap(state: MapState, layout: MapLayout, flash: boolean): Dr
   };
 }
 
+/** What a map's hexagons look like, without the markers: equal keys draw the same grid (#265). */
+export function gridKey(drawn: DrawnMap): string {
+  return drawn.sectors.map((s) => `${String(s.center.x)},${String(s.center.y)}:${String(s.fill)}:${String(s.outline ?? '')}`).join(' ');
+}
+
 /** The sector under a screen point at layout, for a click on the full map. */
 export function sectorAtScreen(layout: MapLayout, x: number, y: number): string | undefined {
   return sectorName((x - layout.x) / layout.scale, (y - layout.y) / layout.scale);

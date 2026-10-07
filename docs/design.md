@@ -368,7 +368,8 @@ The game is played on laptops, so the effects are built to stay cheap at 120 Hz 
 - **Bloom** runs its threshold and blur at half the screen's size, between two smooth resamples (`frontend/src/scenes/resample.ts`); only the halo layer is smaller.
 - **The enemy-fire glow** is baked once at boot (`frontend/src/glow.ts`), not filtered every frame.
 - **The vignette** is a stretched overlay of black at the filter's darkness (`frontend/src/vignette.ts`), drawn on the HUD camera over the bloomed world.
-- **The minimap** redraws ten times a second while the full map is closed.
+- **The minimap** redraws its markers ten times a second while the full map is closed. Its hexagons are drawn into a texture, redrawn only when they look different (#265): Phaser re-tessellates every shape of a Graphics every frame.
+- **The sector edges and the closed sectors' shade** in the world are drawn only for the sectors near the view, and redrawn when those or the frontier change (#265).
 - **Settings** (#145): a screen on Esc holds the options that were single keys: sound, music, controls, rotation, effects, a 60 fps cap and rendering at CSS pixels instead of device pixels. It opens only when no other screen, the map or the join screen is up, and the ship holds still under it, as under the victory screen. Each change applies at once and is remembered in the browser. The keys M, N, C, R, F, V and P are free again (@starquake: "we are going to use them for other stuff"). Touch has a Settings button in the top left, beside the fullscreen switch.
 - **Measuring:** the debug state and the HUD carry the average and worst frame time of the last second, and the GPU's time per frame where the browser offers `EXT_disjoint_timer_query`.
 
