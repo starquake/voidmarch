@@ -18,6 +18,7 @@ import {
   sectorLine,
   sectorName,
   sectorState,
+  sectorsInView,
 } from './sectors.ts';
 import { RING_TINTS } from './tuning.ts';
 import { SECTOR_RADIUS, WORLD_APOTHEM } from './rules.gen.ts';
@@ -167,4 +168,17 @@ test('a fade moves each channel toward the target and always arrives', () => {
     tint = fadeColor(tint, 0x8fb4ff, 16 / 1500);
   }
   assert.equal(tint, 0x8fb4ff);
+});
+
+test('the sectors in a view are those that reach into it', () => {
+  const home = sectorName(0, 0) ?? '';
+  const view = (x: number, y: number, w: number, h: number): string[] => sectorsInView({ left: x - w / 2, top: y - h / 2, right: x + w / 2, bottom: y + h / 2 });
+  assert.deepEqual(view(0, 0, 640, 360), [home]);
+  const corner = view(SECTOR_RADIUS, 0, 640, 360);
+  assert.equal(corner.length, 3, 'home\'s right corner meets two more');
+  assert.ok(corner.includes(home));
+  assert.ok(corner.includes(sectorName(ACROSS, -APOTHEM) ?? ''));
+  assert.ok(corner.includes(sectorName(ACROSS, APOTHEM) ?? ''));
+  assert.deepEqual(view(0, 0, 1e6, 1e6), [...SECTOR_NAMES]);
+  assert.deepEqual(view(WORLD_APOTHEM * 3, 0, 640, 360), [], 'none off the grid');
 });

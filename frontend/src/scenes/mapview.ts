@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import {
   canPick,
   drawnMap,
+  gridKey,
   layoutForHeight,
   layoutForWidth,
   mapLegend,
@@ -53,10 +54,28 @@ const NAME_LIFT_SHARE = 0.55;
 const DREADNOUGHT_MARKER = 1.7;
 /** Above the rest of the HUD; the sector names above the full map's grid. */
 const MAP_DEPTH = 10;
+/** The texture the minimap's hexagons are drawn into (#265). */
+const MINIMAP_GRID_TEXTURE = 'minimap-grid';
+/** Line widths in CSS pixels: the minimap's edges and mission outlines, and the full map's. */
+const MINI_EDGE_PX = 1;
+const MINI_OUTLINE_PX = 2;
+const FULL_EDGE_PX = 2;
+const FULL_OUTLINE_PX = 3;
 
 /** The minimap in the top right and the full map on Tab (#100), drawn on the HUD camera. */
 export class MapView {
   open = false;
+  /**
+   * The minimap's hexagons, drawn into a texture only when they change: Phaser
+   * redraws a Graphics' every shape every frame (#265). The markers on top are
+   * few, and stay a Graphics.
+   */
+  private readonly miniGrid: Phaser.Textures.DynamicTexture;
+  private readonly miniGridImage: Phaser.GameObjects.Image;
+  private readonly gridStamp: Phaser.GameObjects.Graphics;
+  private miniGridKey = '';
+  /** The minimap texture's size and its top left corner on screen. */
+  private miniBox = { left: 0, top: 0, width: 2, height: 2 };
   private readonly mini: Phaser.GameObjects.Graphics;
   private readonly miniLabel: Phaser.GameObjects.Text;
   private readonly full: Phaser.GameObjects.Graphics;
@@ -74,13 +93,20 @@ export class MapView {
       scene.add
         .text(0, 0, '', { fontFamily: UI_FONT, fontSize: `${String(size)}px`, color: '#d8f8ff', align: 'center' })
         .setShadow(1, 1, '#000000', 0);
+    const grid = scene.textures.addDynamicTexture(MINIMAP_GRID_TEXTURE, this.miniBox.width, this.miniBox.height);
+    if (grid === null) {
+      throw new Error('the minimap texture could not be made');
+    }
+    this.miniGrid = grid;
+    this.miniGridImage = scene.add.image(0, 0, grid).setOrigin(0, 0).setVisible(false);
+    this.gridStamp = scene.make.graphics({}, false);
     this.mini = scene.add.graphics();
     this.miniLabel = text(SMALL_FONT_PX).setOrigin(0.5, 0);
     this.full = scene.add.graphics();
     this.title = text(FONT_PX).setOrigin(0.5, 0);
     this.legend = text(FONT_PX).setOrigin(0.5, 0);
-    const objects: Phaser.GameObjects.GameObject[] = [this.mini, this.miniLabel, this.full, this.title, this.legend];
-    for (const o of [this.mini, this.miniLabel, this.full, this.title, this.legend]) {
+    const objects: Phaser.GameObjects.GameObject[] = [this.miniGridImage, this.mini, this.miniLabel, this.full, this.title, this.legend];
+    for (const o of [this.miniGridImage, this.mini, this.miniLabel, this.full, this.title, this.legend]) {
       o.setDepth(MAP_DEPTH);
     }
     this.setFullVisible(false);
@@ -93,6 +119,7 @@ export class MapView {
   resize(width: number, height: number, dpr: number): void {
     this.dpr = dpr;
     this.miniLayout = minimapLayout(width, dpr);
+    this.placeMiniGrid();
     const miniBottom = this.miniLayout.y + mapSize(this.miniLayout).height / 2;
     this.miniLabel.setFontSize(SMALL_FONT_PX * dpr).setPosition(this.miniLayout.x, miniBottom + (MAP_MARGIN_PX * dpr) / 2);
     const fullHeight = Math.min(FULL_MAP_HEIGHT_PX * dpr, height - (PANEL_PAD_TOP_PX + PANEL_PAD_BOTTOM_PX) * dpr);
@@ -126,12 +153,17 @@ export class MapView {
     this.full.clear();
     if (state === undefined) {
       this.miniLabel.setText('');
+      this.miniGridImage.setVisible(false);
       this.close();
 
       return;
     }
     const flash = Math.floor(nowMs / MAP_FLASH_MS) % 2 === 0;
-    this.drawGrid(this.mini, drawnMap(state, this.miniLayout, flash), this.miniLayout, 1, 2, MINIMAP_FILL_ALPHA);
+    // Drawn in the texture's own pixels; the markers' Graphics sits where the texture does.
+    const local = { x: this.miniBox.width / 2, y: this.miniBox.height / 2, scale: this.miniLayout.scale };
+    const mini = drawnMap(state, local, flash);
+    this.drawMiniGrid(mini);
+    this.drawMarkers(this.mini, mini, local);
     this.miniLabel.setText(missionsLine(state.missions));
     if (!this.open) {
       return;
@@ -144,7 +176,8 @@ export class MapView {
     this.full
       .fillStyle(MAP_PANEL_COLOR, MAP_PANEL_ALPHA)
       .fillRoundedRect(this.fullLayout.x - halfWidth, top, halfWidth * 2, bottom - top, PANEL_CORNER_PX * this.dpr);
-    this.drawGrid(this.full, drawn, this.fullLayout, 2, 3, MAP_FILL_ALPHA);
+    this.drawSectors(this.full, drawn, FULL_EDGE_PX, FULL_OUTLINE_PX, MAP_FILL_ALPHA);
+    this.drawMarkers(this.full, drawn, this.fullLayout);
     this.drawNames(drawn);
     this.title.setText(mapTitle(mapName, state.cleared)).setPosition(this.fullLayout.x, top + TEXT_GAP_PX * this.dpr);
     const legendY = this.fullLayout.y + size.height / 2 + TEXT_GAP_PX * this.dpr;
@@ -171,7 +204,33 @@ export class MapView {
     return canPick(name, cleared, frontier) ? name : undefined;
   }
 
-  private drawGrid(g: Phaser.GameObjects.Graphics, drawn: DrawnMap, layout: MapLayout, edge: number, outline: number, fill: number): void {
+  /** Sizes the minimap's texture to the grid and its widest line, on whole pixels so it stays sharp. */
+  private placeMiniGrid(): void {
+    const size = mapSize(this.miniLayout);
+    const pad = Math.ceil(MINI_OUTLINE_PX * this.dpr);
+    const width = 2 * Math.ceil(size.width / 2 + pad);
+    const height = 2 * Math.ceil(size.height / 2 + pad);
+    const left = Math.round(this.miniLayout.x - width / 2);
+    const top = Math.round(this.miniLayout.y - height / 2);
+    this.miniBox = { left, top, width, height };
+    this.miniGrid.setSize(width, height);
+    this.miniGridImage.setPosition(left, top).setSizeToFrame();
+    this.mini.setPosition(left, top);
+  }
+
+  /** Redraws the minimap's texture when its hexagons look different. */
+  private drawMiniGrid(drawn: DrawnMap): void {
+    this.miniGridImage.setVisible(true);
+    const key = `${String(this.miniBox.width)}x${String(this.miniBox.height)} ${String(this.dpr)} ${gridKey(drawn)}`;
+    if (key === this.miniGridKey) {
+      return;
+    }
+    this.miniGridKey = key;
+    this.drawSectors(this.gridStamp.clear(), drawn, MINI_EDGE_PX, MINI_OUTLINE_PX, MINIMAP_FILL_ALPHA);
+    this.miniGrid.clear().draw(this.gridStamp).render();
+  }
+
+  private drawSectors(g: Phaser.GameObjects.Graphics, drawn: DrawnMap, edge: number, outline: number, fill: number): void {
     const scale = this.dpr;
     for (const s of drawn.sectors) {
       g.fillStyle(s.fill, fill);
@@ -188,6 +247,11 @@ export class MapView {
         g.strokePath();
       }
     }
+  }
+
+  /** The Frigates, the Dreadnought, your squadmates and you, over a map's hexagons. */
+  private drawMarkers(g: Phaser.GameObjects.Graphics, drawn: DrawnMap, layout: MapLayout): void {
+    const scale = this.dpr;
     const marker = Math.max(FRIGATE_MIN_PX * scale, SECTOR_RADIUS * layout.scale * FRIGATE_SHARE);
     g.fillStyle(MAP_FRIGATE_COLOR, 1);
     for (const f of drawn.frigates) {
@@ -230,16 +294,18 @@ export class MapView {
   }
 }
 
-function polygon(g: Phaser.GameObjects.Graphics, corners: readonly { x: number; y: number }[]): void {
+/** Traces a closed path through corners, ready to fill or stroke. */
+export function polygon(g: Phaser.GameObjects.Graphics, corners: readonly { x: number; y: number }[]): Phaser.GameObjects.Graphics {
   const [first, ...rest] = corners;
   if (first === undefined) {
-    return;
+    return g.beginPath();
   }
   g.beginPath().moveTo(first.x, first.y);
   for (const c of rest) {
     g.lineTo(c.x, c.y);
   }
-  g.closePath();
+
+  return g.closePath();
 }
 
 /** Whether (x, y) is within the grid drawn at layout. */
