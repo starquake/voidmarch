@@ -119,6 +119,8 @@ export interface DebugState {
   /** The player's squadron's mission (#101), and its banner while it shows. */
   mission: string | undefined;
   missionBanner: string | undefined;
+  /** The announcement banner's font family (#254). */
+  missionBannerFont: string;
   /** The HUD's sector line: "Sector B3 · hostile" (#99). */
   sector: string;
   /** The boss health bar at the top, while it's shown (#89). */

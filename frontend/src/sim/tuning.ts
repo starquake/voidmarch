@@ -91,7 +91,7 @@ export const MISSION_BANNER_BORDER_PX = 1;
 export const EVENT_COLOR = 0xff5a4a;
 export const EVENT_CSS = '#ff5a4a';
 
-/** The game's two fonts (#170): Exo 2 for its text, Orbitron for titles and announcements. */
+/** The game's two fonts (#170): Exo 2 for its text and announcements (#254), Orbitron for titles. */
 export const UI_FONT_NAME = 'Exo 2';
 export const HEADING_FONT_NAME = 'Orbitron';
 export const UI_FONT = `'${UI_FONT_NAME}', sans-serif`;
