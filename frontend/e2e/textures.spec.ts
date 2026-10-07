@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import type Phaser from 'phaser';
 
 import { expect, test } from './fixtures.ts';
@@ -8,6 +9,9 @@ import Phaser from '/static/js/vendor/phaser.js';
 window.phaser = Phaser;
 </script>`;
 
+/** Whether the browser offers WebGL, so Phaser.AUTO picks it: CI's headless Firefox draws on a canvas. */
+const offersWebGL = (page: Page): Promise<boolean> => page.evaluate(() => document.createElement('canvas').getContext('webgl') !== null);
+
 /**
  * Phaser 4.2 makes two WebGL textures per DynamicTexture and keeps one (#260),
  * so the game frees the other. When this fails after a Phaser bump, Phaser
@@ -17,6 +21,7 @@ test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', asy
   await page.route('**/phaser-only', (route) => route.fulfill({ contentType: 'text/html', body: PHASER_ONLY }));
   await page.goto('/phaser-only');
   await page.waitForFunction(() => 'phaser' in window);
+  test.skip(!(await offersWebGL(page)), 'no WebGL in this browser');
 
   const made = await page.evaluate(
     () =>
@@ -54,9 +59,10 @@ test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', asy
   expect(made).toEqual({ created: 2, deleted: 0, held: 1 });
 });
 
-test('each stars layer holds one WebGL texture (#260)', async ({ page }) => {
+test('each stars layer holds one WebGL texture, none on a canvas (#260)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
 
-  expect(await page.evaluate(() => window.voidmarch?.layerTextures)).toEqual([1, 1]);
+  const each = (await offersWebGL(page)) ? 1 : 0;
+  expect(await page.evaluate(() => window.voidmarch?.layerTextures)).toEqual([each, each]);
 });
