@@ -196,13 +196,124 @@ func TestDreadnought_TakesItsVolleysInTurn(t *testing.T) {
 		want = append(want, sim.DreadnoughtRay)
 	}
 	want = append(want, sim.DreadnoughtWave, sim.DreadnoughtRing)
-	if len(volleys) < len(want) || !slices.Equal(volleys[:len(want)], want) {
+	if len(volleys) < len(want) || !slices.Equal(volleys[:len(want)], want) ||
+		slices.Contains(volleys, sim.DreadnoughtSpiral) {
 		t.Errorf(
-			"volleys = %v, want a ring, a sweep of %d beams, a Wave spread, then a ring again: %v",
+			"volleys = %v, want a ring, a sweep of %d beams, a Wave spread, then a ring again, "+
+				"and never a spiral: %v",
 			volleys,
 			sim.DreadnoughtRayBeams,
 			want,
 		)
+	}
+}
+
+// dreadnoughtFired is a Dreadnought's EnemyFired, its volley read from the
+// seed.
+type dreadnoughtFired struct {
+	volley sim.DreadnoughtVolley
+	tick   uint32
+	warn   uint32
+	angle  float64
+}
+
+// finaleFire is every volley the Nautolan Dreadnought fires at a ship
+// 300 px below it over ticks hub ticks, and the bearing to that ship.
+func finaleFire(t *testing.T, ticks int) (fired []dreadnoughtFired, bearing float64) {
+	t.Helper()
+
+	hub, tick := testHub(t, WithOpenRings(3), WithClearedSectors(finaleCleared()), NoEvents)
+	a, _ := join(t, hub, "a")
+	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
+	if d.GetFaction() != pb.EnemyFaction_ENEMY_FACTION_NAUTOLAN {
+		t.Fatalf("Dreadnought %+v, want the Nautolan one awake", d)
+	}
+	x, y := d.GetX(), d.GetY()+300
+	for range ticks {
+		_, others := latest(t, a, tick, 1, x, y)
+		for _, msg := range others {
+			if f := msg.GetEnemyFired(); f != nil &&
+				f.GetKind() == pb.EnemyKind_ENEMY_KIND_DREADNOUGHT {
+				fired = append(fired, dreadnoughtFired{
+					volley: sim.DreadnoughtVolleyOf(f.GetSeed()),
+					tick:   f.GetTick(),
+					warn:   f.GetWarnTicks(),
+					angle:  float64(f.GetAngle()),
+				})
+			}
+		}
+	}
+
+	return fired, math.Atan2(float64(y-d.GetY()), float64(x-d.GetX()))
+}
+
+// spirals are the runs of spiral bursts in fired, in order.
+func spirals(fired []dreadnoughtFired) [][]dreadnoughtFired {
+	var runs [][]dreadnoughtFired
+	for i, f := range fired {
+		if f.volley != sim.DreadnoughtSpiral {
+			continue
+		}
+		if i == 0 || fired[i-1].volley != sim.DreadnoughtSpiral {
+			runs = append(runs, nil)
+		}
+		runs[len(runs)-1] = append(runs[len(runs)-1], f)
+	}
+
+	return runs
+}
+
+func TestDreadnought_TheNautolanOneSpirals(t *testing.T) {
+	t.Parallel()
+
+	fired, bearing := finaleFire(t, 20*TickRate)
+	turn := make([]sim.DreadnoughtVolley, 0, len(fired))
+	for _, f := range fired {
+		if len(turn) == 0 || turn[len(turn)-1] != f.volley {
+			turn = append(turn, f.volley)
+		}
+	}
+	want := []sim.DreadnoughtVolley{
+		sim.DreadnoughtRing, sim.DreadnoughtRay, sim.DreadnoughtSpiral, sim.DreadnoughtWave,
+		sim.DreadnoughtRing, sim.DreadnoughtRay, sim.DreadnoughtSpiral,
+	}
+	if len(turn) < len(want) || !slices.Equal(turn[:len(want)], want) {
+		t.Fatalf(
+			"volleys in turn = %v, want a ring, a Ray sweep, a spiral, a Wave spread: %v",
+			turn,
+			want,
+		)
+	}
+
+	bursts := int(sim.DreadnoughtSpiralSeconds / sim.DreadnoughtSpiralEvery)
+	gap := uint32(sim.DreadnoughtSpiralEvery * TickRate)
+	runs := spirals(fired)[:2]
+	ways := make([]float64, 0, len(runs))
+	for n, run := range runs {
+		if len(run) != bursts {
+			t.Fatalf("spiral %d has %d bursts, want %d", n, len(run), bursts)
+		}
+		way := math.Copysign(1, sim.WrapAngle(run[1].angle-run[0].angle))
+		ways = append(ways, way)
+		for i, b := range run {
+			want := bearing + way*2*math.Pi*float64(i)/float64(bursts)
+			if math.Abs(sim.WrapAngle(b.angle-want)) > 1e-3 {
+				t.Errorf("spiral %d burst %d along %v, want %v", n, i, b.angle, want)
+			}
+			if i > 0 && b.tick-run[i-1].tick != gap {
+				t.Errorf(
+					"spiral %d burst %d at tick %d, %d after the last, want %d",
+					n,
+					i,
+					b.tick,
+					b.tick-run[i-1].tick,
+					gap,
+				)
+			}
+		}
+	}
+	if ways[0] == ways[1] {
+		t.Errorf("both spirals turn the same way (%v), want the other way each time", ways[0])
 	}
 }
 
