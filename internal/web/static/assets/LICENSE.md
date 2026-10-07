@@ -82,3 +82,20 @@ where it sits changes. `cmd/cutsheets` makes them from the pack's PNGs:
   its 77 frames of 96 px cropped by the 10 px that are transparent around
   every frame, to 76 px with the back glow, 9 to a row
   (`cutsheets grid -frame 96x96 -columns 9 -crop`).
+- The Dreadnoughts' 15 strips, `dreadnought-base.png`, `-engine.png`,
+  `-weapons.png`, `-destruction.png` and `-shield.png` in `klaed/`, `nairan/`
+  and `nautolan/` (#236): the pack's frames of 128 px, each different frame
+  kept once, in the order the strip first shows it; cropped by the margin
+  that is transparent on both sides of every frame, across and top to bottom
+  apart, so each frame keeps its center; in rows of the columns below
+  (`cutsheets grid -frame 128x128 -columns N -crop -distinct`). The game
+  plays them in the pack's order: `frontend/src/sprites.ts` lists the frames
+  of each strip that repeats some.
+
+  | Strip       | Kla'ed            | Nairan           | Nautolan          |
+  |-------------|-------------------|------------------|-------------------|
+  | base        | 72 x 102          | 68 x 102         | 72 x 104          |
+  | engine      | 6 of 12, 70 x 104, 6 to a row | 8, 34 x 116, 8 to a row | 7 of 8, 36 x 116, 7 to a row |
+  | weapons     | 39 of 60, 72 x 102, 13 to a row | 7 of 34, 68 x 102, 7 to a row | 22 of 35, 72 x 104, 11 to a row |
+  | destruction | 12, 126 x 106, 6 to a row | 18, 112 x 108, 6 to a row | 12, 72 x 106, 6 to a row |
+  | shield      | 10, 118 x 118, 5 to a row | 8, 124 x 124, 8 to a row | 20, 112 x 116, 5 to a row |

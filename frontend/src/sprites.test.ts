@@ -9,19 +9,23 @@ import { ENEMY_FACTIONS } from './sim/enemies.ts';
 import { WEAPONS } from './sim/loadout.ts';
 import { PROJECTILE_KINDS } from './sim/rules.gen.ts';
 import { ENEMY_FIRE_GLOW_COLOR, ENEMY_FIRE_GLOW_DISTANCE, ENEMY_FIRE_GLOW_QUALITY, ENEMY_FIRE_GLOW_STRENGTH } from './sim/tuning.ts';
-import { glowSheets, keys, layerSheets, sheets, weaponTiming } from './sprites.ts';
+import { animationFrames, glowSheets, keys, layerSheets, sheets, weaponTiming } from './sprites.ts';
+import { copyRect, decodePng, fingerprint } from './testutil/png.ts';
 
 const STATIC_DIR = path.join(import.meta.dirname, '../../internal/web/static');
 
 /** The largest texture side every WebGL GPU in use holds (#222). */
 const MAX_TEXTURE_SIZE = 4096;
 
-/** Sheets still over it, each with its ticket; the test fails once one fits, so the list shrinks with them. */
-const KNOWN_OVER: Readonly<Record<string, string>> = {
-  [keys.enemyWeapons('klaed', 'dreadnought')]: '#236',
-  [keys.enemyWeapons('nairan', 'dreadnought')]: '#236',
-  [keys.enemyWeapons('nautolan', 'dreadnought')]: '#236',
-};
+/** The pack's Dreadnought frames, all 128 px square, before cmd/cutsheets cut them (#236). */
+const PACK_FRAME_SIZE = 128;
+
+/**
+ * Per Dreadnought sheet, a fingerprint of each frame its animation played
+ * before #236, from the pack's strips as committed then (f7f01fc): frame f of
+ * a strip is at f * 128 px.
+ */
+const PACK_FRAMES = JSON.parse(readFileSync(path.join(import.meta.dirname, 'testdata/dreadnought-frames.json'), 'utf8')) as Record<string, string[]>;
 
 const staticFile = (url: string): string => path.join(STATIC_DIR, url.replace(/^\/static\//, ''));
 
@@ -52,7 +56,7 @@ test("every stars layer's sheet holds each of its pieces' frames", () => {
   }
 });
 
-test('no texture the game loads or makes is wider or taller than 4096 px, but the known ones', () => {
+test('no texture the game loads or makes is wider or taller than 4096 px', () => {
   const textures = [
     ...sheets().map((s) => ({ key: s.key, ...pngSize(s.url) })),
     ...layerSheets().flatMap((s) => {
@@ -72,8 +76,30 @@ test('no texture the game loads or makes is wider or taller than 4096 px, but th
     }),
   ];
   for (const t of textures) {
-    const fits = t.width <= MAX_TEXTURE_SIZE && t.height <= MAX_TEXTURE_SIZE;
-    assert.equal(fits, KNOWN_OVER[t.key] === undefined, `${t.key}: ${String(t.width)} x ${String(t.height)}, known over: ${KNOWN_OVER[t.key] ?? 'no'}`);
+    assert.ok(t.width <= MAX_TEXTURE_SIZE && t.height <= MAX_TEXTURE_SIZE, `${t.key}: ${String(t.width)} x ${String(t.height)}`);
+  }
+});
+
+test("every Dreadnought animation plays the pack's frames, pixel for pixel", () => {
+  const cut = sheets().filter((s) => s.key.includes('-dreadnought-'));
+  assert.deepEqual(cut.map((s) => s.key).sort(), Object.keys(PACK_FRAMES).sort());
+  for (const sheet of cut) {
+    const png = decodePng(readFileSync(staticFile(sheet.url)));
+    const columns = sheet.columns ?? sheet.frames;
+    const played = animationFrames(sheet).map((f) => {
+      const x = (f % columns) * sheet.frameWidth;
+      const y = Math.floor(f / columns) * sheet.frameHeight;
+      const margin = { x: (PACK_FRAME_SIZE - sheet.frameWidth) / 2, y: (PACK_FRAME_SIZE - sheet.frameHeight) / 2 };
+
+      return fingerprint(copyRect(png, x, y, sheet.frameWidth, sheet.frameHeight, PACK_FRAME_SIZE, PACK_FRAME_SIZE, margin.x, margin.y));
+    });
+    assert.deepEqual(played, PACK_FRAMES[sheet.key], sheet.key);
+  }
+});
+
+test('every animation starts on its sheet\'s first frame, where a weapon rests', () => {
+  for (const sheet of sheets()) {
+    assert.equal(animationFrames(sheet)[0], 0, sheet.key);
   }
 });
 

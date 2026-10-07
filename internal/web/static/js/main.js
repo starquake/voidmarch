@@ -510,6 +510,7 @@ function nextPart(parts, current, unlocks) {
 
 // src/sprites.ts
 var ASSETS = "/static/assets";
+var animationFrames = (sheet) => sheet.animation === void 0 ? Array.from({ length: sheet.frames }, (_, i) => i) : [...sheet.animation];
 var still = (key, url, size) => ({
   key,
   url,
@@ -519,6 +520,116 @@ var still = (key, url, size) => ({
   fps: 0,
   loop: false
 });
+var DREADNOUGHT_CUTS = {
+  klaed: {
+    base: { width: 72, height: 102, frames: 1, columns: 1 },
+    engine: { width: 70, height: 104, frames: 6, columns: 6, animation: [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5] },
+    weapons: {
+      width: 72,
+      height: 102,
+      frames: 39,
+      columns: 13,
+      animation: [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        20,
+        27,
+        22,
+        23,
+        24,
+        25,
+        26,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        20,
+        27,
+        22,
+        23,
+        24,
+        25,
+        26,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        12,
+        35,
+        36,
+        37,
+        38
+      ]
+    },
+    destruction: { width: 126, height: 106, frames: 12, columns: 6 },
+    shield: { width: 118, height: 118, frames: 10, columns: 5 }
+  },
+  nairan: {
+    base: { width: 68, height: 102, frames: 1, columns: 1 },
+    engine: { width: 34, height: 116, frames: 8, columns: 8 },
+    weapons: {
+      width: 68,
+      height: 102,
+      frames: 7,
+      columns: 7,
+      animation: [0, 1, 2, 3, 4, 5, 5, 0, 0, 5, 5, 5, 0, 0, 5, 5, 5, 0, 0, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
+    },
+    destruction: { width: 112, height: 108, frames: 18, columns: 6 },
+    shield: { width: 124, height: 124, frames: 8, columns: 8 }
+  },
+  nautolan: {
+    base: { width: 72, height: 104, frames: 1, columns: 1 },
+    engine: { width: 36, height: 116, frames: 7, columns: 7, animation: [0, 1, 2, 3, 0, 4, 5, 6] },
+    weapons: {
+      width: 72,
+      height: 104,
+      frames: 22,
+      columns: 11,
+      animation: [0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 9, 9, 10, 11, 12, 13, 14, 15, 16, 17, 14, 15, 16, 17, 14, 15, 16, 17, 14, 15, 16, 18, 19, 20, 21]
+    },
+    destruction: { width: 72, height: 106, frames: 12, columns: 6 },
+    shield: { width: 112, height: 116, frames: 20, columns: 5 }
+  }
+};
+var withCut = (sheet, cut) => cut === void 0 ? sheet : {
+  ...sheet,
+  frameWidth: cut.width,
+  frameHeight: cut.height,
+  frames: cut.frames,
+  columns: cut.columns,
+  ...cut.animation === void 0 ? {} : { animation: cut.animation }
+};
 var WEAPONS_FPS = 18;
 var ENEMY_FILES = {
   klaed: {
@@ -527,7 +638,7 @@ var ENEMY_FILES = {
     bomber: { size: 64, engine: 10, destruction: 8 },
     torpedo: { size: 64, engine: 10, weapons: 16, destruction: 10, weaponsFps: 21 },
     frigate: { size: 64, engine: 12, weapons: 6, destruction: 9, shield: 40 },
-    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10 },
+    dreadnought: { size: 128, engine: 12, weapons: 60, destruction: 12, shield: 10, cuts: DREADNOUGHT_CUTS.klaed },
     support: { size: 64, engine: 10, destruction: 10 }
   },
   nairan: {
@@ -536,7 +647,7 @@ var ENEMY_FILES = {
     bomber: { size: 64, engine: 8, destruction: 16 },
     torpedo: { size: 64, engine: 8, weapons: 12, destruction: 16, weaponsFps: 16 },
     frigate: { size: 64, engine: 8, weapons: 5, destruction: 16, shield: 8, weaponsFps: 15 },
-    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15 },
+    dreadnought: { size: 128, engine: 8, weapons: 34, destruction: 18, shield: 8, weaponsFps: 15, cuts: DREADNOUGHT_CUTS.nairan },
     support: { size: 64, engine: 8, destruction: 16 }
   },
   nautolan: {
@@ -545,7 +656,7 @@ var ENEMY_FILES = {
     bomber: { size: 64, engine: 8, destruction: 10 },
     torpedo: { size: 64, engine: 8, weapons: 16, destruction: 8, weaponsFps: 21 },
     frigate: { size: 64, engine: 8, weapons: 9, destruction: 9, shield: 36, shieldSize: 63, weaponsFps: 27 },
-    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21 },
+    dreadnought: { size: 128, engine: 8, weapons: 35, destruction: 12, shield: 20, weaponsFps: 21, cuts: DREADNOUGHT_CUTS.nautolan },
     support: { size: 64, engine: 8, destruction: 8 }
   }
 };
@@ -719,12 +830,13 @@ function sheets() {
           return [];
         }
         const dir = `${ASSETS}/${faction}`;
+        const cut = (part, sheet) => withCut(sheet, f.cuts?.[part]);
         return [
-          still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size),
-          strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12),
-          ...f.weapons === void 0 ? [] : [strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false)],
-          strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false),
-          ...f.shield === void 0 ? [] : [strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.shieldSize ?? f.size, f.shield, 20)]
+          cut("base", still(keys.enemyBase(faction, kind), `${dir}/${kind}-base.png`, f.size)),
+          cut("engine", strip(keys.enemyEngine(faction, kind), `${dir}/${kind}-engine.png`, f.size, f.engine, 12)),
+          ...f.weapons === void 0 ? [] : [cut("weapons", strip(keys.enemyWeapons(faction, kind), `${dir}/${kind}-weapons.png`, f.size, f.weapons, f.weaponsFps ?? WEAPONS_FPS, false))],
+          cut("destruction", strip(keys.enemyDestruction(faction, kind), `${dir}/${kind}-destruction.png`, f.size, f.destruction, 14, false)),
+          ...f.shield === void 0 ? [] : [cut("shield", strip(keys.enemyShield(faction, kind), `${dir}/${kind}-shield.png`, f.shieldSize ?? f.size, f.shield, 20))]
         ];
       })
     ),
@@ -969,7 +1081,7 @@ var BootScene = class extends Phaser.Scene {
       if (sheet.fps > 0) {
         this.anims.create({
           key: sheet.key,
-          frames: this.anims.generateFrameNumbers(sheet.key, { start: 0, end: sheet.frames - 1 }),
+          frames: this.anims.generateFrameNumbers(sheet.key, { frames: animationFrames(sheet) }),
           frameRate: sheet.fps,
           repeat: sheet.loop ? -1 : 0
         });
