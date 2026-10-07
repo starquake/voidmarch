@@ -392,6 +392,7 @@ var TELEPORT_COLOR = 5951999;
 var TELEPORT_WHITE = 14219519;
 var TELEPORT_SOUND_RANGE = 400;
 var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
+var PART_HOLD_MS = 250;
 
 // src/sounds.ts
 var AUDIO = `${STATIC}audio`;
@@ -1894,6 +1895,10 @@ var HudView = class _HudView {
   get dropOpen() {
     return this.open;
   }
+  /** Opens a slot's drop-up, as holding its key does (#259). */
+  show(kind) {
+    this.setOpen(kind);
+  }
   /** Closes the drop-up, if it's open. */
   close() {
     this.setOpen(void 0);
@@ -2201,6 +2206,41 @@ function connectionToast(status) {
       return "Connecting";
   }
 }
+
+// src/sim/partkeys.ts
+var PartKeys = class {
+  press;
+  /** A part key goes down; the newest key down is the one that counts. */
+  down(slot, at2) {
+    this.press = { slot, at: at2, opened: false };
+    return [];
+  }
+  /** A part key comes up: a tap cycles, and a hold that no frame saw opens. */
+  up(slot, at2) {
+    const press = this.press;
+    if (press?.slot !== slot) {
+      return [];
+    }
+    this.press = void 0;
+    if (press.opened) {
+      return [];
+    }
+    return [at2 - press.at < PART_HOLD_MS ? { kind: "cycle", slot } : { kind: "open", slot }];
+  }
+  /** Every frame: a key held long enough opens its list, once. */
+  tick(at2) {
+    const press = this.press;
+    if (press === void 0 || press.opened || at2 - press.at < PART_HOLD_MS) {
+      return [];
+    }
+    press.opened = true;
+    return [{ kind: "open", slot: press.slot }];
+  }
+  /** Drops a pending press: the window lost focus, or a screen opened. */
+  cancel() {
+    this.press = void 0;
+  }
+};
 
 // src/sim/standings.ts
 var PERCENT = 100;
@@ -6860,6 +6900,11 @@ var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
 var KEY_HINT = "F1 help \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
+var PART_KEY_SLOTS = /* @__PURE__ */ new Map([
+  ["Digit1", "weapon"],
+  ["Digit2", "engine"],
+  ["Digit3", "shield"]
+]);
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
 var ORDER_COLORS = { mode: 9427199, oneShot: 16769162 };
@@ -6987,6 +7032,8 @@ var SandboxScene = class extends Phaser14.Scene {
   audio;
   orderPress;
   lastOrder;
+  /** 1, 2 and 3: a tap cycles the slot, a hold opens its drop-up (#259). */
+  partPress = new PartKeys();
   constructor(options) {
     super("sandbox");
     this.introScreen = options.intro;
@@ -7150,6 +7197,7 @@ var SandboxScene = class extends Phaser14.Scene {
     }
     this.drawProjectiles();
     this.updateOrderMenu(time);
+    this.updatePartKeys();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
@@ -7403,6 +7451,7 @@ var SandboxScene = class extends Phaser14.Scene {
         }
         return;
       }
+      const partSlot = PART_KEY_SLOTS.get(event.code);
       if (event.code === "F1") {
         event.preventDefault();
         this.toggleIntro();
@@ -7431,19 +7480,27 @@ var SandboxScene = class extends Phaser14.Scene {
         this.openSquadrons();
       } else if (event.code === "Escape") {
         this.openSettings();
+      } else if (partSlot !== void 0) {
+        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp));
       } else {
         this.handleDebugKey(event.code);
       }
     };
     const onKeyUp = (event) => {
+      const slot = PART_KEY_SLOTS.get(event.code);
       if (event.code === "KeyQ") {
         this.releaseOrders();
       } else if (event.code === "Tab") {
         this.standingsHeld = false;
+      } else if (slot !== void 0 && this.screenOpen) {
+        this.partPress.cancel();
+      } else if (slot !== void 0) {
+        this.runPartKeys(this.partPress.up(slot, event.timeStamp));
       }
     };
     const onBlur = () => {
       this.closeOrderRing();
+      this.partPress.cancel();
       this.standingsHeld = false;
     };
     this.input.on(Phaser14.Input.Events.POINTER_DOWN, (pointer) => {
@@ -7731,12 +7788,51 @@ var SandboxScene = class extends Phaser14.Scene {
   get partKeys() {
     return this.net?.status !== "online" || this.net.development;
   }
+  /** Every frame: a part key held long enough opens its drop-up, and a screen takes the keys from a pending press. */
+  updatePartKeys() {
+    if (this.screenOpen) {
+      this.partPress.cancel();
+    } else {
+      this.runPartKeys(this.partPress.tick(performance.now()));
+    }
+  }
+  /** Does what the part keys decided (#259). */
+  runPartKeys(actions) {
+    for (const action of actions) {
+      if (action.kind === "cycle") {
+        this.cyclePart(action.slot);
+      } else {
+        this.hudView.show(action.slot);
+        this.updateHud();
+      }
+    }
+  }
+  /** Fits a slot's next part, as a tap of its key does (#191). */
+  cyclePart(kind) {
+    const { loadout } = this.sim.ship;
+    const owned = this.ownedUnlocks;
+    switch (kind) {
+      case "weapon":
+        this.fit({ ...loadout, weapon: nextPart(WEAPONS, loadout.weapon, owned) });
+        break;
+      case "engine":
+        this.fit({ ...loadout, engine: nextPart(ENGINES, loadout.engine, owned) });
+        break;
+      case "shield":
+        this.fit({ ...loadout, shield: nextPart(SHIELDS, loadout.shield, owned) });
+        break;
+    }
+    this.applyLoadout();
+    if (kind === "shield") {
+      this.audio.shieldSwitched();
+    } else {
+      this.audio.partSwitched();
+    }
+  }
   handleDebugKey(code) {
-    const ship = this.sim.ship;
     if (!this.partKeys && code === "F3") {
       return;
     }
-    const owned = this.ownedUnlocks;
     switch (code) {
       case "KeyK":
         this.net?.devStartAttack();
@@ -7750,21 +7846,6 @@ var SandboxScene = class extends Phaser14.Scene {
       case "F3":
         this.showFps = !this.showFps;
         this.updateHud();
-        break;
-      case "Digit1":
-        this.fit({ ...ship.loadout, weapon: nextPart(WEAPONS, ship.loadout.weapon, owned) });
-        this.applyLoadout();
-        this.audio.partSwitched();
-        break;
-      case "Digit2":
-        this.fit({ ...ship.loadout, engine: nextPart(ENGINES, ship.loadout.engine, owned) });
-        this.applyLoadout();
-        this.audio.partSwitched();
-        break;
-      case "Digit3":
-        this.fit({ ...ship.loadout, shield: nextPart(SHIELDS, ship.loadout.shield, owned) });
-        this.applyLoadout();
-        this.audio.shieldSwitched();
         break;
       case "KeyH":
         this.respawn(false);

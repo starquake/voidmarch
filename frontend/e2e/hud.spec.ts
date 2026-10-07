@@ -77,6 +77,35 @@ test('a click on a slot opens its drop-up, and a click on a part fits it (#191)'
   await expect(drop).toBeHidden();
 });
 
+test('a tap of 1 cycles the weapon on release, and a hold opens its drop-up without cycling (#259)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const weapon = page.locator('#hud-gauge [data-slot="weapon"]');
+  const drop = page.locator('#hud-gauge .hud-drop');
+  const before = await weapon.getAttribute('title');
+
+  // Both events in one evaluate, so no frame passes for a hold; the slot redraws as a part is fitted.
+  const titles = await page.evaluate(() => {
+    const title = (): string | null => document.querySelector('#hud-gauge [data-slot="weapon"]')?.getAttribute('title') ?? null;
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1', key: '1' }));
+    const down = title();
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1', key: '1' }));
+
+    return { down, up: title() };
+  });
+  expect(titles.down, 'nothing changes on key-down').toBe(before);
+  expect(titles.up, 'the release cycles').not.toBe(before);
+  await expect(drop).toHaveCount(0);
+
+  const cycled = (await state(page)).loadout.weapon;
+  await page.keyboard.down('1');
+  await expect(drop).toBeVisible();
+  await expect(drop.locator('.option.fitted')).toHaveAttribute('data-part', cycled);
+  await page.keyboard.up('1');
+  await expect(drop).toBeVisible();
+  expect((await state(page)).loadout.weapon, 'a hold does not cycle').toBe(cycled);
+});
+
 test('a newly fitted weapon waits out the swap before it fires (#191)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
