@@ -1647,7 +1647,7 @@ function saveDisplaySettings(settings, store = browserStorage()) {
   }
 }
 var VIEW_KEY = "voidmarch.view";
-var DEFAULT_VIEW = { snapRotation: false, effects: true };
+var DEFAULT_VIEW = { snapRotation: false, effects: void 0 };
 function loadViewSettings(store = browserStorage()) {
   try {
     const parsed = JSON.parse(store?.getItem(VIEW_KEY) ?? "null");
@@ -6699,6 +6699,21 @@ function describe(gl) {
   return [`${version} \xB7 ${gpu}`, `max texture ${maxTexture} \xB7 fragment highp ${String(highp)} mediump ${String(mediump)} bits`];
 }
 
+// src/renderer.ts
+var MASKED_RENDERER = "WebKit WebGL";
+var SOFTWARE_RENDERERS = /swiftshader|llvmpipe|softpipe|microsoft basic render|apple software renderer/i;
+function rendererName(gl) {
+  const plain = String(gl.getParameter(gl.RENDERER));
+  if (plain !== MASKED_RENDERER) {
+    return plain;
+  }
+  const debug = gl.getExtension("WEBGL_debug_renderer_info");
+  return debug === null ? plain : String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL));
+}
+function isSoftwareRenderer(name) {
+  return SOFTWARE_RENDERERS.test(name);
+}
+
 // src/scenes/sandbox.ts
 var PARALLAX = [0.05, 0.15, 0.3];
 var CAMERA_LERP = 0.15;
@@ -6830,6 +6845,10 @@ var SandboxScene = class extends Phaser14.Scene {
   revives = 0;
   moveKeys;
   effects = true;
+  /** The effects the player picked in the settings, or undefined to leave them to the renderer (#234). */
+  effectsPicked;
+  /** Whether WebGL draws in software, where effects start off (#234). */
+  softwareRenderer = false;
   /** WebGL's limits and the page's errors in the HUD, with `?diag=1` (#180). */
   diagnostics;
   shotsFired = 0;
@@ -6884,11 +6903,13 @@ var SandboxScene = class extends Phaser14.Scene {
     if (view.snapRotation) {
       this.sim.setRotationSnap(ROTATION_SNAP_STEPS);
     }
-    if (!view.effects || asked.get("effects") === "0") {
+    const renderer = this.renderer;
+    this.softwareRenderer = renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer && isSoftwareRenderer(rendererName(renderer.gl));
+    this.effectsPicked = view.effects;
+    if (!(view.effects ?? !this.softwareRenderer) || asked.get("effects") === "0") {
       this.setEffects(false);
     }
     if (asked.get("diag") === "1") {
-      const renderer = this.renderer;
       this.diagnostics = new Diagnostics(renderer instanceof Phaser14.Renderer.WebGL.WebGLRenderer ? renderer.gl : void 0, this.game.canvas);
     }
     this.applyLoadout();
@@ -6908,6 +6929,7 @@ var SandboxScene = class extends Phaser14.Scene {
       rotationSnap: 0,
       controlMode: this.sim.controlMode,
       effects: this.effects,
+      softwareRenderer: this.softwareRenderer,
       projectiles: 0,
       ownShards: 0,
       shakes: 0,
@@ -7559,6 +7581,7 @@ var SandboxScene = class extends Phaser14.Scene {
         this.sim.setRotationSnap(next.snapRotation ? ROTATION_SNAP_STEPS : 0);
         break;
       case "effects":
+        this.effectsPicked = next.effects;
         this.setEffects(next.effects);
         break;
       case "fpsCap":
@@ -7573,7 +7596,7 @@ var SandboxScene = class extends Phaser14.Scene {
         break;
     }
     if (id === "snapRotation" || id === "effects") {
-      saveViewSettings({ snapRotation: next.snapRotation, effects: next.effects });
+      saveViewSettings({ snapRotation: next.snapRotation, effects: this.effectsPicked });
     }
     this.settingsScreen.update(optionRows(this.options()));
     this.updateHud();

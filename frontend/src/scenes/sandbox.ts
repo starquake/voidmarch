@@ -113,6 +113,7 @@ import { registerSmallBlend } from './blend.ts';
 import { allBlack, blankSamples } from '../display.ts';
 import { loadBloomBroken, saveBloomBroken } from '../settings.ts';
 import { Diagnostics } from '../diag.ts';
+import { isSoftwareRenderer, rendererName } from '../renderer.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -307,6 +308,10 @@ export class SandboxScene extends Phaser.Scene {
   private revives = 0;
   private moveKeys!: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
   private effects = true;
+  /** The effects the player picked in the settings, or undefined to leave them to the renderer (#234). */
+  private effectsPicked: boolean | undefined;
+  /** Whether WebGL draws in software, where effects start off (#234). */
+  private softwareRenderer = false;
   /** WebGL's limits and the page's errors in the HUD, with `?diag=1` (#180). */
   private diagnostics: Diagnostics | undefined;
   private shotsFired = 0;
@@ -364,12 +369,14 @@ export class SandboxScene extends Phaser.Scene {
     if (view.snapRotation) {
       this.sim.setRotationSnap(ROTATION_SNAP_STEPS);
     }
+    const renderer = this.renderer;
+    this.softwareRenderer = renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer && isSoftwareRenderer(rendererName(renderer.gl));
+    this.effectsPicked = view.effects;
     // ?effects=0 is for this visit only, so it isn't saved.
-    if (!view.effects || asked.get('effects') === '0') {
+    if (!(view.effects ?? !this.softwareRenderer) || asked.get('effects') === '0') {
       this.setEffects(false);
     }
     if (asked.get('diag') === '1') {
-      const renderer = this.renderer;
       this.diagnostics = new Diagnostics(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer.gl : undefined, this.game.canvas);
     }
     this.applyLoadout();
@@ -390,6 +397,7 @@ export class SandboxScene extends Phaser.Scene {
       rotationSnap: 0,
       controlMode: this.sim.controlMode,
       effects: this.effects,
+      softwareRenderer: this.softwareRenderer,
       projectiles: 0,
       ownShards: 0,
       shakes: 0,
@@ -1122,6 +1130,7 @@ export class SandboxScene extends Phaser.Scene {
         this.sim.setRotationSnap(next.snapRotation ? ROTATION_SNAP_STEPS : 0);
         break;
       case 'effects':
+        this.effectsPicked = next.effects;
         this.setEffects(next.effects);
         break;
       case 'fpsCap':
@@ -1137,7 +1146,7 @@ export class SandboxScene extends Phaser.Scene {
         break;
     }
     if (id === 'snapRotation' || id === 'effects') {
-      saveViewSettings({ snapRotation: next.snapRotation, effects: next.effects });
+      saveViewSettings({ snapRotation: next.snapRotation, effects: this.effectsPicked });
     }
     this.settingsScreen.update(optionRows(this.options()));
     this.updateHud();

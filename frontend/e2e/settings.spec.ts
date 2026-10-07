@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures.ts';
 import { state, thrustSeen } from './hunt.ts';
+import { changeOption } from './settings.ts';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -58,5 +59,25 @@ test('the old option keys switch nothing', async ({ page }) => {
     effects: true,
     fpsCap: false,
     cssPixels: false,
+  });
+});
+
+test.describe('with the game\'s own default effects', () => {
+  test.use({ effects: 'game' });
+
+  test('effects start off on a software renderer and on with a GPU, until the player picks them (#234)', async ({ page }) => {
+    const { effects, softwareRenderer } = await state(page);
+    expect(effects).toBe(!softwareRenderer);
+
+    await changeOption(page, 'Rotation');
+    await page.reload();
+    await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+    expect((await state(page)).effects, 'saving the rotation leaves the default to the renderer').toBe(!softwareRenderer);
+
+    await changeOption(page, 'Effects');
+    await expect.poll(async () => (await state(page)).effects).toBe(softwareRenderer);
+    await page.reload();
+    await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+    expect((await state(page)).effects, 'the picked effects win over the default').toBe(softwareRenderer);
   });
 });
