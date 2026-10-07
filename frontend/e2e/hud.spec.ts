@@ -1,7 +1,7 @@
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { state } from './hunt.ts';
 import { coveredOnScreen } from './screens.ts';
-import { PART_LIST_IDLE_MS } from '../src/sim/tuning.ts';
+import { PART_HOLD_MS, PART_LIST_IDLE_MS } from '../src/sim/tuning.ts';
 
 test('the HUD shows the fitted parts, the hull and shield, and a labelled panel (#91)', async ({ page }) => {
   await page.goto('/');
@@ -106,6 +106,26 @@ test('a tap of 1 cycles the weapon on release, and a hold opens its drop-up with
   await page.keyboard.up('1');
   await expect(drop).toBeVisible();
   expect((await state(page)).loadout.weapon, 'a hold does not cycle').toBe(cycled);
+});
+
+test('a tap still cycles when its key-down waited behind a busy page (#259)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+
+  // As Playwright delivers a tap to a page still starting up: the key-down stamped before
+  // the stall, handled after it, and the key-up stamped only once the key-down is handled.
+  const titles = await page.evaluate((stall) => {
+    const title = (): string | null => document.querySelector('#hud-gauge [data-slot="weapon"]')?.getAttribute('title') ?? null;
+    const before = title();
+    const down = new KeyboardEvent('keydown', { code: 'Digit1' });
+    Object.defineProperty(down, 'timeStamp', { value: performance.now() - stall });
+    window.dispatchEvent(down);
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1' }));
+
+    return { before, after: title() };
+  }, PART_HOLD_MS * 2);
+  expect(titles.after, 'the tap cycles').not.toBe(titles.before);
+  await expect(page.locator('#hud-gauge .hud-drop')).toHaveCount(0);
 });
 
 test("while a held key's list is open, its taps fit the next part, the arrows and Enter pick, and Esc closes it (#259)", async ({ page }) => {

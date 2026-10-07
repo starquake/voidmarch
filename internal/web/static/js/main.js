@@ -7564,7 +7564,7 @@ var SandboxScene = class extends Phaser14.Scene {
       } else if (event.code === "Escape") {
         this.openSettings();
       } else if (partSlot !== void 0) {
-        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp, this.hudView.dropOpen));
+        this.runPartKeys(this.partPress.down(partSlot, performance.now(), this.hudView.dropOpen));
       } else {
         this.handleDebugKey(event.code);
       }

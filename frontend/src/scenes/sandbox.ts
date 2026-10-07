@@ -840,8 +840,8 @@ export class SandboxScene extends Phaser.Scene {
       } else if (event.code === 'Escape') {
         this.openSettings();
       } else if (partSlot !== undefined) {
-        // The events' own times: a key-up that waited behind a slow frame is still a tap.
-        this.runPartKeys(this.partPress.down(partSlot, event.timeStamp, this.hudView.dropOpen));
+        // A press counts from when it's handled, a release from when it happened: a tap that waited behind a busy page is still a tap.
+        this.runPartKeys(this.partPress.down(partSlot, performance.now(), this.hudView.dropOpen));
       } else {
         this.handleDebugKey(event.code);
       }
