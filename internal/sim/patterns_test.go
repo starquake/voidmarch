@@ -251,15 +251,78 @@ func TestEnemyPattern_TheNautolanDreadnoughtFiresItsOwnShots(t *testing.T) {
 	}
 }
 
+func TestEnemyPattern_TheNautolanDreadnoughtSpirals(t *testing.T) {
+	t.Parallel()
+
+	const angle = 0.3
+	for seed := range uint32(30) {
+		arms := EnemyPattern(
+			EnemyDreadnought, Nautolan, 0, 0, angle, DreadnoughtSeed(seed, DreadnoughtSpiral))
+		if len(arms) != DreadnoughtSpiralArms {
+			t.Fatalf(
+				"seed %d: spiral burst = %d bullets, want %d",
+				seed,
+				len(arms),
+				DreadnoughtSpiralArms,
+			)
+		}
+		for i, b := range arms {
+			want := angle + Tau*float64(i)/DreadnoughtSpiralArms
+			if b.Kind != ProjectileKind(NautolanSpinningBullet) || !closeTo(b.Angle, want) {
+				t.Errorf(
+					"seed %d: arm %d = %q at %v, want a Spinning Bullet at %v",
+					seed,
+					i,
+					b.Kind,
+					b.Angle,
+					want,
+				)
+			}
+			x, y := DreadnoughtMuzzle*math.Cos(want), DreadnoughtMuzzle*math.Sin(want)
+			if !closeTo(b.X, x) || !closeTo(b.Y, y) {
+				t.Errorf(
+					"seed %d: arm %d leaves at (%v, %v), want (%v, %v)",
+					seed,
+					i,
+					b.X,
+					b.Y,
+					x,
+					y,
+				)
+			}
+		}
+	}
+}
+
+func TestDreadnoughtTurn(t *testing.T) {
+	t.Parallel()
+
+	three := []DreadnoughtVolley{DreadnoughtRing, DreadnoughtRay, DreadnoughtWave}
+	for _, tc := range []struct {
+		faction EnemyFaction
+		want    []DreadnoughtVolley
+	}{
+		{Klaed, three},
+		{Nairan, three},
+		{Nautolan, []DreadnoughtVolley{DreadnoughtRing, DreadnoughtRay, DreadnoughtSpiral, DreadnoughtWave}},
+	} {
+		if got := DreadnoughtTurn(tc.faction); !slices.Equal(got, tc.want) {
+			t.Errorf("DreadnoughtTurn(%s) = %v, want %v", tc.faction, got, tc.want)
+		}
+	}
+}
+
 func TestDreadnoughtSeed_KeepsMostOfTheSeed(t *testing.T) {
 	t.Parallel()
 
-	for _, v := range []DreadnoughtVolley{DreadnoughtRing, DreadnoughtRay, DreadnoughtWave} {
+	for _, v := range []DreadnoughtVolley{
+		DreadnoughtRing, DreadnoughtRay, DreadnoughtWave, DreadnoughtSpiral,
+	} {
 		got := DreadnoughtSeed(1_000_000, v)
 		d := int64(got) - 1_000_000
-		if d < -2 || d > 2 || got%3 != uint32(v) { //nolint:gosec // 0 to 2.
+		if d < -3 || d > 3 || DreadnoughtVolleyOf(got) != v {
 			t.Errorf(
-				"DreadnoughtSeed(1000000, %d) = %d, want within 2 of the seed, naming the volley",
+				"DreadnoughtSeed(1000000, %d) = %d, want within 3 of the seed, naming the volley",
 				v,
 				got,
 			)

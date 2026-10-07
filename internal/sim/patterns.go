@@ -63,23 +63,45 @@ func bomberPair(bullet ProjectileKind, x, y, angle float64) []ProjectileSpawn {
 
 // DreadnoughtVolley is which of its attacks a Dreadnought volley is: the
 // seed says, so every client expands it the same way (#124). Each faction
-// fills the three with its own: the Kla'ed fire a ring, a Ray sweep and a
-// Wave spread; the Nairan a Torpedo volley, a Ray sweep and a Rocket spread
-// (#140); the Nautolan a ring of Spinning Bullets, a Ray sweep and a Wave
-// spread (#153).
+// fills them with its own: the Kla'ed fire a ring, a Ray sweep and a Wave
+// spread; the Nairan a Torpedo volley, a Ray sweep and a Rocket spread
+// (#140); the Nautolan a ring of Spinning Bullets, a Ray sweep, a spiral of
+// them and a Wave spread (#153, #273).
 type DreadnoughtVolley int
 
-// The Dreadnought's volleys, which it takes in turn; named for the Kla'ed's.
+// The Dreadnought's volleys, which it takes in turn; named for the Kla'ed's,
+// but for the spiral, the Nautolan one's own.
 const (
 	DreadnoughtRing DreadnoughtVolley = iota
 	DreadnoughtRay
 	DreadnoughtWave
+	// DreadnoughtSpiral is one burst of a spiral: a ring of
+	// DreadnoughtSpiralArms, the first along the angle.
+	DreadnoughtSpiral
 	dreadnoughtVolleys
 )
 
 // DreadnoughtSeed is seed made to say volley.
 func DreadnoughtSeed(seed uint32, volley DreadnoughtVolley) uint32 {
-	return seed - seed%uint32(dreadnoughtVolleys) + uint32(volley) //nolint:gosec // 0 to 2.
+	return seed - seed%uint32(dreadnoughtVolleys) + uint32(volley) //nolint:gosec // 0 to 3.
+}
+
+// DreadnoughtVolleyOf is the volley a Dreadnought's seed says.
+func DreadnoughtVolleyOf(seed uint32) DreadnoughtVolley {
+	return DreadnoughtVolley(seed % uint32(dreadnoughtVolleys))
+}
+
+// DreadnoughtTurn is the order faction's Dreadnought takes its volleys in:
+// the Nautolan one's spiral comes between its Ray sweep and its Wave
+// spread, keeping its two volleys of Spinning Bullets apart (#273).
+func DreadnoughtTurn(faction EnemyFaction) []DreadnoughtVolley {
+	if faction == Nautolan {
+		return []DreadnoughtVolley{
+			DreadnoughtRing, DreadnoughtRay, DreadnoughtSpiral, DreadnoughtWave,
+		}
+	}
+
+	return []DreadnoughtVolley{DreadnoughtRing, DreadnoughtRay, DreadnoughtWave}
 }
 
 // dreadnoughtShots are the beam and the spread shot of faction's
@@ -98,8 +120,9 @@ func dreadnoughtShots(faction EnemyFaction) (ray, spread EnemyBulletID) {
 }
 
 // dreadnoughtPattern is the Dreadnought's volley the seed names: one beam
-// of a Ray sweep along angle, a spread of Waves or Rockets, or a ring of its
-// faction's Frigate shot or, for the Nairan, a fan of Torpedoes.
+// of a Ray sweep along angle, a spread of Waves or Rockets, one burst of a
+// spiral, or a ring of its faction's Frigate shot or, for the Nairan, a fan
+// of Torpedoes.
 func dreadnoughtPattern(
 	x, y, angle float64,
 	seed uint32,
@@ -107,7 +130,7 @@ func dreadnoughtPattern(
 	faction EnemyFaction,
 ) []ProjectileSpawn {
 	ray, spread := dreadnoughtShots(faction)
-	switch DreadnoughtVolley(seed % uint32(dreadnoughtVolleys)) {
+	switch DreadnoughtVolleyOf(seed) {
 	case DreadnoughtRay:
 		beam := make([]ProjectileSpawn, 0, DreadnoughtRaySegments)
 		for i := range DreadnoughtRaySegments {
@@ -123,6 +146,10 @@ func dreadnoughtPattern(
 		return beam
 	case DreadnoughtWave:
 		return dreadnoughtFan(x, y, angle, spread, DreadnoughtWaves, DreadnoughtWaveSpread)
+	case DreadnoughtSpiral:
+		bullet, _ := FrigateRing(faction)
+
+		return dreadnoughtRing(x, y, angle, bullet, DreadnoughtSpiralArms)
 	case DreadnoughtRing, dreadnoughtVolleys:
 		fallthrough
 	default:
@@ -137,14 +164,25 @@ func dreadnoughtPattern(
 			)
 		}
 		bullet, count := FrigateRing(faction)
-		ring := ringOf(x, y, angle+random.Next()*Tau/float64(count), bullet, count)
-		for i := range ring {
-			ring[i].X += (DreadnoughtMuzzle - FrigateMuzzle) * math.Cos(ring[i].Angle)
-			ring[i].Y += (DreadnoughtMuzzle - FrigateMuzzle) * math.Sin(ring[i].Angle)
-		}
 
-		return ring
+		return dreadnoughtRing(x, y, angle+random.Next()*Tau/float64(count), bullet, count)
 	}
+}
+
+// dreadnoughtRing is a ring of count bullets evenly spaced around the
+// Dreadnought, the first at angle, leaving from its muzzle.
+func dreadnoughtRing(
+	x, y, angle float64,
+	bullet EnemyBulletID,
+	count int,
+) []ProjectileSpawn {
+	ring := ringOf(x, y, angle, bullet, count)
+	for i := range ring {
+		ring[i].X += (DreadnoughtMuzzle - FrigateMuzzle) * math.Cos(ring[i].Angle)
+		ring[i].Y += (DreadnoughtMuzzle - FrigateMuzzle) * math.Sin(ring[i].Angle)
+	}
+
+	return ring
 }
 
 // dreadnoughtFan is count shots spread evenly across spread radians around

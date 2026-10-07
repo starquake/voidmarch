@@ -203,6 +203,13 @@ const (
 	// two hull steps, so a fan is narrow and few.
 	DreadnoughtTorpedoes  = 3
 	DreadnoughtTorpedoFan = 0.3
+	// DreadnoughtSpiralArms is how many bullets each burst of the Nautolan
+	// Dreadnought's spiral fires, evenly spaced; a burst comes every
+	// DreadnoughtSpiralEvery seconds, the arms turning a full circle in
+	// DreadnoughtSpiralSeconds, the other way each spiral (#273).
+	DreadnoughtSpiralArms    = 3
+	DreadnoughtSpiralEvery   = 0.1
+	DreadnoughtSpiralSeconds = 2
 	// DreadnoughtShield is the damage the shield takes before it drops,
 	// and DreadnoughtShieldDelay the seconds without a hit before it's back.
 	DreadnoughtShield      = 120

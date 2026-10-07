@@ -13,7 +13,7 @@ export const CODE_BYTES: Readonly<Record<string, number>> = {
 
 /** Every other file loaded before play, by loader key: its bytes, or a sound's per format, best first. */
 export const FILE_BYTES: Readonly<Record<string, FileBytes>> = {
-  "rules": 168202,
+  "rules": 168479,
   "font-Exo 2": 40932,
   "font-Orbitron": 11768,
   "hull-fullHealth": 485,

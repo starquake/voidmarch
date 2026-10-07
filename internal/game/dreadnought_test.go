@@ -186,7 +186,7 @@ func TestDreadnought_TakesItsVolleysInTurn(t *testing.T) {
 		for _, msg := range others {
 			if f := msg.GetEnemyFired(); f != nil &&
 				f.GetKind() == pb.EnemyKind_ENEMY_KIND_DREADNOUGHT {
-				volleys = append(volleys, sim.DreadnoughtVolley(f.GetSeed()%3))
+				volleys = append(volleys, sim.DreadnoughtVolleyOf(f.GetSeed()))
 			}
 		}
 	}

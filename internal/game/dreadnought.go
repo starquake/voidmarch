@@ -291,7 +291,7 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	case sim.DreadnoughtWave:
 		h.fireVolley(e, e.angle, sim.DreadnoughtWave)
 		f.next, e.cooldown = sim.DreadnoughtRing, dreadnoughtGap(e.faction, dreadnoughtVolleyGap)
-	case sim.DreadnoughtRing:
+	case sim.DreadnoughtRing, sim.DreadnoughtSpiral:
 		fallthrough
 	default:
 		h.fireVolley(e, e.angle, sim.DreadnoughtRing)
