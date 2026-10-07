@@ -1,5 +1,6 @@
-import { expect, test } from './fixtures.ts';
+import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { state } from './hunt.ts';
+import { coveredOnScreen } from './screens.ts';
 
 test('the HUD shows the fitted parts, the hull and shield, and a labelled panel (#91)', async ({ page }) => {
   await page.goto('/');
@@ -89,4 +90,52 @@ test('a newly fitted weapon waits out the swap before it fires (#191)', async ({
   expect((await state(page)).shotsFired, 'nothing fires during the half-second swap').toBe(before);
   await expect.poll(async () => (await state(page)).shotsFired, { timeout: 5_000 }).toBeGreaterThan(before);
   await page.mouse.up();
+});
+
+test('in a small window the HUD keeps off every screen, and a screen closes an open drop-up (#221)', async ({ page, browser, baseURL }) => {
+  test.setTimeout(60_000);
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const panel = page.locator('#hud-panel');
+  const gauge = page.locator('#hud-gauge');
+  const drop = page.locator('#hud-gauge .hud-drop');
+  await expect(panel).toBeVisible();
+
+  // The development key Y opens the victory screen (#156), here over an open drop-up.
+  await page.locator('#hud-gauge [data-slot="weapon"]').click();
+  await expect(drop).toBeVisible();
+  await page.keyboard.press('y');
+  await expect.poll(async () => (await state(page)).victoryScreen).toBe(true);
+  await expect(gauge).toBeHidden();
+  await expect(panel).toBeHidden();
+  expect(await coveredOnScreen(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await state(page)).victoryScreen, { message: 'one Esc closes the screen, not the drop-up under it' }).toBe(false);
+  await expect(gauge).toBeVisible();
+  await expect(drop, 'the drop-up closed as the screen opened').toHaveCount(0);
+
+  for (const [key, open] of [
+    ['Escape', 'settingsScreen'],
+    ['F1', 'introScreen'],
+  ] as const) {
+    await page.keyboard.press(key);
+    await expect.poll(async () => (await state(page))[open]).toBe(true);
+    await expect(gauge).toBeHidden();
+    expect(await coveredOnScreen(page), open).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await state(page))[open]).toBe(false);
+    await expect(gauge).toBeVisible();
+    await expect(panel).toBeVisible();
+  }
+
+  // A second player in a window as small meets the join screen: the first page's squadron has room.
+  const context = await browser.newContext({ baseURL: baseURL ?? '', viewport: page.viewportSize() ?? { width: 640, height: 360 } });
+  await signIn(context, await registerPlayer(context.request, 'Joiner'));
+  const joiner = await context.newPage();
+  await joiner.goto('/');
+  await joiner.waitForFunction(() => window.voidmarch?.squadronScreen === true);
+  await expect(joiner.locator('#squadron-list .squadron').first()).toBeVisible();
+  await expect(joiner.locator('#hud-gauge')).toBeHidden();
+  expect(await coveredOnScreen(joiner)).toEqual([]);
+  await context.close();
 });
