@@ -229,3 +229,46 @@ test('a 90 degree turn during a stall is drawn off by at most the 150 ms flown s
   assert.ok(seen.maxErrorPx > 1, 'the turn went unseen for a while');
   assert.ok(seen.maxErrorPx <= SPEED * 0.15 * Math.SQRT2, `${seen.maxErrorPx.toFixed(1)} px off`);
 });
+
+/**
+ * What the hub holds of another player at each tick: the newest of their
+ * uploads in by then, as it was when sent. They send from 60 Hz frames that
+ * come up to half a millisecond early or late, either paced at the tick rate
+ * or, as before #232, on the first frame 50 ms after the last send; uploads
+ * arrive with seeded exponential jitter, in TCP order.
+ */
+function uploaded(paced: boolean, meanMs: number, durationMs: number): Path {
+  const sentAt: number[] = [];
+  let last = Number.NEGATIVE_INFINITY;
+  for (let frame = 0; frame * FRAME_MS < durationMs; frame++) {
+    const nowMs = frame * FRAME_MS + (((frame * 7919) % 11) - 5) / 10;
+    if (nowMs - last < TICK_MS) {
+      continue;
+    }
+    last = paced && nowMs - (last + TICK_MS) < TICK_MS ? last + TICK_MS : nowMs;
+    sentAt.push(nowMs);
+  }
+  const latency = exponential(meanMs, 2);
+  let arrived = 0;
+  const arrivals = sentAt.map((sent) => (arrived = Math.max(arrived, sent + latency(0))));
+  const held: Pose[] = [];
+  let newest = -1;
+  for (let tick = 0; tick * TICK_MS < durationMs; tick++) {
+    while ((arrivals[newest + 1] ?? Infinity) <= tick * TICK_MS) {
+      newest++;
+    }
+    held.push(straight((sentAt[newest] ?? 0) / TICK_MS));
+  }
+
+  return (tick) => held[Math.floor(tick)] ?? straight(tick);
+}
+
+test("another player's upload with jitter is drawn without freezing", (t) => {
+  const arrivals = trace(10 * MINUTE, () => 40);
+  const was = replay(before(), arrivals, uploaded(false, 25, 10 * MINUTE));
+  const seen = replay(after(), arrivals, uploaded(true, 25, 10 * MINUTE));
+  t.diagnostic(`before, an upload with 25 ms jitter: ${describe(was)}`);
+  t.diagnostic(`after, an upload with 25 ms jitter: ${describe(seen)}`);
+  assert.ok(was.frozen > 0.05, describe(was));
+  better(seen, was, 5);
+});

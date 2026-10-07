@@ -121,3 +121,20 @@ test('a correction over 150 px snaps, as for a respawn', () => {
   buffer.push(11, ship(500, 0));
   close(buffer.draw(11.5)?.x, 500);
 });
+
+test('a moving ship repeated in the next snapshot is skipped, so it is bridged rather than held', () => {
+  const buffer = new StateBuffer<RemoteShip>(20);
+  buffer.push(10, ship(0, 0, 0, false, 200));
+  buffer.push(11, ship(0, 0, 0, false, 200)); // the hub had no newer state
+  buffer.push(12, ship(20, 0, 0, false, 200));
+  close(buffer.sample(11)?.x, 10);
+});
+
+test('a ship at rest is kept in every snapshot, so it starts moving when it does', () => {
+  const buffer = new StateBuffer<RemoteShip>(20);
+  buffer.push(10, ship(0, 0));
+  buffer.push(11, ship(0, 0));
+  buffer.push(12, ship(10, 0));
+  close(buffer.sample(11)?.x, 0);
+  close(buffer.sample(11.5)?.x, 5);
+});

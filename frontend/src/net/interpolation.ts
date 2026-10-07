@@ -25,6 +25,11 @@ interface Sample<T extends Pose> {
   state: T;
 }
 
+/** Whether b is a moving a, unmoved: what nothing moving can be a tick later. */
+function repeats(a: Pose, b: Pose): boolean {
+  return (a.vx !== 0 || a.vy !== 0) && a.x === b.x && a.y === b.y && a.vx === b.vx && a.vy === b.vy && a.angle === b.angle;
+}
+
 /**
  * A remote ship or enemy's recent states. Sampled between the two that surround a
  * tick; before the first it holds, and past the last it flies on along its
@@ -42,9 +47,13 @@ export class StateBuffer<T extends Pose> {
     this.ticksPerSecond = tickRate;
   }
 
+  /**
+   * Adds the state at tick. A moving one where the newest left it is a stale
+   * repeat (the hub had nothing newer), skipped so the step is bridged.
+   */
   push(tick: number, state: T): void {
     const last = this.samples.at(-1);
-    if (last !== undefined && tick <= last.tick) {
+    if (last !== undefined && (tick <= last.tick || repeats(last.state, state))) {
       return;
     }
     this.samples.push({ tick, state });

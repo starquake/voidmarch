@@ -4473,18 +4473,21 @@ var Connection = class {
     this.socket = void 0;
     this.welcomed = false;
   }
-  /** Sends the ship's state at most at the server's tick rate; the hub flies the companions. */
   /** Sends the ship's state past the throttle, for a change the server must not miss, such as a fitted part (#110). */
   sendStateNow(ship) {
     if (this.welcomed) {
       this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
     }
   }
+  /** Sends the ship's state at the server's tick rate; the hub flies the companions. */
   sendState(ship, nowMs) {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
-    this.lastStateAt = nowMs;
+    this.lastStateAt += this.stateIntervalMs;
+    if (nowMs - this.lastStateAt >= this.stateIntervalMs) {
+      this.lastStateAt = nowMs;
+    }
     this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
   }
   /** Joins the named squadron, or starts a new one when name is empty. */
@@ -4708,6 +4711,9 @@ var MAX_SAMPLES = 32;
 var MAX_EXTRAPOLATION_TICKS = 3;
 var BLEND_TICKS = 2;
 var MAX_BLEND_PX = 150;
+function repeats(a, b) {
+  return (a.vx !== 0 || a.vy !== 0) && a.x === b.x && a.y === b.y && a.vx === b.vx && a.vy === b.vy && a.angle === b.angle;
+}
 var StateBuffer = class {
   samples = [];
   ticksPerSecond;
@@ -4718,9 +4724,13 @@ var StateBuffer = class {
   constructor(tickRate) {
     this.ticksPerSecond = tickRate;
   }
+  /**
+   * Adds the state at tick. A moving one where the newest left it is a stale
+   * repeat (the hub had nothing newer), skipped so the step is bridged.
+   */
   push(tick, state) {
     const last = this.samples.at(-1);
-    if (last !== void 0 && tick <= last.tick) {
+    if (last !== void 0 && (tick <= last.tick || repeats(last.state, state))) {
       return;
     }
     this.samples.push({ tick, state });
