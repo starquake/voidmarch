@@ -8,7 +8,11 @@ import Phaser from '/static/js/vendor/phaser.js';
 window.phaser = Phaser;
 </script>`;
 
-/** Phaser 4.2 makes two WebGL textures per DynamicTexture and keeps one (#260). */
+/**
+ * Phaser 4.2 makes two WebGL textures per DynamicTexture and keeps one (#260),
+ * so the game frees the other. When this fails after a Phaser bump, Phaser
+ * stopped making it: drop the workaround in `addDynamicTexture`.
+ */
 test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', async ({ page }) => {
   await page.route('**/phaser-only', (route) => route.fulfill({ contentType: 'text/html', body: PHASER_ONLY }));
   await page.goto('/phaser-only');
@@ -47,4 +51,11 @@ test('Phaser makes a WebGL texture per DynamicTexture it never uses (#260)', asy
   );
 
   expect(made).toEqual({ created: 2, deleted: 0, used: 1 });
+});
+
+test('each stars layer holds one WebGL texture (#260)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+
+  expect(await page.evaluate(() => window.voidmarch?.layerTextures)).toEqual([1, 1]);
 });

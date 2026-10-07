@@ -4,6 +4,7 @@ import { bakeGlow, double, type Pixels } from '../glow.ts';
 import { pieceFrames, type LayerLayout } from '../layers.ts';
 import { bootFiles, bootKeys } from '../preload.ts';
 import { animationFrames, glowSheets, keys, layerSheets, sheets, type GlowSheet } from '../sprites.ts';
+import { addDynamicTexture } from './dynamictexture.ts';
 import { drawLayer } from './starlayer.ts';
 import {
   ENEMY_FIRE_GLOW_COLOR,
@@ -122,19 +123,25 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  /** Names each stars layer's pieces in its sheet, and makes the texture its frames are drawn into (#222). */
+  /**
+   * Names each stars layer's pieces in its sheet, and makes the texture its frames are drawn into (#222).
+   * The registry's `layerTextures` says how many WebGL textures each holds (#260).
+   */
   private cutLayers(): void {
+    const glTextures: number[] = [];
     for (const layer of layerSheets()) {
       const layout = this.cache.json.get(keys.layerLayout(layer.key)) as LayerLayout;
       const sheet = this.textures.get(layer.key);
       for (const frame of pieceFrames(layout)) {
         sheet.add(frame.name, 0, frame.x, frame.y, frame.width, frame.height);
       }
-      const texture = this.textures.addDynamicTexture(keys.layerFrame(layer.key), layout.width, layout.height);
-      if (texture !== null) {
-        drawLayer(texture, layer.key, layout, 0);
+      const made = addDynamicTexture(this.textures, keys.layerFrame(layer.key), layout.width, layout.height);
+      if (made !== null) {
+        drawLayer(made.texture, layer.key, layout, 0);
+        glTextures.push(made.glTextures);
       }
     }
+    this.registry.set('layerTextures', glTextures);
   }
 
   create(): void {
