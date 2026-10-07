@@ -69,6 +69,8 @@ export class SettingsScreen {
         return button;
       }),
     );
+    // In a short window the screen scrolls (#221): the arrows bring the picked row into view.
+    this.list?.children[this.selected]?.scrollIntoView({ block: 'nearest' });
   }
 
   hide(): void {

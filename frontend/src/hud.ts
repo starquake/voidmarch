@@ -25,7 +25,6 @@ export interface GaugeSlot extends PartView {
 
 /** Everything the HUD shows in one frame. */
 export interface HudFrame {
-  shown: boolean;
   slots: readonly GaugeSlot[];
   hull: Pips;
   shield: Pips;
@@ -111,11 +110,30 @@ export class HudView {
     return [...this.toasts.entries()].filter(([, el]) => !el.classList.contains('gone')).map(([text]) => text);
   }
 
+  /**
+   * What covers the HUD this frame: the full map hides all of it, and a
+   * screen or the down panel all but the toasts (#221). A drop-up out of
+   * sight closes, or it would take the Esc meant for the screen.
+   */
+  cover(map: boolean, screen: boolean): void {
+    if (this.root === null) {
+      return;
+    }
+    if (this.root.hidden !== map) {
+      this.root.hidden = map;
+    }
+    if (this.root.classList.contains('toasts-only') !== screen) {
+      this.root.classList.toggle('toasts-only', screen);
+    }
+    if (map || screen) {
+      this.close();
+    }
+  }
+
   update(frame: HudFrame): void {
     if (this.root === null) {
       return;
     }
-    this.root.hidden = !frame.shown;
     this.drawGauge(frame);
     this.drawPanel(frame.rows);
     this.drawToasts(frame.toasts);

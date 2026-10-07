@@ -498,6 +498,8 @@ export class SandboxScene extends Phaser.Scene {
     this.drawSectors();
     this.drawField(time);
     this.announceMission(time);
+    // Every frame, so a screen opening never has the HUD over it.
+    this.hudView.cover(this.maps.open, this.screenOpen || this.squadronScreen.open || this.sim.downed);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
@@ -1979,7 +1981,7 @@ export class SandboxScene extends Phaser.Scene {
     this.hud.setPosition(this.scale.width - HUD_MARGIN_PX * dpr, this.scale.height - HUD_MARGIN_PX * dpr);
   }
 
-  /** Draws the gauge, the panel and the toasts (#91); hidden under the full map. */
+  /** Draws the gauge, the panel and the toasts (#91). */
   private updateHudView(): void {
     const { ship } = this.sim;
     const { loadout } = ship;
@@ -1998,7 +2000,6 @@ export class SandboxScene extends Phaser.Scene {
     const here = sectorName(ship.x, ship.y);
     const toasts = [connectionToast(net?.status), net?.noticeText].filter((t): t is string => t !== undefined);
     this.hudView.update({
-      shown: !this.maps.open,
       slots: [
         slot('weapon', '1', WEAPONS, loadout.weapon, loadout.weaponTier),
         slot('engine', '2', ENGINES, loadout.engine, loadout.engineTier),

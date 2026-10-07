@@ -2,6 +2,7 @@ import type { Browser, Page } from '@playwright/test';
 
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { aimAt } from './hunt.ts';
+import { coveredOnScreen } from './screens.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -76,6 +77,9 @@ test('a downed player respawns at home, whole', async ({ page }) => {
   // Alone out there, nobody revives: DOWN, and no bar yet.
   expect([down.downLabel, down.reviveBar]).toEqual(['DOWN', undefined]);
   expect(down.downPanel).toContain("You're down");
+  // The HUD's panel and gauge step aside for the down panel (#221).
+  await expect(page.locator('#hud-gauge')).toBeHidden();
+  await expect(page.locator('#hud-panel')).toBeHidden();
   // The season so far shows above the panel; going down counted in it (#167).
   await expect.poll(async () => (await state(page)).standings.down, { message: 'the season so far while down' }).toBeGreaterThan(0);
   await expect
@@ -93,6 +97,8 @@ test('a downed player respawns at home, whole', async ({ page }) => {
     .toEqual([false, 'fullHealth', 1, 0, undefined]);
   expect((await state(page)).revives).toBe(0);
   expect((await state(page)).standings.down, 'gone once up again').toBe(0);
+  await expect(page.locator('#hud-gauge')).toBeVisible();
+  await expect(page.locator('#hud-panel')).toBeVisible();
 });
 
 test('a downed player switches squadron with C and stays down, the panel still theirs (#45)', async ({ page }) => {
@@ -109,6 +115,7 @@ test('a downed player switches squadron with C and stays down, the panel still t
   await page.keyboard.press('c');
   await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
   await expect(page.locator('#squadron-list .squadron.current button')).toHaveText('Stay');
+  expect(await coveredOnScreen(page), 'nothing over the reopened screen (#221)').toEqual([]);
   await expect
     .poll(async () => {
       const { join, down } = (await state(page)).standings;

@@ -1803,6 +1803,7 @@ var SettingsScreen = class {
         return button;
       })
     );
+    this.list?.children[this.selected]?.scrollIntoView({ block: "nearest" });
   }
   hide() {
     if (this.form !== null) {
@@ -1901,11 +1902,29 @@ var HudView = class _HudView {
   get toastTexts() {
     return [...this.toasts.entries()].filter(([, el]) => !el.classList.contains("gone")).map(([text]) => text);
   }
+  /**
+   * What covers the HUD this frame: the full map hides all of it, and a
+   * screen or the down panel all but the toasts (#221). A drop-up out of
+   * sight closes, or it would take the Esc meant for the screen.
+   */
+  cover(map, screen) {
+    if (this.root === null) {
+      return;
+    }
+    if (this.root.hidden !== map) {
+      this.root.hidden = map;
+    }
+    if (this.root.classList.contains("toasts-only") !== screen) {
+      this.root.classList.toggle("toasts-only", screen);
+    }
+    if (map || screen) {
+      this.close();
+    }
+  }
   update(frame) {
     if (this.root === null) {
       return;
     }
-    this.root.hidden = !frame.shown;
     this.drawGauge(frame);
     this.drawPanel(frame.rows);
     this.drawToasts(frame.toasts);
@@ -6971,6 +6990,7 @@ var SandboxScene = class extends Phaser14.Scene {
     this.drawSectors();
     this.drawField(time);
     this.announceMission(time);
+    this.hudView.cover(this.maps.open, this.screenOpen || this.squadronScreen.open || this.sim.downed);
     if (time - this.hudUpdatedAt > HUD_REFRESH_MS) {
       this.hudUpdatedAt = time;
       this.updateHud();
@@ -8276,7 +8296,7 @@ ${modeName(info)}`,
     const dpr = this.dpr();
     this.hud.setPosition(this.scale.width - HUD_MARGIN_PX * dpr, this.scale.height - HUD_MARGIN_PX * dpr);
   }
-  /** Draws the gauge, the panel and the toasts (#91); hidden under the full map. */
+  /** Draws the gauge, the panel and the toasts (#91). */
   updateHudView() {
     const { ship } = this.sim;
     const { loadout } = ship;
@@ -8295,7 +8315,6 @@ ${modeName(info)}`,
     const here = sectorName(ship.x, ship.y);
     const toasts = [connectionToast(net?.status), net?.noticeText].filter((t) => t !== void 0);
     this.hudView.update({
-      shown: !this.maps.open,
       slots: [
         slot("weapon", "1", WEAPONS, loadout.weapon, loadout.weaponTier),
         slot("engine", "2", ENGINES, loadout.engine, loadout.engineTier),
