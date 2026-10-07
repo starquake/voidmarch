@@ -34,7 +34,7 @@ test('the client boots into the sandbox without errors', async ({ page }) => {
   console.log(`${test.info().project.name}: ${line}`);
 });
 
-test('the debug state is built when it is read, not every frame (#264)', async ({ page }) => {
+test('the debug state is built only once something reads it (#264)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
   const reader = await page.evaluate(() => typeof Object.getOwnPropertyDescriptor(window, 'voidmarch')?.get);

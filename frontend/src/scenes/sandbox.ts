@@ -310,6 +310,8 @@ export class SandboxScene extends Phaser.Scene {
   private shotsFired = 0;
   private hudUpdatedAt = 0;
   private debug!: DebugState;
+  /** Brings window.voidmarch up to date at the end of a frame, once something has read it (#264). */
+  private refreshDebug!: () => void;
   private readonly frameTimes = new FrameTimes();
   private mapsDrawnAt = -Infinity;
   private displaySettings!: DisplaySettings;
@@ -458,7 +460,7 @@ export class SandboxScene extends Phaser.Scene {
       hangar: undefined,
       squadronMode: undefined,
     };
-    publishDebugState(() => this.debugState());
+    this.refreshDebug = publishDebugState(() => this.debugState());
     this.ready();
   }
 
@@ -496,6 +498,7 @@ export class SandboxScene extends Phaser.Scene {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
+    this.refreshDebug();
   }
 
   /**
@@ -660,6 +663,7 @@ export class SandboxScene extends Phaser.Scene {
     const events = this.sim.advance(deltaMs / 1000, idle, this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     this.net?.update(events);
+    this.refreshDebug();
   }
 
   private createProjectiles(): void {
@@ -2020,7 +2024,7 @@ export class SandboxScene extends Phaser.Scene {
     });
   }
 
-  /** The state window.voidmarch shows, brought up to date as it's read. */
+  /** The state window.voidmarch shows, brought up to date. */
   private debugState(): DebugState {
     const { ship, projectiles } = this.sim;
     this.debug.ship.x = ship.x;
