@@ -4,7 +4,7 @@ import type { FileBytes } from './sim/loading.ts';
 
 /** The game's code in bytes, by URL: main.js and every module it imports. */
 export const CODE_BYTES: Readonly<Record<string, number>> = {
-  "/static/js/main.js": 305120,
+  "/static/js/main.js": 305549,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,

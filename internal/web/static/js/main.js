@@ -1178,8 +1178,14 @@ var BackgroundTicker = class {
 };
 
 // src/debug.ts
-function publishDebugState(state) {
-  window.voidmarch = state;
+function publishDebugState(build, target = window) {
+  let state;
+  Object.defineProperty(target, "voidmarch", { get: () => state ??= build(), configurable: true, enumerable: true });
+  return () => {
+    if (state !== void 0) {
+      state = build();
+    }
+  };
 }
 
 // src/frametimes.ts
@@ -6690,6 +6696,8 @@ var SandboxScene = class extends Phaser13.Scene {
   shotsFired = 0;
   hudUpdatedAt = 0;
   debug;
+  /** Brings window.voidmarch up to date at the end of a frame, once something has read it (#264). */
+  refreshDebug;
   frameTimes = new FrameTimes();
   mapsDrawnAt = -Infinity;
   displaySettings;
@@ -6833,7 +6841,7 @@ var SandboxScene = class extends Phaser13.Scene {
       hangar: void 0,
       squadronMode: void 0
     };
-    this.publish();
+    this.refreshDebug = publishDebugState(() => this.debugState());
     this.ready();
   }
   update(time, deltaMs) {
@@ -6870,7 +6878,7 @@ var SandboxScene = class extends Phaser13.Scene {
       this.hudUpdatedAt = time;
       this.updateHud();
     }
-    this.publish();
+    this.refreshDebug();
   }
   /**
    * Announces in the middle of the screen, one after another: a finished
@@ -7012,7 +7020,7 @@ var SandboxScene = class extends Phaser13.Scene {
     const events = this.sim.advance(deltaMs / 1e3, idle, this.net?.squadmateDistance, this.net?.friendDistance);
     this.burstExpired(events);
     this.net?.update(events);
-    this.publish();
+    this.refreshDebug();
   }
   createProjectiles() {
     this.projectileSprites = this.sim.projectiles.items.map(() => {
@@ -8216,7 +8224,8 @@ ${modeName(info)}`,
       toasts
     });
   }
-  publish() {
+  /** The state window.voidmarch shows, brought up to date. */
+  debugState() {
     const { ship, projectiles } = this.sim;
     this.debug.ship.x = ship.x;
     this.debug.ship.y = ship.y;
@@ -8298,7 +8307,7 @@ ${modeName(info)}`,
     this.debug.rescues = this.net?.rescues ?? 0;
     this.debug.teleports = this.net?.teleports ?? 0;
     this.debug.departing = this.net?.departingCount ?? 0;
-    publishDebugState(this.debug);
+    return this.debug;
   }
 };
 var loadoutKey = (l) => `${l.weapon}:${l.engine}:${l.shield}:${String(l.weaponTier)}${String(l.engineTier)}${String(l.shieldTier)}`;
