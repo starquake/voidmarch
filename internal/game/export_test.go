@@ -33,6 +33,26 @@ func WithinReach(x, y float64, companions [][2]float64) bool {
 // VolleyRange exposes volleyRange for tests.
 const VolleyRange = volleyRange
 
+// WarningTravel is the farthest any enemy moves at full speed while its
+// weapon warns.
+func WarningTravel() float64 {
+	var most float64
+	for _, kind := range []pb.EnemyKind{
+		pb.EnemyKind_ENEMY_KIND_SCOUT,
+		pb.EnemyKind_ENEMY_KIND_FIGHTER,
+		pb.EnemyKind_ENEMY_KIND_BOMBER,
+		pb.EnemyKind_ENEMY_KIND_TORPEDO,
+	} {
+		warning := float64(fireWarning)
+		if kind == pb.EnemyKind_ENEMY_KIND_TORPEDO {
+			warning = torpedoWarning
+		}
+		most = max(most, statsFor(kind, sim.Klaed).maxSpeed*warning/TickRate)
+	}
+
+	return most
+}
+
 // WithEnemyAt starts the hub with an enemy at (x, y).
 func WithEnemyAt(x, y float64) HubOption {
 	return func(o *hubOptions) {
