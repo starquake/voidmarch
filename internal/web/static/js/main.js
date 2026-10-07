@@ -315,6 +315,7 @@ var MISSION_BANNER_MS = 6e3;
 var MISSION_BANNER_Y = 0.22;
 var MISSION_BANNER_ALPHA = 0.6;
 var MISSION_BANNER_BORDER_PX = 1;
+var ATTACK_REMINDER_SECONDS = 60;
 var EVENT_COLOR = 16734794;
 var EVENT_CSS = "#ff5a4a";
 var UI_FONT_NAME = "Exo 2";
@@ -5258,8 +5259,12 @@ function repairLines(enemies) {
 }
 
 // src/net/events.ts
+var ATTACK_WARNING = "Destroy the Frigate and its fleet before time runs out, or lose the sector.";
+function secondsLeft(endsTick, tick, tickRate) {
+  return Math.max(0, Math.ceil((endsTick - tick) / tickRate));
+}
 function timeLeft(endsTick, tick, tickRate) {
-  const seconds = Math.max(0, Math.ceil((endsTick - tick) / tickRate));
+  const seconds = secondsLeft(endsTick, tick, tickRate);
   return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, "0")}`;
 }
 function eventLine(event, tick, tickRate) {
@@ -5272,7 +5277,7 @@ function eventLine(event, tick, tickRate) {
 function eventStartBanner(event) {
   return event.kind === WorldEventKind.ATTACK ? [
     `Sector ${event.sector} is under attack!`,
-    "Destroy the Frigate and its fleet before time runs out, or lose the sector.",
+    ATTACK_WARNING,
     "Follow the red arrow at the edge of the screen."
   ] : [
     `Distress call from sector ${event.sector}`,
@@ -5286,6 +5291,28 @@ function eventEndBanner(event, won) {
   }
   return won ? [`Derelict rescued in sector ${event.sector}`] : [`The derelict in sector ${event.sector} was lost`];
 }
+var AttackReminder = class {
+  /** The attack last checked, by sector and end tick, so a reconnect's copy of it counts as the same. */
+  attack;
+  armed = false;
+  /** Checks the event running at tick; returns the banner the one time it's due. */
+  check(event, tick, tickRate) {
+    if (event?.kind !== WorldEventKind.ATTACK) {
+      return void 0;
+    }
+    const seconds = secondsLeft(event.endsTick, tick, tickRate);
+    const attack = `${event.sector}@${String(event.endsTick)}`;
+    if (attack !== this.attack) {
+      this.attack = attack;
+      this.armed = seconds > ATTACK_REMINDER_SECONDS;
+    }
+    if (!this.armed || seconds > ATTACK_REMINDER_SECONDS) {
+      return void 0;
+    }
+    this.armed = false;
+    return seconds > 0 ? [ATTACK_WARNING] : void 0;
+  }
+};
 
 // src/scenes/netplay.ts
 var NOTICE_MS = 4e3;
@@ -5315,6 +5342,7 @@ var NetPlay = class {
   rescues = 0;
   /** The world event running, as the server last said (#102). */
   worldEvent;
+  attackReminder = new AttackReminder();
   /** The last sector cleared and the part it gave this player, for the E2E tests (#101). */
   lastClear;
   /** Announcements waiting for the middle of the screen, oldest first (#101). */
@@ -5825,6 +5853,10 @@ var NetPlay = class {
       return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
+    const reminder = this.attackReminder.check(this.worldEvent, serverTick, this.tickRate);
+    if (reminder !== void 0) {
+      this.banners.push(reminder);
+    }
     this.options.pickups.update(serverTick, this.tickRate);
     this.collect();
     for (const remote of this.remotes.values()) {
