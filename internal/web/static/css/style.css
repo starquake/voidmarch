@@ -52,8 +52,10 @@ body {
   cursor: crosshair;
 }
 
+/* Above the HUD's toasts and the season's float, which come later in the page (#221). */
 .name-screen {
   position: fixed;
+  z-index: 1;
   inset: 0;
   margin: auto;
   width: min(20rem, calc(100% - 2rem));
@@ -216,9 +218,13 @@ body {
   font-weight: normal;
 }
 
-/* The settings screen (#145), in the loadout screen's style. */
+/* The settings screen (#145), in the loadout screen's style, scrolling where it doesn't fit (#221). */
 .loadout-screen.settings-screen {
+  box-sizing: border-box;
   width: min(26rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .settings-rows {
@@ -251,8 +257,13 @@ body {
   color: #fff08a;
 }
 
+/* A row per player of the season, so it scrolls where it doesn't fit, like the join screen (#221). */
 .name-screen.victory-screen {
+  box-sizing: border-box;
   width: min(44rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1.25rem 1.5rem;
   gap: 0.8rem;
 }
@@ -795,6 +806,12 @@ body.touch {
 
 .hud[hidden],
 .hud-panel[hidden] {
+  display: none;
+}
+
+/* A screen or the down panel holds the middle (#221): only the toasts show, under the screens. */
+.hud.toasts-only .hud-panel,
+.hud.toasts-only .hud-gauge {
   display: none;
 }
 
