@@ -40,11 +40,15 @@ test('the engine loop is not restarted every frame (#263)', async ({ page }) => 
 
   const idle = await endedPerFrame(page, 2000);
   await page.keyboard.down('w');
-  const thrusting = await endedPerFrame(page, 2000);
+  // Speeding up, the pitch rises a step at a time: logged, not asserted.
+  const speedingUp = await endedPerFrame(page, 1200);
+  const cruising = await endedPerFrame(page, 1000);
   await page.keyboard.up('w');
-  console.log(`${test.info().project.name} ended per frame: idle ${JSON.stringify(idle)}, thrusting ${JSON.stringify(thrusting)}`);
+  const counts = { idle, speedingUp, cruising };
+  console.log(`${test.info().project.name} ended per frame: ${JSON.stringify(counts)}`);
 
   expect(idle.frames).toBeGreaterThan(0);
+  expect(cruising.frames).toBeGreaterThan(0);
   expect(idle.ended / idle.frames, 'sources ended per frame, idle').toBeLessThan(0.1);
-  expect(thrusting.ended / thrusting.frames, 'sources ended per frame, thrusting').toBeLessThan(0.5);
+  expect(cruising.ended / cruising.frames, 'sources ended per frame, at top speed').toBeLessThan(0.1);
 });
