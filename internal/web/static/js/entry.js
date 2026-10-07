@@ -1,6 +1,6 @@
 // src/bootsizes.gen.ts
 var CODE_BYTES = {
-  "/static/js/main.js": 301261,
+  "/static/js/main.js": 301387,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
@@ -830,6 +830,7 @@ function saveIntroSeen(store = browserStorage()) {
 }
 
 // src/sim/loading.ts
+var RULES = { key: "rules", url: "/static/wasm/sim.wasm" };
 var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
 var LOAD_CATEGORY_NAMES = {
   ships: "Ships",
@@ -974,13 +975,17 @@ function enter() {
     door.enter(!loadIntroSeen(), touch);
     return t;
   });
+  let rules = Promise.resolve(void 0);
   void Promise.all(Object.keys(CODE_BYTES).map((url) => prefetch(url, door))).then(async () => {
+    rules = download(RULES.url, (bytes) => {
+      door.receive(RULES.key, bytes);
+    }).catch(() => void 0);
     const imports = Object.keys(CODE_BYTES).filter((url) => !url.endsWith("/main.js"));
     const [game] = await Promise.all([import("./main.js"), ...imports.map(async (url) => await import(url))]);
     return game;
   }).then(({ start }) => {
     door.codeLoaded();
-    start({ door, intro, token });
+    start({ door, intro, token, rules });
   });
 }
 var audio = document.createElement("audio");

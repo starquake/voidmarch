@@ -1,4 +1,4 @@
-import { loadRank } from './sim/loading.ts';
+import { RULES, loadRank } from './sim/loading.ts';
 import { HEADING_FONT_NAME, UI_FONT_NAME } from './sim/tuning.ts';
 import { effectFiles, type SoundFile } from './sounds.ts';
 import { keys, layerSheets, sheets, type Sheet } from './sprites.ts';
@@ -8,9 +8,6 @@ export interface BootFiles {
   sheets: Sheet[];
   sounds: SoundFile[];
 }
-
-/** The rules (internal/sim as WebAssembly), loaded beside the boot scene's files. */
-export const RULES = { key: 'rules', url: '/static/wasm/sim.wasm' } as const;
 
 /** The game's fonts (#170), each loaded before the first text; the URLs are style.css's. */
 export const FONTS = [

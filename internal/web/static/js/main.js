@@ -27,6 +27,35 @@ function allBlack(samples) {
   return samples.length > 0 && samples.every((p) => p[0] === 0 && p[1] === 0 && p[2] === 0);
 }
 
+// src/net/download.ts
+async function download(url, received, fetcher = fetch) {
+  const response = await fetcher(url);
+  if (!response.ok) {
+    throw new Error(`error downloading ${url}: ${String(response.status)}`);
+  }
+  const reader = response.body?.getReader();
+  if (reader === void 0) {
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  const chunks = [];
+  let length = 0;
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    chunks.push(chunk.value);
+    length += chunk.value.byteLength;
+    received(length);
+  }
+  const body = new Uint8Array(length);
+  let at2 = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, at2);
+    at2 += chunk.byteLength;
+  }
+  return body;
+}
+async function orDownload(early, url, received, fetcher = fetch) {
+  return await early ?? download(url, received, fetcher);
+}
+
 // src/sim/rules.gen.ts
 var WEAPONS = ["autoCannon", "rockets", "bigSpaceGun", "zapper"];
 var ENGINES = ["base", "bigPulse", "burst", "supercharged"];
@@ -211,6 +240,7 @@ var LAYOUT = {
 var FACTION_NAMES = { klaed: "Kla'ed", nairan: "Nairan", nautolan: "Nautolan" };
 
 // src/sim/loading.ts
+var RULES = { key: "rules", url: "/static/wasm/sim.wasm" };
 var LOAD_CATEGORIES = ["ships", "enemies", "space", "sounds"];
 var SHIP_PREFIXES = ["hull-", "engine-", "flame-", "shield-", "weapon-", "projectile-", "pickup-"];
 var SPACE_KEYS = ["planet", "asteroid"];
@@ -721,7 +751,6 @@ function glowSheets() {
 }
 
 // src/preload.ts
-var RULES = { key: "rules", url: "/static/wasm/sim.wasm" };
 var FONTS = [
   { key: `font-${UI_FONT_NAME}`, name: UI_FONT_NAME, url: "/static/fonts/exo2.woff2" },
   { key: `font-${HEADING_FONT_NAME}`, name: HEADING_FONT_NAME, url: "/static/fonts/orbitron.woff2" }
@@ -2584,32 +2613,6 @@ function within(layout, x, y) {
   return Math.abs(x - layout.x) <= size.width / 2 && Math.abs(y - layout.y) <= size.height / 2;
 }
 
-// src/net/download.ts
-async function download(url, received, fetcher = fetch) {
-  const response = await fetcher(url);
-  if (!response.ok) {
-    throw new Error(`error downloading ${url}: ${String(response.status)}`);
-  }
-  const reader = response.body?.getReader();
-  if (reader === void 0) {
-    return new Uint8Array(await response.arrayBuffer());
-  }
-  const chunks = [];
-  let length = 0;
-  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
-    chunks.push(chunk.value);
-    length += chunk.value.byteLength;
-    received(length);
-  }
-  const body = new Uint8Array(length);
-  let at2 = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, at2);
-    at2 += chunk.byteLength;
-  }
-  return body;
-}
-
 // src/simwasm.ts
 var SCRATCH_SIZE = LAYOUT.scratchSize;
 var PATTERN_SIZE = 5;
@@ -3045,13 +3048,13 @@ function isWeapon(kind) {
   return WEAPONS.includes(kind);
 }
 var loaded;
-async function loadSim(url, received = () => void 0) {
+async function loadSim(body) {
   if (loaded === void 0) {
     const Go = globalThis.Go;
     if (Go === void 0) {
       throw new Error("wasm_exec.js did not load: no Go runtime");
     }
-    loaded = new Sandbox(await instantiate(await download(url, received), new Go()));
+    loaded = new Sandbox(await instantiate(await body, new Go()));
   }
   return loaded;
 }
@@ -8157,11 +8160,13 @@ ${modeName(info)}`,
 var loadoutKey = (l) => `${l.weapon}:${l.engine}:${l.shield}:${String(l.weaponTier)}${String(l.engineTier)}${String(l.shieldTier)}`;
 
 // src/main.ts
-function start({ door, intro, token }) {
+function start({ door, intro, token, rules }) {
   const assets = Promise.all([
-    loadSim(RULES.url, (bytes) => {
-      door.receive(RULES.key, bytes);
-    }).then(() => {
+    loadSim(
+      orDownload(rules, RULES.url, (bytes) => {
+        door.receive(RULES.key, bytes);
+      })
+    ).then(() => {
       door.loaded(RULES.key);
     }),
     ...FONTS.map(async (font) => {

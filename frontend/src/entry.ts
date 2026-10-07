@@ -4,7 +4,7 @@ import { IntroScreen } from './introscreen.ts';
 import { askName } from './name.ts';
 import { download } from './net/download.ts';
 import { loadIntroSeen, loadToken, saveIntroSeen, saveToken } from './settings.ts';
-import { LoadProgress, SOUND_TYPES, fileSizes } from './sim/loading.ts';
+import { LoadProgress, RULES, SOUND_TYPES, fileSizes } from './sim/loading.ts';
 import { touchMode } from './sim/touch.ts';
 
 /**
@@ -24,8 +24,13 @@ function enter(): void {
 
     return t;
   });
+  let rules: Promise<Uint8Array<ArrayBuffer> | undefined> = Promise.resolve(undefined);
   void Promise.all(Object.keys(CODE_BYTES).map((url) => prefetch(url, door)))
     .then(async () => {
+      // The rules' bytes keep the bar moving while the browser re-checks the code and the first images are on their way (decision 10).
+      rules = download(RULES.url, (bytes) => {
+        door.receive(RULES.key, bytes);
+      }).catch(() => undefined);
       // The browser revalidates each module (no-cache): all at once, rather than main.js's imports after main.js.
       const imports = Object.keys(CODE_BYTES).filter((url) => !url.endsWith('/main.js'));
       const [game] = await Promise.all([import('./main.ts'), ...imports.map(async (url) => (await import(url)) as unknown)]);
@@ -34,7 +39,7 @@ function enter(): void {
     })
     .then(({ start }) => {
       door.codeLoaded();
-      start({ door, intro, token });
+      start({ door, intro, token, rules });
     });
 }
 

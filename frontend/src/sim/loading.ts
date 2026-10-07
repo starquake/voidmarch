@@ -1,5 +1,8 @@
 import { ENEMY_FACTIONS } from './enemies.ts';
 
+/** The rules (internal/sim as WebAssembly): the entry module starts them, the game runs them. */
+export const RULES = { key: 'rules', url: '/static/wasm/sim.wasm' } as const;
+
 /** What the loading strip names (#227, decision 6): kinds of things, never a file's or an enemy's name. */
 export const LOAD_CATEGORIES = ['ships', 'enemies', 'space', 'sounds'] as const;
 

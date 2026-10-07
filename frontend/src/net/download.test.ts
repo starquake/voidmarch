@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { download } from './download.ts';
+import { download, orDownload } from './download.ts';
 
 /** A fetch that answers with body in the given chunks, or with status and no body. */
 function fake(chunks: number[][], status = 200): typeof fetch {
@@ -40,4 +40,16 @@ test('a failed response is an error', async () => {
 test('a response without a stream is read whole', async () => {
   const fetcher: typeof fetch = () => Promise.resolve({ ok: true, body: null, arrayBuffer: () => Promise.resolve(new Uint8Array([7, 8]).buffer) } as Response);
   assert.deepEqual([...(await download('/static/x', () => undefined, fetcher))], [7, 8]);
+});
+
+test('orDownload takes the earlier body without fetching', async () => {
+  const fetcher: typeof fetch = () => Promise.reject(new Error('fetched'));
+  assert.deepEqual([...(await orDownload(Promise.resolve(new Uint8Array([1, 2])), '/static/x', () => undefined, fetcher))], [1, 2]);
+});
+
+test('orDownload downloads, counting the bytes, when the earlier one failed', async () => {
+  const seen: number[] = [];
+  const body = await orDownload(Promise.resolve(undefined), '/static/x', (bytes) => seen.push(bytes), fake([[3], [4]]));
+  assert.deepEqual(seen, [1, 2]);
+  assert.deepEqual([...body], [3, 4]);
 });

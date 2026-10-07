@@ -28,3 +28,16 @@ export async function download(url: string, received: (bytes: number) => void, f
 
   return body;
 }
+
+/**
+ * The body an earlier download got, or, when that one failed (undefined), a
+ * download of url now.
+ */
+export async function orDownload(
+  early: Promise<Uint8Array<ArrayBuffer> | undefined>,
+  url: string,
+  received: (bytes: number) => void,
+  fetcher: typeof fetch = fetch,
+): Promise<Uint8Array<ArrayBuffer>> {
+  return (await early) ?? download(url, received, fetcher);
+}

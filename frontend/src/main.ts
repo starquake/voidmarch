@@ -3,11 +3,13 @@ import Phaser from 'phaser';
 import { deviceSize, renderRatio } from './display.ts';
 import type { FrontDoor } from './frontdoor.ts';
 import type { IntroScreen } from './introscreen.ts';
-import { FONTS, RULES } from './preload.ts';
+import { orDownload } from './net/download.ts';
+import { FONTS } from './preload.ts';
 import { BootScene } from './scenes/boot.ts';
 import { SandboxScene } from './scenes/sandbox.ts';
 import { loadDisplaySettings } from './settings.ts';
 import { loadSim } from './simwasm.ts';
+import { RULES } from './sim/loading.ts';
 import { FPS_CAP } from './sim/tuning.ts';
 
 /** What the entry module (entry.ts) hands over once the game's code is in. */
@@ -17,6 +19,8 @@ export interface Handover {
   intro: IntroScreen;
   /** Resolves with the player's token, or undefined to play alone, once past the name screen. */
   token: Promise<string | undefined>;
+  /** The rules' module, downloading since the code came in; undefined if that failed. */
+  rules: Promise<Uint8Array<ArrayBuffer> | undefined>;
 }
 
 /**
@@ -24,14 +28,16 @@ export interface Handover {
  * the fonts and the boot scene's files download while the player types a
  * name, and the game starts once all of them and the name are in.
  */
-export function start({ door, intro, token }: Handover): void {
+export function start({ door, intro, token, rules }: Handover): void {
   // The rules run in WebAssembly (internal/sim); the game scene needs them from its construction.
   // Phaser draws a text into its canvas once, so the fonts have to be loaded before the first one (#170);
   // if one fails, its text falls back to sans-serif.
   const assets = Promise.all([
-    loadSim(RULES.url, (bytes) => {
-      door.receive(RULES.key, bytes);
-    }).then(() => {
+    loadSim(
+      orDownload(rules, RULES.url, (bytes) => {
+        door.receive(RULES.key, bytes);
+      }),
+    ).then(() => {
       door.loaded(RULES.key);
     }),
     ...FONTS.map(async (font) => {

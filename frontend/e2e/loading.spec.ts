@@ -206,3 +206,34 @@ test("one bar by bytes: it counts the game's code as it streams, never goes back
   expect(steps.some((s) => s.label === 'Loading game' && s.value > 0), 'the code counts before it runs').toBe(true);
   expect(steps.some((s) => s.label !== 'Loading game' && s.value < 100), 'then the files count').toBe(true);
 });
+
+test('the rules download once, starting when the code is in (decision 10)', async ({ page }) => {
+  const rules: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().endsWith('/static/wasm/sim.wasm')) {
+      rules.push(request.url());
+    }
+  });
+  // The second request for main.js is import()'s, after the entry module's download: holding it keeps the game's code from running.
+  let mainRequests = 0;
+  let releaseImport = (): void => undefined;
+  const imported = new Promise<void>((resolve) => {
+    releaseImport = resolve;
+  });
+  await page.route(/\/static\/js\/main\.js$/, async (route) => {
+    mainRequests += 1;
+    if (mainRequests > 1) {
+      await imported;
+    }
+    await route.continue();
+  });
+  const rulesRequested = page.waitForRequest(/\/static\/wasm\/sim\.wasm$/);
+  await page.goto('/', { waitUntil: 'commit' });
+  await rulesRequested;
+  await expect.poll(() => mainRequests, 'and the game code is held').toBe(2);
+
+  releaseImport();
+  await expect(page.locator('#loading-strip')).toBeHidden();
+  await online(page);
+  expect(rules, 'the game runs the bytes the entry module downloaded').toHaveLength(1);
+});
