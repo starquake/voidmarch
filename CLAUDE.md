@@ -423,3 +423,14 @@ identifiers, comments, log messages, UI strings and proto fields
 
 Release notes, README, UI strings, commit messages and PR descriptions are
 plain and factual: say what is there, with neutral verbs, and no selling.
+
+### Simple English (#307)
+
+All writing for people uses Simple English, as
+https://simple.wikipedia.org/wiki/Wikipedia:How_to_write_Simple_English_pages
+describes: chat, issues, comments, pull request descriptions, review comments,
+commit subjects, the README and the docs. Short sentences with one idea each,
+common words, a short plain explanation the first time a hard word is needed,
+active voice, no idioms. Names from the code stay as they are, in backticks.
+Old text changes when a change touches it. Agents get this rule in their brief.
+To drop the rule, delete this section.
