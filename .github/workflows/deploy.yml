@@ -24,8 +24,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # CI green on main, pushed or dispatched, deploys main's :edge; CI green on a
-  # vX.Y.Z-rc.N tag deploys that release candidate.
+  # CI green on a vX.Y.Z-rc.N tag deploys that release candidate; a manual run
+  # deploys the release candidate tag it runs on.
   deploy-staging:
     if: >-
       (github.event_name == 'workflow_run' &&
@@ -33,9 +33,8 @@ jobs:
         (github.event.workflow_run.event == 'push' ||
           github.event.workflow_run.event == 'workflow_dispatch') &&
         github.event.workflow_run.head_repository.full_name == github.repository &&
-        (github.event.workflow_run.head_branch == 'main' ||
-          (startsWith(github.event.workflow_run.head_branch, 'v') &&
-            contains(github.event.workflow_run.head_branch, '-rc.')))) ||
+        startsWith(github.event.workflow_run.head_branch, 'v') &&
+        contains(github.event.workflow_run.head_branch, '-rc.')) ||
       (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
     runs-on: ubuntu-24.04
     permissions:
@@ -54,7 +53,7 @@ jobs:
       - name: Image tag
         id: tag
         env:
-          REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+          REF: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
         run: .github/scripts/image-tag.sh staging "$REF" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v4
       - uses: sigstore/cosign-installer@v4.1.2
@@ -153,17 +152,24 @@ jobs:
       - name: Health check
         run: .github/scripts/health-check.sh "${{ vars.SERVER_URL }}/healthz"
 
-  # A same-repository PR labeled deploy:dev builds its own image and deploys it.
+  # CI green on main, pushed or dispatched, deploys main's :edge; a
+  # same-repository PR labeled deploy:dev builds its own image and deploys it.
   deploy-development:
     if: >-
-      github.event_name == 'pull_request' &&
-      contains(github.event.pull_request.labels.*.name, 'deploy:dev') &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        (github.event.workflow_run.event == 'push' ||
+          github.event.workflow_run.event == 'workflow_dispatch') &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'deploy:dev') &&
+        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
-    # One development slot: a newer labeled push replaces an older one.
+    # One development slot: a newer deploy, from main or a PR, replaces an older one.
     concurrency:
       group: deploy-development
       cancel-in-progress: true
@@ -173,18 +179,35 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
       - uses: docker/setup-buildx-action@v4
+      - name: Image tag
+        if: github.event_name == 'workflow_run'
+        id: tag
+        env:
+          REF: ${{ github.event.workflow_run.head_branch }}
+        run: .github/scripts/image-tag.sh development "$REF" >> "$GITHUB_OUTPUT"
+      - uses: sigstore/cosign-installer@v4.1.2
+        if: github.event_name == 'workflow_run'
+      - name: Resolve and verify the image
+        if: github.event_name == 'workflow_run'
+        id: digest
+        env:
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+        run: .github/scripts/verify-image.sh "$IMAGE_REF" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v4
+        if: github.event_name == 'pull_request'
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build date
+        if: github.event_name == 'pull_request'
         id: builddate
         run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       # Unsigned: development only runs the maintainer's own labeled PRs.
       - name: Build and push
+        if: github.event_name == 'pull_request'
         id: build
         uses: docker/build-push-action@v7
         with:
@@ -211,7 +234,7 @@ jobs:
           DEPLOY_DIR: voidmarch-development
           COMPOSE_FILE: docker-compose.development.yml
           IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest || steps.digest.outputs.digest }}
           TRUSTED_PROXY_IPS: ${{ vars.TRUSTED_PROXY_IPS }}
         with:
           host: ${{ secrets.SSH_HOST }}

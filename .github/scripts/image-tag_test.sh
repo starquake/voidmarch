@@ -18,16 +18,21 @@ expect() {
   fi
 }
 
-expect "tag=edge" staging ""
-expect "tag=edge" staging main
+expect "tag=edge" development main
+expect "error" development ""
+expect "error" development v1.0.0
+expect "error" development v1.0.0-rc.1
+expect "error" development feature
+
 expect "tag=1.0.0-rc.1" staging v1.0.0-rc.1
 expect "tag=12.3.40-rc.15" staging v12.3.40-rc.15
+expect "error" staging ""
+expect "error" staging main
 expect "error" staging v1.0.0
 expect "error" staging v1.0.0-rc
 expect "error" staging v1.0.0-rc.1x
 expect "error" staging v1.0.0-beta.1
 expect "error" staging 1.0.0-rc.1
-expect "error" staging feature
 
 expect "tag=latest" production ""
 expect "tag=1.0.0" production v1.0.0
@@ -37,7 +42,7 @@ expect "error" production v1.0
 expect "error" production 1.0.0
 expect "error" production main
 
-expect "error" development ""
+expect "error" preview main
 expect "error" staging
 expect "error"
 

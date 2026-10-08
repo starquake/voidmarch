@@ -1,4 +1,4 @@
-# Staging: main's :edge, pinned to the digest deploy.yml verified.
+# Staging: a release candidate, pinned to the digest deploy.yml verified.
 # No host port: SWAG reaches the container by name on the web network.
 services:
   voidmarch-staging:
