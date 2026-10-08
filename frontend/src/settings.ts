@@ -109,15 +109,19 @@ export function saveDisplaySettings(settings: DisplaySettings, store: Store | un
 
 const VIEW_KEY = 'voidmarch.view';
 
-/** How the ship turns and whether effects show (#145): remembered like the rest since the settings screen. */
+/**
+ * How the ship turns and whether effects show (#145): remembered like the
+ * rest since the settings screen. Effects stay undefined until the player
+ * picks them, so the renderer decides their default (#234).
+ */
 export interface ViewSettings {
   snapRotation: boolean;
-  effects: boolean;
+  effects: boolean | undefined;
 }
 
-const DEFAULT_VIEW: Readonly<ViewSettings> = { snapRotation: false, effects: true };
+const DEFAULT_VIEW: Readonly<ViewSettings> = { snapRotation: false, effects: undefined };
 
-/** The saved view preferences, or free rotation with effects on when none are saved. */
+/** The saved view preferences, or free rotation with effects unpicked when none are saved. */
 export function loadViewSettings(store: Store | undefined = browserStorage()): ViewSettings {
   try {
     const parsed: unknown = JSON.parse(store?.getItem(VIEW_KEY) ?? 'null');

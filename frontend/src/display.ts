@@ -50,3 +50,15 @@ export function blankSamples(width: number, height: number): { x: number; y: num
 export function allBlack(samples: readonly Uint8Array[]): boolean {
   return samples.length > 0 && samples.every((p) => p[0] === 0 && p[1] === 0 && p[2] === 0);
 }
+
+/**
+ * The whole-number enlargement of small that covers output, per side: the
+ * size the bloom doubled its half-size glow to before #234, which can be a
+ * pixel larger than the screen on an odd side.
+ */
+export function enlargedSize(small: { width: number; height: number }, output: { width: number; height: number }): { width: number; height: number } {
+  return {
+    width: small.width * Math.max(1, Math.round(output.width / small.width)),
+    height: small.height * Math.max(1, Math.round(output.height / small.height)),
+  };
+}

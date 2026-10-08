@@ -5,8 +5,10 @@ const RESAMPLE_NODE = 'FilterResample';
 
 /**
  * Bilinear lookups, made by hand because framebuffers in pixel-art mode
- * filter to the nearest pixel: halving averages each 2x2 block, and
- * doubling blends smoothly instead of making blocks.
+ * filter to the nearest pixel: halving averages each 2x2 block. Then what's
+ * below the threshold goes, as Phaser's Threshold filter does it, from the
+ * average rounded to 8 bits, as that filter read it from its own pass
+ * before #234.
  */
 const FRAGMENT = [
   '#pragma phaserTemplate(shaderName)',
@@ -18,6 +20,7 @@ const FRAGMENT = [
   '#endif',
   'uniform sampler2D uMainSampler;',
   'uniform vec2 inputSize;',
+  'uniform float threshold;',
   'varying vec2 outTexCoord;',
   '#pragma phaserTemplate(fragmentHeader)',
   'void main ()',
@@ -29,27 +32,31 @@ const FRAGMENT = [
   '    vec4 b = texture2D(uMainSampler, (i + vec2(1.5, 0.5)) / inputSize);',
   '    vec4 c = texture2D(uMainSampler, (i + vec2(0.5, 1.5)) / inputSize);',
   '    vec4 d = texture2D(uMainSampler, (i + vec2(1.5, 1.5)) / inputSize);',
-  '    gl_FragColor = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
+  '    vec4 color = floor(mix(mix(a, b, f.x), mix(c, d, f.x), f.y) * 255.0 + 0.5) / 255.0;',
+  '    gl_FragColor = clamp((color - threshold) / (1.0 - threshold), 0.0, 1.0);',
   '}',
 ].join('\n');
 
 /**
- * A filter that resizes the image by scale, smoothly: the bloom halves its
- * image before its threshold and blur, and doubles it back after, so those
- * passes cover a quarter of the pixels (#143).
+ * A filter that resizes the image by scale, smoothly, keeping only what's
+ * brighter than threshold: the bloom halves its image as it picks out the
+ * bright parts, so its blur covers a quarter of the pixels (#143, #234).
  */
 export class Resample extends Phaser.Filters.Controller {
   readonly scale: number;
+  readonly threshold: number;
 
-  constructor(camera: Phaser.Cameras.Scene2D.Camera, scale: number) {
+  constructor(camera: Phaser.Cameras.Scene2D.Camera, scale: number, threshold = 0) {
     super(camera, RESAMPLE_NODE);
     this.scale = scale;
+    this.threshold = threshold;
   }
 }
 
 /** Draws its input into a context scale times its size. */
 class ResampleNode extends Phaser.Renderer.WebGL.RenderNodes.BaseFilterShader {
   private inputSize: [number, number] = [1, 1];
+  private threshold = 0;
 
   constructor(manager: Phaser.Renderer.WebGL.RenderNodes.RenderNodeManager) {
     super(RESAMPLE_NODE, manager, undefined, FRAGMENT);
@@ -60,7 +67,9 @@ class ResampleNode extends Phaser.Renderer.WebGL.RenderNodes.BaseFilterShader {
     inputDrawingContext: Phaser.Renderer.WebGL.DrawingContext,
     outputDrawingContext?: Phaser.Renderer.WebGL.DrawingContext,
   ): Phaser.Renderer.WebGL.DrawingContext {
-    const scale = controller instanceof Resample ? controller.scale : 1;
+    const resample = controller instanceof Resample ? controller : undefined;
+    const scale = resample?.scale ?? 1;
+    this.threshold = resample?.threshold ?? 0;
     this.inputSize = [inputDrawingContext.width, inputDrawingContext.height];
     const output =
       outputDrawingContext ??
@@ -75,6 +84,7 @@ class ResampleNode extends Phaser.Renderer.WebGL.RenderNodes.BaseFilterShader {
 
   override setupUniforms(): void {
     this.programManager.setUniform('inputSize', this.inputSize);
+    this.programManager.setUniform('threshold', this.threshold);
   }
 }
 

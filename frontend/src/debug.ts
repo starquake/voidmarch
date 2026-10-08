@@ -24,6 +24,8 @@ export interface DebugState {
   rotationSnap: number;
   controlMode: ControlMode;
   effects: boolean;
+  /** Whether WebGL draws in software, so effects start off unless the player picked them (#234). */
+  softwareRenderer: boolean;
   /** Whether enemy bullets glow (#36); it follows the effects toggle. */
   enemyFireGlow: boolean;
   /**

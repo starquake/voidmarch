@@ -113,6 +113,7 @@ import { registerSmallBlend } from './blend.ts';
 import { allBlack, blankSamples } from '../display.ts';
 import { loadBloomBroken, saveBloomBroken } from '../settings.ts';
 import { Diagnostics } from '../diag.ts';
+import { isSoftwareRenderer, rendererName } from '../renderer.ts';
 
 /** How far each background layer moves relative to the camera. */
 const PARALLAX = [0.05, 0.15, 0.3] as const;
@@ -136,7 +137,7 @@ const VIGNETTE_SIZE = 256;
 const EFFECT_ZOOM = 2;
 /** The scale the baked glowing enemy bullets are drawn at, having been baked at twice the art's size. */
 const BAKED_GLOW_SCALE = 0.5;
-/** Bloom's threshold and blur run at this share of the screen's size, then scale back up (#143). */
+/** Bloom's threshold and blur run at this share of the screen's size (#143). */
 const BLOOM_SCALE = 0.5;
 const HUD_REFRESH_MS = 250;
 /** Particles in a hit's spark. */
@@ -307,6 +308,10 @@ export class SandboxScene extends Phaser.Scene {
   private revives = 0;
   private moveKeys!: Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>;
   private effects = true;
+  /** The effects the player picked in the settings, or undefined to leave them to the renderer (#234). */
+  private effectsPicked: boolean | undefined;
+  /** Whether WebGL draws in software, where effects start off (#234). */
+  private softwareRenderer = false;
   /** WebGL's limits and the page's errors in the HUD, with `?diag=1` (#180). */
   private diagnostics: Diagnostics | undefined;
   private shotsFired = 0;
@@ -364,12 +369,14 @@ export class SandboxScene extends Phaser.Scene {
     if (view.snapRotation) {
       this.sim.setRotationSnap(ROTATION_SNAP_STEPS);
     }
+    const renderer = this.renderer;
+    this.softwareRenderer = renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer && isSoftwareRenderer(rendererName(renderer.gl));
+    this.effectsPicked = view.effects;
     // ?effects=0 is for this visit only, so it isn't saved.
-    if (!view.effects || asked.get('effects') === '0') {
+    if (!(view.effects ?? !this.softwareRenderer) || asked.get('effects') === '0') {
       this.setEffects(false);
     }
     if (asked.get('diag') === '1') {
-      const renderer = this.renderer;
       this.diagnostics = new Diagnostics(renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer ? renderer.gl : undefined, this.game.canvas);
     }
     this.applyLoadout();
@@ -390,6 +397,7 @@ export class SandboxScene extends Phaser.Scene {
       rotationSnap: 0,
       controlMode: this.sim.controlMode,
       effects: this.effects,
+      softwareRenderer: this.softwareRenderer,
       projectiles: 0,
       ownShards: 0,
       shakes: 0,
@@ -698,7 +706,9 @@ export class SandboxScene extends Phaser.Scene {
 
   /**
    * Bloom as Phaser's AddEffectBloom draws it, but with its threshold and
-   * blur at half the screen's size between two smooth resamples (#143).
+   * blur at half the screen's size (#143): the threshold in the halving
+   * resample, and the blur added back by the blend, smoothly, with no
+   * full-size pass between (#234).
    */
   private createBloom(main: Phaser.Cameras.Scene2D.Camera): void {
     if (!(this.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer)) {
@@ -707,10 +717,8 @@ export class SandboxScene extends Phaser.Scene {
     registerResample(this.renderer);
     registerSmallBlend(this.renderer);
     const bloom = main.filters.external.addParallelFilters();
-    bloom.top.add(new Resample(main, BLOOM_SCALE));
-    bloom.top.addThreshold(BLOOM_THRESHOLD, 1);
+    bloom.top.add(new Resample(main, BLOOM_SCALE, BLOOM_THRESHOLD));
     this.bloomBlur = bloom.top.addBlur(0, BLOOM_BLUR * BLOOM_SCALE, BLOOM_BLUR * BLOOM_SCALE, 1, 0xffffff, BLOOM_BLUR_STEPS);
-    bloom.top.add(new Resample(main, 1 / BLOOM_SCALE));
     bloom.blend.blendMode = Phaser.BlendModes.ADD;
     bloom.blend.amount = BLOOM_AMOUNT;
     this.bloom = bloom;
@@ -1122,6 +1130,7 @@ export class SandboxScene extends Phaser.Scene {
         this.sim.setRotationSnap(next.snapRotation ? ROTATION_SNAP_STEPS : 0);
         break;
       case 'effects':
+        this.effectsPicked = next.effects;
         this.setEffects(next.effects);
         break;
       case 'fpsCap':
@@ -1137,7 +1146,7 @@ export class SandboxScene extends Phaser.Scene {
         break;
     }
     if (id === 'snapRotation' || id === 'effects') {
-      saveViewSettings({ snapRotation: next.snapRotation, effects: next.effects });
+      saveViewSettings({ snapRotation: next.snapRotation, effects: this.effectsPicked });
     }
     this.settingsScreen.update(optionRows(this.options()));
     this.updateHud();
