@@ -206,10 +206,16 @@ const (
 	// DreadnoughtSpiralArms is how many bullets each burst of the Nautolan
 	// Dreadnought's spiral fires, evenly spaced; a burst comes every
 	// DreadnoughtSpiralEvery seconds, the arms turning a full circle in
-	// DreadnoughtSpiralSeconds, the other way each spiral (#273).
+	// DreadnoughtSpiralSeconds, the other way each spiral (#273). Fewer
+	// bursts a turn leave a ship room between them up to the hull
+	// (TestEnemyPattern_AShipFitsThroughTheSpiral).
 	DreadnoughtSpiralArms    = 3
 	DreadnoughtSpiralEvery   = 0.1
-	DreadnoughtSpiralSeconds = 2
+	DreadnoughtSpiralSeconds = 1.6
+	// DreadnoughtSpiralStart is the angle every spiral's first arm leaves
+	// along, whatever ships are near: straight up, as y grows down. Every
+	// spiral then flies the same paths, so the holes between them stay put.
+	DreadnoughtSpiralStart = -Tau / 4
 	// DreadnoughtShield is the damage the shield takes before it drops,
 	// and DreadnoughtShieldDelay the seconds without a hit before it's back.
 	DreadnoughtShield      = 120

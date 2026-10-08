@@ -91,6 +91,16 @@ func DreadnoughtVolleyOf(seed uint32) DreadnoughtVolley {
 	return DreadnoughtVolley(seed % uint32(dreadnoughtVolleys))
 }
 
+// DreadnoughtSpiralBursts is how many bursts a spiral fires.
+const DreadnoughtSpiralBursts = int(DreadnoughtSpiralSeconds / DreadnoughtSpiralEvery)
+
+// DreadnoughtSpiralAngle is the angle of a spiral's burst, counted from 0:
+// a step on round the turn from DreadnoughtSpiralStart for each burst,
+// turning the positive way for 1 and the negative for -1 (#273).
+func DreadnoughtSpiralAngle(burst, way int) float64 {
+	return DreadnoughtSpiralStart + Tau*float64(way*burst)/float64(DreadnoughtSpiralBursts)
+}
+
 // DreadnoughtTurn is the order faction's Dreadnought takes its volleys in:
 // the Nautolan one's spiral comes between its Ray sweep and its Wave
 // spread, keeping its two volleys of Spinning Bullets apart (#273).

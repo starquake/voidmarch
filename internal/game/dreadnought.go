@@ -22,9 +22,7 @@ const (
 	// spiral, and dreadnoughtBeamGap between the beams of a Ray sweep.
 	dreadnoughtVolleyGap = 2 * TickRate
 	dreadnoughtBeamGap   = 6
-	// spiralBursts is how many bursts a spiral fires, and spiralCooldown
-	// the ticks skipped between them.
-	spiralBursts           = int(sim.DreadnoughtSpiralSeconds / sim.DreadnoughtSpiralEvery)
+	// spiralCooldown is the ticks skipped between a spiral's bursts.
 	spiralCooldown         = max(int(sim.DreadnoughtSpiralEvery*TickRate)-1, 0)
 	dreadnoughtShieldTicks = sim.DreadnoughtShieldDelay * TickRate
 	// dreadnoughtDerelictRing is how far from the wreck its fall's derelicts wait.
@@ -51,7 +49,7 @@ type dreadnoughtFight struct {
 	// taken.
 	turn int
 	// beams is how many beams of a Ray sweep are left, and bursts how many
-	// bursts of a spiral; from is the angle the sweep or spiral started at.
+	// bursts of a spiral; from is the angle the sweep started at.
 	beams  int
 	bursts int
 	from   float64
@@ -258,9 +256,9 @@ func (h *Hub) sleepDreadnought() {
 }
 
 // stepDreadnought scales it to the players online, regenerates it,
-// recharges its shield, and fires its volleys in turn at the nearest ship in
-// range. A spiral, once started, runs out whether or not a ship stays in
-// range.
+// recharges its shield, and fires its volleys in turn once a ship is in
+// range, all but the spiral at the nearest one. A spiral, once started, runs
+// out whether or not a ship stays in range.
 func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	f := e.dread
 	e.lastNear = h.tick
@@ -303,7 +301,7 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 			f.nextVolley(e)
 		}
 	case sim.DreadnoughtSpiral:
-		f.bursts, f.from, f.reversed = spiralBursts, e.angle, !f.reversed
+		f.bursts, f.reversed = sim.DreadnoughtSpiralBursts, !f.reversed
 		h.spiralBurst(e)
 	case sim.DreadnoughtWave:
 		h.fireVolley(e, e.angle, sim.DreadnoughtWave)
@@ -316,18 +314,19 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	}
 }
 
-// spiralBurst fires the spiral's next burst, each a step further round a
-// full turn from where it started (#273). Only the first warns: restarting
-// the weapon animation every burst would hold it on its first frames.
+// spiralBurst fires the spiral's next burst, a step further round its
+// turn from straight up (#273). Only the first warns: restarting the weapon
+// animation every burst would hold it on its first frames.
 func (h *Hub) spiralBurst(e *enemy) {
 	f := e.dread
-	step := fullTurnFloat / float64(spiralBursts)
+	burst := sim.DreadnoughtSpiralBursts - f.bursts
+	way := 1
 	if f.reversed {
-		step = -step
+		way = -1
 	}
-	angle := f.from + step*float64(spiralBursts-f.bursts)
+	angle := sim.DreadnoughtSpiralAngle(burst, way)
 	seed := sim.DreadnoughtSeed(h.rng.Uint32(), sim.DreadnoughtSpiral)
-	if f.bursts == spiralBursts {
+	if burst == 0 {
 		h.fireAt(e, angle, seed)
 	} else {
 		h.fireUnwarned(e, angle, seed)

@@ -294,6 +294,97 @@ func TestEnemyPattern_TheNautolanDreadnoughtSpirals(t *testing.T) {
 	}
 }
 
+func TestDreadnoughtSpiralAngle_FliesTheSamePathsFromStraightUp(t *testing.T) {
+	t.Parallel()
+
+	paths := DreadnoughtSpiralBursts * DreadnoughtSpiralArms
+	between := Tau / float64(paths)
+	for _, way := range []int{1, -1} {
+		if got := DreadnoughtSpiralAngle(0, way); !closeTo(got, -Tau/4) {
+			t.Errorf("way %v: the first burst along %v, want straight up, %v", way, got, -Tau/4)
+		}
+		flown := make([]int, paths)
+		for k := range DreadnoughtSpiralBursts {
+			angle := DreadnoughtSpiralAngle(k, way)
+			for _, b := range EnemyPattern(EnemyDreadnought, Nautolan, 0, 0, angle,
+				DreadnoughtSeed(7, DreadnoughtSpiral)) {
+				fromUp := WrapAngle(b.Angle + Tau/4)
+				nearest := math.Round(fromUp / between)
+				if !closeTo(fromUp, nearest*between) {
+					t.Errorf("way %v: burst %d flies along %v, off the paths", way, k, b.Angle)
+
+					continue
+				}
+				flown[(int(nearest)+paths)%paths]++
+			}
+		}
+		for path, n := range flown {
+			if n != 1 {
+				t.Errorf(
+					"way %v: %d bullets fly the path %v from straight up, want 1",
+					way,
+					n,
+					float64(path)*between,
+				)
+			}
+		}
+	}
+}
+
+func TestEnemyPattern_AShipFitsThroughTheSpiral(t *testing.T) {
+	t.Parallel()
+
+	// The Nautolan Dreadnought's 72x104 base frame, at any heading, lies
+	// within half its diagonal of the center.
+	hull := math.Hypot(72, 104) / 2
+	const gap = 2 * (ShipRadius + ShotRadius)
+	const dt = 0.001
+	bursts := DreadnoughtSpiralBursts
+	lifetime := ProjectileStatsOf(ProjectileKind(NautolanSpinningBullet)).Lifetime
+	// arms[a][k] is arm a's bullet from burst k.
+	arms := make([][]Projectile, DreadnoughtSpiralArms)
+	for k := range bursts {
+		burst := EnemyPattern(EnemyDreadnought, Nautolan, 0, 0, DreadnoughtSpiralAngle(k, 1),
+			DreadnoughtSeed(0, DreadnoughtSpiral))
+		for a, b := range burst {
+			arms[a] = append(arms[a], Projectile{
+				Kind: b.Kind, OriginX: b.X, OriginY: b.Y, Angle: b.Angle, Curve: b.Curve,
+			})
+		}
+	}
+	at := func(p *Projectile, k int, now float64) (Vec, bool) {
+		age := now - float64(k)*DreadnoughtSpiralEvery
+		if age < 0 || age > lifetime {
+			return Vec{}, false
+		}
+		v := PositionAt(p, age)
+
+		return v, math.Hypot(v.X, v.Y) > hull
+	}
+	closest := math.Inf(1)
+	for step := range int((float64(bursts)*DreadnoughtSpiralEvery + lifetime) / dt) {
+		now := float64(step) * dt
+		for _, arm := range arms {
+			for k := 1; k < len(arm); k++ {
+				p, out := at(&arm[k-1], k-1, now)
+				q, outToo := at(&arm[k], k, now)
+				if out && outToo {
+					closest = math.Min(closest, math.Hypot(p.X-q.X, p.Y-q.Y))
+				}
+			}
+		}
+	}
+	if closest <= gap {
+		t.Errorf(
+			"neighbors on a spiral arm come %.2f px apart outside the %.1f px hull, "+
+				"want more than %d for a ship to fit between",
+			closest,
+			hull,
+			gap,
+		)
+	}
+}
+
 func TestDreadnoughtTurn(t *testing.T) {
 	t.Parallel()
 

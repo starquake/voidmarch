@@ -285,7 +285,14 @@ func TestDreadnought_TheNautolanOneSpirals(t *testing.T) {
 		)
 	}
 
-	bursts := int(sim.DreadnoughtSpiralSeconds / sim.DreadnoughtSpiralEvery)
+	for _, f := range fired {
+		aimed := f.volley == sim.DreadnoughtRing || f.volley == sim.DreadnoughtWave
+		if aimed && math.Abs(sim.WrapAngle(f.angle-bearing)) > 1e-3 {
+			t.Errorf("volley %d along %v, want at the ship, along %v", f.volley, f.angle, bearing)
+		}
+	}
+
+	bursts := sim.DreadnoughtSpiralBursts
 	gap := uint32(sim.DreadnoughtSpiralEvery * TickRate)
 	runs := spirals(fired)[:2]
 	ways := make([]float64, 0, len(runs))
@@ -296,7 +303,7 @@ func TestDreadnought_TheNautolanOneSpirals(t *testing.T) {
 		way := math.Copysign(1, sim.WrapAngle(run[1].angle-run[0].angle))
 		ways = append(ways, way)
 		for i, b := range run {
-			want := bearing + way*2*math.Pi*float64(i)/float64(bursts)
+			want := sim.DreadnoughtSpiralAngle(i, int(way))
 			if math.Abs(sim.WrapAngle(b.angle-want)) > 1e-3 {
 				t.Errorf("spiral %d burst %d along %v, want %v", n, i, b.angle, want)
 			}
