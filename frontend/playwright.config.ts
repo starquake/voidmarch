@@ -9,8 +9,9 @@ export default defineConfig({
   // Builds the server once; each worker then starts its own (e2e/fixtures.ts).
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
-  // One worker: in CI, rendering WebGL in software, pages would starve each other (#22).
-  workers: 1,
+  // Each worker plays on a server of its own. CI's 4 cores render WebGL in
+  // software, where more pages at once would starve each other (#22).
+  workers: ci ? 2 : 4,
   forbidOnly: ci,
   reporter: ci ? [['list'], ['html', { open: 'never' }]] : 'list',
   // CI renders WebGL in software, where a frame can take a while.
