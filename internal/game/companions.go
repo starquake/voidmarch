@@ -146,6 +146,56 @@ func (h *Hub) takeCompanion(owner string, m *member, number uint32) bool {
 	return true
 }
 
+// dockCompanion sends a companion home to the hangar, as dismiss does, and
+// tells its owner, who didn't ask for it.
+func (h *Hub) dockCompanion(owner string, m *member, number uint32) {
+	h.dismiss(owner, m, number)
+	h.send(owner, dismissed(number))
+}
+
+// dockDownedCompanions docks the owner's downed companions as they respawn
+// at home, but for any with an up squadmate near enough to revive it.
+func (h *Hub) dockDownedCompanions(owner string, m *member) {
+	for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+		s := m.companions[number].flight.Ship
+		if s.Downed() && !h.upSquadmateNear(owner, m, s.X, s.Y) {
+			h.dockCompanion(owner, m, number)
+		}
+	}
+}
+
+// upSquadmateNear reports whether a ship up in the owner's squadron may
+// revive a companion downed at (x, y): another player within
+// sim.CompanionWaitRadius, who can choose to fly over, or a companion, the
+// owner's or a squadmate's, that sim.ComesToRevive. The owner's own ship
+// doesn't count.
+func (h *Hub) upSquadmateNear(owner string, m *member, x, y float64) bool {
+	comes := func(mate *member) bool {
+		for _, c := range mate.wing.Companions {
+			if !c.Ship.Downed() && sim.ComesToRevive(c.Ship, mate.wing.OrdersFor(c), x, y) {
+				return true
+			}
+		}
+
+		return false
+	}
+	if comes(m) {
+		return true
+	}
+	for _, id := range h.squadmates(owner, m) {
+		mate := h.members[id]
+		if s := mate.state; s != nil && !downed(s) &&
+			math.Hypot(float64(s.GetX())-x, float64(s.GetY())-y) <= sim.CompanionWaitRadius {
+			return true
+		}
+		if comes(mate) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // sendLostCompanionsHome docks every companion down for
 // sim.CompanionLostSeconds unrevived in the hangar, and tells its owner.
 func (h *Hub) sendLostCompanionsHome() {
@@ -153,8 +203,7 @@ func (h *Hub) sendLostCompanionsHome() {
 		m := h.members[owner]
 		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
 			if m.companions[number].flight.Ship.DownFor >= sim.CompanionLostSeconds {
-				h.dismiss(owner, m, number)
-				h.send(owner, dismissed(number))
+				h.dockCompanion(owner, m, number)
 			}
 		}
 	}

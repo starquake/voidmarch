@@ -645,6 +645,8 @@ func (h *Hub) handleMessage(in inbound) {
 		h.summon(in.session.Player.ID, m)
 	case *pb.ClientMessage_Dismiss:
 		h.dismiss(in.session.Player.ID, m, kind.Dismiss.GetCompanion())
+	case *pb.ClientMessage_RespawnHome:
+		h.dockDownedCompanions(in.session.Player.ID, m)
 	case *pb.ClientMessage_ChooseSquadron:
 		h.chooseSquadron(in.session.Player.ID, m, kind.ChooseSquadron.GetName())
 	case *pb.ClientMessage_SquadronOrder:

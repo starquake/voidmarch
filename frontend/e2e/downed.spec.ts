@@ -69,7 +69,16 @@ async function goDown(page: Page): Promise<void> {
 
 test('a downed player respawns at home, whole', async ({ page }) => {
   test.setTimeout(240_000);
-  await page.goto('/');
+  // H tells the server, which docks the downed companions (#271).
+  let respawnHomes = 0;
+  page.on('websocket', (ws) => {
+    ws.on('framesent', ({ payload }) => {
+      if (typeof payload === 'string' && 'respawnHome' in (JSON.parse(payload) as object)) {
+        respawnHomes++;
+      }
+    });
+  });
+  await page.goto('/?wire=json');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   await goDown(page);
 
@@ -95,6 +104,7 @@ test('a downed player respawns at home, whole', async ({ page }) => {
       return [s.downed, s.damage, s.shield, Math.round(s.ship.x) + 0, s.downPanel];
     })
     .toEqual([false, 'fullHealth', 1, 0, undefined]);
+  await expect.poll(() => respawnHomes, { message: 'H sent one RespawnHome' }).toBe(1);
   expect((await state(page)).revives).toBe(0);
   expect((await state(page)).standings.down, 'gone once up again').toBe(0);
   await expect(page.locator('#hud-gauge')).toBeVisible();

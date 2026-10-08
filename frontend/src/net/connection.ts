@@ -212,6 +212,13 @@ export class Connection {
     }
   }
 
+  /** Says our ship, down, respawned at home, so the server docks our downed companions (#271). */
+  sendRespawnHome(): void {
+    if (this.welcomed) {
+      this.send(create(ClientMessageSchema, { kind: { case: 'respawnHome', value: {} } }));
+    }
+  }
+
   /** Sends a shot under its projectile-pool id, which a hit later reports. */
   sendShot(shot: FiredShot): void {
     if (!this.welcomed) {

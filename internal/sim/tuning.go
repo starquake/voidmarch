@@ -358,6 +358,11 @@ const (
 	// CompanionLostSeconds: a companion down this long unrevived goes home
 	// to the hangar.
 	CompanionLostSeconds float64 = 60
+	// CompanionWaitRadius: when its owner respawns at home, a downed
+	// companion with another player of the squadron up this close, or a
+	// companion that ComesToRevive, stays down to be revived; the others
+	// dock at once (#271).
+	CompanionWaitRadius float64 = 800
 	// BrainReviveRange: a companion goes to revive a downed squadmate this
 	// close to it.
 	BrainReviveRange = 400

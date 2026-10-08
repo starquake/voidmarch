@@ -697,6 +697,11 @@ export class NetPlay {
     }
   }
 
+  /** Tells the server our ship respawned at home, so it docks our downed companions (#271). */
+  respawnedHome(): void {
+    this.connection.sendRespawnHome();
+  }
+
   /** The derelicts waiting to be rescued, for the E2E tests (#52). */
   get derelictList(): DerelictDebug[] {
     return [...this.derelicts.entries()].map(([id, d]) => ({

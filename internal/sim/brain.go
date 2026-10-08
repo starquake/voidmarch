@@ -483,6 +483,18 @@ func nearestDerelict(view *BrainView, orders *Orders) (Vec, bool) {
 	return nearest, best <= BrainReviveRange
 }
 
+// ComesToRevive reports whether a companion up at self, under orders, comes
+// to revive a ship downed at (x, y), as chooseGoal decides it: one that
+// helps, within BrainReviveRange, not regrouping or going home. A Focus or
+// Shield Me only puts the revive off until it is done.
+func ComesToRevive(self *Ship, orders Orders, x, y float64) bool {
+	if k := orders.OneShot.Kind; k == OneShotRegroup || k == OneShotGoHome {
+		return false
+	}
+
+	return helps(&orders) && distance(self.X, self.Y, x, y) <= BrainReviveRange
+}
+
 // helps reports whether a companion leaves its post to revive or rescue: not
 // while holding a point or staying out of sight.
 func helps(orders *Orders) bool {

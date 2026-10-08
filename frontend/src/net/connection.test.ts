@@ -430,6 +430,19 @@ test('nothing about companions is sent before the welcome', () => {
   assert.equal(sockets[0]?.messages().length, 1, 'only the hello');
 });
 
+test('a respawn at home is sent, and only once welcomed', () => {
+  const early = setup();
+  early.conn.start();
+  early.sockets[0]?.open();
+  early.conn.sendRespawnHome();
+  assert.equal(early.sockets[0]?.messages().length, 1, 'only the hello');
+
+  const { conn, socket } = welcomed();
+  conn.sendRespawnHome();
+  const kinds = socket.messages().map((m) => m.kind.case);
+  assert.equal(kinds.filter((k) => k === 'respawnHome').length, 1);
+});
+
 test('a collect names its pickup, and only once welcomed', () => {
   const early = setup();
   early.conn.start();
