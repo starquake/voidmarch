@@ -40,7 +40,7 @@ import { AnnouncementView } from '../announcement.ts';
 import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
-import { PartKeys, type PartKeyAction } from '../sim/partkeys.ts';
+import { PartListTimer } from '../sim/partkeys.ts';
 import { VictoryScreen } from '../victory.ts';
 import { StandingsPanel } from '../standings.ts';
 import { MapView, polygon } from './mapview.ts';
@@ -157,14 +157,12 @@ const BLOOM_CHECK_FRAME = 30;
 const KEY_HINT = 'F1 help · Esc settings';
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
-/** The gauge slot each part key cycles, or opens when held (#191, #259). */
+/** The gauge slot each part key switches, and whose list it shows (#191, #259). */
 const PART_KEY_SLOTS: ReadonlyMap<string, SlotKind> = new Map([
   ['Digit1', 'weapon'],
   ['Digit2', 'engine'],
   ['Digit3', 'shield'],
 ]);
-/** The keys an open drop-up takes: the highlight's arrows, and Enter to fit (#259). */
-const LIST_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'Enter']);
 /** The order ring's height radius and its dead center, in CSS pixels. */
 const ORDER_RING_PX = 88;
 const ORDER_DEAD_ZONE_PX = 24;
@@ -336,8 +334,8 @@ export class SandboxScene extends Phaser.Scene {
   private audio!: ShipAudio;
   private orderPress: OrderPress | undefined;
   private lastOrder: OrderItem | undefined;
-  /** 1, 2 and 3: a tap cycles the slot, a hold opens its drop-up (#259). */
-  private readonly partPress = new PartKeys<SlotKind>();
+  /** Closes the drop-up a tap of 1, 2 or 3 showed (#259). */
+  private readonly partList = new PartListTimer<SlotKind>();
 
   constructor(options: SandboxOptions) {
     super('sandbox');
@@ -507,7 +505,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     this.drawProjectiles();
     this.updateOrderMenu(time);
-    this.updatePartKeys();
+    this.updatePartList();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
@@ -816,8 +814,6 @@ export class SandboxScene extends Phaser.Scene {
         this.introKey(event);
       } else if (this.hudView.dropOpen !== undefined && event.code === 'Escape') {
         this.hudView.close();
-      } else if (this.hudView.dropOpen !== undefined && LIST_KEYS.has(event.code)) {
-        this.listKey(event);
       } else if (this.settingsScreen.open) {
         this.settingsKey(event);
       } else if (this.victoryScreen.open) {
@@ -840,28 +836,21 @@ export class SandboxScene extends Phaser.Scene {
       } else if (event.code === 'Escape') {
         this.openSettings();
       } else if (partSlot !== undefined) {
-        // A press counts from when it's handled, a release from when it happened: a tap that waited behind a busy page is still a tap.
-        this.runPartKeys(this.partPress.down(partSlot, performance.now(), this.hudView.dropOpen));
+        this.tapPartKey(partSlot);
       } else {
         this.handleDebugKey(event.code);
       }
     };
     const onKeyUp = (event: KeyboardEvent): void => {
-      const slot = PART_KEY_SLOTS.get(event.code);
       if (event.code === 'KeyQ') {
         this.releaseOrders();
       } else if (event.code === 'Tab') {
         this.standingsHeld = false;
-      } else if (slot !== undefined && this.screenOpen) {
-        this.partPress.cancel();
-      } else if (slot !== undefined) {
-        this.runPartKeys(this.partPress.up(slot, event.timeStamp, this.hudView.dropOpen));
       }
     };
-    // Letting go of Q or a part key in another window never reaches us: drop the press unused.
+    // Letting go of Q in another window never reaches us: close the ring unused.
     const onBlur = (): void => {
       this.closeOrderRing();
-      this.partPress.cancel();
       this.standingsHeld = false;
     };
     // A click on the open full map sends the squadron there (#100, decision 10).
@@ -1176,49 +1165,22 @@ export class SandboxScene extends Phaser.Scene {
     return this.net?.status !== 'online' || this.net.development;
   }
 
-  /** Every frame: a part key held long enough opens its drop-up, and a screen takes the keys from a pending press. */
-  private updatePartKeys(): void {
-    if (this.screenOpen) {
-      this.partPress.cancel();
-    } else {
-      this.runPartKeys(this.partPress.tick(performance.now(), this.hudView.dropOpen));
-    }
+  /** A tap of 1, 2 or 3 (#259): fit that slot's next part, and show its list for a while. */
+  private tapPartKey(kind: SlotKind): void {
+    this.hudView.show(kind);
+    this.partList.tapped(kind, performance.now());
+    this.cyclePart(kind);
   }
 
-  /** Does what the part keys decided (#259). */
-  private runPartKeys(actions: readonly PartKeyAction<SlotKind>[]): void {
-    for (const action of actions) {
-      switch (action.kind) {
-        case 'cycle':
-          this.cyclePart(action.slot);
-          this.hudView.followFitted();
-          break;
-        case 'open':
-          this.hudView.show(action.slot);
-          break;
-        case 'close':
-          this.hudView.close();
-          break;
-      }
-    }
-    if (actions.length > 0) {
+  /** Every frame: the list a tap showed closes once the taps stop. */
+  private updatePartList(): void {
+    if (this.partList.due(performance.now(), this.hudView.dropOpen)) {
+      this.hudView.close();
       this.updateHud();
     }
   }
 
-  /** Up, Down or Enter on an open drop-up (#259): move the keys' highlight, or fit the part it's on. */
-  private listKey(event: KeyboardEvent): void {
-    event.preventDefault();
-    if (event.code === 'Enter') {
-      this.hudView.fitHighlighted();
-    } else {
-      this.hudView.moveHighlight(event.code === 'ArrowUp' ? -1 : 1);
-    }
-    this.partPress.touch(event.timeStamp, this.hudView.dropOpen);
-    this.updateHud();
-  }
-
-  /** Fits a slot's next part, as a tap of its key does (#191). */
+  /** Fits a slot's next part (#191), and redraws the HUD. */
   private cyclePart(kind: SlotKind): void {
     const { loadout } = this.sim.ship;
     const owned = this.ownedUnlocks;

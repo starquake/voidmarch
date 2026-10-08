@@ -1,6 +1,5 @@
 import { STATIC } from './net/static.ts';
 import type { PanelRow, Pips } from './sim/hud.ts';
-import { stepIndex } from './sim/partkeys.ts';
 
 const ASSETS = `${STATIC}assets`;
 /** How long a toast takes to fade out, matching the CSS transition. */
@@ -50,12 +49,6 @@ export class HudView {
   private readonly fit: (kind: SlotKind, part: string) => void;
   /** The slot whose drop-up is open (#191). */
   private open: SlotKind | undefined;
-  /** Whether the keys have the open drop-up, which then shows their highlight (#259). */
-  private keyed = false;
-  /** The part the keys' highlight is on, or undefined to follow the fitted part. */
-  private highlight: string | undefined;
-  /** The slots as last drawn, for the highlight to step through. */
-  private slots: readonly GaugeSlot[] = [];
 
   constructor(fit: (kind: SlotKind, part: string) => void, doc: Document = document) {
     this.fit = fit;
@@ -89,39 +82,9 @@ export class HudView {
     return this.open;
   }
 
-  /** Opens a slot's drop-up, as holding its key does (#259). */
+  /** Opens a slot's drop-up, as a tap of its key does (#259). */
   show(kind: SlotKind): void {
     this.setOpen(kind);
-    this.keyed = true;
-  }
-
-  /** Moves the keys' highlight up (-1) or down (1) the open drop-up, wrapping round. */
-  moveHighlight(by: number): void {
-    const slot = this.slots.find((s) => s.kind === this.open);
-    if (slot === undefined) {
-      return;
-    }
-    const parts = slot.options.map((o) => o.part);
-    const from = parts.indexOf(this.highlight ?? slot.part);
-    this.highlight = parts[stepIndex(Math.max(from, 0), by, parts.length)];
-    this.keyed = true;
-    this.gaugeKey = '';
-  }
-
-  /** Fits the highlighted part, and the highlight follows the fitted part again; the drop-up stays. */
-  fitHighlighted(): void {
-    const part = this.highlight;
-    this.followFitted();
-    if (this.open !== undefined && part !== undefined) {
-      this.fit(this.open, part);
-    }
-  }
-
-  /** Puts the keys' highlight back on the fitted part, after a key fitted one. */
-  followFitted(): void {
-    this.highlight = undefined;
-    this.keyed = this.open !== undefined;
-    this.gaugeKey = '';
   }
 
   /** Closes the drop-up, if it's open. */
@@ -134,8 +97,6 @@ export class HudView {
       return;
     }
     this.open = kind;
-    this.keyed = false;
-    this.highlight = undefined;
     this.gaugeKey = '';
   }
 
@@ -185,8 +146,7 @@ export class HudView {
   }
 
   private drawGauge(frame: HudFrame): void {
-    this.slots = frame.slots;
-    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open, this.keyed, this.highlight]);
+    const key = JSON.stringify([frame.slots, frame.hull, frame.shield, this.open]);
     if (this.gauge === null || key === this.gaugeKey) {
       return;
     }
@@ -240,9 +200,7 @@ export class HudView {
     drop.append(title);
     for (const option of slot.options) {
       const row = doc.createElement('div');
-      row.classList.add('option');
-      row.classList.toggle('fitted', option.part === slot.part);
-      row.classList.toggle('highlight', this.keyed && option.part === (this.highlight ?? slot.part));
+      row.className = option.part === slot.part ? 'option fitted' : 'option';
       row.dataset.part = option.part;
       const text = doc.createElement('span');
       const name = doc.createElement('span');

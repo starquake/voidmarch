@@ -1,6 +1,6 @@
 // src/bootsizes.gen.ts
 var CODE_BYTES = {
-  "/static/js/main.js": 322680,
+  "/static/js/main.js": 318042,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
@@ -388,7 +388,7 @@ var KEYBOARD = {
     { keys: ["W", "A", "S", "D"], text: "move" },
     { keys: ["G"], text: "draw a companion, at home" },
     { keys: ["Q"], text: "hold for orders, tap to repeat" },
-    { keys: ["1", "2", "3"], text: "switch weapon, engine, shield; hold for a list" },
+    { keys: ["1", "2", "3"], text: "tap to switch weapon, engine, shield; the list shows for 2 s" },
     { keys: ["M"], text: "map" },
     { keys: ["Tab"], text: "hold for the standings" },
     { keys: ["H", "J"], text: "when down: respawn home, or by a squadmate" },

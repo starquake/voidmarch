@@ -216,7 +216,5 @@ export const TELEPORT_SOUND_RANGE = 400;
 /** A raiding Dreadnought's teleport (#223), scaled from the Main Ship's 48 px to its 128. */
 export const TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
 
-/** Holding 1, 2 or 3 this long opens that slot's list instead of cycling it (#259). */
-export const PART_HOLD_MS = 250;
-/** A part list the keys opened or moved closes after this long without a key press (#259). */
+/** The part list a tap of 1, 2 or 3 shows closes this long after the last tap (#259). */
 export const PART_LIST_IDLE_MS = 2000;

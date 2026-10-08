@@ -1,7 +1,7 @@
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { state } from './hunt.ts';
 import { coveredOnScreen } from './screens.ts';
-import { PART_HOLD_MS, PART_LIST_IDLE_MS } from '../src/sim/tuning.ts';
+import { PART_LIST_IDLE_MS } from '../src/sim/tuning.ts';
 
 test('the HUD shows the fitted parts, the hull and shield, and a labelled panel (#91)', async ({ page }) => {
   await page.goto('/');
@@ -59,7 +59,6 @@ test('a click on a slot opens its drop-up, and a click on a part fits it (#191)'
   // A development server offers every part, as its 1/2/3 keys cycle every part.
   await expect(drop.locator('[data-part]')).toHaveCount(4);
   await expect(drop.locator('.option.fitted')).toHaveAttribute('data-part', (await state(page)).loadout.weapon);
-  await expect(drop.locator('.option.highlight'), "the keys' highlight waits for a key").toHaveCount(0);
 
   await drop.locator('[data-part="rockets"]').click();
   await expect.poll(async () => (await state(page)).loadout.weapon).toBe('rockets');
@@ -79,158 +78,108 @@ test('a click on a slot opens its drop-up, and a click on a part fits it (#191)'
   await expect(drop).toBeHidden();
 });
 
-test('a tap of 1 cycles the weapon on release, and a hold opens its drop-up without cycling (#259)', async ({ page }) => {
+test('a tap of 1 fits the next weapon on key-down and shows the weapon list; a held key does nothing more (#259)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-  const weapon = page.locator('#hud-gauge [data-slot="weapon"]');
   const drop = page.locator('#hud-gauge .hud-drop');
-  const before = await weapon.getAttribute('title');
+  const before = (await state(page)).loadout.weapon;
 
-  // Both events in one evaluate, so no frame passes for a hold; the slot redraws as a part is fitted.
-  const titles = await page.evaluate(() => {
-    const title = (): string | null => document.querySelector('#hud-gauge [data-slot="weapon"]')?.getAttribute('title') ?? null;
+  // The key-down alone, with no frame after it: what shows is the key-down's doing.
+  const down = await page.evaluate(() => {
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit1', key: '1' }));
-    const down = title();
-    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1', key: '1' }));
+    const open = document.querySelector<HTMLElement>('#hud-gauge .hud-slot.open');
+    const fitted = document.querySelector<HTMLElement>('#hud-gauge .hud-drop .option.fitted');
 
-    return { down, up: title() };
+    return { open: open?.dataset.slot, fitted: fitted?.dataset.part };
   });
-  expect(titles.down, 'nothing changes on key-down').toBe(before);
-  expect(titles.up, 'the release cycles').not.toBe(before);
-  await expect(drop).toHaveCount(0);
+  expect(down.open, 'the key-down shows the weapon list').toBe('weapon');
+  expect(down.fitted, 'with the next weapon fitted').not.toBe(before);
+  await expect.poll(async () => (await state(page)).loadout.weapon).toBe(down.fitted);
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1', key: '1' })));
 
-  const cycled = (await state(page)).loadout.weapon;
+  // Playwright sends a key that is already down as a repeat.
   await page.keyboard.down('1');
-  await expect(drop).toBeVisible();
-  await expect(drop.locator('.option.fitted')).toHaveAttribute('data-part', cycled);
+  const held = (await state(page)).loadout.weapon;
+  await page.keyboard.down('1');
+  await page.keyboard.down('1');
   await page.keyboard.up('1');
   await expect(drop).toBeVisible();
-  expect((await state(page)).loadout.weapon, 'a hold does not cycle').toBe(cycled);
+  expect((await state(page)).loadout.weapon, 'repeats and the release fit nothing').toBe(held);
 });
 
-test('a tap still cycles when its key-down waited behind a busy page (#259)', async ({ page }) => {
-  await page.goto('/');
-  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-
-  // As Playwright delivers a tap to a page still starting up: the key-down stamped before
-  // the stall, handled after it, and the key-up stamped only once the key-down is handled.
-  const titles = await page.evaluate((stall) => {
-    const title = (): string | null => document.querySelector('#hud-gauge [data-slot="weapon"]')?.getAttribute('title') ?? null;
-    const before = title();
-    const down = new KeyboardEvent('keydown', { code: 'Digit1' });
-    Object.defineProperty(down, 'timeStamp', { value: performance.now() - stall });
-    window.dispatchEvent(down);
-    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Digit1' }));
-
-    return { before, after: title() };
-  }, PART_HOLD_MS * 2);
-  expect(titles.after, 'the tap cycles').not.toBe(titles.before);
-  await expect(page.locator('#hud-gauge .hud-drop')).toHaveCount(0);
-});
-
-test("while a held key's list is open, its taps fit the next part, the arrows and Enter pick, and Esc closes it (#259)", async ({ page }) => {
+test('each tap fits the next part, and the list stays open and follows it (#259)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   const drop = page.locator('#hud-gauge .hud-drop');
   const fitted = drop.locator('.option.fitted');
-  const highlight = drop.locator('.option.highlight');
 
-  await page.keyboard.down('1');
+  await page.keyboard.press('3');
   await expect(drop).toBeVisible();
-  await page.keyboard.up('1');
   const parts = await drop.locator('[data-part]').evaluateAll((els) => els.map((el) => (el as HTMLElement).dataset.part ?? ''));
-  const at = (i: number): string => parts[((i % parts.length) + parts.length) % parts.length] ?? '';
-  const first = parts.indexOf((await state(page)).loadout.weapon);
-  await expect(highlight, 'the highlight starts on the fitted part').toHaveAttribute('data-part', at(first));
+  const at = (i: number): string => parts[i % parts.length] ?? '';
+  const first = parts.indexOf((await state(page)).loadout.shield);
+  await expect(fitted).toHaveAttribute('data-part', at(first));
 
-  await page.keyboard.press('1');
-  await expect(fitted, 'a tap fits the next part at once').toHaveAttribute('data-part', at(first + 1));
-  await expect(highlight, 'and the highlight follows it').toHaveAttribute('data-part', at(first + 1));
-  await page.keyboard.press('1');
-  await expect(fitted).toHaveAttribute('data-part', at(first + 2));
-  await expect(drop, 'the list stays').toBeVisible();
-
-  await page.keyboard.press('ArrowDown');
-  await expect(highlight).toHaveAttribute('data-part', at(first + 3));
-  await expect(fitted, 'an arrow only moves the highlight').toHaveAttribute('data-part', at(first + 2));
-  await page.keyboard.press('Enter');
-  await expect(fitted, 'Enter fits the highlighted part').toHaveAttribute('data-part', at(first + 3));
-  await expect.poll(async () => (await state(page)).loadout.weapon).toBe(at(first + 3));
-  await expect(drop, 'the list stays after Enter').toBeVisible();
-
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
-  await expect(highlight, 'the highlight wraps round').toHaveAttribute('data-part', at(first + 5));
-  await page.keyboard.press('ArrowUp');
-  await expect(highlight).toHaveAttribute('data-part', at(first + 4));
-
-  await page.keyboard.press('Escape');
-  await expect(drop, 'Esc closes it at once').toHaveCount(0);
-  expect((await state(page)).settingsScreen, 'Esc closed the list, not opened the settings').toBe(false);
-  expect((await state(page)).loadout.weapon, 'closing fits nothing').toBe(at(first + 3));
+  for (let i = 1; i <= parts.length; i++) {
+    await page.keyboard.press('3');
+    await expect(fitted).toHaveAttribute('data-part', at(first + i));
+    await expect.poll(async () => (await state(page)).loadout.shield).toBe(at(first + i));
+    await expect(page.locator('#hud-gauge .hud-slot.open'), 'the list stays').toHaveAttribute('data-slot', 'shield');
+  }
 });
 
-test("a held key's list closes 2 s after the last key; another slot's tap cycles it and closes the list, and its hold opens its own (#259)", async ({ page }) => {
+test('the list closes 2 s after the last tap, and Esc closes it at once (#259)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   const drop = page.locator('#hud-gauge .hud-drop');
-  const openSlot = page.locator('#hud-gauge .hud-slot.open');
 
-  await page.keyboard.down('2');
-  await expect(openSlot).toHaveAttribute('data-slot', 'engine');
-  await page.keyboard.up('2');
-  const before = Date.now();
-  await page.keyboard.press('ArrowDown');
-  await expect(drop).toBeHidden({ timeout: PART_LIST_IDLE_MS + 15_000 });
-  expect(Date.now() - before, 'open at least 2 s after the last key').toBeGreaterThanOrEqual(PART_LIST_IDLE_MS);
-
-  await page.keyboard.down('1');
-  await expect(openSlot).toHaveAttribute('data-slot', 'weapon');
-  await page.keyboard.up('1');
-  const engine = (await state(page)).loadout.engine;
   await page.keyboard.press('2');
-  await expect(drop, "another slot's tap closes the list").toHaveCount(0);
-  await expect.poll(async () => (await state(page)).loadout.engine, 'and cycles that slot').not.toBe(engine);
+  await expect(drop).toBeVisible();
+  await page.waitForTimeout(PART_LIST_IDLE_MS * 0.75);
+  const lastTap = Date.now();
+  await page.keyboard.press('2');
+  await expect(drop).toBeHidden({ timeout: PART_LIST_IDLE_MS + 15_000 });
+  expect(Date.now() - lastTap, 'open 2 s from the last tap, not the first').toBeGreaterThanOrEqual(PART_LIST_IDLE_MS);
 
-  await page.keyboard.down('1');
-  await expect(openSlot).toHaveAttribute('data-slot', 'weapon');
-  await page.keyboard.up('1');
-  await page.keyboard.down('3');
-  await expect(openSlot, "another slot's hold opens its list").toHaveAttribute('data-slot', 'shield');
-  await page.keyboard.up('3');
+  const weapon = (await state(page)).loadout.weapon;
+  await page.keyboard.press('1');
   await expect(drop).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(drop).toHaveCount(0);
+  await expect(drop, 'Esc closes it at once').toHaveCount(0);
+  const after = await state(page);
+  expect(after.settingsScreen, 'Esc closed the list, not opened the settings').toBe(false);
+  expect(after.loadout.weapon, 'the tap fitted a part, and Esc kept it').not.toBe(weapon);
 });
 
-test('a part key let go after the window lost focus, or after a screen opened, fits nothing (#259)', async ({ page }) => {
+test("another slot's key switches that slot and shows its list instead (#259)", async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const openSlot = page.locator('#hud-gauge .hud-slot.open');
 
-  // Each in one evaluate, so no frame passes for a hold: what fits is the release's doing.
-  const titles = await page.evaluate(() => {
-    const title = (): string | null => document.querySelector('#hud-gauge [data-slot="weapon"]')?.getAttribute('title') ?? null;
-    const key = (type: string, code: string): void => {
-      window.dispatchEvent(new KeyboardEvent(type, { code }));
-    };
-    const before = title();
-    key('keydown', 'Digit1');
-    window.dispatchEvent(new Event('blur'));
-    key('keyup', 'Digit1');
-    const afterBlur = title();
-    key('keydown', 'Digit1');
-    key('keydown', 'F1');
-    key('keyup', 'F1');
-    key('keyup', 'Digit1');
+  await page.keyboard.press('1');
+  await expect(openSlot).toHaveAttribute('data-slot', 'weapon');
+  const { weapon, engine } = (await state(page)).loadout;
+  await page.keyboard.press('2');
+  await expect(openSlot).toHaveAttribute('data-slot', 'engine');
+  await expect(page.locator('#hud-gauge .hud-drop')).toHaveCount(1);
+  await expect.poll(async () => (await state(page)).loadout.engine).not.toBe(engine);
+  expect((await state(page)).loadout.weapon, 'the weapon stays').toBe(weapon);
+});
 
-    return { before, afterBlur, afterScreen: title() };
-  });
-  expect(titles.afterBlur, 'a lost focus drops the press').toBe(titles.before);
-  expect(titles.afterScreen, 'a screen opening drops the press').toBe(titles.before);
-  await expect.poll(async () => (await state(page)).introScreen).toBe(true);
-  await page.keyboard.press('Escape');
-  await expect.poll(async () => (await state(page)).introScreen).toBe(false);
-  await expect(page.locator('#hud-gauge .hud-drop')).toHaveCount(0);
+test('a tap on a list the mouse opened switches the part, and the list then closes 2 s after it (#259)', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  const drop = page.locator('#hud-gauge .hud-drop');
+
+  await page.locator('#hud-gauge [data-slot="engine"]').click();
+  await expect(drop).toBeVisible();
+  await page.waitForTimeout(PART_LIST_IDLE_MS + 500);
+  await expect(drop, 'a list the mouse opened stays').toBeVisible();
+
+  const engine = (await state(page)).loadout.engine;
+  await page.keyboard.press('2');
+  await expect.poll(async () => (await state(page)).loadout.engine).not.toBe(engine);
+  await expect(drop).toBeHidden({ timeout: PART_LIST_IDLE_MS + 15_000 });
 });
 
 test('a newly fitted weapon waits out the swap before it fires (#191)', async ({ page }) => {
