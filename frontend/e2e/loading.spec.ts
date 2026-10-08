@@ -1,6 +1,6 @@
-import { test as fresh, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-import { expect, test } from './fixtures.ts';
+import { expect, fresh, test } from './fixtures.ts';
 
 /** A file's URL pattern under the page's build, /static/v/<build>/ (#238). */
 const STATIC = String.raw`\/static\/v\/[0-9a-f]+\/`;
