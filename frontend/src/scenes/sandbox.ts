@@ -40,6 +40,7 @@ import { AnnouncementView } from '../announcement.ts';
 import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
+import { PartListTimer } from '../sim/partkeys.ts';
 import { VictoryScreen } from '../victory.ts';
 import { StandingsPanel } from '../standings.ts';
 import { MapView, polygon } from './mapview.ts';
@@ -156,6 +157,12 @@ const BLOOM_CHECK_FRAME = 30;
 const KEY_HINT = 'F1 help · Esc settings';
 /** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
 const ORDER_HOLD_MS = 200;
+/** The gauge slot each part key switches, and whose list it shows (#191, #259). */
+const PART_KEY_SLOTS: ReadonlyMap<string, SlotKind> = new Map([
+  ['Digit1', 'weapon'],
+  ['Digit2', 'engine'],
+  ['Digit3', 'shield'],
+]);
 /** The order ring's height radius and its dead center, in CSS pixels. */
 const ORDER_RING_PX = 88;
 const ORDER_DEAD_ZONE_PX = 24;
@@ -327,6 +334,8 @@ export class SandboxScene extends Phaser.Scene {
   private audio!: ShipAudio;
   private orderPress: OrderPress | undefined;
   private lastOrder: OrderItem | undefined;
+  /** Closes the drop-up a tap of 1, 2 or 3 showed (#259). */
+  private readonly partList = new PartListTimer<SlotKind>();
 
   constructor(options: SandboxOptions) {
     super('sandbox');
@@ -496,6 +505,7 @@ export class SandboxScene extends Phaser.Scene {
     }
     this.drawProjectiles();
     this.updateOrderMenu(time);
+    this.updatePartList();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
@@ -795,6 +805,7 @@ export class SandboxScene extends Phaser.Scene {
 
         return;
       }
+      const partSlot = PART_KEY_SLOTS.get(event.code);
       if (event.code === 'F1') {
         // Some browsers open their own help on F1.
         event.preventDefault();
@@ -824,6 +835,8 @@ export class SandboxScene extends Phaser.Scene {
         this.openSquadrons();
       } else if (event.code === 'Escape') {
         this.openSettings();
+      } else if (partSlot !== undefined) {
+        this.tapPartKey(partSlot);
       } else {
         this.handleDebugKey(event.code);
       }
@@ -1152,12 +1165,48 @@ export class SandboxScene extends Phaser.Scene {
     return this.net?.status !== 'online' || this.net.development;
   }
 
+  /** A tap of 1, 2 or 3 (#259): fit that slot's next part, and show its list for a while. */
+  private tapPartKey(kind: SlotKind): void {
+    this.hudView.show(kind);
+    this.partList.tapped(kind, performance.now());
+    this.cyclePart(kind);
+  }
+
+  /** Every frame: the list a tap showed closes once the taps stop. */
+  private updatePartList(): void {
+    if (this.partList.due(performance.now(), this.hudView.dropOpen)) {
+      this.hudView.close();
+      this.updateHud();
+    }
+  }
+
+  /** Fits a slot's next part (#191), and redraws the HUD. */
+  private cyclePart(kind: SlotKind): void {
+    const { loadout } = this.sim.ship;
+    const owned = this.ownedUnlocks;
+    switch (kind) {
+      case 'weapon':
+        this.fit({ ...loadout, weapon: nextPart(WEAPONS, loadout.weapon, owned) });
+        break;
+      case 'engine':
+        this.fit({ ...loadout, engine: nextPart(ENGINES, loadout.engine, owned) });
+        break;
+      case 'shield':
+        this.fit({ ...loadout, shield: nextPart(SHIELDS, loadout.shield, owned) });
+        break;
+    }
+    this.applyLoadout();
+    if (kind === 'shield') {
+      this.audio.shieldSwitched();
+    } else {
+      this.audio.partSwitched();
+    }
+  }
+
   private handleDebugKey(code: string): void {
-    const ship = this.sim.ship;
     if (!this.partKeys && code === 'F3') {
       return;
     }
-    const owned = this.ownedUnlocks;
     switch (code) {
       case 'KeyK':
         this.net?.devStartAttack();
@@ -1171,21 +1220,6 @@ export class SandboxScene extends Phaser.Scene {
       case 'F3':
         this.showFps = !this.showFps;
         this.updateHud();
-        break;
-      case 'Digit1':
-        this.fit({ ...ship.loadout, weapon: nextPart(WEAPONS, ship.loadout.weapon, owned) });
-        this.applyLoadout();
-        this.audio.partSwitched();
-        break;
-      case 'Digit2':
-        this.fit({ ...ship.loadout, engine: nextPart(ENGINES, ship.loadout.engine, owned) });
-        this.applyLoadout();
-        this.audio.partSwitched();
-        break;
-      case 'Digit3':
-        this.fit({ ...ship.loadout, shield: nextPart(SHIELDS, ship.loadout.shield, owned) });
-        this.applyLoadout();
-        this.audio.shieldSwitched();
         break;
       case 'KeyH':
         this.respawn(false);

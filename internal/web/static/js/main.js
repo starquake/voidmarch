@@ -392,6 +392,7 @@ var TELEPORT_COLOR = 5951999;
 var TELEPORT_WHITE = 14219519;
 var TELEPORT_SOUND_RANGE = 400;
 var TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
+var PART_LIST_IDLE_MS = 2e3;
 
 // src/sounds.ts
 var AUDIO = `${STATIC}audio`;
@@ -1894,6 +1895,10 @@ var HudView = class _HudView {
   get dropOpen() {
     return this.open;
   }
+  /** Opens a slot's drop-up, as a tap of its key does (#259). */
+  show(kind) {
+    this.setOpen(kind);
+  }
   /** Closes the drop-up, if it's open. */
   close() {
     this.setOpen(void 0);
@@ -2201,6 +2206,31 @@ function connectionToast(status) {
       return "Connecting";
   }
 }
+
+// src/sim/partkeys.ts
+var PartListTimer = class {
+  list;
+  /** A part key was tapped, and its slot's list is open. */
+  tapped(slot, at2) {
+    this.list = { slot, at: at2 };
+  }
+  /**
+   * Every frame, with the slot whose list is open now: whether to close it.
+   * A list the pointer closed or moved to another slot is forgotten.
+   */
+  due(at2, open) {
+    const list = this.list;
+    if (list === void 0 || list.slot !== open) {
+      this.list = void 0;
+      return false;
+    }
+    if (at2 - list.at < PART_LIST_IDLE_MS) {
+      return false;
+    }
+    this.list = void 0;
+    return true;
+  }
+};
 
 // src/sim/standings.ts
 var PERCENT = 100;
@@ -6860,6 +6890,11 @@ var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
 var KEY_HINT = "F1 help \xB7 Esc settings";
 var ORDER_HOLD_MS = 200;
+var PART_KEY_SLOTS = /* @__PURE__ */ new Map([
+  ["Digit1", "weapon"],
+  ["Digit2", "engine"],
+  ["Digit3", "shield"]
+]);
 var ORDER_RING_PX = 88;
 var ORDER_DEAD_ZONE_PX = 24;
 var ORDER_COLORS = { mode: 9427199, oneShot: 16769162 };
@@ -6987,6 +7022,8 @@ var SandboxScene = class extends Phaser14.Scene {
   audio;
   orderPress;
   lastOrder;
+  /** Closes the drop-up a tap of 1, 2 or 3 showed (#259). */
+  partList = new PartListTimer();
   constructor(options) {
     super("sandbox");
     this.introScreen = options.intro;
@@ -7150,6 +7187,7 @@ var SandboxScene = class extends Phaser14.Scene {
     }
     this.drawProjectiles();
     this.updateOrderMenu(time);
+    this.updatePartList();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
     this.scrollBackgrounds(time, deltaMs);
@@ -7403,6 +7441,7 @@ var SandboxScene = class extends Phaser14.Scene {
         }
         return;
       }
+      const partSlot = PART_KEY_SLOTS.get(event.code);
       if (event.code === "F1") {
         event.preventDefault();
         this.toggleIntro();
@@ -7431,6 +7470,8 @@ var SandboxScene = class extends Phaser14.Scene {
         this.openSquadrons();
       } else if (event.code === "Escape") {
         this.openSettings();
+      } else if (partSlot !== void 0) {
+        this.tapPartKey(partSlot);
       } else {
         this.handleDebugKey(event.code);
       }
@@ -7731,12 +7772,45 @@ var SandboxScene = class extends Phaser14.Scene {
   get partKeys() {
     return this.net?.status !== "online" || this.net.development;
   }
+  /** A tap of 1, 2 or 3 (#259): fit that slot's next part, and show its list for a while. */
+  tapPartKey(kind) {
+    this.hudView.show(kind);
+    this.partList.tapped(kind, performance.now());
+    this.cyclePart(kind);
+  }
+  /** Every frame: the list a tap showed closes once the taps stop. */
+  updatePartList() {
+    if (this.partList.due(performance.now(), this.hudView.dropOpen)) {
+      this.hudView.close();
+      this.updateHud();
+    }
+  }
+  /** Fits a slot's next part (#191), and redraws the HUD. */
+  cyclePart(kind) {
+    const { loadout } = this.sim.ship;
+    const owned = this.ownedUnlocks;
+    switch (kind) {
+      case "weapon":
+        this.fit({ ...loadout, weapon: nextPart(WEAPONS, loadout.weapon, owned) });
+        break;
+      case "engine":
+        this.fit({ ...loadout, engine: nextPart(ENGINES, loadout.engine, owned) });
+        break;
+      case "shield":
+        this.fit({ ...loadout, shield: nextPart(SHIELDS, loadout.shield, owned) });
+        break;
+    }
+    this.applyLoadout();
+    if (kind === "shield") {
+      this.audio.shieldSwitched();
+    } else {
+      this.audio.partSwitched();
+    }
+  }
   handleDebugKey(code) {
-    const ship = this.sim.ship;
     if (!this.partKeys && code === "F3") {
       return;
     }
-    const owned = this.ownedUnlocks;
     switch (code) {
       case "KeyK":
         this.net?.devStartAttack();
@@ -7750,21 +7824,6 @@ var SandboxScene = class extends Phaser14.Scene {
       case "F3":
         this.showFps = !this.showFps;
         this.updateHud();
-        break;
-      case "Digit1":
-        this.fit({ ...ship.loadout, weapon: nextPart(WEAPONS, ship.loadout.weapon, owned) });
-        this.applyLoadout();
-        this.audio.partSwitched();
-        break;
-      case "Digit2":
-        this.fit({ ...ship.loadout, engine: nextPart(ENGINES, ship.loadout.engine, owned) });
-        this.applyLoadout();
-        this.audio.partSwitched();
-        break;
-      case "Digit3":
-        this.fit({ ...ship.loadout, shield: nextPart(SHIELDS, ship.loadout.shield, owned) });
-        this.applyLoadout();
-        this.audio.shieldSwitched();
         break;
       case "KeyH":
         this.respawn(false);

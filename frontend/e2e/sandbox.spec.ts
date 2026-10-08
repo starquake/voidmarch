@@ -84,6 +84,8 @@ test('debug keys cycle parts, and the settings switch rotation and effects', asy
   await page.keyboard.press('1');
   await page.keyboard.press('2');
   await page.keyboard.press('3');
+  // Esc would close the part list the taps showed, not open the settings (#259).
+  await expect(page.locator('#hud-gauge .hud-drop')).toHaveCount(0);
   await changeOption(page, 'Rotation');
   await changeOption(page, 'Effects');
 

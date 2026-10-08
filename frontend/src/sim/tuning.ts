@@ -215,3 +215,6 @@ export const TELEPORT_WHITE = 0xd8f8ff;
 export const TELEPORT_SOUND_RANGE = 400;
 /** A raiding Dreadnought's teleport (#223), scaled from the Main Ship's 48 px to its 128. */
 export const TELEPORT_DREADNOUGHT_SIZE = 128 / 48;
+
+/** The part list a tap of 1, 2 or 3 shows closes this long after the last tap (#259). */
+export const PART_LIST_IDLE_MS = 2000;

@@ -82,6 +82,11 @@ export class HudView {
     return this.open;
   }
 
+  /** Opens a slot's drop-up, as a tap of its key does (#259). */
+  show(kind: SlotKind): void {
+    this.setOpen(kind);
+  }
+
   /** Closes the drop-up, if it's open. */
   close(): void {
     this.setOpen(undefined);
