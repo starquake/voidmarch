@@ -49,7 +49,14 @@ func frigateIn(snap *pb.Snapshot) *pb.EnemyState {
 func inFrigateRange(t *testing.T, s *Session, tick func(int)) (x, y float32) {
 	t.Helper()
 
-	f := frigateIn(must(latest(t, s, tick, 1, 0, 0)))
+	return belowFrigate(t, must(latest(t, s, tick, 1, 0, 0)))
+}
+
+// belowFrigate is inFrigateRange's point for the Frigate in snap.
+func belowFrigate(t *testing.T, snap *pb.Snapshot) (x, y float32) {
+	t.Helper()
+
+	f := frigateIn(snap)
 	if f == nil {
 		t.Fatal("no Frigate in the snapshot")
 	}

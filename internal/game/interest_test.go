@@ -35,6 +35,8 @@ type at struct {
 
 // stepAll reports each ship where it is, steps the hub one tick and returns
 // each session's snapshot of it, in order, with the other messages each got.
+// Each session must have read its snapshots of the earlier ticks: a drain
+// right after a tick can miss one the hub has yet to send (#311).
 func stepAll(t *testing.T, tick func(int), ships ...at) ([]*pb.Snapshot, [][]*pb.ServerMessage) {
 	t.Helper()
 
@@ -50,6 +52,9 @@ func stepAll(t *testing.T, tick func(int), ships ...at) ([]*pb.Snapshot, [][]*pb
 			if snaps[i] = msg.GetSnapshot(); snaps[i] == nil {
 				others[i] = append(others[i], msg)
 			}
+		}
+		if got, want := snaps[i].GetTick(), snaps[0].GetTick(); got != want {
+			t.Fatalf("ship %d read its snapshot of tick %d, want tick %d like ship 0", i, got, want)
 		}
 	}
 
@@ -255,8 +260,8 @@ func TestInterest_ABossVolleyGoesToEveryone(t *testing.T) {
 	hub, tick := testHub(t, WithMap(frigateMap), NoEvents)
 	fighting, _ := join(t, hub, "fighting")
 	home, _ := join(t, hub, "home")
-	x, y := inFrigateRange(t, fighting, tick)
-	drain(home)
+	first, _ := stepAll(t, tick, at{fighting, 0, 0}, at{home, 0, 180})
+	x, y := belowFrigate(t, first[0])
 	var frigate uint32
 	for range 10 * TickRate {
 		snaps, others := stepAll(t, tick, at{fighting, x, y}, at{home, 0, 180})
