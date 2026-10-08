@@ -1772,7 +1772,10 @@ export class SandboxScene extends Phaser.Scene {
   /** Respawns at home, or beside the nearest squadmate that is up, once the ship may. */
   private respawn(beside: boolean): void {
     if (!beside) {
-      this.respawned = this.sim.respawn(0, HOME_SPAWN_Y) || this.respawned;
+      if (this.sim.respawn(0, HOME_SPAWN_Y)) {
+        this.respawned = true;
+        this.net?.respawnedHome();
+      }
 
       return;
     }

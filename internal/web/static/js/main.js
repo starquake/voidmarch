@@ -4599,6 +4599,12 @@ var Connection = class {
       this.send(create2(ClientMessageSchema, { kind: { case: "dismiss", value: { companion } } }));
     }
   }
+  /** Says our ship, down, respawned at home, so the server docks our downed companions (#271). */
+  sendRespawnHome() {
+    if (this.welcomed) {
+      this.send(create2(ClientMessageSchema, { kind: { case: "respawnHome", value: {} } }));
+    }
+  }
   /** Sends a shot under its projectile-pool id, which a hit later reports. */
   sendShot(shot) {
     if (!this.welcomed) {
@@ -5970,6 +5976,10 @@ var NetPlay = class {
     } else {
       this.connection.sendSummon();
     }
+  }
+  /** Tells the server our ship respawned at home, so it docks our downed companions (#271). */
+  respawnedHome() {
+    this.connection.sendRespawnHome();
   }
   /** The derelicts waiting to be rescued, for the E2E tests (#52). */
   get derelictList() {
@@ -8467,7 +8477,10 @@ ${modeName(info)}`,
   /** Respawns at home, or beside the nearest squadmate that is up, once the ship may. */
   respawn(beside) {
     if (!beside) {
-      this.respawned = this.sim.respawn(0, HOME_SPAWN_Y) || this.respawned;
+      if (this.sim.respawn(0, HOME_SPAWN_Y)) {
+        this.respawned = true;
+        this.net?.respawnedHome();
+      }
       return;
     }
     const mate = this.net?.nearestSquadmate();
