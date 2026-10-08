@@ -2,7 +2,7 @@ import type { Browser, Page } from '@playwright/test';
 
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { aimAt } from './hunt.ts';
-import { coveredOnScreen } from './screens.ts';
+import { announcementCovered, coveredOnScreen, hideAnnouncement, showAnnouncement } from './screens.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -111,11 +111,20 @@ test('a downed player switches squadron with C and stays down, the panel still t
   await expect
     .poll(async () => (await state(page)).downPanel ?? '', { timeout: 10_000 })
     .toContain('[H] respawn at home');
+  // An announcement shows over the down panel and the reopened join screen (#272, decision 3).
+  await showAnnouncement(page);
+  const overDown = await announcementCovered(page);
+  expect(overDown.covered).toEqual([]);
+  expect(overDown.over).toContain('canvas');
 
   await page.keyboard.press('c');
   await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
   await expect(page.locator('#squadron-list .squadron.current button')).toHaveText('Stay');
   expect(await coveredOnScreen(page), 'nothing over the reopened screen (#221)').toEqual([]);
+  const overJoin = await announcementCovered(page);
+  expect(overJoin.covered).toEqual([]);
+  expect(overJoin.over).toContain('form#squadron-form');
+  await hideAnnouncement(page);
   await expect
     .poll(async () => {
       const { join, down } = (await state(page)).standings;

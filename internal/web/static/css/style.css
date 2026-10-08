@@ -714,7 +714,8 @@ body.touch {
   body.touch .rotate-notice {
     position: fixed;
     inset: 0;
-    z-index: 10;
+    /* Above the announcement banner (100): nothing can be played under it. */
+    z-index: 110;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1002,6 +1003,30 @@ body.touch {
 
 .hud-toast.gone {
   opacity: 0;
+}
+
+/* The announcement banner (#101): over everything on the page, the screens
+   and the rotate notice included, and see-through to the pointer, so it never
+   blocks what is under it (#272, decision 3). The scene sets its size,
+   colors and place from the tunables. */
+.announcement {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  border-style: solid;
+  line-height: normal;
+  text-align: center;
+  white-space: pre;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.announcement[hidden] {
+  display: none;
 }
 
 /* A phone's short screen: smaller, closer to the edges. */

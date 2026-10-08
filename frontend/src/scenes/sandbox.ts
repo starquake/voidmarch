@@ -36,6 +36,7 @@ import { changeOption, optionRows, type OptionId, type Options } from '../sim/op
 import { SettingsScreen } from '../settingsscreen.ts';
 import type { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
+import { AnnouncementView } from '../announcement.ts';
 import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
 import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
@@ -54,10 +55,7 @@ import {
   MISSION_ARROW_MARGIN_PX,
   MISSION_ARROW_SIZE_PX,
   MISSION_LABEL_OFFSET,
-  MISSION_BANNER_ALPHA,
-  MISSION_BANNER_BORDER_PX,
   MISSION_BANNER_MS,
-  MISSION_BANNER_Y,
   MISSION_COLOR,
   MISSION_CSS,
   SECTOR_LINE_ALPHA,
@@ -297,10 +295,11 @@ export class SandboxScene extends Phaser.Scene {
   private missionArrow!: Phaser.GameObjects.Graphics;
   private missionLabel!: Phaser.GameObjects.Text;
   private eventLabel!: Phaser.GameObjects.Text;
-  private missionBanner!: Phaser.GameObjects.Text;
-  private missionFrame!: Phaser.GameObjects.Graphics;
+  /** The announcement banner, a page element over everything (#272, decision 3). */
+  private readonly announcement = new AnnouncementView();
   private announcedMission: string | undefined;
-  private missionBannerUntil = 0;
+  /** When the announcement showing ends, or undefined while none shows. */
+  private announcementUntil: number | undefined;
   private downPanel!: Phaser.GameObjects.Text;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   private wasDown = false;
@@ -530,29 +529,17 @@ export class SandboxScene extends Phaser.Scene {
       net.banners.push(missionBanner(mission));
     }
     this.announcedMission = mission;
-    if (this.missionBanner.visible && time <= this.missionBannerUntil) {
+    if (this.announcementUntil !== undefined && time <= this.announcementUntil) {
       return;
     }
     const next = net.banners.shift();
-    this.missionBanner.setVisible(next !== undefined);
-    this.missionFrame.setVisible(next !== undefined);
     if (next !== undefined) {
-      this.missionBanner.setText(next);
-      this.drawMissionFrame();
-      this.missionBannerUntil = time + MISSION_BANNER_MS;
+      this.announcement.show(next);
+      this.announcementUntil = time + MISSION_BANNER_MS;
+    } else if (this.announcementUntil !== undefined) {
+      this.announcement.hide();
+      this.announcementUntil = undefined;
     }
-  }
-
-  /** The banner's black, see-through box with a thin gold border, fitted around its text. */
-  private drawMissionFrame(): void {
-    const b = this.missionBanner.getBounds();
-    const line = MISSION_BANNER_BORDER_PX * this.dpr();
-    this.missionFrame
-      .clear()
-      .fillStyle(0x000000, MISSION_BANNER_ALPHA)
-      .fillRect(b.x, b.y, b.width, b.height)
-      .lineStyle(line, MISSION_COLOR, 1)
-      .strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
   }
 
   /**
@@ -767,18 +754,6 @@ export class SandboxScene extends Phaser.Scene {
       .setShadow(1, 1, '#000000', 0)
       .setVisible(false);
     main.ignore(this.downPanel);
-    this.missionFrame = this.add.graphics().setVisible(false);
-    this.missionBanner = this.add
-      .text(0, 0, '', {
-        fontFamily: UI_FONT,
-        fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
-        color: MISSION_CSS,
-        align: 'center',
-      })
-      .setOrigin(0.5, 0)
-      .setShadow(1, 1, '#000000', 0)
-      .setVisible(false);
-    main.ignore([this.missionFrame, this.missionBanner]);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
     this.missionLabel = this.add
@@ -1003,7 +978,7 @@ export class SandboxScene extends Phaser.Scene {
       this.maps.draw(state, net?.mapName ?? '', now);
     }
     const alpha = this.maps.open ? 0 : 1;
-    for (const o of [this.hud, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
+    for (const o of [this.hud, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
     }
   }
@@ -1407,10 +1382,15 @@ export class SandboxScene extends Phaser.Scene {
 
   /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   private dpr(): number {
-    const ratio = renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
+    const ratio = this.cssRatio();
 
     // On a phone the drawn UI shrinks with the touch controls, to leave room to play (#180, decision 7).
     return this.touchOn ? touchUnit(this.scale.height, ratio) : ratio;
+  }
+
+  /** The canvas pixels per CSS pixel. */
+  private cssRatio(): number {
+    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
   }
 
   /** Fits a loadout, each part at the tier this player owns it at. */
@@ -1453,11 +1433,10 @@ export class SandboxScene extends Phaser.Scene {
       .setFontSize(DOWN_PANEL_FONT_PX * dpr)
       .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
       .setPosition(width / 2, height * DOWN_PANEL_Y);
-    this.missionBanner
-      .setFontSize(DOWN_PANEL_FONT_PX * dpr)
-      .setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr)
-      .setPosition(width / 2, height * MISSION_BANNER_Y);
-    this.drawMissionFrame();
+    this.announcement.layout(
+      { fontPx: DOWN_PANEL_FONT_PX, paddingXPx: DOWN_PANEL_PADDING_X, paddingYPx: DOWN_PANEL_PADDING_Y },
+      dpr / this.cssRatio(),
+    );
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -2119,8 +2098,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.lastClear = this.net?.lastClear;
     this.debug.clearedSectors = this.net?.status === 'online' ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === undefined ? undefined : this.net.eventLine(performance.now());
-    this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
-    this.debug.missionBannerFont = this.missionBanner.style.fontFamily;
+    this.debug.missionBanner = this.announcement.text;
+    this.debug.missionBannerFont = this.announcement.font;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;

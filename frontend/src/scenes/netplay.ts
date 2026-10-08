@@ -78,7 +78,7 @@ import { bossFellBanner, raidBanner, raidEndedBanner, ringsClosedBanner } from '
 import { repairLines } from '../net/repair.ts';
 import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
-import { eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
+import { AttackReminder, eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
 import type { BossHealth, DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
@@ -257,6 +257,7 @@ export class NetPlay {
   rescues = 0;
   /** The world event running, as the server last said (#102). */
   worldEvent: WorldEvent | undefined;
+  private readonly attackReminder = new AttackReminder();
   /** The last sector cleared and the part it gave this player, for the E2E tests (#101). */
   lastClear: { sector: string; reward: string | undefined } | undefined;
   /** Announcements waiting for the middle of the screen, oldest first (#101). */
@@ -813,6 +814,10 @@ export class NetPlay {
       return frame;
     }
     const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
+    const reminder = this.attackReminder.check(this.worldEvent, serverTick, this.tickRate);
+    if (reminder !== undefined) {
+      this.banners.push(reminder);
+    }
     this.options.pickups.update(serverTick, this.tickRate);
     this.collect();
 
