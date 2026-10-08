@@ -924,7 +924,7 @@ function alphaAt(src, x, y) {
   const y0 = Math.floor(y - 0.5);
   const fx = x - 0.5 - x0;
   const fy = y - 0.5 - y0;
-  const at2 = (px, py) => px < 0 || py < 0 || px >= src.width || py >= src.height ? 0 : (src.data[(py * src.width + px) * CHANNELS + 3] ?? 0) / MAX;
+  const at2 = (px2, py) => px2 < 0 || py < 0 || px2 >= src.width || py >= src.height ? 0 : (src.data[(py * src.width + px2) * CHANNELS + 3] ?? 0) / MAX;
   return at2(x0, y0) * (1 - fx) * (1 - fy) + at2(x0 + 1, y0) * fx * (1 - fy) + at2(x0, y0 + 1) * (1 - fx) * fy + at2(x0 + 1, y0 + 1) * fx * fy;
 }
 function jitter(ring2, u, v) {
@@ -2079,6 +2079,54 @@ var HudView = class _HudView {
       this.toastBox.append(el);
       this.toasts.set(text, el);
     }
+  }
+};
+
+// src/announcement.ts
+var px = (n) => `${String(n)}px`;
+function bannerStyle(size, scale) {
+  const border = MISSION_BANNER_BORDER_PX * scale;
+  return {
+    top: `${String(MISSION_BANNER_Y * 100)}%`,
+    fontFamily: UI_FONT,
+    fontSize: px(size.fontPx * scale),
+    padding: `${px(size.paddingYPx * scale - border)} ${px(size.paddingXPx * scale - border)}`,
+    borderWidth: px(border),
+    borderColor: MISSION_CSS,
+    color: MISSION_CSS,
+    background: `rgb(0 0 0 / ${String(MISSION_BANNER_ALPHA * 100)}%)`
+  };
+}
+var AnnouncementView = class {
+  el;
+  constructor(doc = document) {
+    this.el = doc.querySelector("#announcement");
+  }
+  /** Shows an announcement, one line per entry. */
+  show(lines) {
+    if (this.el !== null) {
+      this.el.textContent = lines.join("\n");
+      this.el.hidden = false;
+    }
+  }
+  hide() {
+    if (this.el !== null) {
+      this.el.hidden = true;
+    }
+  }
+  /** Lays the banner out for the window's scale. */
+  layout(size, scale) {
+    if (this.el !== null) {
+      Object.assign(this.el.style, bannerStyle(size, scale));
+    }
+  }
+  /** The announcement showing, its lines joined by newlines, or undefined. */
+  get text() {
+    return this.el === null || this.el.hidden ? void 0 : this.el.textContent;
+  }
+  /** The font the banner is set in, as the page computes it. */
+  get font() {
+    return this.el === null ? "" : getComputedStyle(this.el).fontFamily;
   }
 };
 
@@ -6907,10 +6955,11 @@ var SandboxScene = class extends Phaser14.Scene {
   missionArrow;
   missionLabel;
   eventLabel;
-  missionBanner;
-  missionFrame;
+  /** The announcement banner, a page element over everything (#272, decision 3). */
+  announcement = new AnnouncementView();
   announcedMission;
-  missionBannerUntil = 0;
+  /** When the announcement showing ends, or undefined while none shows. */
+  announcementUntil;
   downPanel;
   /** Whether the ship was down last frame and was respawned since, to count revives. */
   wasDown = false;
@@ -7132,23 +7181,17 @@ var SandboxScene = class extends Phaser14.Scene {
       net.banners.push(missionBanner(mission));
     }
     this.announcedMission = mission;
-    if (this.missionBanner.visible && time <= this.missionBannerUntil) {
+    if (this.announcementUntil !== void 0 && time <= this.announcementUntil) {
       return;
     }
     const next = net.banners.shift();
-    this.missionBanner.setVisible(next !== void 0);
-    this.missionFrame.setVisible(next !== void 0);
     if (next !== void 0) {
-      this.missionBanner.setText(next);
-      this.drawMissionFrame();
-      this.missionBannerUntil = time + MISSION_BANNER_MS;
+      this.announcement.show(next);
+      this.announcementUntil = time + MISSION_BANNER_MS;
+    } else if (this.announcementUntil !== void 0) {
+      this.announcement.hide();
+      this.announcementUntil = void 0;
     }
-  }
-  /** The banner's black, see-through box with a thin gold border, fitted around its text. */
-  drawMissionFrame() {
-    const b = this.missionBanner.getBounds();
-    const line = MISSION_BANNER_BORDER_PX * this.dpr();
-    this.missionFrame.clear().fillStyle(0, MISSION_BANNER_ALPHA).fillRect(b.x, b.y, b.width, b.height).lineStyle(line, MISSION_COLOR, 1).strokeRect(b.x + line / 2, b.y + line / 2, b.width - line, b.height - line);
   }
   /**
    * The arrows at the screen's edge: gold toward the squadron's mission (#101),
@@ -7331,14 +7374,6 @@ var SandboxScene = class extends Phaser14.Scene {
       backgroundColor: "#05030acc"
     }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
     main.ignore(this.downPanel);
-    this.missionFrame = this.add.graphics().setVisible(false);
-    this.missionBanner = this.add.text(0, 0, "", {
-      fontFamily: UI_FONT,
-      fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
-      color: MISSION_CSS,
-      align: "center"
-    }).setOrigin(0.5, 0).setShadow(1, 1, "#000000", 0).setVisible(false);
-    main.ignore([this.missionFrame, this.missionBanner]);
     this.bossBar = new BossBarView(this, (object) => main.ignore(object));
     this.missionArrow = this.add.graphics();
     this.missionLabel = this.add.text(0, 0, "", { fontFamily: UI_FONT, fontSize: "12px", color: MISSION_CSS }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
@@ -7539,7 +7574,7 @@ var SandboxScene = class extends Phaser14.Scene {
       this.maps.draw(state, net?.mapName ?? "", now2);
     }
     const alpha = this.maps.open ? 0 : 1;
-    for (const o of [this.hud, this.missionBanner, this.missionFrame, this.missionArrow, this.missionLabel, this.eventLabel]) {
+    for (const o of [this.hud, this.missionArrow, this.missionLabel, this.eventLabel]) {
       o.setAlpha(alpha);
     }
   }
@@ -7902,8 +7937,12 @@ ${modeName(info)}`,
   }
   /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   dpr() {
-    const ratio = renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
+    const ratio = this.cssRatio();
     return this.touchOn ? touchUnit(this.scale.height, ratio) : ratio;
+  }
+  /** The canvas pixels per CSS pixel. */
+  cssRatio() {
+    return renderRatio(window.devicePixelRatio > 0 ? window.devicePixelRatio : 1, this.displaySettings.cssPixels);
   }
   /** Fits a loadout, each part at the tier this player owns it at. */
   fit(loadout) {
@@ -7938,8 +7977,10 @@ ${modeName(info)}`,
     this.maps.resize(width, height, dpr);
     this.bossBar.resize(width, dpr);
     this.downPanel.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * DOWN_PANEL_Y);
-    this.missionBanner.setFontSize(DOWN_PANEL_FONT_PX * dpr).setPadding(DOWN_PANEL_PADDING_X * dpr, DOWN_PANEL_PADDING_Y * dpr).setPosition(width / 2, height * MISSION_BANNER_Y);
-    this.drawMissionFrame();
+    this.announcement.layout(
+      { fontPx: DOWN_PANEL_FONT_PX, paddingXPx: DOWN_PANEL_PADDING_X, paddingYPx: DOWN_PANEL_PADDING_Y },
+      dpr / this.cssRatio()
+    );
     for (const { sprite } of this.backgrounds) {
       sprite.setPosition(width / 2, height / 2).setSize(Math.ceil(width / zoom), Math.ceil(height / zoom));
     }
@@ -8540,8 +8581,8 @@ ${modeName(info)}`,
     this.debug.lastClear = this.net?.lastClear;
     this.debug.clearedSectors = this.net?.status === "online" ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
-    this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
-    this.debug.missionBannerFont = this.missionBanner.style.fontFamily;
+    this.debug.missionBanner = this.announcement.text;
+    this.debug.missionBannerFont = this.announcement.font;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;
