@@ -164,20 +164,31 @@ func (h *Hub) dockDownedCompanions(owner string, m *member) {
 	}
 }
 
-// upSquadmateNear reports whether a ship up in the owner's squadron is
-// within sim.CompanionWaitRadius of (x, y): another player, theirs or one
-// of the owner's companions, but not the owner's own ship.
+// upSquadmateNear reports whether a ship up in the owner's squadron may
+// revive a companion downed at (x, y): another player within
+// sim.CompanionWaitRadius, who can choose to fly over, or a companion, the
+// owner's or a squadmate's, that sim.ComesToRevive. The owner's own ship
+// doesn't count.
 func (h *Hub) upSquadmateNear(owner string, m *member, x, y float64) bool {
-	near := func(fx, fy float64) bool {
-		return math.Hypot(fx-x, fy-y) <= sim.CompanionWaitRadius
+	comes := func(mate *member) bool {
+		for _, c := range mate.wing.Companions {
+			if !c.Ship.Downed() && sim.ComesToRevive(c.Ship, mate.wing.OrdersFor(c), x, y) {
+				return true
+			}
+		}
+
+		return false
 	}
-	for _, f := range h.othersThan(owner) {
-		if f.Squadmate && !f.Downed && near(f.X, f.Y) {
+	if comes(m) {
+		return true
+	}
+	for _, id := range h.squadmates(owner, m) {
+		mate := h.members[id]
+		if s := mate.state; s != nil && !downed(s) &&
+			math.Hypot(float64(s.GetX())-x, float64(s.GetY())-y) <= sim.CompanionWaitRadius {
 			return true
 		}
-	}
-	for _, c := range m.wing.Companions {
-		if !c.Ship.Downed() && near(c.Ship.X, c.Ship.Y) {
+		if comes(mate) {
 			return true
 		}
 	}

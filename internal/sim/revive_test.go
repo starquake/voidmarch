@@ -336,6 +336,56 @@ func TestWing_CompanionsRescueADerelict(t *testing.T) {
 	}
 }
 
+func TestComesToRevive(t *testing.T) {
+	t.Parallel()
+
+	oneShot := func(kind OneShotKind) Orders {
+		o := DefaultOrders()
+		o.OneShot = OneShot{Kind: kind}
+
+		return o
+	}
+	for _, tc := range []struct {
+		name   string
+		orders Orders
+		// from is how far the companion starts from the downed squadmate.
+		from float64
+		want bool
+	}{
+		{name: "escort in range", orders: DefaultOrders(), from: 250, want: true},
+		{name: "attack in range", orders: ModeOrders(ModeAttack, DefaultOrders(), 0, 0), from: 250, want: true},
+		{name: "guard in range", orders: ModeOrders(ModeGuard, DefaultOrders(), 0, 0), from: 250, want: true},
+		{name: "escort out of range", orders: DefaultOrders(), from: 500},
+		{name: "hold in range", orders: ModeOrders(ModeHold, DefaultOrders(), 1250, 1000), from: 250},
+		{name: "stealth in range", orders: ModeOrders(ModeStealth, DefaultOrders(), 0, 0), from: 250},
+		{name: "regrouping in range", orders: oneShot(OneShotRegroup), from: 250},
+		{name: "going home in range", orders: oneShot(OneShotGoHome), from: 250},
+		{name: "shielding nobody in range", orders: oneShot(OneShotShieldMe), from: 250, want: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// The owner is far below, so only a revive brings it over.
+			const downX, downY = 1000.0, 1000.0
+			var w Wing
+			c := w.Add(1, downX+tc.from, downY, tc.orders)
+			if got := ComesToRevive(c.Ship, tc.orders, downX, downY); got != tc.want {
+				t.Errorf("ComesToRevive() = %v, want %v", got, tc.want)
+			}
+			owner := Mover{X: downX + tc.from, Y: downY + 2000, Angle: -math.Pi / 2}
+			down := []Friend{{X: downX, Y: downY, Squadmate: true, Downed: true}}
+			for range 4 * TickRate {
+				w.Observe(owner)
+				w.Step(nil, down)
+			}
+			if came := dist(c.Ship.X, c.Ship.Y, downX, downY) <= BrainSpacing+5; came != tc.want {
+				t.Errorf("%v from the downed squadmate; came over %v, want %v",
+					dist(c.Ship.X, c.Ship.Y, downX, downY), came, tc.want)
+			}
+		})
+	}
+}
+
 func TestWing_ADownedSquadmateComesBeforeADerelict(t *testing.T) {
 	t.Parallel()
 

@@ -125,25 +125,79 @@ func TestDowned_RespawnHomeDocksADownedCompanion(t *testing.T) {
 	}
 }
 
+// flyOutWithCompanion has b fetch b/1 from home and fly it out to (x, y),
+// beside the downed a/1. a keeps out of revive reach, and in Stealth b/1
+// doesn't revive it.
+func flyOutWithCompanion(
+	t *testing.T,
+	a, b *Session,
+	tick func(int),
+	down *pb.ShipState,
+	x, y float32,
+) {
+	t.Helper()
+
+	b.Send(state(0, 180))
+	grant(t, b)
+	var snap *pb.Snapshot
+	for range 5 * TickRate {
+		b.Send(state(x, y))
+		snap, _ = latest(t, a, tick, 1, down.GetX(), down.GetY()-600)
+		drain(b)
+	}
+	down = companion(snap)
+	mate := shipOf(snap, "b/1")
+	d := math.Hypot(float64(mate.GetX()-down.GetX()), float64(mate.GetY()-down.GetY()))
+	if mate.GetDamage() >= sim.MaxDamage || d > sim.BrainReviveRange {
+		t.Fatalf(
+			"b/1 at damage %d, %v px from a/1: want it up and in revive range",
+			mate.GetDamage(),
+			d,
+		)
+	}
+}
+
 func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 	t.Parallel()
 
+	const (
+		escort = pb.CompanionMode_COMPANION_MODE_ESCORT
+		hold   = pb.CompanionMode_COMPANION_MODE_HOLD
+		// stealth is no order: companionDown left the squadron in Stealth.
+		stealth = pb.CompanionMode_COMPANION_MODE_UNSPECIFIED
+	)
 	tests := []struct {
 		name string
 		// near is b's offset from the downed a/1, or 0 for b staying away.
 		near float32
 		// mate puts b in a's squadron, and bDown sends b down.
 		mate, bDown bool
-		// second gives a another companion, up, which stays near a/1.
-		second bool
-		stays  bool
+		// bCompanion gives b a companion, up beside b.
+		bCompanion bool
+		// second gives a another companion, up, flown out with a this far
+		// above a/1, or 0 for none.
+		second float32
+		// mode is ordered to the squadron's companions just before H.
+		mode  pb.CompanionMode
+		stays bool
 	}{
 		{name: "alone", near: 0},
 		{name: "squadmate up within reach", near: 400, mate: true, stays: true},
 		{name: "squadmate up out of reach", near: 1200, mate: true},
 		{name: "player up outside the squadron", near: 400},
 		{name: "squadmate down within reach", near: 400, mate: true, bDown: true},
-		{name: "own companion up within reach", second: true, stays: true},
+		{name: "own companion escorting within reach", second: 250, mode: escort, stays: true},
+		{name: "own companion escorting out of reach", second: 650, mode: escort},
+		{name: "own companion holding within reach", second: 250, mode: hold},
+		{name: "own companion in stealth within reach", second: 250, mode: stealth},
+		{
+			name: "squadmate's companion escorting within reach", near: 250, mate: true,
+			bDown: true, bCompanion: true, mode: escort, stays: true,
+		},
+		{
+			name: "squadmate's companion in stealth within reach", near: 250, mate: true,
+			bDown: true, bCompanion: true, mode: stealth,
+		},
 	}
 
 	for _, tc := range tests {
@@ -155,22 +209,24 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 			a.Send(state(0, 180))
 			grant(t, a)
 			down := companionDown(t, a, tick)
-			if tc.second {
-				// a fetches a/2 from home and flies it out near a/1, not near enough to revive it.
+			var holdX, holdY float32
+			if tc.second != 0 {
+				// a fetches a/2 from home and flies it out near a/1; in Stealth it doesn't revive it.
 				a.Send(state(0, 180))
 				grant(t, a)
-				snap, _ := latest(t, a, tick, 5*TickRate, down.GetX(), down.GetY()-250)
+				snap, _ := latest(t, a, tick, 5*TickRate, down.GetX(), down.GetY()-tc.second)
 				down = companion(snap)
 				other := shipOf(snap, "a/2")
-				d := math.Hypot(
-					float64(other.GetX()-down.GetX()),
-					float64(other.GetY()-down.GetY()),
-				)
-				if other.GetDamage() >= sim.MaxDamage || d > sim.CompanionWaitRadius/2 {
+				holdX, holdY = other.GetX(), other.GetY()
+				d := math.Hypot(float64(holdX-down.GetX()), float64(holdY-down.GetY()))
+				far := tc.second > sim.BrainReviveRange
+				if other.GetDamage() >= sim.MaxDamage || (d > sim.BrainReviveRange) != far ||
+					d > sim.CompanionWaitRadius {
 					t.Fatalf(
-						"a/2 at damage %d, %v px from a/1: want it up and near",
+						"a/2 at damage %d, %v px from a/1: want it up, past revive range %v",
 						other.GetDamage(),
 						d,
+						far,
 					)
 				}
 			}
@@ -182,6 +238,9 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 				}
 				chooseAndWait(t, b, squadron)
 				x, y := down.GetX()+tc.near, down.GetY()
+				if tc.bCompanion {
+					flyOutWithCompanion(t, a, b, tick, down, x, y)
+				}
 				if tc.bDown {
 					b.Send(downAt(x, y))
 				} else {
@@ -190,6 +249,12 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 			}
 
 			a.Send(state(0, sim.HomeSpawnY))
+			if tc.mode != stealth {
+				order := &pb.SquadronOrder{Mode: tc.mode, X: holdX, Y: holdY}
+				a.Send(
+					&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: order}},
+				)
+			}
 			a.Send(respawnHome)
 			if got := !dockedWithin(t, a, tick, TickRate); got != tc.stays {
 				t.Errorf("a/1 stayed down = %v, want %v", got, tc.stays)
