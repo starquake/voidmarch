@@ -343,8 +343,13 @@ snap_main(){ gh run list -R $R --branch main --workflow CI --limit 1 \
 snap_head(){ gh api repos/$R/commits/main --jq '.sha' 2>/dev/null; }
 
 # Guard the initialisation too: a failed first call would start from a lie.
-# An empty board is not a failure, so wait only on the call itself.
-until prev_s=$(snap_board); do sleep 30; done
+# An empty board is not a failure, so wait only on the call itself. A paged
+# read can also come back short without failing (#295): count the cards, start
+# from the larger of two reads, and skip any later read well under the most seen.
+cards(){ printf '%s\n' "$1" | grep -c '|'; }
+until prev_s=$(snap_board) && again=$(snap_board); do sleep 30; done
+[ "$(cards "$again")" -gt "$(cards "$prev_s")" ] && prev_s=$again
+most=$(cards "$prev_s")
 prev_l=$(snap_label "ready to merge"); prev_h=$(snap_hold); prev_main=$(snap_main)
 prev_head=$(snap_head); ticks=0
 while true; do
@@ -380,6 +385,8 @@ while true; do
 
   # Board Status, every transition. Moves board.sh made are consumed and skipped.
   if ! cur_s=$(snap_board) || { [ -z "$cur_s" ] && [ -n "$prev_s" ]; }; then since=$now; continue; fi
+  if [ "$(cards "$cur_s")" -lt $((most - 5)) ]; then since=$now; continue; fi
+  [ "$(cards "$cur_s")" -gt "$most" ] && most=$(cards "$cur_s")
   printf '%s\n' "$cur_s" | while IFS='|' read -r n st; do
     [ -z "$n" ] && continue
     was=$(printf '%s\n' "$prev_s" | awk -F'|' -v k="$n" '$1==k{print $2}')
@@ -412,6 +419,9 @@ Why it's shaped like this:
   poll that exceeds the 5,000-points-an-hour GraphQL budget.
 - **A failed poll is not an empty board.** Keep `|| true` on output that is
   emitted, and drop it from snapshots that are compared.
+- **A short poll is not removed cards.** A paged read can succeed with only
+  part of the board, and the next full one then reports every missing card as
+  added (#295). A reading more than 5 cards under the most seen is skipped.
 - **Never report your own board writes.** `board.sh state` records each write,
   and the monitor consumes one matching entry per transition. Consuming, rather
   than just matching, keeps a later genuine move to the same state visible.
