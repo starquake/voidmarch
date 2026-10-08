@@ -283,6 +283,18 @@ number goes up, and the biggest kind wins:
 The tickets for a release are planned in a GitHub milestone named after its
 version.
 
+Each environment is one step more stable than the one before:
+
+- **development** runs `main`: every merge deploys it. A pull request labeled
+  `deploy:dev` can take its place until the next merge.
+- **staging** runs a release candidate, tagged before the release:
+  `v1.0.0-rc.1`, then `v1.0.0-rc.2` if something needs fixing. It stays there
+  until the next one. A release candidate gets only its own image tag
+  (`1.0.0-rc.1`, never `1.0` or `latest`), and its GitHub release is marked as
+  a pre-release.
+- **production** runs the release. Once the last release candidate is good,
+  its commit is tagged as the release (`v1.0.0`).
+
 ## Configuration
 
 | Variable  | Default      | Meaning |

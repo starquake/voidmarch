@@ -1,4 +1,5 @@
-# Development: the PR labeled deploy:dev, an unsigned :pr-<n> build. Safe to wipe.
+# Development: main's :edge, or the PR labeled deploy:dev as an unsigned
+# :pr-<n> build, whichever deployed last. Safe to wipe.
 # No host port: SWAG reaches the container by name on the web network.
 services:
   voidmarch-development:

@@ -202,7 +202,7 @@ answer given in chat is written back into the issue body before acting on it.
   themselves: `.github/workflows/dependabot-auto-merge.yml` squash-merges each
   once the required checks pass. Its merge starts no workflows, so the same
   workflow then dispatches CI on `main`, which publishes `:edge` and deploys
-  staging. Claude never merges one by hand and never adds
+  development. Claude never merges one by hand and never adds
   `ready to merge` to one. It keeps them mergeable: one left behind `main` is
   rebased locally and force-pushed, and a `frontend/` bump that fails only on
   bundle drift gets the rebuilt bundle committed onto its branch, and one that
@@ -400,10 +400,12 @@ A required context that no job produces blocks every PR.
 ## Deployment
 
 `.github/workflows/deploy.yml` deploys to one VPS behind SWAG
-(`deployments/README.md` has the server's setup): staging from `main`'s
-`:edge`, production from a `v*.*.*` tag (`ci.yml`'s `promote` retags main's
-signed image, no rebuild), and development from a PR labeled `deploy:dev`.
-Staging and production only run images `ci.yml` signed on `main`. Tags and
+(`deployments/README.md` has the server's setup), each environment one step
+more stable (#316): development from `main`'s `:edge` on every merge, or a PR
+labeled `deploy:dev` until the next merge; staging from a `vX.Y.Z-rc.N`
+release candidate tag; production from a `vX.Y.Z` tag. A tag doesn't rebuild:
+`ci.yml`'s `promote` retags main's signed image. Staging, production and
+development's `:edge` only run images `ci.yml` signed on `main`. Tags and
 releases are the maintainer's to make, numbered as the README's Versions
 section says.
 
