@@ -65,7 +65,7 @@ jobs:
           node-version: lts/*
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: make js-check build ts-test test-coverage
+      - run: make js-check build ts-test test-coverage test-scripts
       - name: Read the pinned toolchain versions
         id: toolchains
         run: echo "key=$(make -s toolchain-versions)" >> "$GITHUB_OUTPUT"

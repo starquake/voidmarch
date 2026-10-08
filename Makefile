@@ -55,7 +55,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: check
-check: lint lint-ascii proto-lint proto-check sqlc-check third-party-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
+check: lint lint-ascii proto-lint proto-check sqlc-check third-party-check ts-check ts-lint ts-test js-check wasm-check build test-coverage test-scripts test-tinygo test-wasm-fallback ## Everything CI runs except E2E; run before every PR
 
 # --- Go -----------------------------------------------------------------------
 
@@ -102,6 +102,10 @@ test-coverage: ## All Go tests with a coverage profile in build/coverage
 	@mkdir -p $(COV_DIR)
 	go test -race -coverpkg=$(COVERPKG) -coverprofile=$(COV_DIR)/coverage.out ./...
 	go tool cover -func=$(COV_DIR)/coverage.out | tail -1
+
+.PHONY: test-scripts
+test-scripts: ## Test the deploy workflow's shell scripts
+	bash .github/scripts/image-tag_test.sh
 
 .PHONY: test-coverage-html
 test-coverage-html: test-coverage ## Open the Go coverage report in a browser
