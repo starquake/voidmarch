@@ -20,7 +20,8 @@ export default function globalSetup(): () => void {
     rmSync(dir, { recursive: true, force: true });
   };
   try {
-    execFileSync('go', ['build', '-o', join(dir, BINARY), './cmd/voidmarch'], {
+    // No version control stamp: CI's Firefox job builds as root in a checkout another user owns.
+    execFileSync('go', ['build', '-buildvcs=false', '-o', join(dir, BINARY), './cmd/voidmarch'], {
       cwd: fileURLToPath(new URL('../..', import.meta.url)),
       stdio: 'inherit',
     });
