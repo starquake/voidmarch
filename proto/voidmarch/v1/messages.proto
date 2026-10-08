@@ -447,6 +447,8 @@ message EnemyFired {
   float x = 5;
   float y = 6;
   float angle = 7;
+  // 0 for a volley with no warning of its own: a Dreadnought spiral's bursts
+  // after the first, whose weapon animation plays once (#273).
   uint32 warn_ticks = 8;
   // The firing enemy's faction, which picks its bullets (#136).
   EnemyFaction faction = 9;

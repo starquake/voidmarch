@@ -18,10 +18,12 @@ const (
 	halfSweep = sim.DreadnoughtRaySweep / 2
 	// dreadnoughtFireRange is how close a ship has to come for it to fire.
 	dreadnoughtFireRange = 520
-	// dreadnoughtVolleyGap is the wait after a ring or a Wave spread, and
-	// dreadnoughtBeamGap between the beams of a Ray sweep.
-	dreadnoughtVolleyGap   = 2 * TickRate
-	dreadnoughtBeamGap     = 6
+	// dreadnoughtVolleyGap is the wait after a ring, a Wave spread or a
+	// spiral, and dreadnoughtBeamGap between the beams of a Ray sweep.
+	dreadnoughtVolleyGap = 2 * TickRate
+	dreadnoughtBeamGap   = 6
+	// spiralCooldown is the ticks skipped between a spiral's bursts.
+	spiralCooldown         = max(int(sim.DreadnoughtSpiralEvery*TickRate)-1, 0)
 	dreadnoughtShieldTicks = sim.DreadnoughtShieldDelay * TickRate
 	// dreadnoughtDerelictRing is how far from the wreck its fall's derelicts wait.
 	dreadnoughtDerelictRing = 140
@@ -35,21 +37,27 @@ const (
 )
 
 // dreadnoughtFight is the Dreadnought's state beyond an enemy's: its
-// shield, which volley comes next, and its health, as the share of its
-// maximum left and the weight of the players online that the maximum
+// shield, where it is in its turn of volleys, and its health, as the share
+// of its maximum left and the weight of the players online that the maximum
 // follows (#132).
 type dreadnoughtFight struct {
 	// sector is the sector it holds.
 	sector  sim.Sector
 	shield  int
 	lastHit uint32
-	next    sim.DreadnoughtVolley
-	// beams is how many beams of a Ray sweep are left, fired from
-	// across the sweep.
+	// turn is how many volleys of its turn (sim.DreadnoughtTurn) it has
+	// taken.
+	turn int
+	// beams is how many beams of a Ray sweep are left, and bursts how many
+	// bursts of a spiral; from is the angle the sweep started at.
 	beams  int
+	bursts int
 	from   float64
-	share  float64
-	weight float64
+	// reversed is whether its latest spiral turned the negative way; the
+	// next one turns the other (#273).
+	reversed bool
+	share    float64
+	weight   float64
 	// dealt is each ship's damage to it in its current minute of fighting,
 	// by player id or companion seat, for the log (#223).
 	dealt map[string]*dealing
@@ -248,8 +256,9 @@ func (h *Hub) sleepDreadnought() {
 }
 
 // stepDreadnought scales it to the players online, regenerates it,
-// recharges its shield, and fires its volleys in turn at the nearest ship in
-// range.
+// recharges its shield, and fires its volleys in turn once a ship is in
+// range, all but the spiral at the nearest one. A spiral, once started, runs
+// out whether or not a ship stays in range.
 func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 	f := e.dread
 	e.lastNear = h.tick
@@ -268,12 +277,18 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 
 		return
 	}
+	if f.bursts > 0 {
+		h.spiralBurst(e)
+
+		return
+	}
 	target, distance, found := nearest(e, shipPoints(ships))
 	if !found || distance > dreadnoughtFireRange {
 		return
 	}
 	e.angle = math.Atan2(target.y-e.y, target.x-e.x)
-	switch f.next {
+	turn := sim.DreadnoughtTurn(e.faction)
+	switch turn[f.turn%len(turn)] {
 	case sim.DreadnoughtRay:
 		if f.beams == 0 {
 			f.beams, f.from = sim.DreadnoughtRayBeams, e.angle-halfSweep
@@ -283,20 +298,52 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 		f.beams--
 		e.cooldown = dreadnoughtGap(e.faction, dreadnoughtBeamGap)
 		if f.beams == 0 {
-			f.next, e.cooldown = sim.DreadnoughtWave, dreadnoughtGap(
-				e.faction,
-				dreadnoughtVolleyGap,
-			)
+			f.nextVolley(e)
 		}
+	case sim.DreadnoughtSpiral:
+		f.bursts, f.reversed = sim.DreadnoughtSpiralBursts, !f.reversed
+		h.spiralBurst(e)
 	case sim.DreadnoughtWave:
 		h.fireVolley(e, e.angle, sim.DreadnoughtWave)
-		f.next, e.cooldown = sim.DreadnoughtRing, dreadnoughtGap(e.faction, dreadnoughtVolleyGap)
+		f.nextVolley(e)
 	case sim.DreadnoughtRing:
 		fallthrough
 	default:
 		h.fireVolley(e, e.angle, sim.DreadnoughtRing)
-		f.next, e.cooldown = sim.DreadnoughtRay, dreadnoughtGap(e.faction, dreadnoughtVolleyGap)
+		f.nextVolley(e)
 	}
+}
+
+// spiralBurst fires the spiral's next burst, a step further round its
+// turn from straight up, or holds it for a pause (#273). Only the first
+// warns: restarting the weapon animation every burst would hold it on its
+// first frames.
+func (h *Hub) spiralBurst(e *enemy) {
+	f := e.dread
+	burst := sim.DreadnoughtSpiralBursts - f.bursts
+	way := 1
+	if f.reversed {
+		way = -1
+	}
+	angle := sim.DreadnoughtSpiralAngle(burst, way)
+	switch {
+	case !sim.DreadnoughtSpiralFires(burst):
+	case burst == 0:
+		h.fireAt(e, angle, sim.DreadnoughtSeed(h.rng.Uint32(), sim.DreadnoughtSpiral))
+	default:
+		h.fireUnwarned(e, angle, sim.DreadnoughtSeed(h.rng.Uint32(), sim.DreadnoughtSpiral))
+	}
+	f.bursts--
+	e.cooldown = spiralCooldown
+	if f.bursts == 0 {
+		f.nextVolley(e)
+	}
+}
+
+// nextVolley moves e on to its turn's next volley, after the wait.
+func (f *dreadnoughtFight) nextVolley(e *enemy) {
+	f.turn++
+	e.cooldown = dreadnoughtGap(e.faction, dreadnoughtVolleyGap)
 }
 
 // dreadnoughtGap is ticks shortened by faction's shots multiplier, so the

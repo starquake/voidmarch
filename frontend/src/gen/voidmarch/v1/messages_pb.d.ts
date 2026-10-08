@@ -1360,6 +1360,9 @@ export declare type EnemyFired = Message<"voidmarch.v1.EnemyFired"> & {
   angle: number;
 
   /**
+   * 0 for a volley with no warning of its own: a Dreadnought spiral's bursts
+   * after the first, whose weapon animation plays once (#273).
+   *
    * @generated from field: uint32 warn_ticks = 8;
    */
   warnTicks: number;
