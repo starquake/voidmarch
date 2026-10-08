@@ -164,7 +164,6 @@ export class Connection {
     this.welcomed = false;
   }
 
-  /** Sends the ship's state at most at the server's tick rate; the hub flies the companions. */
   /** Sends the ship's state past the throttle, for a change the server must not miss, such as a fitted part (#110). */
   sendStateNow(ship: Ship): void {
     if (this.welcomed) {
@@ -172,11 +171,16 @@ export class Connection {
     }
   }
 
+  /** Sends the ship's state at the server's tick rate; the hub flies the companions. */
   sendState(ship: Ship, nowMs: number): void {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
-    this.lastStateAt = nowMs;
+    // Paced from the last send, not this frame, so a 60 Hz display still sends at the tick rate (#232).
+    this.lastStateAt += this.stateIntervalMs;
+    if (nowMs - this.lastStateAt >= this.stateIntervalMs) {
+      this.lastStateAt = nowMs;
+    }
     this.send(create(ClientMessageSchema, { kind: { case: 'state', value: toShipState(ship) } }));
   }
 

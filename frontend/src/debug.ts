@@ -53,7 +53,8 @@ export interface DebugState {
   fpsCap: boolean;
   cssPixels: boolean;
   weaponFrame: number;
-  net: { status: NetStatus; playerId: string | undefined; others: RemoteDebug[] };
+  /** Where the game is with the server; how far in the past others are drawn, and the delay it heads for, in ticks (#232). */
+  net: { status: NetStatus; playerId: string | undefined; others: RemoteDebug[]; delayTicks: number; targetDelayTicks: number };
   enemies: EnemyDebug[];
   /** The last enemies that left the page, and whether each exploded or went quietly, out of range (#231). */
   enemiesGone: EnemyGone[];

@@ -254,6 +254,30 @@ test('state is sent at most at the tick rate, and only once welcomed', () => {
   assert.equal(states[0]?.kind.case === 'state' ? states[0].kind.value.x : 0, 5);
 });
 
+test('state goes out at the tick rate whatever the display rate', () => {
+  for (const hz of [60, 120, 144]) {
+    const { conn, socket } = welcomed();
+    const ship = createShip(5, 6);
+    for (let frame = 0; frame < hz * 10; frame++) {
+      // Frames come up to half a millisecond early or late.
+      conn.sendState(ship, 1000 + (frame * 1000) / hz + (((frame * 7919) % 11) - 5) / 10);
+    }
+    const sent = socket.messages().filter((m) => m.kind.case === 'state').length;
+    assert.ok(sent >= 199 && sent <= 200, `${String(sent)} states in 10 s at ${String(hz)} Hz`);
+  }
+});
+
+test('a send held up by a long frame does not burst to catch up', () => {
+  const { conn, socket } = welcomed();
+  const ship = createShip(5, 6);
+  conn.sendState(ship, 1000);
+  conn.sendState(ship, 1500); // a long frame
+  conn.sendState(ship, 1517);
+  conn.sendState(ship, 1534);
+  conn.sendState(ship, 1550);
+  assert.equal(socket.messages().filter((m) => m.kind.case === 'state').length, 3);
+});
+
 test('a state sent now skips the throttle, once welcomed', () => {
   const { conn, sockets } = setup();
   conn.start();

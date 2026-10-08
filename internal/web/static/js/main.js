@@ -3976,6 +3976,111 @@ function bossBar(bosses, x, y) {
   };
 }
 
+// src/net/clock.ts
+var ServerClock = class _ServerClock {
+  offset;
+  ticksPerMs;
+  constructor(tickRate) {
+    this.ticksPerMs = tickRate / 1e3;
+  }
+  /** How far a stale estimate may fall back per report, in ticks. */
+  static DRIFT = 0.05;
+  /** Records that the server was at tick when a report arrived at nowMs. */
+  observe(tick, nowMs) {
+    const sample = tick - nowMs * this.ticksPerMs;
+    this.offset = this.offset === void 0 ? sample : Math.max(sample, this.offset - _ServerClock.DRIFT);
+  }
+  /** The estimated server tick at nowMs, fractional; undefined before any report. */
+  tickAt(nowMs) {
+    return this.offset === void 0 ? void 0 : this.offset + nowMs * this.ticksPerMs;
+  }
+};
+
+// src/net/delay.ts
+var MIN_DELAY_TICKS = 2;
+var MAX_DELAY_TICKS = 5;
+var WINDOW = 200;
+var PERCENTILE = 0.95;
+var DelayEstimator = class {
+  late = [];
+  next = 0;
+  cached = MIN_DELAY_TICKS;
+  /** Records how many ticks after the clock's estimate a snapshot arrived. */
+  observe(lateTicks) {
+    if (this.late.length < WINDOW) {
+      this.late.push(lateTicks);
+    } else {
+      this.late[this.next] = lateTicks;
+      this.next = (this.next + 1) % WINDOW;
+    }
+    const sorted = [...this.late].sort((a, b) => a - b);
+    const p = sorted[Math.floor(PERCENTILE * (sorted.length - 1))] ?? 0;
+    this.cached = Math.min(MAX_DELAY_TICKS, Math.max(MIN_DELAY_TICKS, p + 1));
+  }
+  /** The delay to draw at, in ticks. */
+  get target() {
+    return this.cached;
+  }
+};
+
+// src/net/timeline.ts
+var MAX_SLOWDOWN = 0.1;
+var MAX_SPEEDUP = 0.05;
+var SNAP_TICKS = 20;
+function delayLine(delayTicks, targetTicks) {
+  return `delay ${delayTicks.toFixed(1)} / ${targetTicks.toFixed(1)} ticks`;
+}
+var Timeline = class {
+  clock;
+  estimator;
+  ticksPerMs;
+  render;
+  lastDelay = 0;
+  constructor(tickRate) {
+    this.clock = new ServerClock(tickRate);
+    this.estimator = new DelayEstimator();
+    this.ticksPerMs = tickRate / 1e3;
+  }
+  /** Records a report of the server's tick (a snapshot, a welcome) that arrived at nowMs. */
+  snapshot(tick, nowMs) {
+    const expected = this.clock.tickAt(nowMs);
+    if (expected !== void 0) {
+      this.estimator.observe(Math.max(0, expected - tick));
+    }
+    this.clock.observe(tick, nowMs);
+  }
+  /** The estimated server tick at nowMs; undefined before any report. */
+  serverTick(nowMs) {
+    return this.clock.tickAt(nowMs);
+  }
+  /** The tick to draw others at, at nowMs; undefined before any report. It never goes back. */
+  renderTick(nowMs) {
+    const serverTick = this.clock.tickAt(nowMs);
+    if (serverTick === void 0) {
+      return void 0;
+    }
+    const goal = serverTick - this.estimator.target;
+    const render = this.render;
+    if (render === void 0 || goal - render.tick > SNAP_TICKS) {
+      this.render = { tick: goal, atMs: nowMs };
+    } else {
+      const elapsed = Math.max(0, nowMs - render.atMs) * this.ticksPerMs;
+      const step = Math.min(elapsed * (1 + MAX_SPEEDUP), Math.max(elapsed * (1 - MAX_SLOWDOWN), goal - render.tick));
+      this.render = { tick: render.tick + step, atMs: Math.max(nowMs, render.atMs) };
+    }
+    this.lastDelay = serverTick - this.render.tick;
+    return this.render.tick;
+  }
+  /** How far behind the server the last frame was drawn, in ticks. */
+  get delay() {
+    return this.lastDelay;
+  }
+  /** The delay the render clock is heading for, in ticks. */
+  get target() {
+    return this.estimator.target;
+  }
+};
+
 // src/scenes/audio.ts
 import Phaser4 from "./vendor/phaser.js";
 
@@ -4409,26 +4514,6 @@ var FieldGlow = class {
   }
 };
 
-// src/net/clock.ts
-var ServerClock = class _ServerClock {
-  offset;
-  ticksPerMs;
-  constructor(tickRate) {
-    this.ticksPerMs = tickRate / 1e3;
-  }
-  /** How far a stale estimate may fall back per report, in ticks. */
-  static DRIFT = 0.05;
-  /** Records that the server was at tick when a report arrived at nowMs. */
-  observe(tick, nowMs) {
-    const sample = tick - nowMs * this.ticksPerMs;
-    this.offset = this.offset === void 0 ? sample : Math.max(sample, this.offset - _ServerClock.DRIFT);
-  }
-  /** The estimated server tick at nowMs, fractional; undefined before any report. */
-  tickAt(nowMs) {
-    return this.offset === void 0 ? void 0 : this.offset + nowMs * this.ticksPerMs;
-  }
-};
-
 // src/net/connection.ts
 import { create as create2 } from "./vendor/protobuf.js";
 var CLOSE_UNKNOWN_TOKEN = 4001;
@@ -4473,18 +4558,21 @@ var Connection = class {
     this.socket = void 0;
     this.welcomed = false;
   }
-  /** Sends the ship's state at most at the server's tick rate; the hub flies the companions. */
   /** Sends the ship's state past the throttle, for a change the server must not miss, such as a fitted part (#110). */
   sendStateNow(ship) {
     if (this.welcomed) {
       this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
     }
   }
+  /** Sends the ship's state at the server's tick rate; the hub flies the companions. */
   sendState(ship, nowMs) {
     if (!this.welcomed || nowMs - this.lastStateAt < this.stateIntervalMs) {
       return;
     }
-    this.lastStateAt = nowMs;
+    this.lastStateAt += this.stateIntervalMs;
+    if (nowMs - this.lastStateAt >= this.stateIntervalMs) {
+      this.lastStateAt = nowMs;
+    }
     this.send(create2(ClientMessageSchema, { kind: { case: "state", value: toShipState(ship) } }));
   }
   /** Joins the named squadron, or starts a new one when name is empty. */
@@ -4703,13 +4791,30 @@ var Connection = class {
 };
 
 // src/net/interpolation.ts
-var INTERPOLATION_DELAY_TICKS = 2;
 var MAX_SAMPLES = 32;
+var MAX_EXTRAPOLATION_TICKS = 3;
+var BLEND_TICKS = 2;
+var MAX_BLEND_PX = 150;
+function repeats(a, b) {
+  return (a.vx !== 0 || a.vy !== 0) && a.x === b.x && a.y === b.y && a.vx === b.vx && a.vy === b.vy && a.angle === b.angle;
+}
 var StateBuffer = class {
   samples = [];
+  ticksPerSecond;
+  /** The tick drawn last and where sampling put it then, to see a newer snapshot move it. */
+  drawn;
+  /** What is left of a correction, set at a tick and fading from there. */
+  offset;
+  constructor(tickRate) {
+    this.ticksPerSecond = tickRate;
+  }
+  /**
+   * Adds the state at tick. A moving one where the newest left it is a stale
+   * repeat (the hub had nothing newer), skipped so the step is bridged.
+   */
   push(tick, state) {
     const last = this.samples.at(-1);
-    if (last !== void 0 && tick <= last.tick) {
+    if (last !== void 0 && (tick <= last.tick || repeats(last.state, state))) {
       return;
     }
     this.samples.push({ tick, state });
@@ -4731,7 +4836,11 @@ var StateBuffer = class {
       return first.state;
     }
     if (tick >= last.tick) {
-      return last.state;
+      const seconds = Math.min(tick - last.tick, MAX_EXTRAPOLATION_TICKS) / this.ticksPerSecond;
+      if (seconds === 0 || last.state.vx === 0 && last.state.vy === 0) {
+        return last.state;
+      }
+      return { ...last.state, x: last.state.x + last.state.vx * seconds, y: last.state.y + last.state.vy * seconds };
     }
     let i = this.samples.length - 1;
     while (i > 0 && (this.samples[i - 1]?.tick ?? 0) > tick) {
@@ -4750,6 +4859,35 @@ var StateBuffer = class {
       angle: wrapAngle(a.state.angle + wrapAngle(b.state.angle - a.state.angle) * t)
     };
   }
+  /**
+   * The state to draw this frame at renderTick. Where a newer snapshot moved
+   * the tick drawn last, the difference fades out instead of showing as a jump.
+   */
+  draw(renderTick) {
+    const pose = this.sample(renderTick);
+    if (pose === void 0) {
+      return void 0;
+    }
+    const drawn = this.drawn;
+    const then = drawn === void 0 ? void 0 : this.sample(drawn.tick);
+    if (drawn !== void 0 && then !== void 0 && (then.x !== drawn.x || then.y !== drawn.y)) {
+      const left = this.offsetAt(drawn.tick);
+      const x = left.x + drawn.x - then.x;
+      const y = left.y + drawn.y - then.y;
+      this.offset = Math.hypot(x, y) > MAX_BLEND_PX ? void 0 : { tick: drawn.tick, x, y };
+    }
+    this.drawn = { tick: renderTick, x: pose.x, y: pose.y };
+    const offset = this.offsetAt(renderTick);
+    return offset.x === 0 && offset.y === 0 ? pose : { ...pose, x: pose.x + offset.x, y: pose.y + offset.y };
+  }
+  offsetAt(tick) {
+    const offset = this.offset;
+    const share = offset === void 0 ? 0 : Math.min(1, 1 - (tick - offset.tick) / BLEND_TICKS);
+    if (offset === void 0 || share <= 0) {
+      return { x: 0, y: 0 };
+    }
+    return { x: offset.x * share, y: offset.y * share };
+  }
 };
 
 // src/net/remoteshots.ts
@@ -4761,6 +4899,10 @@ var TimedQueue = class {
   }
   add(tick, item) {
     this.pending.push({ tick, item });
+  }
+  /** Drops what matches before it is due. */
+  remove(match) {
+    this.pending = this.pending.filter((p) => !match(p.item));
   }
   /** Removes and returns what is at or before renderTick, with its age. */
   due(renderTick) {
@@ -5443,6 +5585,8 @@ var NetPlay = class {
   enemyWarnings = new TimedQueue(20);
   destructions = new TimedQueue(20);
   shotEnds = new TimedQueue(20);
+  /** Dropped parts, shown with the explosion of the enemy that dropped them (#232). */
+  pickupDrops = new TimedQueue(20);
   latestSnapshot = 0;
   tickRate = 20;
   /** The last enemies that left the page, oldest first (#231). */
@@ -5474,7 +5618,7 @@ var NetPlay = class {
   development = false;
   /** Pickups this ship reported flying over, until it leaves them. */
   collecting = /* @__PURE__ */ new Set();
-  clock = new ServerClock(20);
+  timeline = new Timeline(20);
   shots = new TimedQueue(20);
   spawned = false;
   constructor(options) {
@@ -5572,7 +5716,7 @@ var NetPlay = class {
         pickupDropped: (dropped) => {
           const pickup = fromPickup(dropped);
           if (pickup !== void 0) {
-            options.pickups.add(pickup, this.unlocks);
+            this.pickupDrops.add(dropped.tick, pickup);
           }
         },
         sectorCleared: (cleared) => {
@@ -5660,6 +5804,14 @@ var NetPlay = class {
       shotsSeen: r.shotsSeen
     }));
   }
+  /** How far in the past the others were last drawn, in ticks (#232). */
+  get delayTicks() {
+    return this.timeline.delay;
+  }
+  /** The delay the timeline heads for, from how late snapshots arrive (#232). */
+  get targetDelayTicks() {
+    return this.timeline.target;
+  }
   /** The latest notice for the HUD, while it lasts. */
   get noticeText() {
     return this.notice !== void 0 && now() < this.notice.untilMs ? this.notice.text : void 0;
@@ -5678,7 +5830,7 @@ var NetPlay = class {
   }
   /** The HUD's line for the world event running, counting down (#102). */
   eventLine(nowMs) {
-    const tick = this.clock.tickAt(nowMs);
+    const tick = this.timeline.serverTick(nowMs);
     return tick === void 0 ? "" : eventLine(this.worldEvent, tick, this.tickRate);
   }
   /** The player's squadron's mission (#101), undefined without one. */
@@ -5926,19 +6078,22 @@ var NetPlay = class {
         this.departingRaiders.delete(view);
       }
     }
-    const serverTick = this.clock.tickAt(nowMs);
-    if (serverTick === void 0) {
+    const serverTick = this.timeline.serverTick(nowMs);
+    const renderTick = this.timeline.renderTick(nowMs);
+    if (serverTick === void 0 || renderTick === void 0) {
       return frame;
     }
-    const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     const reminder = this.attackReminder.check(this.worldEvent, serverTick, this.tickRate);
     if (reminder !== void 0) {
       this.banners.push(reminder);
     }
+    for (const { item: pickup } of this.pickupDrops.due(renderTick)) {
+      this.options.pickups.add(pickup, this.unlocks);
+    }
     this.options.pickups.update(serverTick, this.tickRate);
     this.collect();
     for (const remote of this.remotes.values()) {
-      const ship = remote.buffer.sample(renderTick);
+      const ship = remote.buffer.draw(renderTick);
       remote.drawn = ship;
       if (ship === void 0) {
         continue;
@@ -6072,7 +6227,7 @@ var NetPlay = class {
   }
   drawEnemies(renderTick) {
     for (const enemy of this.enemies.values()) {
-      const pose = enemy.buffer.sample(renderTick);
+      const pose = enemy.buffer.draw(renderTick);
       enemy.drawn = enemy.destroyedAt === void 0 ? pose : void 0;
       if (pose !== void 0) {
         enemy.view.place(pose.x, pose.y, pose.angle);
@@ -6348,10 +6503,10 @@ var NetPlay = class {
     if (welcome.squadron === "") {
       this.pickSquadron(welcome.squadrons);
     }
-    this.clock = new ServerClock(welcome.tickRate);
+    this.timeline = new Timeline(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
-    this.clock.observe(welcome.tick, now());
+    this.timeline.snapshot(welcome.tick, now());
     if (!this.spawned) {
       this.spawned = true;
       this.options.sim.placeShip(welcome.spawnX, welcome.spawnY);
@@ -6403,6 +6558,7 @@ var NetPlay = class {
   }
   /** A pickup is gone; the parts this player gained are theirs now. */
   pickupTaken(taken) {
+    this.pickupDrops.remove((p) => p.id === taken.id);
     this.options.pickups.remove(taken.id);
     this.collecting.delete(taken.id);
     const collector = taken.playerId === this.playerId ? this.name : this.remotes.get(taken.playerId)?.name ?? "a squadmate";
@@ -6434,9 +6590,10 @@ var NetPlay = class {
     this.enemyWarnings = new TimedQueue(tickRate);
     this.destructions = new TimedQueue(tickRate);
     this.shotEnds = new TimedQueue(tickRate);
+    this.pickupDrops = new TimedQueue(tickRate);
   }
   snapshot(snapshot) {
-    this.clock.observe(snapshot.tick, now());
+    this.timeline.snapshot(snapshot.tick, now());
     this.latestSnapshot = snapshot.tick;
     for (const player of snapshot.players) {
       if (player.state === void 0) {
@@ -6461,7 +6618,7 @@ var NetPlay = class {
       if (enemy === void 0) {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
-          buffer: new StateBuffer(),
+          buffer: new StateBuffer(this.tickRate),
           drawn: void 0,
           lastSeen: snapshot.tick,
           destroyedAt: void 0,
@@ -6490,7 +6647,7 @@ var NetPlay = class {
     view.setLabel(scene, ships, label, color, this.options.labelResolution());
     const remote = {
       view,
-      buffer: new StateBuffer(),
+      buffer: new StateBuffer(this.tickRate),
       animator: new WeaponAnimator(weaponTiming("autoCannon")),
       weapon: "autoCannon",
       name,
@@ -7116,7 +7273,7 @@ var SandboxScene = class extends Phaser14.Scene {
         musicVolume: 0,
         fadingMusic: 0
       },
-      net: { status: "offline", playerId: void 0, others: [] },
+      net: { status: "offline", playerId: void 0, others: [], delayTicks: 0, targetDelayTicks: 0 },
       enemies: [],
       enemiesGone: [],
       enemiesDestroyed: 0,
@@ -8511,7 +8668,8 @@ ${modeName(info)}`,
       // The hint is about keys, so a tablet goes without it (#180, decision 6).
       ...this.touchOn ? [] : [KEY_HINT],
       ...this.showFps ? [this.fpsLine()] : [],
-      ...this.diagnostics?.lines() ?? []
+      ...this.diagnostics?.lines() ?? [],
+      ...this.diagnostics !== void 0 && this.net?.status === "online" ? [delayLine(this.net.delayTicks, this.net.targetDelayTicks)] : []
     ]);
     this.layoutHud();
     this.updateHudView();
@@ -8605,6 +8763,8 @@ ${modeName(info)}`,
     this.debug.net.status = this.net?.status ?? "offline";
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
+    this.debug.net.delayTicks = this.net?.delayTicks ?? 0;
+    this.debug.net.targetDelayTicks = this.net?.targetDelayTicks ?? 0;
     this.debug.enemies = this.net?.enemyList ?? [];
     this.debug.enemiesGone = this.net?.enemiesGone ?? [];
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;

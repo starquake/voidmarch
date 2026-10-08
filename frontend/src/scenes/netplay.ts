@@ -20,10 +20,9 @@ import type {
   Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
 import { CompanionMode, CompanionOneShot, WorldEventKind } from '../gen/voidmarch/v1/messages_pb.js';
-import { ServerClock } from '../net/clock.ts';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
-import { INTERPOLATION_DELAY_TICKS, StateBuffer, type Pose } from '../net/interpolation.ts';
+import { StateBuffer, type Pose } from '../net/interpolation.ts';
 import {
   fromCompanionMode,
   fromCompanionOneShot,
@@ -47,6 +46,7 @@ import type { SeasonResult } from '../victory.ts';
 import { missionStatsLine, type PlayerStatsRow } from '../sim/standings.ts';
 import { moveNotice, squadronChoices, type Move, type SquadronScreen } from '../squadrons.ts';
 import { TimedQueue } from '../net/remoteshots.ts';
+import { Timeline } from '../net/timeline.ts';
 import { weaponTiming } from '../sprites.ts';
 import { ENEMY_RADIUS, type EnemyFaction, type EnemyKind } from '../sim/enemies.ts';
 import type { WeaponId } from '../sim/loadout.ts';
@@ -131,17 +131,11 @@ export interface NetPlayOptions {
   pickups: PickupsView;
 }
 
-/** An enemy's pose and velocity, as bumping needs it. */
-interface EnemyPose extends Pose {
-  vx: number;
-  vy: number;
-}
-
 interface Enemy {
   view: EnemyView;
-  buffer: StateBuffer<EnemyPose>;
+  buffer: StateBuffer<Pose>;
   /** Where it was drawn this frame, for bumping. */
-  drawn: EnemyPose | undefined;
+  drawn: Pose | undefined;
   /** The last snapshot tick it was in. */
   lastSeen: number;
   /** The tick it was shot down at, once the server said so. */
@@ -280,6 +274,8 @@ export class NetPlay {
   private enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(20);
   private destructions = new TimedQueue<EnemyDestroyed>(20);
   private shotEnds = new TimedQueue<ShotEnd>(20);
+  /** Dropped parts, shown with the explosion of the enemy that dropped them (#232). */
+  private pickupDrops = new TimedQueue<Pickup>(20);
   private latestSnapshot = 0;
   private tickRate = 20;
   /** The last enemies that left the page, oldest first (#231). */
@@ -311,7 +307,7 @@ export class NetPlay {
   development = false;
   /** Pickups this ship reported flying over, until it leaves them. */
   private readonly collecting = new Set<number>();
-  private clock = new ServerClock(20);
+  private timeline = new Timeline(20);
   private shots = new TimedQueue<RemoteShotItem>(20);
   private spawned = false;
 
@@ -413,7 +409,7 @@ export class NetPlay {
         pickupDropped: (dropped) => {
           const pickup = fromPickup(dropped);
           if (pickup !== undefined) {
-            options.pickups.add(pickup, this.unlocks);
+            this.pickupDrops.add(dropped.tick, pickup);
           }
         },
         sectorCleared: (cleared) => {
@@ -505,6 +501,16 @@ export class NetPlay {
     }));
   }
 
+  /** How far in the past the others were last drawn, in ticks (#232). */
+  get delayTicks(): number {
+    return this.timeline.delay;
+  }
+
+  /** The delay the timeline heads for, from how late snapshots arrive (#232). */
+  get targetDelayTicks(): number {
+    return this.timeline.target;
+  }
+
   /** The latest notice for the HUD, while it lasts. */
   get noticeText(): string | undefined {
     return this.notice !== undefined && now() < this.notice.untilMs ? this.notice.text : undefined;
@@ -527,7 +533,7 @@ export class NetPlay {
 
   /** The HUD's line for the world event running, counting down (#102). */
   eventLine(nowMs: number): string {
-    const tick = this.clock.tickAt(nowMs);
+    const tick = this.timeline.serverTick(nowMs);
 
     return tick === undefined ? '' : eventLine(this.worldEvent, tick, this.tickRate);
   }
@@ -809,20 +815,23 @@ export class NetPlay {
       }
     }
 
-    const serverTick = this.clock.tickAt(nowMs);
-    if (serverTick === undefined) {
+    const serverTick = this.timeline.serverTick(nowMs);
+    const renderTick = this.timeline.renderTick(nowMs);
+    if (serverTick === undefined || renderTick === undefined) {
       return frame;
     }
-    const renderTick = serverTick - INTERPOLATION_DELAY_TICKS;
     const reminder = this.attackReminder.check(this.worldEvent, serverTick, this.tickRate);
     if (reminder !== undefined) {
       this.banners.push(reminder);
+    }
+    for (const { item: pickup } of this.pickupDrops.due(renderTick)) {
+      this.options.pickups.add(pickup, this.unlocks);
     }
     this.options.pickups.update(serverTick, this.tickRate);
     this.collect();
 
     for (const remote of this.remotes.values()) {
-      const ship = remote.buffer.sample(renderTick);
+      const ship = remote.buffer.draw(renderTick);
       remote.drawn = ship;
       if (ship === undefined) {
         continue;
@@ -971,7 +980,7 @@ export class NetPlay {
 
   private drawEnemies(renderTick: number): void {
     for (const enemy of this.enemies.values()) {
-      const pose = enemy.buffer.sample(renderTick);
+      const pose = enemy.buffer.draw(renderTick);
       enemy.drawn = enemy.destroyedAt === undefined ? pose : undefined;
       if (pose !== undefined) {
         enemy.view.place(pose.x, pose.y, pose.angle);
@@ -1275,10 +1284,10 @@ export class NetPlay {
     if (welcome.squadron === '') {
       this.pickSquadron(welcome.squadrons);
     }
-    this.clock = new ServerClock(welcome.tickRate);
+    this.timeline = new Timeline(welcome.tickRate);
     this.tickRate = welcome.tickRate;
     this.resetTimeline(welcome.tickRate);
-    this.clock.observe(welcome.tick, now());
+    this.timeline.snapshot(welcome.tick, now());
     // A reconnect keeps the ship where it is; only the first join places it,
     // with the loadout the player last fitted at home (#78).
     if (!this.spawned) {
@@ -1335,6 +1344,7 @@ export class NetPlay {
 
   /** A pickup is gone; the parts this player gained are theirs now. */
   private pickupTaken(taken: PickupTaken): void {
+    this.pickupDrops.remove((p) => p.id === taken.id);
     this.options.pickups.remove(taken.id);
     this.collecting.delete(taken.id);
     const collector =
@@ -1369,10 +1379,11 @@ export class NetPlay {
     this.enemyWarnings = new TimedQueue<{ enemyId: number; warnTicks: number }>(tickRate);
     this.destructions = new TimedQueue<EnemyDestroyed>(tickRate);
     this.shotEnds = new TimedQueue<ShotEnd>(tickRate);
+    this.pickupDrops = new TimedQueue<Pickup>(tickRate);
   }
 
   private snapshot(snapshot: Snapshot): void {
-    this.clock.observe(snapshot.tick, now());
+    this.timeline.snapshot(snapshot.tick, now());
     this.latestSnapshot = snapshot.tick;
     for (const player of snapshot.players) {
       if (player.state === undefined) {
@@ -1400,7 +1411,7 @@ export class NetPlay {
       if (enemy === undefined) {
         enemy = {
           view: new EnemyView(this.options.scene, this.options.ships, fromEnemyKind(state.kind), fromEnemyFaction(state.faction)),
-          buffer: new StateBuffer<EnemyPose>(),
+          buffer: new StateBuffer<Pose>(this.tickRate),
           drawn: undefined,
           lastSeen: snapshot.tick,
           destroyedAt: undefined,
@@ -1431,7 +1442,7 @@ export class NetPlay {
     view.setLabel(scene, ships, label, color, this.options.labelResolution());
     const remote: Remote = {
       view,
-      buffer: new StateBuffer<RemoteShip>(),
+      buffer: new StateBuffer<RemoteShip>(this.tickRate),
       animator: new WeaponAnimator(weaponTiming('autoCannon')),
       weapon: 'autoCannon',
       name,

@@ -47,6 +47,15 @@ test('two players see each other fly and shoot', async ({ browser, baseURL }) =>
     const before = (await state(mo)).net.others.find((o) => o.name === `Sanne${suffix}`);
     expect(before?.color).toBeGreaterThan(0);
 
+    // Mo draws her 2 to 5 ticks in the past, following how late snapshots arrive (#232).
+    await expect
+      .poll(async () => {
+        const { delayTicks, targetDelayTicks } = (await state(mo)).net;
+
+        return delayTicks >= 2 && delayTicks <= 5 && targetDelayTicks >= 2 && targetDelayTicks <= 5;
+      }, { message: 'the delay is within 2 to 5 ticks' })
+      .toBe(true);
+
     // Sanne flies toward the mouse; Mo sees her ship move.
     await sanne.mouse.move(VIEWPORT.width / 2 + 150, VIEWPORT.height / 2);
     await sanne.keyboard.down('w');
