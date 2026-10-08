@@ -153,6 +153,38 @@ func (h *Hub) dockCompanion(owner string, m *member, number uint32) {
 	h.send(owner, dismissed(number))
 }
 
+// dockDownedCompanions docks the owner's downed companions as they respawn
+// at home, but for any with an up squadmate near enough to revive it.
+func (h *Hub) dockDownedCompanions(owner string, m *member) {
+	for _, number := range slices.Sorted(maps.Keys(m.companions)) {
+		s := m.companions[number].flight.Ship
+		if s.Downed() && !h.upSquadmateNear(owner, m, s.X, s.Y) {
+			h.dockCompanion(owner, m, number)
+		}
+	}
+}
+
+// upSquadmateNear reports whether a ship up in the owner's squadron is
+// within sim.CompanionWaitRadius of (x, y): another player, theirs or one
+// of the owner's companions, but not the owner's own ship.
+func (h *Hub) upSquadmateNear(owner string, m *member, x, y float64) bool {
+	near := func(fx, fy float64) bool {
+		return math.Hypot(fx-x, fy-y) <= sim.CompanionWaitRadius
+	}
+	for _, f := range h.othersThan(owner) {
+		if f.Squadmate && !f.Downed && near(f.X, f.Y) {
+			return true
+		}
+	}
+	for _, c := range m.wing.Companions {
+		if !c.Ship.Downed() && near(c.Ship.X, c.Ship.Y) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // sendLostCompanionsHome docks every companion down for
 // sim.CompanionLostSeconds unrevived in the hangar, and tells its owner.
 func (h *Hub) sendLostCompanionsHome() {

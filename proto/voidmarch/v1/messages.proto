@@ -207,8 +207,14 @@ message ClientMessage {
     DevStartAttack dev_start_attack = 12;
     DevSeasonWon dev_season_won = 13;
     DevStartRaid dev_start_raid = 14;
+    RespawnHome respawn_home = 15;
   }
 }
+
+// RespawnHome says this player, down, respawned at the home planet: the
+// server docks their downed companions in the hangar, but for any with a
+// squadmate up nearby to revive it (#271).
+message RespawnHome {}
 
 // DevStartRaid sends a Dreadnought raiding the hostile sector this player is
 // in at once, on a development server only, for trying raids (#223).

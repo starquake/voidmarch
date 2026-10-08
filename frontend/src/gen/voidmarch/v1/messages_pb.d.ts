@@ -525,6 +525,12 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: DevStartRaid;
     case: "devStartRaid";
+  } | {
+    /**
+     * @generated from field: voidmarch.v1.RespawnHome respawn_home = 15;
+     */
+    value: RespawnHome;
+    case: "respawnHome";
   } | { case: undefined; value?: undefined };
 };
 
@@ -533,6 +539,22 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
  * Use `create(ClientMessageSchema)` to create a new message.
  */
 export declare const ClientMessageSchema: GenMessage<ClientMessage>;
+
+/**
+ * RespawnHome says this player, down, respawned at the home planet: the
+ * server docks their downed companions in the hangar, but for any with a
+ * squadmate up nearby to revive it (#271).
+ *
+ * @generated from message voidmarch.v1.RespawnHome
+ */
+export declare type RespawnHome = Message<"voidmarch.v1.RespawnHome"> & {
+};
+
+/**
+ * Describes the message voidmarch.v1.RespawnHome.
+ * Use `create(RespawnHomeSchema)` to create a new message.
+ */
+export declare const RespawnHomeSchema: GenMessage<RespawnHome>;
 
 /**
  * DevStartRaid sends a Dreadnought raiding the hostile sector this player is

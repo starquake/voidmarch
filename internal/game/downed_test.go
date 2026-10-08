@@ -1,6 +1,7 @@
 package game_test
 
 import (
+	"math"
 	"slices"
 	"testing"
 
@@ -35,13 +36,183 @@ func companionDown(t *testing.T, a *Session, tick func(int)) *pb.ShipState {
 }
 
 func companion(snap *pb.Snapshot) *pb.ShipState {
+	return shipOf(snap, "a/1")
+}
+
+// shipOf is the state of the ship id in snap, or nil.
+func shipOf(snap *pb.Snapshot, id string) *pb.ShipState {
 	for _, p := range snap.GetPlayers() {
-		if p.GetPlayerId() == "a/1" {
+		if p.GetPlayerId() == id {
 			return p.GetState()
 		}
 	}
 
 	return nil
+}
+
+var respawnHome = &pb.ClientMessage{
+	Kind: &pb.ClientMessage_RespawnHome{RespawnHome: &pb.RespawnHome{}},
+}
+
+// downAt is a ship report of a player down at (x, y).
+func downAt(x, y float32) *pb.ClientMessage {
+	return &pb.ClientMessage{Kind: &pb.ClientMessage_State{State: &pb.ShipState{
+		X: x, Y: y, Damage: sim.MaxDamage,
+	}}}
+}
+
+// dockedWithin steps the hub n ticks, a at home, and reports whether a/1
+// docked meanwhile; it fails if a/1 left any other way.
+func dockedWithin(t *testing.T, a *Session, tick func(int), n int) bool {
+	t.Helper()
+
+	var docked, gone bool
+	for range n {
+		_, messages := latest(t, a, tick, 1, 0, sim.HomeSpawnY)
+		for _, msg := range messages {
+			if msg.GetCompanionDismissed().GetCompanion() == 1 {
+				docked = true
+			}
+			if msg.GetLeft().GetPlayerId() == "a/1" {
+				gone = true
+			}
+		}
+	}
+	if docked != gone {
+		t.Errorf("a/1 docked = %v, but left = %v", docked, gone)
+	}
+
+	return docked
+}
+
+func TestDowned_RespawnHomeDocksADownedCompanion(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t, WithPoolStart(1))
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	down := companionDown(t, a, tick)
+
+	b, _ := pilot(t, hub, "b")
+	b.Send(state(0, -sim.HomeSpawnY))
+
+	// a went down beside it, far from home, and respawns at home.
+	a.Send(downAt(down.GetX(), down.GetY()-300))
+	a.Send(state(0, sim.HomeSpawnY))
+	a.Send(respawnHome)
+	var dismissed, left, docked bool
+	for !dismissed || !left || !docked {
+		msg := next(t, a)
+		if d := msg.GetCompanionDismissed(); d != nil {
+			if got, want := d.GetCompanion(), uint32(1); got != want {
+				t.Errorf("dismissed companion %d, want %d", got, want)
+			}
+			dismissed = true
+		}
+		if msg.GetLeft().GetPlayerId() == "a/1" {
+			left = true
+		}
+		if msg.GetSquadrons().GetHangar() == 1 {
+			docked = true
+		}
+	}
+	if got, want := nextLeft(t, b), "a/1"; got != want {
+		t.Errorf("b was told %q left, want %q", got, want)
+	}
+	if g, reason := summonReply(t, a); g == nil {
+		t.Errorf("summon after the respawn refused: %q", reason)
+	}
+}
+
+func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		// near is b's offset from the downed a/1, or 0 for b staying away.
+		near float32
+		// mate puts b in a's squadron, and bDown sends b down.
+		mate, bDown bool
+		// second gives a another companion, up, which stays near a/1.
+		second bool
+		stays  bool
+	}{
+		{name: "alone", near: 0},
+		{name: "squadmate up within reach", near: 400, mate: true, stays: true},
+		{name: "squadmate up out of reach", near: 1200, mate: true},
+		{name: "player up outside the squadron", near: 400},
+		{name: "squadmate down within reach", near: 400, mate: true, bDown: true},
+		{name: "own companion up within reach", second: true, stays: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			hub, tick := testHub(t)
+			a, _ := pilot(t, hub, "a")
+			a.Send(state(0, 180))
+			grant(t, a)
+			down := companionDown(t, a, tick)
+			if tc.second {
+				// a fetches a/2 from home and flies it out near a/1, not near enough to revive it.
+				a.Send(state(0, 180))
+				grant(t, a)
+				snap, _ := latest(t, a, tick, 5*TickRate, down.GetX(), down.GetY()-250)
+				down = companion(snap)
+				other := shipOf(snap, "a/2")
+				d := math.Hypot(
+					float64(other.GetX()-down.GetX()),
+					float64(other.GetY()-down.GetY()),
+				)
+				if other.GetDamage() >= sim.MaxDamage || d > sim.CompanionWaitRadius/2 {
+					t.Fatalf(
+						"a/2 at damage %d, %v px from a/1: want it up and near",
+						other.GetDamage(),
+						d,
+					)
+				}
+			}
+			if tc.near != 0 {
+				b, _ := join(t, hub, "b")
+				squadron := ""
+				if tc.mate {
+					squadron = "Alpha"
+				}
+				chooseAndWait(t, b, squadron)
+				x, y := down.GetX()+tc.near, down.GetY()
+				if tc.bDown {
+					b.Send(downAt(x, y))
+				} else {
+					b.Send(state(x, y))
+				}
+			}
+
+			a.Send(state(0, sim.HomeSpawnY))
+			a.Send(respawnHome)
+			if got := !dockedWithin(t, a, tick, TickRate); got != tc.stays {
+				t.Errorf("a/1 stayed down = %v, want %v", got, tc.stays)
+			}
+		})
+	}
+}
+
+func TestDowned_ARespawnWithoutRespawnHomeLeavesThemDown(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	down := companionDown(t, a, tick)
+
+	// An old client, or J beside a squadmate at home, reports only the respawn.
+	a.Send(downAt(down.GetX(), down.GetY()-300))
+	a.Send(state(0, sim.HomeSpawnY))
+	if dockedWithin(t, a, tick, 5*TickRate) {
+		t.Error("a/1 docked on a respawn without RespawnHome")
+	}
 }
 
 func TestDowned_ItsOwnerRevivesACompanion(t *testing.T) {
