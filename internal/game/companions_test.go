@@ -907,3 +907,37 @@ func TestCompanions_TheNewCompanionDoesNotCountItself(t *testing.T) {
 		t.Errorf("companions' weapons = %v, want %v", got, want)
 	}
 }
+
+func TestCompanions_ADownedOneDocksAfterItsOwnerDrops(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	companionDown(t, a, tick)
+	// a leaves it down a while, too far away to revive it, then drops.
+	const downBefore = 20
+	latest(t, a, tick, downBefore*TickRate, 0, -1500)
+	b, _ := pilot(t, hub, "b")
+	a.Leave()
+
+	// Down, it can't fly home: it docks once down sim.CompanionLostSeconds,
+	// before homingTicks after the drop, and not at the drop.
+	dockAt := int(sim.CompanionLostSeconds-downBefore) * TickRate
+	waited := dockAt + TickRate
+	for i := range waited {
+		_, messages := latest(t, b, tick, 1, 0, -180)
+		for _, msg := range messages {
+			if msg.GetLeft().GetPlayerId() != "a/1" {
+				continue
+			}
+			if i < dockAt-TickRate {
+				t.Errorf("a/1 docked %d ticks after a dropped, want about %d", i, dockAt)
+			}
+
+			return
+		}
+	}
+	t.Errorf("a/1 still out %d ticks after a dropped, want it docked by %d", waited, dockAt)
+}
