@@ -6,7 +6,7 @@ description: >
   `Build` on the board, or a `go` / `approved` comment on a `Your sign-off`
   ticket. Also for bugs and tweaks small enough to need no plan. Executes the
   plan task by task on ONE PR: branch `<issue>-<slug>`, failing tests first,
-  `make check` (and `make test-e2e` for the client) green per signed one-line
+  `make check` green per signed one-line
   commit, CI watched after every push, then the ticket moves to `Your review`.
   Merging stays gated on the `ready to merge` label. Trigger even if the user
   doesn't say "skill".
@@ -58,11 +58,12 @@ ticket nobody moved: that one goes back to `Plan`.
    ```
 
    `make check` is lint, the TypeScript check, lint and tests, bundle drift,
-   the build and the Go tests with coverage. Anything touching the client
-   (`frontend/`, the bundle, `internal/web/`, or what the server sends it) also
-   runs `make test-e2e` the same way, since `e2e (chromium)` and
-   `e2e (firefox)` are required checks. The tool shell is zsh: never pipe the
-   gate into `tail` and read `$?`, since that's the pipe's status.
+   the build and the Go tests with coverage. The full E2E suite runs in CI
+   only (`e2e (chromium)` and `e2e (firefox)`, both required): locally, run
+   just the spec you write or change, or the one CI failed on
+   (`cd frontend && npx playwright test <spec>`), never the whole suite
+   (#319). The tool shell is zsh: never pipe the gate into `tail` and read
+   `$?`, since that's the pipe's status.
 4. One commit per task. The message is a plain one-line capitalized subject
    saying what: no body, no attribution trailer. Commits are signed (local SSH
    signing; the ruleset refuses unsigned ones). Stage explicit paths

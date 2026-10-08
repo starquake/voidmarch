@@ -211,8 +211,10 @@ answer given in chat is written back into the issue body before acting on it.
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
   on its branch: the image carries the browsers that version expects.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,
-  bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
-  for anything touching the client, on every commit. The ruleset lives as code
+  bundle drift, the build, the Go tests with coverage) on every commit. The
+  full E2E suite runs in CI only; locally, run one spec
+  (`cd frontend && npx playwright test <spec>`) when you write or change it,
+  or to reproduce a CI failure (#319). The ruleset lives as code
   in `.github/rulesets/main.json`: squash only, signed commits, linear history,
   every review thread resolved, the branch up to date with `main`, and the
   required checks `lint`, `build`, `e2e (chromium)`, `e2e (firefox)` and

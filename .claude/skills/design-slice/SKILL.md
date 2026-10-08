@@ -113,8 +113,8 @@ Fill the plan only once the decisions are settled (zx-sidekick#27). Set `Plan`
 while you write it. A plan already in the body, ported from another project or
 drafted earlier, is checked against this repository rather than rewritten: fix
 what names code that isn't here, or say in the Next-steps comment what the
-build will map. Tasks go in landing order, each one green commit (`make check`,
-plus `make test-e2e` for anything touching the client); failing tests first
+build will map. Tasks go in landing order, each one green commit (`make check`
+locally, the E2E suite in CI); failing tests first
 where practical; the last task updates `README.md` / `CLAUDE.md` /
 `docs/design.md` if anything they say changed.
 

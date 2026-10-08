@@ -83,7 +83,7 @@ locally:
 
 ```bash
 git fetch origin --quiet && git checkout <branch> && git rebase origin/main
-make check          # the combined result must be green; add make test-e2e for the client
+make check          # the combined result must be green; CI runs the E2E suite
 git push --force-with-lease
 ```
 
