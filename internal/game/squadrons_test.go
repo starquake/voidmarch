@@ -354,3 +354,35 @@ func TestSquadrons_MovingBringsCompanionsAsFarAsThereIsRoom(t *testing.T) {
 		}
 	}
 }
+
+func TestSquadrons_MovingDocksDownedCompanionsFirst(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	a, _ := pilot(t, hub, "a")
+	a.Send(state(0, 180))
+	grant(t, a)
+	companionDown(t, a, tick)
+	// a is back home for a second companion, newer and up, while a/1 is down out there.
+	a.Send(state(0, 180))
+	grant(t, a)
+	b, _ := pilot(t, hub, "b")
+	b.Send(state(0, -180))
+	grant(t, b)
+
+	// Beta has b and a companion: a and one of a's two fit, and the downed one goes home.
+	a.Send(chooseSquadron("Beta"))
+	var sentHome []uint32
+	for {
+		msg := next(t, a)
+		if d := msg.GetCompanionDismissed(); d != nil {
+			sentHome = append(sentHome, d.GetCompanion())
+		}
+		if msg.GetSquadronJoined() != nil {
+			break
+		}
+	}
+	if want := []uint32{1}; !slices.Equal(sentHome, want) {
+		t.Errorf("companions sent home = %v, want %v, the downed one", sentHome, want)
+	}
+}

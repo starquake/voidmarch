@@ -155,9 +155,7 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		}
 		// The joiner's own companions come along as far as there's room.
 		for len(m.companions) > 0 && h.squadronShips(sq)+1+len(m.companions) > squadronCap {
-			newest := newestCompanionOf(m)
-			h.dismiss(id, m, newest.number)
-			h.send(id, dismissed(newest.number))
+			h.dockCompanion(id, m, nextToDock(m).number)
 		}
 		sq.members = append(sq.members, id)
 		m.squadron = sq.name
@@ -207,6 +205,26 @@ func newestCompanionOf(m *member) *companion {
 		if newest == nil || c.granted > newest.granted {
 			newest = c
 		}
+	}
+
+	return newest
+}
+
+// nextToDock is the companion of m's to dock first when there's too little
+// room: the newest that is down, so the ones that can fly come along, else
+// the newest.
+func nextToDock(m *member) *companion {
+	var newest *companion
+	for _, c := range m.companions {
+		if !c.flight.Ship.Downed() {
+			continue
+		}
+		if newest == nil || c.granted > newest.granted {
+			newest = c
+		}
+	}
+	if newest == nil {
+		return newestCompanionOf(m)
 	}
 
 	return newest

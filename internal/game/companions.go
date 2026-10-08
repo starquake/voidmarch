@@ -146,6 +146,13 @@ func (h *Hub) takeCompanion(owner string, m *member, number uint32) bool {
 	return true
 }
 
+// dockCompanion sends a companion home to the hangar, as dismiss does, and
+// tells its owner, who didn't ask for it.
+func (h *Hub) dockCompanion(owner string, m *member, number uint32) {
+	h.dismiss(owner, m, number)
+	h.send(owner, dismissed(number))
+}
+
 // sendLostCompanionsHome docks every companion down for
 // sim.CompanionLostSeconds unrevived in the hangar, and tells its owner.
 func (h *Hub) sendLostCompanionsHome() {
@@ -153,8 +160,7 @@ func (h *Hub) sendLostCompanionsHome() {
 		m := h.members[owner]
 		for _, number := range slices.Sorted(maps.Keys(m.companions)) {
 			if m.companions[number].flight.Ship.DownFor >= sim.CompanionLostSeconds {
-				h.dismiss(owner, m, number)
-				h.send(owner, dismissed(number))
+				h.dockCompanion(owner, m, number)
 			}
 		}
 	}
