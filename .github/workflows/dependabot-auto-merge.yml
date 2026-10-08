@@ -33,7 +33,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Dispatches CI on main once auto-merge lands the PR, which publishes :edge
-  # and deploys staging; workflow_dispatch is exempt from the GITHUB_TOKEN rule.
+  # and deploys development; workflow_dispatch is exempt from the GITHUB_TOKEN rule.
   ci-on-main:
     runs-on: ubuntu-latest
     if: >-

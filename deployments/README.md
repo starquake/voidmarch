@@ -6,16 +6,18 @@ serves topbanana and mediumrogue. `.github/workflows/deploy.yml` deploys; this
 file is the one-time setup on the server and on GitHub that the workflow can't
 do, and the jobs done by hand afterwards.
 
-| Environment | Address                                         | Deployed when                       | Image                        |
-| ----------- | ----------------------------------------------- | ----------------------------------- | ---------------------------- |
-| production  | `https://voidmarch.bananajuice.net`             | CI passes on a `v*.*.*` tag         | the release, e.g. `:1.0.0`   |
-| staging     | `https://voidmarch-staging.bananajuice.net`     | CI passes on `main`                 | `:edge`                      |
-| development | `https://voidmarch-development.bananajuice.net` | a PR carries the `deploy:dev` label | `:pr-<n>`, built from the PR |
+| Environment | Address                                         | Deployed when                                  | Image                                     |
+| ----------- | ----------------------------------------------- | ---------------------------------------------- | ----------------------------------------- |
+| production  | `https://voidmarch.bananajuice.net`             | CI passes on a `vX.Y.Z` tag                    | the release, e.g. `:1.0.0`                |
+| staging     | `https://voidmarch-staging.bananajuice.net`     | CI passes on a `vX.Y.Z-rc.N` tag               | the release candidate, e.g. `:1.0.0-rc.1` |
+| development | `https://voidmarch-development.bananajuice.net` | CI passes on `main`; a PR labeled `deploy:dev` | `:edge`; `:pr-<n>`, built from the PR     |
 
-Staging and production deploy only an image that `ci.yml` signed on `main`
-(cosign, checked in `.github/scripts/verify-image.sh`). A release tag doesn't
-rebuild: CI's `promote` job gives the image main built for that commit the
-version's tags. Development builds the PR's own image, unsigned.
+Each environment is one step more stable than the one before (the README's
+Versions section). Production, staging and development's `:edge` deploy only
+an image that `ci.yml` signed on `main` (cosign, checked in
+`.github/scripts/verify-image.sh`). A tag doesn't rebuild: CI's `promote` job
+gives the image main built for that commit the version's tags. A labeled PR
+builds its own image for development, unsigned.
 
 Each environment deploys as its own user, `voidmarch-<env>`, like topbanana's
 and mediumrogue's. Every deploy copies `deployments/app/docker-compose.<env>.yml`
@@ -154,7 +156,7 @@ CI publishes `ghcr.io/starquake/voidmarch` from `main`. The package is public,
 like the repository, so the server and the deploy's checks pull it without
 logging in; only development's job logs in, to push its `:pr-<n>` image. If the
 package is ever made private, staging and production fail at "Resolve and
-verify the image" until the deploys log in again.
+verify the image" (and development, for `main`) until the deploys log in again.
 
 ### 5. The `deploy:dev` label
 
@@ -167,8 +169,8 @@ gh label create deploy:dev --repo starquake/voidmarch --color 0e8a16 --descripti
 Adding it to a pull request deploys that PR to development, and every push to
 the PR while it carries the label deploys again. The workflow runs from the PR
 branch's own copy of `deploy.yml`, so a branch older than the deploy pipeline
-has to be rebased first. Development is one slot: the last PR deployed is the
-one running.
+has to be rebased first. Development is one slot: the last deploy, a PR or
+`main`, is the one running, so the next merge to `main` replaces a PR.
 
 ## By hand
 
@@ -177,9 +179,10 @@ compose project, e.g. `sudo -iu voidmarch-production`.
 
 ### Redeploy
 
-Actions, Deploy, Run workflow, then pick `staging` (main's current `:edge`) or
-`production` (the newest release, `:latest`). Development is deployed by the
-label only.
+Actions, Deploy, Run workflow, then pick `staging` or `production`. Staging
+deploys the release candidate tag picked under "Use workflow from" (a branch
+fails); production deploys the newest release, `:latest`. Development is
+deployed by a merge to `main` or the label only.
 
 ### Logs
 
