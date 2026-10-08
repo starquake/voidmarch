@@ -76,7 +76,6 @@ import {
   MINIMAP_REDRAW_MS,
   FPS_CAP,
   TOUCH_AIM_REACH,
-  HEADING_FONT,
   UI_FONT,
 } from '../sim/tuning.ts';
 import { fieldColor, fieldSides, nearestSide, sparks, zapVolume, type Side } from '../sim/forcefield.ts';
@@ -457,6 +456,7 @@ export class SandboxScene extends Phaser.Scene {
       lastClear: undefined,
       clearedSectors: [],
       missionBanner: undefined,
+      missionBannerFont: '',
       derelicts: [],
       rescues: 0,
       teleports: 0,
@@ -761,7 +761,7 @@ export class SandboxScene extends Phaser.Scene {
     this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add
       .text(0, 0, '', {
-        fontFamily: HEADING_FONT,
+        fontFamily: UI_FONT,
         fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
         color: MISSION_CSS,
         align: 'center',
@@ -2109,6 +2109,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.clearedSectors = this.net?.status === 'online' ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === undefined ? undefined : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : undefined;
+    this.debug.missionBannerFont = this.missionBanner.style.fontFamily;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === 'online' ? this.net.clearedSectors : undefined, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;

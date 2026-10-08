@@ -6959,6 +6959,7 @@ var SandboxScene = class extends Phaser14.Scene {
       lastClear: void 0,
       clearedSectors: [],
       missionBanner: void 0,
+      missionBannerFont: "",
       derelicts: [],
       rescues: 0,
       teleports: 0,
@@ -7221,7 +7222,7 @@ var SandboxScene = class extends Phaser14.Scene {
     main.ignore(this.downPanel);
     this.missionFrame = this.add.graphics().setVisible(false);
     this.missionBanner = this.add.text(0, 0, "", {
-      fontFamily: HEADING_FONT,
+      fontFamily: UI_FONT,
       fontSize: `${String(DOWN_PANEL_FONT_PX)}px`,
       color: MISSION_CSS,
       align: "center"
@@ -8427,6 +8428,7 @@ ${modeName(info)}`,
     this.debug.clearedSectors = this.net?.status === "online" ? [...this.net.clearedSectors].sort() : [];
     this.debug.worldEvent = this.net?.worldEvent === void 0 ? void 0 : this.net.eventLine(performance.now());
     this.debug.missionBanner = this.missionBanner.visible ? this.missionBanner.text : void 0;
+    this.debug.missionBannerFont = this.missionBanner.style.fontFamily;
     this.debug.sector = sectorLine(this.sim.ship.x, this.sim.ship.y, this.net?.status === "online" ? this.net.clearedSectors : void 0, this.net?.frontier);
     this.debug.derelicts = this.net?.derelictList ?? [];
     this.debug.rescues = this.net?.rescues ?? 0;

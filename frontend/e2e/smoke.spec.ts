@@ -41,9 +41,10 @@ test('the debug state is built only once something reads it (#264)', async ({ pa
   expect(reader).toBe('function');
 });
 
-test('the game\'s text is in Exo 2, with titles in Orbitron (#170)', async ({ page }) => {
+test('the game\'s text is in Exo 2, announcements too, with titles in Orbitron (#170, #254)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.scene === 'sandbox');
+  expect(await page.evaluate(() => window.voidmarch?.missionBannerFont)).toMatch(/^'Exo 2'/);
   // check() alone also passes for a font the page never declared, so look for the loaded faces themselves.
   const loaded = await page.evaluate(() => [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/"/g, '')));
   expect(loaded).toEqual(expect.arrayContaining(['Orbitron', 'Exo 2']));
