@@ -1,6 +1,7 @@
 import type { Browser, Page } from '@playwright/test';
 
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
+import { noticesShown, recordNotices } from './notices.ts';
 
 import type { DebugState } from '../src/debug.ts';
 import { ORDER_ITEMS, itemPosition } from '../src/ordermenu.ts';
@@ -55,6 +56,7 @@ test('squadmates join from the screen and hear each other\'s orders', async ({ p
     const view = page.viewportSize() ?? { width: 640, height: 360 };
     const x = view.width / 2 + 180;
     const y = view.height / 2;
+    await recordNotices(mo);
     await page.mouse.move(x, y);
     await page.keyboard.down('q');
     await expect.poll(async () => (await state(page)).orderMenuOpen).toBe(true);
@@ -64,7 +66,7 @@ test('squadmates join from the screen and hear each other\'s orders', async ({ p
     );
     await page.mouse.move(x + at.x, y + at.y, { steps: 4 });
     await page.keyboard.up('q');
-    await expect.poll(async () => (await state(mo)).notice).toMatch(/: Attack$/);
+    await expect.poll(async () => (await noticesShown(mo)).some((n) => n.endsWith(': Attack'))).toBe(true);
   } finally {
     // An open page keeps rendering WebGL through later specs (#22).
     await mo.context().close();

@@ -22,7 +22,7 @@ test('the HUD shows the fitted parts, the hull and shield, and a labelled panel 
   await expect.poll(async () => (await state(page)).hud.panel.some((row) => /^Companions: \d of 3 out$/.test(row))).toBe(true);
   await expect.poll(async () => (await state(page)).hud.panel.some((row) => row.startsWith('Squadron: '))).toBe(true);
   await expect.poll(async () => (await state(page)).hud.panel.some((row) => /^Mission: Clear sector [A-G]\d$/.test(row))).toBe(true);
-  // Online, nothing about the connection. Other toasts can come from other specs on the shared server.
+  // Online, nothing about the connection. The server's own notices can show, such as a derelict coming back (#210).
   const connection = ['Connecting', 'Offline, reconnecting', 'The frontier is full, try again soon', 'Playing alone'];
   expect((await state(page)).hud.toasts.filter((t) => connection.includes(t))).toEqual([]);
 

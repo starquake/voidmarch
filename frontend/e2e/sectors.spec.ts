@@ -5,9 +5,9 @@ import { TRIES, aimAt, fitRockets, nearest, state } from './hunt.ts';
 
 import { sectorName } from '../src/sim/sectors.ts';
 
-/** Flies from wherever the ship is to the middle of a sector beside home's, E4 or C4, where its garrison is. */
-async function flyInto(page: Page, east: boolean): Promise<void> {
-  const target = { x: (east ? 1 : -1) * 1485, y: 857 };
+/** Flies from wherever the ship is to the middle of E4, beside home's sector, where its garrison is. */
+async function flyInto(page: Page): Promise<void> {
+  const target = { x: 1485, y: 857 };
   await page.keyboard.down('w');
   await expect
     .poll(async () => {
@@ -61,12 +61,10 @@ async function clear(page: Page, sector: string): Promise<'cleared' | 'down'> {
   return (await state(page)).downed ? 'down' : 'cleared';
 }
 
-// The e2e map gives E4 and C4 a garrison of 2, one sector per browser: a
-// cleared sector stays cleared on the shared server, so each server runs this once.
-test('destroying a sector\'s garrison clears it, and its clear gives this player a part', async ({ page }, testInfo) => {
+// The e2e map gives E4 a garrison of 2. A cleared sector stays cleared, and each worker's server runs this once.
+test('destroying a sector\'s garrison clears it, and its clear gives this player a part', async ({ page }) => {
   test.setTimeout(240_000);
-  const east = testInfo.project.name !== 'firefox';
-  const sector = east ? 'E4' : 'C4';
+  const sector = 'E4';
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   expect((await state(page)).sector).toBe('Sector D4 · home');
@@ -76,7 +74,7 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
   // and it is announced in the middle of the screen, with the way to it.
   await expect.poll(async () => (await state(page)).missionBanner).toMatch(/^New mission: sector [C-E][3-5]\n.*\nFollow the gold arrow/);
   await fitRockets(page);
-  await flyInto(page, east);
+  await flyInto(page);
   const cleared = clearedLine(sector);
   // The garrison comes out to meet the ship, and rams on the way in can clear it already (#195).
   const arrived = await state(page);
@@ -88,7 +86,7 @@ test('destroying a sector\'s garrison clears it, and its clear gives this player
       await expect.poll(async () => (await state(page)).canRespawn, { timeout: 10_000 }).toBe(true);
       await page.keyboard.press('h');
       await expect.poll(async () => (await state(page)).downed).toBe(false);
-      await flyInto(page, east);
+      await flyInto(page);
     }
   }
   expect((await state(page)).sector).toBe(cleared);

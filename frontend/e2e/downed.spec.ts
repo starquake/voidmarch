@@ -2,6 +2,7 @@ import type { Browser, Page } from '@playwright/test';
 
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { aimAt } from './hunt.ts';
+import { noticesShown, recordNotices } from './notices.ts';
 import { announcementCovered, coveredOnScreen, hideAnnouncement, showAnnouncement } from './screens.ts';
 
 import type { DebugState } from '../src/debug.ts';
@@ -150,11 +151,12 @@ test('a downed player switches squadron with C and stays down, the panel still t
 
   await page.keyboard.press('c');
   await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
+  await recordNotices(page);
   await page.locator('#squadron-start').click();
   await expect.poll(async () => (await state(page)).squadron).not.toBe(first);
   const moved = await state(page);
   expect([moved.squadronScreen, moved.downed], 'the screen closes, and the ship stays down').toEqual([false, true]);
-  expect(moved.notice).toBe(`Started squadron ${moved.squadron}`);
+  await expect.poll(() => noticesShown(page)).toContain(`Started squadron ${moved.squadron}`);
   expect(moved.downPanel).toContain('[H] respawn at home');
   expect(moved.downPanel).toContain('[C] switch squadron');
 
@@ -179,10 +181,12 @@ test('a downed player joins a friend\'s squadron, and a revive closes the screen
 
     await page.keyboard.press('c');
     await expect.poll(async () => (await state(page)).squadronScreen).toBe(true);
+    await recordNotices(page);
     await page.locator('#squadron-list .squadron', { hasText: theirs }).getByRole('button', { name: 'Join' }).click();
     await expect.poll(async () => (await state(page)).squadron).toBe(theirs);
     const moved = await state(page);
-    expect([moved.squadronScreen, moved.downed, moved.notice]).toEqual([false, true, `Moved to ${theirs}`]);
+    expect([moved.squadronScreen, moved.downed]).toEqual([false, true]);
+    await expect.poll(() => noticesShown(page)).toContain(`Moved to ${theirs}`);
 
     // Mo flies over and revives them under the reopened screen, which closes: moving is for the downed.
     // The burst engine stops within a few pixels, so Mo stays beside on a slow runner.
