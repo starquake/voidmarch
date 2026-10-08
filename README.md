@@ -156,8 +156,9 @@ You move to another squadron while you're down: **C** (or the Squadron button
 on touch) opens the squadron screen again. It lists your own squadron too,
 whose Stay keeps you there, as Esc does, and it closes if you're revived. A
 move takes over a companion in a squadron at 4 ships, as joining does, and
-your companions come along as far as there's room; the rest go home. A
-squadron that empties is gone, and a toast says where you moved.
+your companions come along as far as there's room; the rest go home, the
+downed ones first. A squadron that empties is gone, and a toast says where
+you moved.
 
 ## Enemies
 
@@ -198,6 +199,9 @@ apart. A fast collision with an enemy is a ram that hurts both sides;
 friendly ships only push each other. Three hull hits
 and you're down: you drift until a friend hovers beside you to revive you,
 or after 3 s you respawn with **H** at home or **J** beside a squadmate.
+**H** also brings your downed companions home to the hangar, ready for **G**,
+except one with a squadmate up within 800 px, which waits there to be
+revived. A downed companion nobody revives goes home after 60 s.
 While down, **C** switches squadron, and you stay down.
 Enemies need the server, so
 offline the sandbox stays empty.
