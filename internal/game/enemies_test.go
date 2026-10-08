@@ -42,7 +42,7 @@ func latest(
 func TestEnemies_NoneWithoutPlayers(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithEveryEnemy())
 	tick(3 * TickRate)
 	s, _ := join(t, hub, "a")
 	tick(1)
@@ -94,7 +94,8 @@ func TestEnemies_HitsDestroyThem(t *testing.T) {
 	hub, tick := testHub(t)
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
-	b.Send(state(0, 180))
+	// b watches the fight from near enough to be sent the enemy.
+	b.Send(state(1000, 100))
 	snap, _ := latest(t, a, tick, 2*TickRate, 1000, 0)
 	target := snap.GetEnemies()[0]
 	// Catch b up to the same tick; the hub may still be sending it.
@@ -114,7 +115,7 @@ func TestEnemies_HitsDestroyThem(t *testing.T) {
 		// The hub handles the hit before it takes the next tick, so b's
 		// messages up to that tick's snapshot include everything it caused.
 		var messages []*pb.ServerMessage
-		after, messages = latest(t, b, tick, 1, 0, 180)
+		after, messages = latest(t, b, tick, 1, 1000, 100)
 		ended := false
 		for _, msg := range messages {
 			ended = ended || msg.GetShotEnded().GetShotId() == uint32(hits)

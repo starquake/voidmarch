@@ -2911,7 +2911,10 @@ type Snapshot struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Tick    uint32                 `protobuf:"varint,1,opt,name=tick,proto3" json:"tick,omitempty"`
 	Players []*PlayerSnapshot      `protobuf:"bytes,2,rep,name=players,proto3" json:"players,omitempty"`
-	Enemies []*EnemyState          `protobuf:"bytes,3,rep,name=enemies,proto3" json:"enemies,omitempty"`
+	// The enemies near this player, and every boss (#231): those within
+	// sim.InterestRadius of their ship or companions, kept until they're past it
+	// by sim.InterestMargin.
+	Enemies []*EnemyState `protobuf:"bytes,3,rep,name=enemies,proto3" json:"enemies,omitempty"`
 	// Derelict ships waiting to be rescued (#52).
 	Derelicts     []*DerelictState `protobuf:"bytes,4,rep,name=derelicts,proto3" json:"derelicts,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -3077,6 +3080,7 @@ func (x *DerelictState) GetHeld() bool {
 // from the seed, so bullets are never streamed. It is announced ahead: the
 // weapon animates from tick - warn_ticks, and the bullets leave at tick from
 // where the enemy is then. x and y are where it was when announced.
+// It goes to the players who were sent the enemy in the last snapshot (#231).
 type EnemyFired struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	EnemyId   uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`
@@ -3186,7 +3190,8 @@ func (x *EnemyFired) GetFaction() EnemyFaction {
 	return EnemyFaction_ENEMY_FACTION_UNSPECIFIED
 }
 
-// EnemyDestroyed is an enemy shot down, at the tick and place it died.
+// EnemyDestroyed is an enemy shot down, at the tick and place it died. It
+// goes to the players who were sent the enemy in the last snapshot (#231).
 type EnemyDestroyed struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	EnemyId       uint32                 `protobuf:"varint,1,opt,name=enemy_id,json=enemyId,proto3" json:"enemy_id,omitempty"`

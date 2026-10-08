@@ -5283,6 +5283,7 @@ function eventEndBanner(event, won) {
 
 // src/scenes/netplay.ts
 var NOTICE_MS = 4e3;
+var ENEMIES_GONE_KEPT = 20;
 var now = () => performance.now();
 var playerLabel = (name, squadron) => squadron === "" ? name : `${name} \xB7 ${squadron}`;
 var NetPlay = class {
@@ -5332,6 +5333,8 @@ var NetPlay = class {
   shotEnds = new TimedQueue(20);
   latestSnapshot = 0;
   tickRate = 20;
+  /** The last enemies that left the page, oldest first (#231). */
+  gone = [];
   /** Enemies this player shot down, and enemy bullets that hit this ship. */
   enemiesDestroyed = 0;
   lastEnemyDestroyed;
@@ -5777,6 +5780,16 @@ var NetPlay = class {
       repairing: e.repairing
     }));
   }
+  /** The last enemies that left the page, oldest first, for the E2E tests (#231). */
+  get enemiesGone() {
+    return this.gone.map((g) => ({ ...g }));
+  }
+  noteGone(id, exploded) {
+    this.gone.push({ id, exploded });
+    if (this.gone.length > ENEMIES_GONE_KEPT) {
+      this.gone.shift();
+    }
+  }
   /**
    * Once a frame: send the local ship, draw the others and the enemies, spawn
    * their shots, and test hits. Returns where hits landed.
@@ -5965,6 +5978,7 @@ var NetPlay = class {
     for (const [id, enemy] of this.enemies) {
       if (enemy.destroyedAt === void 0 && enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
         this.enemies.delete(id);
+        this.noteGone(id, false);
         if (this.raidersLeaving.delete(id)) {
           this.raiderLeaves(enemy.view);
         } else {
@@ -6162,6 +6176,7 @@ var NetPlay = class {
       return;
     }
     this.enemies.delete(destroyed.enemyId);
+    this.noteGone(destroyed.enemyId, true);
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
@@ -6920,6 +6935,7 @@ var SandboxScene = class extends Phaser14.Scene {
       },
       net: { status: "offline", playerId: void 0, others: [] },
       enemies: [],
+      enemiesGone: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: void 0,
       enemyFireGlow: false,
@@ -8392,6 +8408,7 @@ ${modeName(info)}`,
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
     this.debug.enemies = this.net?.enemyList ?? [];
+    this.debug.enemiesGone = this.net?.enemiesGone ?? [];
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;

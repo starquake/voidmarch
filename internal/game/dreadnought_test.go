@@ -682,7 +682,7 @@ func TestDreadnought_ItsSectorsGarrisonStaysOffTheFieldWhileItsAwake(t *testing.
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m))
 	a, _ := join(t, hub, "a")
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, 0)))
 	s := dreadnoughtSector(t, d)
@@ -702,7 +702,7 @@ func TestDreadnought_StandsDownAGarrisonOutWhenItWoke(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithDreadnoughtGarrisonOut(0))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m), WithDreadnoughtGarrisonOut(0))
 	a, _ := join(t, hub, "a")
 	snap := must(latest(t, a, tick, 2, 0, 0))
 	if guards := guardsIn(snap, dreadnoughtSector(t, dreadnoughtIn(snap))); len(guards) > 0 {
@@ -825,7 +825,7 @@ func TestDreadnought_ItsFallClearsAGarrisonFoughtBefore(t *testing.T) {
 
 	m := &world.Map{Name: "test", DreadnoughtAwake: true, NoEvents: true}
 	hub, tick := testHub(
-		t,
+		t, WithEveryEnemy(),
 		WithMap(m),
 		WithClearedSectors(ringOne(4)),
 		WithDreadnoughtGarrisonOut(2),

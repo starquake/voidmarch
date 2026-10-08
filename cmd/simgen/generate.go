@@ -78,6 +78,8 @@ func writeTunables(w writer) {
 	w("export const WORLD_EDGE_BAND = %d;\n", sim.WorldEdgeBand)
 	w("export const SAFE_ZONE_RADIUS = %d;\n", sim.SafeZoneRadius)
 	w("export const DERELICT_HOLD_RADIUS = %d;\n", sim.DerelictHoldRadius)
+	w("export const INTEREST_RADIUS = %d;\n", sim.InterestRadius)
+	w("export const INTEREST_MARGIN = %d;\n", sim.InterestMargin)
 	w("export const SHIP_RADIUS = %d;\n", sim.ShipRadius)
 	w("export const MAX_DAMAGE = %d;\n", sim.MaxDamage)
 	w("export const RESPAWN_DELAY = %s;\n", num(sim.RespawnDelay))

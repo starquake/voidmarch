@@ -39,7 +39,7 @@ func heldBeside(snap *pb.Snapshot) *pb.DerelictState {
 func TestDerelicts_AFrigateHoldsOneBesideItUntilItsFleetIsGone(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithMap(frigateMap), WithPoolStart(3), NoEvents)
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(frigateMap), WithPoolStart(3), NoEvents)
 	a, _ := join(t, hub, "a")
 	snap := must(latest(t, a, tick, 1, 0, 0))
 	d := heldBeside(snap)

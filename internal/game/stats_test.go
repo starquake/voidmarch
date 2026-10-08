@@ -120,7 +120,7 @@ func TestStats_ASectorClearCountsForEveryoneInIt(t *testing.T) {
 
 	saved := &savedStats{}
 	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m), WithSaveStats(saved.save))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m), WithSaveStats(saved.save))
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
 	b.Send(state(0, 0))
@@ -142,7 +142,7 @@ func TestStats_AClearTellsWhatEachPlayerInItDid(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}, NoEvents: true}
-	hub, tick := testHub(t, WithMap(m))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m))
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
 	b.Send(state(0, 0))

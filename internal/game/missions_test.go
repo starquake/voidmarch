@@ -74,7 +74,7 @@ func TestMissions_AClearedSectorRewardsEveryoneAndMovesTheMissionOn(t *testing.T
 	t.Parallel()
 
 	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}}
-	hub, tick := testHub(t, WithMap(m), WithPoolStart(3))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m), WithPoolStart(3))
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
 	j := chooseAndWait(t, a, "")
@@ -115,7 +115,7 @@ func TestMissions_AFullFleetGetsNoShip(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 1}}
-	hub, tick := testHub(t, WithMap(m), WithPoolStart(sim.MaxFleet))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m), WithPoolStart(sim.MaxFleet))
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 	killAll(a, snap)

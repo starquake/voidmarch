@@ -417,6 +417,7 @@ export class SandboxScene extends Phaser.Scene {
       },
       net: { status: 'offline', playerId: undefined, others: [] },
       enemies: [],
+      enemiesGone: [],
       enemiesDestroyed: 0,
       lastEnemyDestroyed: undefined,
       enemyFireGlow: false,
@@ -2071,6 +2072,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.net.playerId = this.net?.playerId;
     this.debug.net.others = this.net?.others ?? [];
     this.debug.enemies = this.net?.enemyList ?? [];
+    this.debug.enemiesGone = this.net?.enemiesGone ?? [];
     this.debug.enemiesDestroyed = this.net?.enemiesDestroyed ?? 0;
     this.debug.lastEnemyDestroyed = this.net?.lastEnemyDestroyed;
     this.debug.hitsTaken = this.net?.hitsTaken ?? 0;

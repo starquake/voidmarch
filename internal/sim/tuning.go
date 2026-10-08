@@ -53,6 +53,13 @@ const (
 	EnemyAimJitter = 0.08
 	// EnemyMuzzle is how far ahead of an enemy's center its bullets leave.
 	EnemyMuzzle = 14
+	// InterestRadius is how near a player's ship or companions an enemy is
+	// sent to that player (#231): past the widest view (a 32:9 screen's
+	// half-diagonal is about 990), and the client's volley range.
+	InterestRadius = 1200
+	// InterestMargin is how much farther a sent enemy goes before it stops
+	// being sent, so one at the edge doesn't come and go every tick.
+	InterestMargin = 200
 )
 
 // Garrisons (#99): each ring's faction holding its sectors until they're cleared.

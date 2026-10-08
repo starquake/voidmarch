@@ -121,7 +121,7 @@ func inE4(snap *pb.Snapshot) int {
 func TestGarrison_TakesTheFieldAllOverItsSector(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithEveryEnemy())
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 
@@ -153,7 +153,7 @@ func TestGarrison_TakesTheFieldAllOverItsSector(t *testing.T) {
 func TestGarrison_GrowsWithTheShipsThatEnter(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithEveryEnemy())
 	a, _ := join(t, hub, "a")
 	b, _ := join(t, hub, "b")
 	b.Send(state(enterX, enterY+50))
@@ -167,7 +167,7 @@ func TestGarrison_GrowsWithTheShipsThatEnter(t *testing.T) {
 func TestGarrison_HoldsItsSectorAndRoamsItOnceThePlayerLeaves(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithEveryEnemy())
 	a, _ := join(t, hub, "a")
 	e4, _ := sim.ParseSector("E4")
 	var snap *pb.Snapshot
@@ -225,7 +225,7 @@ func TestGarrison_HoldsItsSectorAndRoamsItOnceThePlayerLeaves(t *testing.T) {
 func TestGarrison_StandsDownWithNobodyNearAndKeepsItsLosses(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithEveryEnemy())
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 	two := &pb.Snapshot{Enemies: snap.GetEnemies()[:2]}
@@ -247,7 +247,12 @@ func TestGarrison_ClearingASectorSavesItAndTellsEveryone(t *testing.T) {
 
 	saved := make(chan string, 1)
 	m := &world.Map{Name: "test", Garrisons: map[string]int{"E4": 2}}
-	hub, tick := testHub(t, WithMap(m), WithSaveSector(func(name string) { saved <- name }))
+	hub, tick := testHub(
+		t,
+		WithEveryEnemy(),
+		WithMap(m),
+		WithSaveSector(func(name string) { saved <- name }),
+	)
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 	killAll(a, snap)
@@ -284,7 +289,7 @@ func TestGarrison_ABossSectorNeedsItsFrigateDown(t *testing.T) {
 		Bosses:    []world.Boss{{Kind: "frigate", Sector: "D3"}},
 		Garrisons: map[string]int{"D3": 1},
 	}
-	hub, tick := testHub(t, WithMap(m), NoEvents)
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m), NoEvents)
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, 0, -1000)
 	frigate := frigateIn(snap)
@@ -351,7 +356,7 @@ func TestGarrison_TheMapCapsHowManyFightAtOnce(t *testing.T) {
 	t.Parallel()
 
 	m := &world.Map{Name: "test", Field: 3, Garrisons: map[string]int{"E4": 50}}
-	hub, tick := testHub(t, WithMap(m))
+	hub, tick := testHub(t, WithEveryEnemy(), WithMap(m))
 	a, _ := join(t, hub, "a")
 	snap, _ := latest(t, a, tick, 1, enterX, enterY)
 	if got := inE4(snap); got != 3 {

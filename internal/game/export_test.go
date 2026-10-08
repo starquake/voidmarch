@@ -2,6 +2,7 @@ package game
 
 import (
 	"log/slog"
+	"math"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/players"
@@ -32,6 +33,34 @@ func WithinReach(x, y float64, companions [][2]float64) bool {
 
 // VolleyRange exposes volleyRange for tests.
 const VolleyRange = volleyRange
+
+// WarningTravel is the farthest any enemy moves at full speed while its
+// weapon warns.
+func WarningTravel() float64 {
+	var most float64
+	for _, kind := range []pb.EnemyKind{
+		pb.EnemyKind_ENEMY_KIND_SCOUT,
+		pb.EnemyKind_ENEMY_KIND_FIGHTER,
+		pb.EnemyKind_ENEMY_KIND_BOMBER,
+		pb.EnemyKind_ENEMY_KIND_TORPEDO,
+	} {
+		warning := float64(fireWarning)
+		if kind == pb.EnemyKind_ENEMY_KIND_TORPEDO {
+			warning = torpedoWarning
+		}
+		most = max(most, statsFor(kind, sim.Klaed).maxSpeed*warning/TickRate)
+	}
+
+	return most
+}
+
+// WithEveryEnemy sends every member every enemy, as before #231, for tests
+// about the whole world.
+func WithEveryEnemy() HubOption {
+	return func(o *hubOptions) {
+		o.setup = append(o.setup, func(h *Hub) { h.interestRadius = math.Inf(1) })
+	}
+}
 
 // WithEnemyAt starts the hub with an enemy at (x, y).
 func WithEnemyAt(x, y float64) HubOption {
