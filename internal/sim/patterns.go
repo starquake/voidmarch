@@ -91,7 +91,7 @@ func DreadnoughtVolleyOf(seed uint32) DreadnoughtVolley {
 	return DreadnoughtVolley(seed % uint32(dreadnoughtVolleys))
 }
 
-// DreadnoughtSpiralBursts is how many bursts a spiral fires.
+// DreadnoughtSpiralBursts is how many bursts a spiral has, its pauses too.
 const DreadnoughtSpiralBursts = int(DreadnoughtSpiralSeconds / DreadnoughtSpiralEvery)
 
 // DreadnoughtSpiralAngle is the angle of a spiral's burst, counted from 0:
@@ -99,6 +99,13 @@ const DreadnoughtSpiralBursts = int(DreadnoughtSpiralSeconds / DreadnoughtSpiral
 // turning the positive way for 1 and the negative for -1 (#273).
 func DreadnoughtSpiralAngle(burst, way int) float64 {
 	return DreadnoughtSpiralStart + Tau*float64(way*burst)/float64(DreadnoughtSpiralBursts)
+}
+
+// DreadnoughtSpiralFires reports whether a spiral's burst, counted from 0,
+// fires: one in every DreadnoughtSpiralSkipEvery is a pause instead, which
+// leaves a wide hole on the paths it would fly (#273).
+func DreadnoughtSpiralFires(burst int) bool {
+	return burst%DreadnoughtSpiralSkipEvery != DreadnoughtSpiralSkipped
 }
 
 // DreadnoughtTurn is the order faction's Dreadnought takes its volleys in:

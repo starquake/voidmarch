@@ -212,6 +212,12 @@ const (
 	DreadnoughtSpiralArms    = 3
 	DreadnoughtSpiralEvery   = 0.1
 	DreadnoughtSpiralSeconds = 1.6
+	// DreadnoughtSpiralSkipEvery: of every 4 bursts, the one counted
+	// DreadnoughtSpiralSkipped from 0 fires nothing, so every fourth path
+	// stays empty, a wide hole. Only 2 empties the same paths turning
+	// either way (TestDreadnoughtSpiralFires_LeavesTheSame12HolesEitherWay).
+	DreadnoughtSpiralSkipEvery = 4
+	DreadnoughtSpiralSkipped   = 2
 	// DreadnoughtSpiralStart is the angle every spiral's first arm leaves
 	// along, whatever ships are near: straight up, as y grows down. Every
 	// spiral then flies the same paths, so the holes between them stay put.

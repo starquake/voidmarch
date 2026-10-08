@@ -292,30 +292,31 @@ func TestDreadnought_TheNautolanOneSpirals(t *testing.T) {
 		}
 	}
 
-	bursts := sim.DreadnoughtSpiralBursts
+	// Bursts 2, 6, 10 and 14 are pauses, keeping the others' timing.
+	fires := []uint32{0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15}
 	gap := uint32(sim.DreadnoughtSpiralEvery * TickRate)
 	runs := spirals(fired)[:2]
 	ways := make([]float64, 0, len(runs))
 	for n, run := range runs {
-		if len(run) != bursts {
-			t.Fatalf("spiral %d has %d bursts, want %d", n, len(run), bursts)
+		if len(run) != len(fires) {
+			t.Fatalf("spiral %d has %d bursts, want %d", n, len(run), len(fires))
 		}
 		way := math.Copysign(1, sim.WrapAngle(run[1].angle-run[0].angle))
 		ways = append(ways, way)
 		for i, b := range run {
-			want := sim.DreadnoughtSpiralAngle(i, int(way))
-			if math.Abs(sim.WrapAngle(b.angle-want)) > 1e-3 {
-				t.Errorf("spiral %d burst %d along %v, want %v", n, i, b.angle, want)
-			}
-			if i > 0 && b.tick-run[i-1].tick != gap {
+			if got, want := b.tick-run[0].tick, fires[i]*gap; got != want {
 				t.Errorf(
-					"spiral %d burst %d at tick %d, %d after the last, want %d",
+					"spiral %d burst %d at tick %d, %d after the first, want %d",
 					n,
 					i,
 					b.tick,
-					b.tick-run[i-1].tick,
-					gap,
+					got,
+					want,
 				)
+			}
+			want := sim.DreadnoughtSpiralAngle(int(fires[i]), int(way))
+			if math.Abs(sim.WrapAngle(b.angle-want)) > 1e-3 {
+				t.Errorf("spiral %d burst %d along %v, want %v", n, i, b.angle, want)
 			}
 		}
 	}

@@ -315,8 +315,9 @@ func (h *Hub) stepDreadnought(e *enemy, ships []upShip, online float64) {
 }
 
 // spiralBurst fires the spiral's next burst, a step further round its
-// turn from straight up (#273). Only the first warns: restarting the weapon
-// animation every burst would hold it on its first frames.
+// turn from straight up, or holds it for a pause (#273). Only the first
+// warns: restarting the weapon animation every burst would hold it on its
+// first frames.
 func (h *Hub) spiralBurst(e *enemy) {
 	f := e.dread
 	burst := sim.DreadnoughtSpiralBursts - f.bursts
@@ -325,11 +326,12 @@ func (h *Hub) spiralBurst(e *enemy) {
 		way = -1
 	}
 	angle := sim.DreadnoughtSpiralAngle(burst, way)
-	seed := sim.DreadnoughtSeed(h.rng.Uint32(), sim.DreadnoughtSpiral)
-	if burst == 0 {
-		h.fireAt(e, angle, seed)
-	} else {
-		h.fireUnwarned(e, angle, seed)
+	switch {
+	case !sim.DreadnoughtSpiralFires(burst):
+	case burst == 0:
+		h.fireAt(e, angle, sim.DreadnoughtSeed(h.rng.Uint32(), sim.DreadnoughtSpiral))
+	default:
+		h.fireUnwarned(e, angle, sim.DreadnoughtSeed(h.rng.Uint32(), sim.DreadnoughtSpiral))
 	}
 	f.bursts--
 	e.cooldown = spiralCooldown
