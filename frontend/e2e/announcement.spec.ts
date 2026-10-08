@@ -105,3 +105,26 @@ test.describe('at twice the pixels', () => {
     await expectPlaced(page);
   });
 });
+
+test('the tablet\'s turn-sideways message stays on top of an announcement', async ({ page }) => {
+  // A tablet held upright shows the message over the whole game; nothing can be played under it.
+  await page.setViewportSize({ width: 600, height: 900 });
+  await page.goto('/?touch=1');
+  await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
+  await expect(page.locator('#rotate-notice')).toBeVisible();
+  await showAnnouncement(page);
+  const topmost = await page.evaluate(() => {
+    const banner = document.querySelector<HTMLElement>('#announcement');
+    if (banner === null) {
+      throw new Error('no announcement element');
+    }
+    // The banner lets the pointer through, so elementFromPoint would skip it; let it take the pointer while looking.
+    banner.style.pointerEvents = 'auto';
+    const r = banner.getBoundingClientRect();
+    const hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+    banner.style.pointerEvents = '';
+
+    return hit?.closest('#rotate-notice, #announcement')?.id ?? hit?.tagName ?? '';
+  });
+  expect(topmost).toBe('rotate-notice');
+});
