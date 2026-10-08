@@ -8,6 +8,8 @@ import { aimAt, state } from './hunt.ts';
  */
 const TOWARD_C3 = { x: -Math.sqrt(3) / 2, y: -1 / 2 };
 const OUT = 600;
+/** C3's center, about 1715 px from home: a ship there has all of C3 within reach of what it's sent (#309). */
+const C3_CENTER = { x: TOWARD_C3.x * 1715, y: TOWARD_C3.y * 1715 };
 
 test('a garrison comes out with its Support Ship', async ({ page }) => {
   await page.goto('/');
@@ -22,12 +24,19 @@ test('a garrison comes out with its Support Ship', async ({ page }) => {
       return s.ship.x * TOWARD_C3.x + s.ship.y * TOWARD_C3.y;
     })
     .toBeGreaterThan(OUT);
-  await page.keyboard.up('w');
 
+  // A garrison ship comes out anywhere in its sector, and only enemies within
+  // 1200 px are sent (#299): fly on toward C3's center until it's in view (#309).
   await expect
-    .poll(async () => (await state(page)).enemies.filter((e) => e.kind === 'support').length, {
-      message: 'a Support Ship comes out',
-      timeout: 20_000,
-    })
+    .poll(
+      async () => {
+        const s = await state(page);
+        await aimAt(page, s, C3_CENTER.x, C3_CENTER.y);
+
+        return s.enemies.filter((e) => e.kind === 'support').length;
+      },
+      { message: 'a Support Ship comes out', timeout: 20_000 },
+    )
     .toBeGreaterThan(0);
+  await page.keyboard.up('w');
 });
