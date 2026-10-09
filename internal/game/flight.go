@@ -26,6 +26,10 @@ func (h *Hub) flyCompanions() {
 	derelicts := h.derelictPoints()
 	for range substeps {
 		bullets := h.enemyBullets()
+		enemies := h.brainEnemies()
+		if h.holdFire {
+			enemies = nil
+		}
 		for _, id := range owners {
 			m := h.members[id]
 			if m == nil || len(m.wing.Companions) == 0 || (m.state == nil && !m.gone) {
@@ -39,10 +43,6 @@ func (h *Hub) flyCompanions() {
 			m.wing.Derelicts = derelicts
 			m.wing.Bullets = bullets
 			m.wing.Frontier = h.frontier
-			enemies := h.brainEnemies(m)
-			if h.holdFire {
-				enemies = nil
-			}
 			for _, shot := range m.wing.Step(enemies, h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}
@@ -93,17 +93,15 @@ func (h *Hub) othersThan(id string) []sim.Friend {
 	return out
 }
 
-// brainEnemies are the enemies as m's companions see them.
-func (h *Hub) brainEnemies(m *member) []sim.BrainEnemy {
+// brainEnemies are the enemies as companions see them.
+func (h *Hub) brainEnemies() []sim.BrainEnemy {
 	out := make([]sim.BrainEnemy, 0, len(h.enemies))
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
 		out = append(out, sim.BrainEnemy{
-			ID:           int(id),
-			Kind:         simEnemyKind(e.kind),
-			X:            e.x,
-			Y:            e.y,
-			AttackedWing: m.attackers[id],
+			ID: int(id),
+			X:  e.x,
+			Y:  e.y,
 		})
 	}
 
@@ -292,30 +290,6 @@ func (h *Hub) companionTargets() ([]sim.ShipTarget, []*sim.Ship) {
 	}
 
 	return targets, ships
-}
-
-// noteAttack marks e as an attacker of every wing it fired near, which
-// defensive orders and return fire answer.
-func (h *Hub) noteAttack(e *enemy) {
-	near := func(x, y float64) bool {
-		return math.Hypot(x-e.x, y-e.y) <= sim.BrainAttackerRange
-	}
-	for _, m := range h.members {
-		attacked := m.state != nil && near(float64(m.state.GetX()), float64(m.state.GetY()))
-		for _, c := range m.wing.Companions {
-			attacked = attacked || near(c.Ship.X, c.Ship.Y)
-		}
-		if attacked {
-			m.attackers[e.id] = true
-		}
-	}
-}
-
-// forgetEnemy drops a gone enemy from every wing's attackers.
-func (h *Hub) forgetEnemy(id uint32) {
-	for _, m := range h.members {
-		delete(m.attackers, id)
-	}
 }
 
 // companionState is a companion's ship as the protocol has it.

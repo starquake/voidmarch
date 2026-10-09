@@ -41,9 +41,6 @@ const (
 	// SafeZoneRadius is the home planet's safe zone, where enemies never go
 	// and companions are drawn from the hangar (the server's too).
 	SafeZoneRadius = 300
-	// BrainAttackerRange is how close an enemy that fires has attacked the
-	// wing.
-	BrainAttackerRange = 500
 	// ShipRadius is the player ship's hit circle.
 	ShipRadius = 12
 	// ShotRadius is a projectile's own size when testing hits.
@@ -250,9 +247,6 @@ const (
 	// BrainArriveSeconds: a companion aims for the speed that would reach its
 	// goal in this long, so it brakes on arrival.
 	BrainArriveSeconds = 0.35
-	// BrainTightFormation is the fraction of its size the defensive stance
-	// pulls the formation in to.
-	BrainTightFormation = 0.75
 	// BrainInFormation: a companion this close to its slot is in formation.
 	BrainInFormation = 16
 	// BrainSpacing is how far, center to center, a companion keeps from other
@@ -267,14 +261,8 @@ const (
 	// BrainLookAhead is how far ahead along the owner's facing a companion
 	// looks when nothing needs shooting.
 	BrainLookAhead = 200
-	// BrainEscortRange: escorting and defending companions shoot enemies this
-	// close to their owner.
+	// BrainEscortRange: companions shoot enemies this close to their owner.
 	BrainEscortRange = 300
-	// BrainLeash: aggressive companions hunt enemies this close to their
-	// owner, and no farther.
-	BrainLeash = 450
-	// BrainAttackDistance is how close a hunting companion gets to its target.
-	BrainAttackDistance = 130
 	// TargetSpreadCount is how many of the best-ranked enemies a squadron's
 	// companions spread over, and TargetSpreadReach how much farther than the
 	// best one an enemy may be to count (#165).
@@ -286,23 +274,14 @@ const (
 	// BrainAimJitter is how far, in radians, a companion's aim wobbles from
 	// its seed.
 	BrainAimJitter = 0.04
-	// BrainBadlyDamaged: from this many hits on, defensive or conserving
-	// companions fall back.
-	BrainBadlyDamaged = 3
 	// BrainHomeRadius: going home is done this close to the home planet,
 	// inside the server's safe zone.
 	BrainHomeRadius = 250
-	// BrainShieldDistance: shielding the owner, a companion keeps this far out
-	// toward the attackers.
-	BrainShieldDistance = BrainOwnerSpacing
 	// BrainReactionMin and BrainReactionMax bound how late, in seconds, each
 	// companion reacts, picked per companion from its seed, so a wing doesn't
 	// move in lockstep.
 	BrainReactionMin float64 = 0.15
 	BrainReactionMax float64 = 0.5
-	// BrainOrderJitter is how much longer, at most, an order waits, fresh for
-	// every order.
-	BrainOrderJitter = 0.25
 	// BrainDodgeReaction is how old, in seconds, an enemy bullet must be
 	// before a companion reacts to it (#249).
 	BrainDodgeReaction = 0.25

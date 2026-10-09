@@ -115,22 +115,16 @@ func TestSandbox_ControlModes(t *testing.T) {
 	}
 }
 
-func TestSandbox_CompanionRegroupsAndForgetsTheOneShot(t *testing.T) {
+func TestSandbox_CompanionFlysIntoFormation(t *testing.T) {
 	t.Parallel()
 
 	s := NewSandbox()
 	c := s.AddCompanion(1, s.Ship.X+150, s.Ship.Y+150)
-	c.Orders.OneShot = OneShot{Kind: OneShotRegroup}
 	for tick := 0.0; tick < 3; tick += TickSeconds {
 		s.Advance(TickSeconds, idle, nil)
 	}
-	d := math.Hypot(c.Ship.X-s.Ship.X, c.Ship.Y-s.Ship.Y)
-	if d >= 100 || c.Orders.OneShot.Kind != OneShotNone {
-		t.Errorf(
-			"after regrouping: %v away, one-shot %q, want in formation and done",
-			d,
-			c.Orders.OneShot.Kind,
-		)
+	if d := math.Hypot(c.Ship.X-s.Ship.X, c.Ship.Y-s.Ship.Y); d >= 100 {
+		t.Errorf("after 3 s: %v away, want in formation", d)
 	}
 }
 
@@ -138,11 +132,8 @@ func TestSandbox_CompanionShotsCarryItsNumber(t *testing.T) {
 	t.Parallel()
 
 	s := NewSandbox()
-	c := s.AddCompanion(2, s.Ship.X-40, s.Ship.Y+40)
-	c.Orders.Stance = StanceAggressive
-	enemies := []BrainEnemy{
-		{ID: 1, Kind: EnemyScout, X: s.Ship.X, Y: s.Ship.Y - 200, AttackedWing: true},
-	}
+	s.AddCompanion(2, s.Ship.X-40, s.Ship.Y+40)
+	enemies := []BrainEnemy{{ID: 1, X: s.Ship.X, Y: s.Ship.Y - 200}}
 	var shots []FiredShot
 	for tick := 0.0; tick < 2; tick += TickSeconds {
 		shots = append(shots, s.Advance(TickSeconds, idle, enemies).Shots...)
@@ -233,45 +224,6 @@ func TestSandbox_CompanionsReactLate(t *testing.T) {
 	}
 }
 
-func TestSandbox_OrdersArriveLate(t *testing.T) {
-	t.Parallel()
-
-	s := NewSandbox()
-	for n := 1; n <= 3; n++ {
-		s.AddCompanion(n, 0, 200)
-	}
-	for _, c := range s.Companions {
-		next := c.Orders
-		next.Stance = StanceAggressive
-		s.Order(c, next)
-		if c.Orders.Stance != StanceEscort || s.OrdersFor(c).Stance != StanceAggressive {
-			t.Fatalf("companion %d: orders %q, on the way %q, want escort now, aggressive coming",
-				c.Number, c.Orders.Stance, s.OrdersFor(c).Stance)
-		}
-	}
-	arrived := map[int]bool{}
-	for tick := 1; len(arrived) < 3 && tick < 200; tick++ {
-		s.Advance(TickSeconds, idle, nil)
-		for _, c := range s.Companions {
-			if c.Orders.Stance != StanceAggressive || arrived[c.Number] {
-				continue
-			}
-			arrived[c.Number] = true
-			at := float64(tick) * TickSeconds
-			if at < BrainReactionMin-1e-9 || at > BrainReactionMax+BrainOrderJitter+TickSeconds {
-				t.Errorf(
-					"companion %d took the order after %v s, want within the reaction times",
-					c.Number,
-					at,
-				)
-			}
-		}
-	}
-	if len(arrived) != 3 {
-		t.Errorf("%d companions took the order, want 3", len(arrived))
-	}
-}
-
 func TestSandbox_CompanionFollowsWhereTheOwnerWas(t *testing.T) {
 	t.Parallel()
 
@@ -295,24 +247,5 @@ func TestSandbox_CompanionFollowsWhereTheOwnerWas(t *testing.T) {
 	}
 	if c.Ship.VX <= 50 {
 		t.Errorf("after its reaction time: vx %v, want heading after the owner", c.Ship.VX)
-	}
-}
-
-func TestSandbox_NewCompanionJoinsTheStandingOrders(t *testing.T) {
-	t.Parallel()
-
-	s := NewSandbox()
-	first := s.AddCompanion(1, 0, 200)
-	s.Order(first, Orders{
-		Stance: StanceAggressive, Fire: FireReturn, Resources: ResourcesSpend,
-		OneShot: OneShot{Kind: OneShotRegroup},
-	})
-	second := s.AddCompanion(2, 0, 200)
-	if second.Orders.Stance != StanceAggressive || second.Orders.Fire != FireReturn ||
-		second.Orders.OneShot.Kind != OneShotNone {
-		t.Errorf(
-			"new companion's orders = %+v, want the wing's standing orders without the one-shot",
-			second.Orders,
-		)
 	}
 }

@@ -251,7 +251,6 @@ func (h *Hub) sleepDreadnought() {
 	h.saveDreadnoughtShare(e.faction, e.dread.share)
 	h.logDreadnoughtDamage(e, true)
 	delete(h.enemies, e.id)
-	h.forgetEnemy(e.id)
 	h.dreadnoughtID = 0
 }
 

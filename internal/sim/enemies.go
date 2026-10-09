@@ -208,30 +208,6 @@ func LeadAngle(x, y, tx, ty, vx, vy, speed, delay float64) float64 {
 	return math.Atan2(qy+vy*t, qx+vx*t)
 }
 
-// EnemyHP is an enemy's hit points, as the server has them, for picking the
-// weakest target; a Frigate's is its least, for one player.
-func EnemyHP(kind EnemyKind) float64 {
-	const scout, fighter, bomber, torpedo, support = 2, 6, 10, 8, 4
-	switch kind {
-	case EnemySupport:
-		return support
-	case EnemyFighter:
-		return fighter
-	case EnemyBomber:
-		return bomber
-	case EnemyTorpedo:
-		return torpedo
-	case EnemyFrigate:
-		return FrigateHP(1)
-	case EnemyDreadnought:
-		return DreadnoughtMaxHP(1)
-	case EnemyScout:
-		fallthrough
-	default:
-		return scout
-	}
-}
-
 // DreadnoughtMaxHP is the Dreadnought's maximum health for the weight of the
 // players online: each player weighs 1, each companion FrigateCompanionWeight.
 func DreadnoughtMaxHP(weight float64) float64 {
@@ -252,10 +228,4 @@ func DreadnoughtRegen(share, hours float64) float64 {
 // each player weighs 1, each companion FrigateCompanionWeight.
 func FrigateHP(weight float64) float64 {
 	return FrigateBaseHP + FrigateHPPerPlayer*weight
-}
-
-// IsSupport reports whether an enemy is a Support Ship, which companions can
-// be told to go for first.
-func IsSupport(kind EnemyKind) bool {
-	return kind == EnemySupport
 }

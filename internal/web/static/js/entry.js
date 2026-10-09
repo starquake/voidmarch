@@ -7,7 +7,7 @@ var CODE_BYTES = {
   "/static/js/vendor/protobuf-codegenv2.js": 7637
 };
 var FILE_BYTES = {
-  "rules": 168479,
+  "rules": 157726,
   "font-Exo 2": 40932,
   "font-Orbitron": 11768,
   "hull-fullHealth": 485,

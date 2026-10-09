@@ -7,19 +7,6 @@ import (
 	. "github.com/starquake/voidmarch/internal/sim"
 )
 
-func TestIsSupport_OnlyTheSupportShip(t *testing.T) {
-	t.Parallel()
-
-	if !slices.Contains(EnemyKinds(), EnemySupport) {
-		t.Fatal("EnemyKinds() leaves out the Support Ship")
-	}
-	for _, kind := range EnemyKinds() {
-		if got, want := IsSupport(kind), kind == EnemySupport; got != want {
-			t.Errorf("IsSupport(%s) = %t, want %t", kind, got, want)
-		}
-	}
-}
-
 func TestEnemyPattern_ASupportShipHasNoGuns(t *testing.T) {
 	t.Parallel()
 
@@ -27,19 +14,6 @@ func TestEnemyPattern_ASupportShipHasNoGuns(t *testing.T) {
 		if got := EnemyPattern(EnemySupport, faction, 0, 0, 0, 1); len(got) != 0 {
 			t.Errorf("EnemyPattern(support, %s) = %d bullets, want none", faction, len(got))
 		}
-	}
-}
-
-func TestEnemyHP_ASupportShipHasFewHitPoints(t *testing.T) {
-	t.Parallel()
-
-	if hp := EnemyHP(EnemySupport); hp <= EnemyHP(EnemyScout) || hp >= EnemyHP(EnemyFighter) {
-		t.Errorf(
-			"EnemyHP(support) = %v, want between a Scout's %v and a Fighter's %v",
-			hp,
-			EnemyHP(EnemyScout),
-			EnemyHP(EnemyFighter),
-		)
 	}
 }
 

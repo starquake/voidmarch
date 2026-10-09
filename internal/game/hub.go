@@ -111,9 +111,6 @@ type member struct {
 	companions map[uint32]*companion
 	// wing flies the companions, following this player's latest state.
 	wing *sim.Wing
-	// attackers are the enemies that fired near this player or their
-	// companions, which defensive orders and return fire answer.
-	attackers map[uint32]bool
 	// squadron is the name of the player's squadron, "" until they choose.
 	squadron string
 	// held counts the companion ships this player took the place of on
@@ -514,7 +511,6 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	// and their squadron.
 	companions := make(map[uint32]*companion)
 	wing := &sim.Wing{Key: wingKey(player.ID)}
-	attackers := make(map[uint32]bool)
 	var squadron string
 	var held int
 	unlocks, loadout := h.newestKept(player)
@@ -522,13 +518,13 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 	if old, ok := h.members[player.ID]; ok {
 		// The hub's copies are the newest: saving them may still be under way.
 		unlocks, loadout = old.unlocks, old.loadout
-		companions, wing, attackers = old.companions, old.wing, old.attackers
+		companions, wing = old.companions, old.wing
 		squadron = old.squadron
 		held = old.held
 		if old.gone {
 			// Back in time: the companions heading home turn back to them.
 			for _, c := range wing.Companions {
-				c.Orders.OneShot, c.Pending = sim.OneShot{}, nil
+				c.GoingHome = false
 			}
 		} else {
 			close(old.session.queue)
@@ -550,7 +546,6 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 		lastSeen:   h.tick,
 		companions: companions,
 		wing:       wing,
-		attackers:  attackers,
 		squadron:   squadron,
 		held:       held,
 		unlocks:    unlocks,
@@ -796,8 +791,7 @@ func (h *Hub) sendHome(m *member) {
 	}
 	m.state = nil
 	for _, c := range m.wing.Companions {
-		c.Orders, _ = sim.WithOneShot(sim.OneShotGoHome, c.Orders, 0)
-		c.Pending = nil
+		c.GoingHome = true
 	}
 }
 

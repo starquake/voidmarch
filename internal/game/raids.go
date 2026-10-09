@@ -256,7 +256,6 @@ func (h *Hub) endRaid(drivenOff bool, gains []*pb.PickupGain) {
 		h.saveDreadnoughtShare(e.faction, e.dread.share)
 		h.logDreadnoughtDamage(e, true)
 		delete(h.enemies, e.id)
-		h.forgetEnemy(e.id)
 		ended.EnemyId = e.id
 	}
 	h.broadcast(&pb.ServerMessage{Kind: &pb.ServerMessage_RaidEnded{RaidEnded: ended}}, "")

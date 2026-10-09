@@ -7,13 +7,12 @@ import (
 	. "github.com/starquake/voidmarch/internal/sim"
 )
 
-// holding are orders that keep a companion where it is, at (x, y), and never
-// fire.
-func holding(x, y float64) Orders {
-	o := DefaultOrders()
-	o.Stance, o.HoldX, o.HoldY, o.Fire = StanceHold, x, y, FireHold
+// parked is an owner at rest whose formation's first slot is at the origin,
+// so a companion there with no enemy near holds still.
+func parked() Mover {
+	p := FormationPoint(Mover{}, 0, 1)
 
-	return o
+	return Mover{X: -p.X, Y: -p.Y}
 }
 
 // bulletAt is a Kla'ed Bullet at (x, y) flying along angle, age seconds old.
@@ -37,7 +36,7 @@ func seeing(p *Projectile) []Bullet { return []Bullet{BulletOf(p)} }
 // blind is what a companion sees of p: nothing.
 func blind(*Projectile) []Bullet { return nil }
 
-// closestPass flies a holding companion at the origin against p for two
+// closestPass flies a companion in its slot at the origin against p for two
 // seconds, the companion seeing what sees shows it, and returns how close,
 // center to center, p came.
 func closestPass(p *Projectile, sees func(*Projectile) []Bullet) float64 {
@@ -45,8 +44,8 @@ func closestPass(p *Projectile, sees func(*Projectile) []Bullet) float64 {
 	random := NewRandom(1)
 	closest := math.Hypot(p.X-self.X, p.Y-self.Y)
 	for range 2 * TickRate {
-		view := BrainView{Self: self, Owner: Mover{X: 0, Y: 300}, Bullets: sees(p)}
-		StepShip(self, Think(view, holding(0, 0), random).Command, TickSeconds)
+		view := BrainView{Self: self, Owner: parked(), Bullets: sees(p)}
+		StepShip(self, Think(view, random).Command, TickSeconds)
 		p.Age += TickSeconds
 		Place(p)
 		closest = math.Min(closest, math.Hypot(p.X-self.X, p.Y-self.Y))
@@ -83,11 +82,12 @@ func TestDodge_ABulletOnACollisionCourseIsAvoided(t *testing.T) {
 	}
 }
 
-// command is what a holding companion at the origin decides seeing bullets.
+// command is what a companion in its slot at the origin decides seeing
+// bullets.
 func command(bullets ...Bullet) Command {
-	view := BrainView{Self: newShip(0, 0), Owner: Mover{X: 0, Y: 300}, Bullets: bullets}
+	view := BrainView{Self: newShip(0, 0), Owner: parked(), Bullets: bullets}
 
-	return Think(view, holding(0, 0), NewRandom(1)).Command
+	return Think(view, NewRandom(1)).Command
 }
 
 func TestDodge_BulletsItNeedNotDodgeChangeNothing(t *testing.T) {
@@ -121,13 +121,11 @@ func TestDodge_KeepsAimingAndFiring(t *testing.T) {
 
 	self := newShip(0, 0)
 	self.Angle = -math.Pi / 2
-	o := DefaultOrders()
-	o.Stance, o.HoldX, o.HoldY = StanceHold, 0, 0
-	enemies := []BrainEnemy{{ID: 1, Kind: EnemyScout, X: 0, Y: -150}}
+	enemies := []BrainEnemy{{ID: 1, X: 0, Y: -150}}
 	decide := func(bullets ...Bullet) Command {
-		view := BrainView{Self: self, Owner: Mover{Y: 300}, Enemies: enemies, Bullets: bullets}
+		view := BrainView{Self: self, Owner: parked(), Enemies: enemies, Bullets: bullets}
 
-		return Think(view, o, NewRandom(1)).Command
+		return Think(view, NewRandom(1)).Command
 	}
 
 	calm, dodging := decide(), decide(BulletOf(bulletAt(-60, 0, 0, 0.5)))
@@ -154,9 +152,10 @@ func TestBulletOf(t *testing.T) {
 	}
 }
 
-// battle is wings of stealthy companions, each beside its parked owner, and
-// an enemy of kind above each wing firing seeded volleys at it, stepped a
-// sim tick at a time as the hub steps them. Hits are counted, not taken.
+// battle is wings of companions, each beside its parked owner, and an enemy
+// of kind above each wing firing seeded volleys at it, stepped a sim tick at
+// a time as the hub steps them. The companions see no enemy, so they never
+// fire. Hits are counted, not taken.
 type battle struct {
 	wings   []*Wing
 	owners  []Mover
@@ -181,7 +180,7 @@ func newBattle(wings int, kind EnemyKind, sees bool) *battle {
 		x := float64(i) * 300
 		var w Wing
 		for n := 1; n <= 3; n++ {
-			w.Add(n, x, 100, ModeOrders(ModeStealth, DefaultOrders(), 0, 0))
+			w.Add(n, x, 100)
 		}
 		b.wings = append(b.wings, &w)
 		b.owners = append(b.owners, Mover{X: x, Angle: -math.Pi / 2})

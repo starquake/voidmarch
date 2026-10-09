@@ -67,7 +67,6 @@ func (h *Hub) summon(owner string, m *member) {
 		int(number),
 		float64(m.state.GetX()),
 		float64(m.state.GetY()),
-		sim.DefaultOrders(),
 	)
 	flight.Fit(loadout)
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, flight: flight}
@@ -172,7 +171,7 @@ func (h *Hub) dockDownedCompanions(owner string, m *member) {
 func (h *Hub) upSquadmateNear(owner string, m *member, x, y float64) bool {
 	comes := func(mate *member) bool {
 		for _, c := range mate.wing.Companions {
-			if !c.Ship.Downed() && sim.ComesToRevive(c.Ship, mate.wing.OrdersFor(c), x, y) {
+			if sim.ComesToRevive(c.Ship, x, y) {
 				return true
 			}
 		}
