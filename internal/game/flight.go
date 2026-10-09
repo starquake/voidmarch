@@ -39,11 +39,11 @@ func (h *Hub) flyCompanions() {
 			m.wing.Derelicts = derelicts
 			m.wing.Bullets = bullets
 			m.wing.Frontier = h.frontier
-			shots := m.wing.Step(h.brainEnemies(m), h.othersThan(id))
+			enemies := h.brainEnemies(m)
 			if h.holdFire {
-				continue
+				enemies = nil
 			}
-			for _, shot := range shots {
+			for _, shot := range m.wing.Step(enemies, h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}
 		}

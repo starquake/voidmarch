@@ -282,7 +282,7 @@ func TestSquadrons_MovingBringsCompanionsAsFarAsThereIsRoom(t *testing.T) {
 func TestSquadrons_MovingDocksDownedCompanionsFirst(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire())
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)

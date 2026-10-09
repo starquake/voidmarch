@@ -62,8 +62,8 @@ func WithEveryEnemy() HubOption {
 	}
 }
 
-// WithCompanionsHoldingFire keeps every companion from firing, so the
-// enemies around it keep shooting.
+// WithCompanionsHoldingFire keeps every companion from turning to fire, as
+// if it saw no enemy, so the enemies around it keep shooting.
 func WithCompanionsHoldingFire() HubOption {
 	return func(o *hubOptions) {
 		o.setup = append(o.setup, func(h *Hub) { h.holdFire = true })

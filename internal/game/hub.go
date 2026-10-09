@@ -240,8 +240,8 @@ type Hub struct {
 	rams sim.Rams[ramPair]
 	// interestRadius is how near a member's ships an enemy is sent to them.
 	interestRadius float64
-	// holdFire drops every companion shot, for tests that keep a companion
-	// under fire.
+	// holdFire hides the enemies from every companion, so none turns to
+	// fire: for tests that keep a companion under fire.
 	holdFire bool
 }
 

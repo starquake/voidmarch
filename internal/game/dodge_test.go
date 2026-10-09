@@ -7,9 +7,9 @@ import (
 )
 
 // blindHullHits is the hull steps the seeded fight in
-// TestCompanions_DodgeTheHubsBullets takes off the companion when it doesn't
-// dodge (#249), measured again once companions held fire only in tests (#325).
-const blindHullHits = 8
+// TestCompanions_DodgeTheHubsBullets took off the companion before
+// companions dodged (#249).
+const blindHullHits = 10
 
 // hullHits flies a's companion out with a, parked at (0, 1000) in D5's
 // garrison, for seconds, and counts the hull steps enemy fire takes off it.

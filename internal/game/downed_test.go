@@ -8,11 +8,17 @@ import (
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/sim"
+	"github.com/starquake/voidmarch/internal/world"
 )
+
+// underFire is a map whose D5 garrison never runs out, so a companion parked
+// there stays under fire.
+var underFire = &world.Map{Name: "under fire", Garrisons: map[string]int{"D5": 500}}
 
 // companionDown flies a's companion out with a, parked at (0, 1000) in D5,
 // until enemy fire takes it down, and returns its state then. The hub must
-// hold the companions' fire, or the companion fights the garrison off.
+// hold the companions' fire, or the companion fights the garrison off, and
+// map underFire downs it soon, every time.
 func companionDown(t *testing.T, a *Session, tick func(int)) *pb.ShipState {
 	t.Helper()
 
@@ -86,7 +92,7 @@ func dockedWithin(t *testing.T, a *Session, tick func(int), n int) bool {
 func TestDowned_RespawnHomeDocksADownedCompanion(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire(), WithPoolStart(1))
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire(), WithPoolStart(1))
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -187,7 +193,7 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hub, tick := testHub(t, WithCompanionsHoldingFire())
+			hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 			a, _ := pilot(t, hub, "a")
 			a.Send(state(0, 180))
 			grant(t, a)
@@ -244,7 +250,7 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 func TestDowned_ARespawnWithoutRespawnHomeLeavesThemDown(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire())
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -261,7 +267,7 @@ func TestDowned_ARespawnWithoutRespawnHomeLeavesThemDown(t *testing.T) {
 func TestDowned_ItsOwnerRevivesACompanion(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire())
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -293,7 +299,7 @@ func TestDowned_ItsOwnerRevivesACompanion(t *testing.T) {
 func TestDowned_ALostCompanionGoesHome(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire())
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)

@@ -545,7 +545,7 @@ func TestCompanions_ClientsCantShootForThem(t *testing.T) {
 func TestCompanions_EnemyBulletsWearThemDown(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire())
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -903,7 +903,7 @@ func TestCompanions_TheNewCompanionDoesNotCountItself(t *testing.T) {
 func TestCompanions_ADownedOneDocksAfterItsOwnerDrops(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithCompanionsHoldingFire())
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
