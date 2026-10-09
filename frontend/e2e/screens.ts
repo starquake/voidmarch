@@ -50,10 +50,11 @@ export function coveredOnScreen(page: Page): Promise<string[]> {
   });
 }
 
-/** Where something covers the announcement, and the elements it is over, each as its tag and id. */
+/** Where something covers the announcement, the elements it is over, each as its tag and id, and its text. */
 interface Overlap {
   covered: string[];
   over: string[];
+  text: string;
 }
 
 /**
@@ -62,14 +63,16 @@ interface Overlap {
  * the season's float and the canvas, should all find the banner topmost. The
  * banner and the see-through overlays take the pointer while this looks, or
  * they would never be found on top. It also returns what the banner is over,
- * so a spec can tell the check reached the screen it meant.
+ * so a spec can tell the check reached the screen it meant. It waits for an
+ * announcement and looks in the frame it shows: one shows for a few seconds,
+ * and on a busy runner a few round trips to the page can outlast it.
  */
-export function announcementCovered(page: Page): Promise<Overlap> {
-  return page.evaluate(() => {
+export async function announcementCovered(page: Page): Promise<Overlap> {
+  const found = await page.waitForFunction(() => {
     const doc = document;
     const banner = doc.querySelector<HTMLElement>('#announcement');
     if (banner === null || banner.hidden) {
-      return { covered: ['no announcement showing'], over: [] };
+      return false;
     }
     const overlays = [banner, ...doc.querySelectorAll<HTMLElement>('#hud *, .standings-float')];
     for (const el of overlays) {
@@ -106,23 +109,26 @@ export function announcementCovered(page: Page): Promise<Overlap> {
       }
     }
 
-    return { covered, over: [...over] };
+    return { covered, over: [...over], text: banner.textContent };
   });
+
+  return (await found.jsonValue()) as Overlap;
 }
 
 /**
  * Clicks through the announcement (#272, decision 3): on a button or field
  * of the open screen under it where there is one, else at its middle. It
  * returns what is under the banner there, found with the banner out of the
- * way, and what the click reached. The click stops at the window, so it
- * changes nothing.
+ * way, and what the click reached, or that the banner was gone by then. The
+ * click stops at the window, so it changes nothing. Like announcementCovered,
+ * it waits for an announcement and looks in the frame it shows.
  */
 export async function clickThroughAnnouncement(page: Page): Promise<{ under: string; reached: string }> {
-  const at = await page.evaluate(() => {
+  const found = await page.waitForFunction(() => {
     const doc = document;
     const banner = doc.querySelector<HTMLElement>('#announcement');
     if (banner === null || banner.hidden) {
-      throw new Error('no announcement showing');
+      return false;
     }
     const name = (e: EventTarget | null): string => (e instanceof Element ? `${e.tagName.toLowerCase()}${e.id === '' ? '' : `#${e.id}`}` : 'nothing');
     const b = banner.getBoundingClientRect();
@@ -146,7 +152,7 @@ export async function clickThroughAnnouncement(page: Page): Promise<{ under: str
     const types = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
     const swallow = (event: Event): void => {
       if (event.type === 'click') {
-        doc.documentElement.dataset.reached = name(event.target);
+        doc.documentElement.dataset.reached = banner.hidden ? 'nothing: the announcement was gone' : name(event.target);
         for (const type of types) {
           window.removeEventListener(type, swallow, { capture: true });
         }
@@ -160,6 +166,7 @@ export async function clickThroughAnnouncement(page: Page): Promise<{ under: str
 
     return { x, y, under: name(under) };
   });
+  const at = (await found.jsonValue()) as { x: number; y: number; under: string };
   await page.mouse.click(at.x, at.y);
   const reached = await page.evaluate(() => {
     const what = document.documentElement.dataset.reached ?? 'nothing';

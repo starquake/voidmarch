@@ -7,20 +7,44 @@ import { announcementCovered, clickThroughAnnouncement, showAnnouncement } from 
 import type { DebugState } from '../src/debug.ts';
 
 /** The new squadron's mission is announced as the page comes online (#101). */
-async function missionAnnounced(page: Page): Promise<void> {
-  await expect.poll(async () => (await state(page)).missionBanner).toMatch(/^New mission: sector /);
+const MISSION = /^New mission: sector /;
+
+/** What the banner showed, and the scene's banner, in the same frame. */
+interface Shown {
+  text: string;
+  scene: string | undefined;
 }
 
-/** The banner sits where the canvas one did, at the same size whatever the pixel ratio. */
-async function expectPlaced(page: Page): Promise<void> {
-  const box = await page.locator('#announcement').evaluate((el) => {
+/**
+ * Waits for an announcement and checks, in the frame it shows, that the
+ * banner sits where the canvas one did, at the same size whatever the pixel
+ * ratio. One shows for a few seconds, and on a busy runner a few round trips
+ * to the page can outlast it.
+ */
+async function expectPlaced(page: Page): Promise<Shown> {
+  const found = await page.waitForFunction(() => {
+    const el = document.querySelector<HTMLElement>('#announcement');
+    if (el === null || el.hidden) {
+      return false;
+    }
     const r = el.getBoundingClientRect();
 
-    return { top: r.top, middle: (r.left + r.right) / 2, font: getComputedStyle(el).fontSize, width: window.innerWidth, height: window.innerHeight };
+    return {
+      top: r.top,
+      middle: (r.left + r.right) / 2,
+      font: getComputedStyle(el).fontSize,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      text: el.textContent,
+      scene: window.voidmarch?.missionBanner,
+    };
   });
+  const box = (await found.jsonValue()) as { top: number; middle: number; font: string; width: number; height: number } & Shown;
   expect(box.top).toBeCloseTo(box.height * 0.22, 0);
   expect(box.middle).toBeCloseTo(box.width / 2, 0);
   expect(box.font).toBe('14px');
+
+  return { text: box.text, scene: box.scene };
 }
 
 /** The screens a key opens, and the window width at which one of their buttons lies under the banner. */
@@ -40,16 +64,14 @@ for (const viewport of [
     test('an announcement shows over the HUD, in the page (#272)', async ({ page }) => {
       await page.goto('/');
       await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-      await missionAnnounced(page);
-      const banner = page.locator('#announcement');
-      await expect(banner).toBeVisible();
-      expect(await banner.textContent()).toBe((await state(page)).missionBanner);
-      await expectPlaced(page);
+      const shown = await expectPlaced(page);
+      expect(shown.text).toMatch(MISSION);
+      expect(shown.text, "the scene's banner, in the page").toBe(shown.scene);
       const { covered, over } = await announcementCovered(page);
       expect(covered).toEqual([]);
       expect(over).toContain('canvas');
       await expect.poll(async () => (await state(page)).missionBanner, { timeout: 15_000 }).toBeUndefined();
-      await expect(banner).toBeHidden();
+      await expect(page.locator('#announcement')).toBeHidden();
     });
 
     for (const screen of SCREENS) {
@@ -58,8 +80,8 @@ for (const viewport of [
         await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
         await page.keyboard.press(screen.key);
         await expect.poll(async () => (await state(page))[screen.open]).toBe(true);
-        await missionAnnounced(page);
-        const { covered, over } = await announcementCovered(page);
+        const { covered, over, text } = await announcementCovered(page);
+        expect(text).toMatch(MISSION);
         expect(covered).toEqual([]);
         expect(over).toContain(screen.over);
         const { under, reached } = await clickThroughAnnouncement(page);
@@ -72,6 +94,8 @@ for (const viewport of [
     }
 
     test('an announcement shows over the join screen, and a click goes through it (#272)', async ({ page, browser, baseURL }) => {
+      // Two pages in one test, each as large as the viewport; the default 30 s is tight on a slow runner (#22).
+      test.setTimeout(60_000);
       await page.goto('/');
       await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
       // A second player meets the join screen, the first page's squadron having room; no announcement reaches it there.
@@ -100,9 +124,8 @@ test.describe('at twice the pixels', () => {
   test('an announcement keeps its size and place (#272)', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-    await missionAnnounced(page);
     expect(await page.evaluate(() => window.devicePixelRatio)).toBe(2);
-    await expectPlaced(page);
+    expect((await expectPlaced(page)).text).toMatch(MISSION);
   });
 });
 
