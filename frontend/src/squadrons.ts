@@ -1,6 +1,4 @@
-import type { SquadronInfo, Squadrons } from './gen/voidmarch/v1/messages_pb.js';
-import { fromCompanionMode } from './net/mapping.ts';
-import { ORDER_ITEMS } from './ordermenu.ts';
+import type { Squadrons } from './gen/voidmarch/v1/messages_pb.js';
 
 /** The most ships in a squadron, companions included (the server's cap). */
 export const SQUADRON_CAP = 4;
@@ -14,17 +12,8 @@ export interface SquadronChoice {
   seats: string;
   /** What joining means: a free seat, or taking over a companion. */
   note: string;
-  /** The squadron's orders, as the ring names them. */
-  mode: string;
   /** Whether it's the player's own squadron, which they stay in (#45). */
   current: boolean;
-}
-
-/** The mode's name as the ring shows it, or Escort for none. */
-export function modeName(info: Pick<SquadronInfo, 'mode'>): string {
-  const mode = fromCompanionMode(info.mode) ?? 'escort';
-
-  return ORDER_ITEMS.find((i) => i.kind === 'mode' && i.mode === mode)?.label ?? 'Escort';
 }
 
 /**
@@ -52,7 +41,6 @@ export function squadronChoices(list: Pick<Squadrons, 'squadrons'>, current = ''
       companions,
       seats: '■'.repeat(players.length) + '▣'.repeat(shown) + '□'.repeat(free),
       note: own ? 'your squadron' : free === 0 ? 'you take over one of the companions' : `${String(free)} seat${free === 1 ? '' : 's'} free`,
-      mode: modeName(info),
       current: own,
     });
   }
@@ -207,7 +195,7 @@ export class SquadronScreen {
     seats.textContent = c.seats;
     const note = doc.createElement('span');
     note.className = 'note';
-    note.textContent = `${c.note} · orders: ${c.mode}`;
+    note.textContent = c.note;
     row.append(name, who, join, seats, note);
 
     return row;

@@ -21,8 +21,6 @@ import {
   type RaidWarned,
   type SeasonWon,
   type Standings,
-  type SquadronOrder,
-  type SquadronOrdered,
   type Squadrons,
   type Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
@@ -76,8 +74,6 @@ export interface ConnectionEvents {
   squadronJoined(joined: SquadronJoined): void;
   /** Joining a squadron was refused, with the reason to show. */
   squadronRefused(reason: string): void;
-  /** A squadmate gave an order. */
-  squadronOrdered(ordered: SquadronOrdered): void;
   /** A kill dropped a part (#77). */
   pickupDropped(dropped: PickupDropped): void;
   /** A pickup was collected, and who gained what. */
@@ -188,13 +184,6 @@ export class Connection {
   sendChooseSquadron(name: string): void {
     if (this.welcomed) {
       this.send(create(ClientMessageSchema, { kind: { case: 'chooseSquadron', value: { name } } }));
-    }
-  }
-
-  /** Gives the squadron an order, which the server passes to the squadmates. */
-  sendSquadronOrder(order: Omit<SquadronOrder, '$typeName'>): void {
-    if (this.welcomed) {
-      this.send(create(ClientMessageSchema, { kind: { case: 'squadronOrder', value: order } }));
     }
   }
 
@@ -349,9 +338,6 @@ export class Connection {
         break;
       case 'squadronRefused':
         events.squadronRefused(message.kind.value.reason);
-        break;
-      case 'squadronOrdered':
-        events.squadronOrdered(message.kind.value);
         break;
       case 'pickupDropped':
         events.pickupDropped(message.kind.value);

@@ -219,32 +219,16 @@ func TestSandbox_ASquadmateNearRevives(t *testing.T) {
 func TestWing_CompanionsReviveADownedOwner(t *testing.T) {
 	t.Parallel()
 
-	for _, tc := range []struct {
-		mode Mode
-		want bool
-	}{
-		{mode: ModeEscort, want: true},
-		{mode: ModeAttack, want: true},
-		{mode: ModeHold, want: false},
-		{mode: ModeStealth, want: false},
-	} {
-		t.Run(string(tc.mode), func(t *testing.T) {
-			t.Parallel()
-
-			var w Wing
-			c := w.Add(1, 250, 0, ModeOrders(tc.mode, DefaultOrders(), 250, 0))
-			owner := Mover{Angle: -math.Pi / 2, Downed: true}
-			for range 4 * TickRate {
-				w.Observe(owner)
-				w.Step(nil, nil)
-			}
-			// Coming over means hovering BrainSpacing out; a Stealth companion
-			// keeps its formation slot, which can still be in reach.
-			if came := dist(c.Ship.X, c.Ship.Y, 0, 0) <= BrainSpacing+5; came != tc.want {
-				t.Errorf("%s: %v from its downed owner; came over %v, want %v",
-					tc.mode, dist(c.Ship.X, c.Ship.Y, 0, 0), came, tc.want)
-			}
-		})
+	var w Wing
+	c := w.Add(1, 250, 0)
+	owner := Mover{Angle: -math.Pi / 2, Downed: true}
+	for range 4 * TickRate {
+		w.Observe(owner)
+		w.Step(nil, nil)
+	}
+	// Coming over means hovering BrainSpacing out, closer than its slot.
+	if d := dist(c.Ship.X, c.Ship.Y, 0, 0); d > BrainSpacing+5 {
+		t.Errorf("%v from its downed owner, want beside them", d)
 	}
 }
 
@@ -252,7 +236,7 @@ func TestWing_ADownedCompanionDriftsUntilRevived(t *testing.T) {
 	t.Parallel()
 
 	var w Wing
-	c := w.Add(1, 0, 30, DefaultOrders())
+	c := w.Add(1, 0, 30)
 	for range MaxDamage {
 		TakeHit(c.Ship, c.Ship.Angle+math.Pi)
 	}
@@ -261,7 +245,7 @@ func TestWing_ADownedCompanionDriftsUntilRevived(t *testing.T) {
 	for range int(ReviveSquadmateSeconds/TickSeconds) + 1 {
 		w.Observe(owner)
 		if len(
-			w.Step([]BrainEnemy{{ID: 1, Kind: EnemyScout, Y: -100, AttackedWing: true}}, nil),
+			w.Step([]BrainEnemy{{ID: 1, Y: -100}}, nil),
 		) != 0 {
 			t.Fatal("a downed companion fired")
 		}
@@ -303,34 +287,27 @@ func TestWing_CompanionsRescueADerelict(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		mode Mode
-		want bool
+		name     string
+		derelict Vec
+		want     bool
 	}{
-		{mode: ModeEscort, want: true},
-		{mode: ModeHold, want: false},
-		{mode: ModeStealth, want: false},
+		{name: "in range", derelict: Vec{X: 250, Y: 60}, want: true},
+		{name: "out of range", derelict: Vec{X: 600, Y: 60}, want: false},
 	} {
-		t.Run(string(tc.mode), func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			var w Wing
-			c := w.Add(1, 0, 60, ModeOrders(tc.mode, DefaultOrders(), 0, 60))
-			derelict := Vec{X: 250, Y: 60}
-			w.Derelicts = []Vec{derelict}
+			c := w.Add(1, 0, 60)
+			w.Derelicts = []Vec{tc.derelict}
 			owner := Mover{Angle: -math.Pi / 2}
 			for range 4 * TickRate {
 				w.Observe(owner)
 				w.Step(nil, nil)
 			}
-			d := dist(c.Ship.X, c.Ship.Y, derelict.X, derelict.Y)
+			d := dist(c.Ship.X, c.Ship.Y, tc.derelict.X, tc.derelict.Y)
 			if came := d <= ReviveRadius; came != tc.want {
-				t.Errorf(
-					"%s: %v from the derelict; in rescue reach %v, want %v",
-					tc.mode,
-					d,
-					came,
-					tc.want,
-				)
+				t.Errorf("%v from the derelict; in rescue reach %v, want %v", d, came, tc.want)
 			}
 		})
 	}
@@ -339,28 +316,17 @@ func TestWing_CompanionsRescueADerelict(t *testing.T) {
 func TestComesToRevive(t *testing.T) {
 	t.Parallel()
 
-	oneShot := func(kind OneShotKind) Orders {
-		o := DefaultOrders()
-		o.OneShot = OneShot{Kind: kind}
-
-		return o
-	}
 	for _, tc := range []struct {
-		name   string
-		orders Orders
+		name string
 		// from is how far the companion starts from the downed squadmate.
-		from float64
-		want bool
+		from   float64
+		downed bool
+		want   bool
 	}{
-		{name: "escort in range", orders: DefaultOrders(), from: 250, want: true},
-		{name: "attack in range", orders: ModeOrders(ModeAttack, DefaultOrders(), 0, 0), from: 250, want: true},
-		{name: "guard in range", orders: ModeOrders(ModeGuard, DefaultOrders(), 0, 0), from: 250, want: true},
-		{name: "escort out of range", orders: DefaultOrders(), from: 500},
-		{name: "hold in range", orders: ModeOrders(ModeHold, DefaultOrders(), 1250, 1000), from: 250},
-		{name: "stealth in range", orders: ModeOrders(ModeStealth, DefaultOrders(), 0, 0), from: 250},
-		{name: "regrouping in range", orders: oneShot(OneShotRegroup), from: 250},
-		{name: "going home in range", orders: oneShot(OneShotGoHome), from: 250},
-		{name: "shielding nobody in range", orders: oneShot(OneShotShieldMe), from: 250, want: true},
+		{name: "up in range", from: 250, want: true},
+		{name: "up at the edge of range", from: BrainReviveRange, want: true},
+		{name: "up out of range", from: 500},
+		{name: "down in range", from: 250, downed: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -368,9 +334,17 @@ func TestComesToRevive(t *testing.T) {
 			// The owner is far below, so only a revive brings it over.
 			const downX, downY = 1000.0, 1000.0
 			var w Wing
-			c := w.Add(1, downX+tc.from, downY, tc.orders)
-			if got := ComesToRevive(c.Ship, tc.orders, downX, downY); got != tc.want {
+			c := w.Add(1, downX+tc.from, downY)
+			if tc.downed {
+				for range MaxDamage {
+					TakeHit(c.Ship, c.Ship.Angle+math.Pi)
+				}
+			}
+			if got := ComesToRevive(c.Ship, downX, downY); got != tc.want {
 				t.Errorf("ComesToRevive() = %v, want %v", got, tc.want)
+			}
+			if tc.downed {
+				return
 			}
 			owner := Mover{X: downX + tc.from, Y: downY + 2000, Angle: -math.Pi / 2}
 			down := []Friend{{X: downX, Y: downY, Squadmate: true, Downed: true}}
@@ -390,7 +364,7 @@ func TestWing_ADownedSquadmateComesBeforeADerelict(t *testing.T) {
 	t.Parallel()
 
 	var w Wing
-	c := w.Add(1, 0, 60, DefaultOrders())
+	c := w.Add(1, 0, 60)
 	w.Derelicts = []Vec{{X: -250, Y: 60}}
 	owner := Mover{Angle: -math.Pi / 2, Downed: true}
 	for range 4 * TickRate {

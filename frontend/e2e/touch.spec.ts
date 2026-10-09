@@ -29,7 +29,7 @@ test('the touch controls move the ship, aim and fire, and their buttons work', a
   await page.goto('/?touch=1');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   const view = page.viewportSize() ?? { width: 640, height: 360 };
-  await expect.poll(async () => (await state(page)).touchButtons).toEqual(['summon', 'orders', 'settings', 'help', 'fullscreen']);
+  await expect.poll(async () => (await state(page)).touchButtons).toEqual(['summon', 'settings', 'help', 'fullscreen']);
   expect((await state(page)).touch).toBe(true);
 
   // The left stick: a thumb down on the left half, pushed up.
@@ -72,7 +72,7 @@ test('on a phone the controls shrink, and aiming can start on the minimap', asyn
   await page.setViewportSize({ width: 844, height: 390 });
   await page.goto('/?touch=1');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
-  await expect.poll(async () => (await state(page)).touchButtons).toEqual(['summon', 'orders', 'settings', 'help', 'fullscreen']);
+  await expect.poll(async () => (await state(page)).touchButtons).toEqual(['summon', 'settings', 'help', 'fullscreen']);
   const shotsBefore = (await state(page)).shotsFired;
   // The minimap's center at 0.6 of its size: 390 pixels tall is under the 700 the UI is full size for.
   const mini = { x: 844 - 0.6 * (96 + 85), y: 0.6 * (96 + 94) };

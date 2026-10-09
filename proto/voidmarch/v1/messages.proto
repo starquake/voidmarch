@@ -156,35 +156,6 @@ message ChooseSquadron {
   string name = 1;
 }
 
-// CompanionMode is a squadron's standing orders for its companions.
-enum CompanionMode {
-  COMPANION_MODE_UNSPECIFIED = 0;
-  COMPANION_MODE_ESCORT = 1;
-  COMPANION_MODE_ATTACK = 2;
-  COMPANION_MODE_GUARD = 3;
-  COMPANION_MODE_HOLD = 4;
-  COMPANION_MODE_STEALTH = 5;
-}
-
-// CompanionOneShot is an order that runs until done, then returns to the mode.
-enum CompanionOneShot {
-  COMPANION_ONE_SHOT_UNSPECIFIED = 0;
-  COMPANION_ONE_SHOT_FOCUS = 1;
-  COMPANION_ONE_SHOT_REGROUP = 2;
-  COMPANION_ONE_SHOT_GO_HOME = 3;
-}
-
-// SquadronOrder is an order a player gives their squadron: a mode or a
-// one-shot, with where the pointer was (the point to hold) and the enemy to
-// focus. Every client applies it to its own companions.
-message SquadronOrder {
-  CompanionMode mode = 1;
-  CompanionOneShot one_shot = 2;
-  float x = 3;
-  float y = 4;
-  uint32 focus_enemy_id = 5;
-}
-
 // Dismiss gives a companion's seat back.
 message Dismiss {
   uint32 companion = 1;
@@ -201,7 +172,6 @@ message ClientMessage {
     CompanionState companion = 6 [deprecated = true];
     Dismiss dismiss = 7;
     ChooseSquadron choose_squadron = 8;
-    SquadronOrder squadron_order = 9;
     Collect collect = 10;
     PickMission pick_mission = 11;
     DevStartAttack dev_start_attack = 12;
@@ -209,6 +179,9 @@ message ClientMessage {
     DevStartRaid dev_start_raid = 14;
     RespawnHome respawn_home = 15;
   }
+  // Was squadron_order: companions took orders until #325.
+  reserved 9;
+  reserved "squadron_order";
 }
 
 // RespawnHome says this player, down, respawned at the home planet: the
@@ -347,7 +320,9 @@ message SquadronInfo {
   string name = 1;
   // In the order they joined.
   repeated SquadronMember members = 2;
-  CompanionMode mode = 3;
+  // Was mode: the squadron's orders for its companions, until #325.
+  reserved 3;
+  reserved "mode";
   // The sector the squadron is sent to ("D5"); empty once every sector is
   // cleared (#101). Everyone sees every squadron's.
   string mission = 4;
@@ -366,7 +341,9 @@ message Squadrons {
 // player where it was.
 message SquadronJoined {
   string name = 1;
-  CompanionMode mode = 2;
+  // Was mode: the squadron's orders for its companions, until #325.
+  reserved 2;
+  reserved "mode";
   bool took_over = 3;
   float x = 4;
   float y = 5;
@@ -375,14 +352,6 @@ message SquadronJoined {
 // SquadronRefused answers ChooseSquadron when the squadron is full.
 message SquadronRefused {
   string reason = 1;
-}
-
-// SquadronOrdered is a squadmate's order: a callout for the players, and
-// the orders for everyone's companions.
-message SquadronOrdered {
-  string player_id = 1;
-  string name = 2;
-  SquadronOrder order = 3;
 }
 
 // EnemyState is one enemy at a tick; the server moves enemies.
@@ -534,7 +503,6 @@ message ServerMessage {
     Squadrons squadrons = 12;
     SquadronJoined squadron_joined = 13;
     SquadronRefused squadron_refused = 14;
-    SquadronOrdered squadron_ordered = 15;
     PickupDropped pickup_dropped = 16;
     PickupTaken pickup_taken = 17;
     DerelictRescued derelict_rescued = 18;
@@ -548,6 +516,9 @@ message ServerMessage {
     RaidWarned raid_warned = 26;
     RaidEnded raid_ended = 27;
   }
+  // Was squadron_ordered: a squadmate's order, until #325.
+  reserved 15;
+  reserved "squadron_ordered";
 }
 
 // RaidWarned says a Dreadnought is coming to raid a sector (#223): it

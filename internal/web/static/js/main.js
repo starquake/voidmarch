@@ -1307,10 +1307,10 @@ import { fromBinary, fromJsonString, toBinary, toJsonString } from "./vendor/pro
 
 // src/gen/voidmarch/v1/messages_pb.js
 import { enumDesc, fileDesc, messageDesc, tsEnum } from "./vendor/protobuf-codegenv2.js";
-var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIpoBCg1TcXVhZHJvbk9yZGVyEikKBG1vZGUYASABKA4yGy52b2lkbWFyY2gudjEuQ29tcGFuaW9uTW9kZRIwCghvbmVfc2hvdBgCIAEoDjIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25PbmVTaG90EgkKAXgYAyABKAISCQoBeRgEIAEoAhIWCg5mb2N1c19lbmVteV9pZBgFIAEoDSIcCgdEaXNtaXNzEhEKCWNvbXBhbmlvbhgBIAEoDSLhBQoNQ2xpZW50TWVzc2FnZRIkCgVoZWxsbxgBIAEoCzITLnZvaWRtYXJjaC52MS5IZWxsb0gAEigKBXN0YXRlGAIgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZUgAEicKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkSAASIAoDaGl0GAQgASgLMhEudm9pZG1hcmNoLnYxLkhpdEgAEiYKBnN1bW1vbhgFIAEoCzIULnZvaWRtYXJjaC52MS5TdW1tb25IABI1Cgljb21wYW5pb24YBiABKAsyHC52b2lkbWFyY2gudjEuQ29tcGFuaW9uU3RhdGVCAhgBSAASKAoHZGlzbWlzcxgHIAEoCzIVLnZvaWRtYXJjaC52MS5EaXNtaXNzSAASNwoPY2hvb3NlX3NxdWFkcm9uGAggASgLMhwudm9pZG1hcmNoLnYxLkNob29zZVNxdWFkcm9uSAASNQoOc3F1YWRyb25fb3JkZXIYCSABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlckgAEigKB2NvbGxlY3QYCiABKAsyFS52b2lkbWFyY2gudjEuQ29sbGVjdEgAEjEKDHBpY2tfbWlzc2lvbhgLIAEoCzIZLnZvaWRtYXJjaC52MS5QaWNrTWlzc2lvbkgAEjgKEGRldl9zdGFydF9hdHRhY2sYDCABKAsyHC52b2lkbWFyY2gudjEuRGV2U3RhcnRBdHRhY2tIABI0Cg5kZXZfc2Vhc29uX3dvbhgNIAEoCzIaLnZvaWRtYXJjaC52MS5EZXZTZWFzb25Xb25IABI0Cg5kZXZfc3RhcnRfcmFpZBgOIAEoCzIaLnZvaWRtYXJjaC52MS5EZXZTdGFydFJhaWRIABIxCgxyZXNwYXduX2hvbWUYDyABKAsyGS52b2lkbWFyY2gudjEuUmVzcGF3bkhvbWVIAEIGCgRraW5kIg0KC1Jlc3Bhd25Ib21lIg4KDERldlN0YXJ0UmFpZCIgCg5EZXZTdGFydEF0dGFjaxIOCgZzZWN0b3IYASABKAkiDgoMRGV2U2Vhc29uV29uIh0KC1BpY2tNaXNzaW9uEg4KBnNlY3RvchgBIAEoCSIVCgdDb2xsZWN0EgoKAmlkGAEgASgNIu0ECgdXZWxjb21lEhEKCXBsYXllcl9pZBgBIAEoCRINCgVjb2xvchgCIAEoDRIPCgdzcGF3bl94GAMgASgCEg8KB3NwYXduX3kYBCABKAISDAoEdGljaxgFIAEoDRIRCgl0aWNrX3JhdGUYBiABKA0SFwoPY29tcGFuaW9uX2xpbWl0GAcgASgNEgwKBG5hbWUYCSABKAkSEgoKY29tcGFuaW9ucxgKIAMoDRIqCglzcXVhZHJvbnMYCyABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zEhAKCHNxdWFkcm9uGAwgASgJEiUKB3VubG9ja3MYDSADKAsyFC52b2lkbWFyY2gudjEuVW5sb2NrEiwKB3BpY2t1cHMYDiADKAsyGy52b2lkbWFyY2gudjEuUGlja3VwRHJvcHBlZBImCgdsb2Fkb3V0GA8gASgLMhUudm9pZG1hcmNoLnYxLkxvYWRvdXQSEwoLZGV2ZWxvcG1lbnQYECABKAgSFwoPY2xlYXJlZF9zZWN0b3JzGBEgAygJEi0KC3dvcmxkX2V2ZW50GBIgASgLMhgudm9pZG1hcmNoLnYxLldvcmxkRXZlbnQSEAoIbWFwX25hbWUYEyABKAkSKAoIZnJvbnRpZXIYFCABKAsyFi52b2lkbWFyY2gudjEuRnJvbnRpZXISKwoKc2Vhc29uX3dvbhgVIAEoCzIXLnZvaWRtYXJjaC52MS5TZWFzb25Xb24SKgoJc3RhbmRpbmdzGBYgASgLMhcudm9pZG1hcmNoLnYxLlN0YW5kaW5nc0oECAgQCVIPc3VtbW9uX2FueXdoZXJlIkcKCVN0YW5kaW5ncxIqCgdwbGF5ZXJzGAEgAygLMhkudm9pZG1hcmNoLnYxLlBsYXllclN0YXRzEg4KBnNlYXNvbhgCIAEoAyJpCglTZWFzb25Xb24SDgoGc2Vhc29uGAEgASgDEg8KB3NlY29uZHMYAiABKAQSKgoHcGxheWVycxgDIAMoCzIZLnZvaWRtYXJjaC52MS5QbGF5ZXJTdGF0cxIPCgdzZWN0b3JzGAQgASgNIqUBCgtQbGF5ZXJTdGF0cxIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVraWxscxgDIAEoDRIXCg9jb21wYW5pb25fa2lsbHMYBCABKA0SDQoFc2hvdHMYBSABKA0SDAoEaGl0cxgGIAEoDRIOCgZkZWF0aHMYByABKA0SDwoHcmVzY3VlcxgIIAEoDRIPCgdzZWN0b3JzGAkgASgNIowBCg5QbGF5ZXJTbmFwc2hvdBIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRINCgVjb2xvchgDIAEoDRImCgVzdGF0ZRgEIAEoCzIXLnZvaWRtYXJjaC52MS5TaGlwU3RhdGUSEAoIb3duZXJfaWQYBSABKAkSEAoIc3F1YWRyb24YBiABKAkiRQoOU3F1YWRyb25NZW1iZXISEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKY29tcGFuaW9ucxgDIAEoDSKHAQoMU3F1YWRyb25JbmZvEgwKBG5hbWUYASABKAkSLQoHbWVtYmVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbk1lbWJlchIpCgRtb2RlGAMgASgOMhsudm9pZG1hcmNoLnYxLkNvbXBhbmlvbk1vZGUSDwoHbWlzc2lvbhgEIAEoCSJdCglTcXVhZHJvbnMSLQoJc3F1YWRyb25zGAEgAygLMhoudm9pZG1hcmNoLnYxLlNxdWFkcm9uSW5mbxIRCgluZXh0X25hbWUYAiABKAkSDgoGaGFuZ2FyGAMgASgNInIKDlNxdWFkcm9uSm9pbmVkEgwKBG5hbWUYASABKAkSKQoEbW9kZRgCIAEoDjIbLnZvaWRtYXJjaC52MS5Db21wYW5pb25Nb2RlEhEKCXRvb2tfb3ZlchgDIAEoCBIJCgF4GAQgASgCEgkKAXkYBSABKAIiIQoPU3F1YWRyb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSJeCg9TcXVhZHJvbk9yZGVyZWQSEQoJcGxheWVyX2lkGAEgASgJEgwKBG5hbWUYAiABKAkSKgoFb3JkZXIYAyABKAsyGy52b2lkbWFyY2gudjEuU3F1YWRyb25PcmRlciKTAgoKRW5lbXlTdGF0ZRIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIJCgF4GAMgASgCEgkKAXkYBCABKAISDQoFYW5nbGUYBSABKAISCgoCdngYBiABKAISCgoCdnkYByABKAISCgoCaHAYCCABKAISDgoGbWF4X2hwGAkgASgCEg4KBnNoaWVsZBgKIAEoAhIrCgdmYWN0aW9uGAwgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbhIRCglyZXBhaXJpbmcYDSABKA0SEQoJbGVhdmVzX2F0GA4gASgCSgQICxAMUgpzY2FsZWRfZm9yIqIBCghTbmFwc2hvdBIMCgR0aWNrGAEgASgNEi0KB3BsYXllcnMYAiADKAsyHC52b2lkbWFyY2gudjEuUGxheWVyU25hcHNob3QSKQoHZW5lbWllcxgDIAMoCzIYLnZvaWRtYXJjaC52MS5FbmVteVN0YXRlEi4KCWRlcmVsaWN0cxgEIAMoCzIbLnZvaWRtYXJjaC52MS5EZXJlbGljdFN0YXRlInoKDURlcmVsaWN0U3RhdGUSEwoLZGVyZWxpY3RfaWQYASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCEg0KBWFuZ2xlGAQgASgCEg4KBnJlc2N1ZRgFIAEoAhIRCglnb25lX3RpY2sYBiABKA0SDAoEaGVsZBgHIAEoCCLHAQoKRW5lbXlGaXJlZBIQCghlbmVteV9pZBgBIAEoDRIlCgRraW5kGAIgASgOMhcudm9pZG1hcmNoLnYxLkVuZW15S2luZBIMCgR0aWNrGAMgASgNEgwKBHNlZWQYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCEg0KBWFuZ2xlGAcgASgCEhIKCndhcm5fdGlja3MYCCABKA0SKwoHZmFjdGlvbhgJIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24igwEKDkVuZW15RGVzdHJveWVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEhQKDGJ5X3BsYXllcl9pZBgDIAEoCRIMCgR0aWNrGAQgASgNEgkKAXgYBSABKAISCQoBeRgGIAEoAiJMCglTaG90RW5kZWQSEQoJcGxheWVyX2lkGAEgASgJEg8KB3Nob3RfaWQYAiABKA0SDAoEdGljaxgDIAEoDRINCgVzaGFyZBgEIAEoDSJUCgpSZW1vdGVTaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgR0aWNrGAIgASgNEiUKBHNob3QYAyABKAsyFy52b2lkbWFyY2gudjEuU2hvdEZpcmVkIh8KClBsYXllckxlZnQSEQoJcGxheWVyX2lkGAEgASgJIjsKEENvbXBhbmlvbkdyYW50ZWQSEQoJY29tcGFuaW9uGAEgASgNEgkKAXgYAiABKAISCQoBeRgDIAEoAiIiChBDb21wYW5pb25SZWZ1c2VkEg4KBnJlYXNvbhgBIAEoCSI5ChJDb21wYW5pb25EaXNtaXNzZWQSEQoJY29tcGFuaW9uGAEgASgNEhAKCHRha2VuX2J5GAIgASgJIgYKBEZ1bGwi7goKDVNlcnZlck1lc3NhZ2USKAoHd2VsY29tZRgBIAEoCzIVLnZvaWRtYXJjaC52MS5XZWxjb21lSAASKgoIc25hcHNob3QYAiABKAsyFi52b2lkbWFyY2gudjEuU25hcHNob3RIABIoCgRzaG90GAMgASgLMhgudm9pZG1hcmNoLnYxLlJlbW90ZVNob3RIABIoCgRsZWZ0GAQgASgLMhgudm9pZG1hcmNoLnYxLlBsYXllckxlZnRIABIiCgRmdWxsGAUgASgLMhIudm9pZG1hcmNoLnYxLkZ1bGxIABIvCgtlbmVteV9maXJlZBgGIAEoCzIYLnZvaWRtYXJjaC52MS5FbmVteUZpcmVkSAASNwoPZW5lbXlfZGVzdHJveWVkGAcgASgLMhwudm9pZG1hcmNoLnYxLkVuZW15RGVzdHJveWVkSAASLQoKc2hvdF9lbmRlZBgIIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RW5kZWRIABI7ChFjb21wYW5pb25fZ3JhbnRlZBgJIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25HcmFudGVkSAASOwoRY29tcGFuaW9uX3JlZnVzZWQYCiABKAsyHi52b2lkbWFyY2gudjEuQ29tcGFuaW9uUmVmdXNlZEgAEj8KE2NvbXBhbmlvbl9kaXNtaXNzZWQYCyABKAsyIC52b2lkbWFyY2gudjEuQ29tcGFuaW9uRGlzbWlzc2VkSAASLAoJc3F1YWRyb25zGAwgASgLMhcudm9pZG1hcmNoLnYxLlNxdWFkcm9uc0gAEjcKD3NxdWFkcm9uX2pvaW5lZBgNIAEoCzIcLnZvaWRtYXJjaC52MS5TcXVhZHJvbkpvaW5lZEgAEjkKEHNxdWFkcm9uX3JlZnVzZWQYDiABKAsyHS52b2lkbWFyY2gudjEuU3F1YWRyb25SZWZ1c2VkSAASOQoQc3F1YWRyb25fb3JkZXJlZBgPIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvbk9yZGVyZWRIABI1Cg5waWNrdXBfZHJvcHBlZBgQIAEoCzIbLnZvaWRtYXJjaC52MS5QaWNrdXBEcm9wcGVkSAASMQoMcGlja3VwX3Rha2VuGBEgASgLMhkudm9pZG1hcmNoLnYxLlBpY2t1cFRha2VuSAASOQoQZGVyZWxpY3RfcmVzY3VlZBgSIAEoCzIdLnZvaWRtYXJjaC52MS5EZXJlbGljdFJlc2N1ZWRIABI1Cg5zZWN0b3JfY2xlYXJlZBgTIAEoCzIbLnZvaWRtYXJjaC52MS5TZWN0b3JDbGVhcmVkSAASMwoNZXZlbnRfc3RhcnRlZBgUIAEoCzIaLnZvaWRtYXJjaC52MS5FdmVudFN0YXJ0ZWRIABIvCgtldmVudF9lbmRlZBgVIAEoCzIYLnZvaWRtYXJjaC52MS5FdmVudEVuZGVkSAASKgoIZnJvbnRpZXIYFiABKAsyFi52b2lkbWFyY2gudjEuRnJvbnRpZXJIABIrCglib3NzX2ZlbGwYFyABKAsyFi52b2lkbWFyY2gudjEuQm9zc0ZlbGxIABItCgpzZWFzb25fd29uGBggASgLMhcudm9pZG1hcmNoLnYxLlNlYXNvbldvbkgAEiwKCXN0YW5kaW5ncxgZIAEoCzIXLnZvaWRtYXJjaC52MS5TdGFuZGluZ3NIABIvCgtyYWlkX3dhcm5lZBgaIAEoCzIYLnZvaWRtYXJjaC52MS5SYWlkV2FybmVkSAASLQoKcmFpZF9lbmRlZBgbIAEoCzIXLnZvaWRtYXJjaC52MS5SYWlkRW5kZWRIAEIGCgRraW5kIlcKClJhaWRXYXJuZWQSKwoHZmFjdGlvbhgBIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24SDgoGc2VjdG9yGAIgASgJEgwKBHRpY2sYAyABKA0ilQEKCVJhaWRFbmRlZBIQCghlbmVteV9pZBgBIAEoDRIrCgdmYWN0aW9uGAIgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbhISCgpkcml2ZW5fb2ZmGAMgASgIEicKBWdhaW5zGAQgAygLMhgudm9pZG1hcmNoLnYxLlBpY2t1cEdhaW4SDAoEdGljaxgFIAEoDSKVAQoIQm9zc0ZlbGwSJQoEa2luZBgBIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSJwoFZ2FpbnMYAiADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIMCgR0aWNrGAMgASgNEisKB2ZhY3Rpb24YBCABKA4yGi52b2lkbWFyY2gudjEuRW5lbXlGYWN0aW9uIi4KCEZyb250aWVyEhIKCm9wZW5fcmluZ3MYASABKA0SDgoGb3BlbmVkGAIgAygJInQKDVBpY2t1cERyb3BwZWQSCgoCaWQYASABKA0SIAoEcGFydBgCIAEoCzISLnZvaWRtYXJjaC52MS5QYXJ0EgkKAXgYAyABKAISCQoBeRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCWdvbmVfdGljaxgGIAEoDSJVCgtQaWNrdXBUYWtlbhIKCgJpZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbiJbCgpXb3JsZEV2ZW50EioKBGtpbmQYASABKA4yHC52b2lkbWFyY2gudjEuV29ybGRFdmVudEtpbmQSDgoGc2VjdG9yGAIgASgJEhEKCWVuZHNfdGljaxgDIAEoDSJICgxFdmVudFN0YXJ0ZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIPCgdvbmdvaW5nGAIgASgIIkIKCkV2ZW50RW5kZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBILCgN3b24YAiABKAgiggEKDVNlY3RvckNsZWFyZWQSDgoGc2VjdG9yGAEgASgJEgwKBHRpY2sYAiABKA0SJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIqCgdtaXNzaW9uGAQgAygLMhkudm9pZG1hcmNoLnYxLlBsYXllclN0YXRzImcKD0RlcmVsaWN0UmVzY3VlZBITCgtkZXJlbGljdF9pZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSDAoEdGljaxgDIAEoDRIOCgZoYW5nYXIYBCABKA0SDgoGZG9ja2VkGAUgASgIIkUKClBpY2t1cEdhaW4SEQoJcGxheWVyX2lkGAEgASgJEiQKBnVubG9jaxgCIAEoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCrQAQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAISFgoSRU5FTVlfS0lORF9GUklHQVRFEAMSGgoWRU5FTVlfS0lORF9EUkVBRE5PVUdIVBAEEhUKEUVORU1ZX0tJTkRfQk9NQkVSEAUSFgoSRU5FTVlfS0lORF9UT1JQRURPEAYSFgoSRU5FTVlfS0lORF9TVVBQT1JUEAcqfAoMRW5lbXlGYWN0aW9uEh0KGUVORU1ZX0ZBQ1RJT05fVU5TUEVDSUZJRUQQABIXChNFTkVNWV9GQUNUSU9OX0tMQUVEEAESGAoURU5FTVlfRkFDVElPTl9OQUlSQU4QAhIaChZFTkVNWV9GQUNUSU9OX05BVVRPTEFOEAMqtAEKDUNvbXBhbmlvbk1vZGUSHgoaQ09NUEFOSU9OX01PREVfVU5TUEVDSUZJRUQQABIZChVDT01QQU5JT05fTU9ERV9FU0NPUlQQARIZChVDT01QQU5JT05fTU9ERV9BVFRBQ0sQAhIYChRDT01QQU5JT05fTU9ERV9HVUFSRBADEhcKE0NPTVBBTklPTl9NT0RFX0hPTEQQBBIaChZDT01QQU5JT05fTU9ERV9TVEVBTFRIEAUqlAEKEENvbXBhbmlvbk9uZVNob3QSIgoeQ09NUEFOSU9OX09ORV9TSE9UX1VOU1BFQ0lGSUVEEAASHAoYQ09NUEFOSU9OX09ORV9TSE9UX0ZPQ1VTEAESHgoaQ09NUEFOSU9OX09ORV9TSE9UX1JFR1JPVVAQAhIeChpDT01QQU5JT05fT05FX1NIT1RfR09fSE9NRRADKm4KDldvcmxkRXZlbnRLaW5kEiAKHFdPUkxEX0VWRU5UX0tJTkRfVU5TUEVDSUZJRUQQABIbChdXT1JMRF9FVkVOVF9LSU5EX0FUVEFDSxABEh0KGVdPUkxEX0VWRU5UX0tJTkRfRElTVFJFU1MQAkJGWkRnaXRodWIuY29tL3N0YXJxdWFrZS92b2lkbWFyY2gvaW50ZXJuYWwvZ2VuL3ZvaWRtYXJjaC92MTt2b2lkbWFyY2h2MWIGcHJvdG8z");
+var file_voidmarch_v1_messages = /* @__PURE__ */ fileDesc("Cht2b2lkbWFyY2gvdjEvbWVzc2FnZXMucHJvdG8SDHZvaWRtYXJjaC52MSK6AQoHTG9hZG91dBIkCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uEiQKBmVuZ2luZRgCIAEoDjIULnZvaWRtYXJjaC52MS5FbmdpbmUSJAoGc2hpZWxkGAMgASgOMhQudm9pZG1hcmNoLnYxLlNoaWVsZBITCgt3ZWFwb25fdGllchgEIAEoDRITCgtlbmdpbmVfdGllchgFIAEoDRITCgtzaGllbGRfdGllchgGIAEoDSKGAQoEUGFydBImCgZ3ZWFwb24YASABKA4yFC52b2lkbWFyY2gudjEuV2VhcG9uSAASJgoGZW5naW5lGAIgASgOMhQudm9pZG1hcmNoLnYxLkVuZ2luZUgAEiYKBnNoaWVsZBgDIAEoDjIULnZvaWRtYXJjaC52MS5TaGllbGRIAEIGCgRraW5kIjgKBlVubG9jaxIgCgRwYXJ0GAEgASgLMhIudm9pZG1hcmNoLnYxLlBhcnQSDAoEdGllchgCIAEoDSKzAQoJU2hpcFN0YXRlEgkKAXgYASABKAISCQoBeRgCIAEoAhIKCgJ2eBgDIAEoAhIKCgJ2eRgEIAEoAhINCgVhbmdsZRgFIAEoAhIRCgl0aHJ1c3RpbmcYBiABKAgSJgoHbG9hZG91dBgHIAEoCzIVLnZvaWRtYXJjaC52MS5Mb2Fkb3V0Eg4KBmRhbWFnZRgIIAEoDRIOCgZzaGllbGQYCSABKAISDgoGcmV2aXZlGAogASgCIhYKBUhlbGxvEg0KBXRva2VuGAEgASgJIoUBCglTaG90RmlyZWQSCgoCaWQYASABKA0SJAoGd2VhcG9uGAIgASgOMhQudm9pZG1hcmNoLnYxLldlYXBvbhIOCgZtdXp6bGUYAyABKA0SCQoBeBgEIAEoAhIJCgF5GAUgASgCEg0KBWFuZ2xlGAYgASgCEhEKCWNvbXBhbmlvbhgHIAEoDSJvCgNIaXQSEAoIZW5lbXlfaWQYASABKA0SDwoHc2hvdF9pZBgCIAEoDRIOCgZkYW1hZ2UYAyABKA0SFQoJY29tcGFuaW9uGAQgASgNQgIYARINCgVzaGFyZBgFIAEoDRIPCgdnb2VzX29uGAYgASgIIggKBlN1bW1vbiJPCg5Db21wYW5pb25TdGF0ZRIRCgljb21wYW5pb24YASABKA0SJgoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlOgIYASIeCg5DaG9vc2VTcXVhZHJvbhIMCgRuYW1lGAEgASgJIhwKB0Rpc21pc3MSEQoJY29tcGFuaW9uGAEgASgNIsAFCg1DbGllbnRNZXNzYWdlEiQKBWhlbGxvGAEgASgLMhMudm9pZG1hcmNoLnYxLkhlbGxvSAASKAoFc3RhdGUYAiABKAsyFy52b2lkbWFyY2gudjEuU2hpcFN0YXRlSAASJwoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWRIABIgCgNoaXQYBCABKAsyES52b2lkbWFyY2gudjEuSGl0SAASJgoGc3VtbW9uGAUgASgLMhQudm9pZG1hcmNoLnYxLlN1bW1vbkgAEjUKCWNvbXBhbmlvbhgGIAEoCzIcLnZvaWRtYXJjaC52MS5Db21wYW5pb25TdGF0ZUICGAFIABIoCgdkaXNtaXNzGAcgASgLMhUudm9pZG1hcmNoLnYxLkRpc21pc3NIABI3Cg9jaG9vc2Vfc3F1YWRyb24YCCABKAsyHC52b2lkbWFyY2gudjEuQ2hvb3NlU3F1YWRyb25IABIoCgdjb2xsZWN0GAogASgLMhUudm9pZG1hcmNoLnYxLkNvbGxlY3RIABIxCgxwaWNrX21pc3Npb24YCyABKAsyGS52b2lkbWFyY2gudjEuUGlja01pc3Npb25IABI4ChBkZXZfc3RhcnRfYXR0YWNrGAwgASgLMhwudm9pZG1hcmNoLnYxLkRldlN0YXJ0QXR0YWNrSAASNAoOZGV2X3NlYXNvbl93b24YDSABKAsyGi52b2lkbWFyY2gudjEuRGV2U2Vhc29uV29uSAASNAoOZGV2X3N0YXJ0X3JhaWQYDiABKAsyGi52b2lkbWFyY2gudjEuRGV2U3RhcnRSYWlkSAASMQoMcmVzcGF3bl9ob21lGA8gASgLMhkudm9pZG1hcmNoLnYxLlJlc3Bhd25Ib21lSABCBgoEa2luZEoECAkQClIOc3F1YWRyb25fb3JkZXIiDQoLUmVzcGF3bkhvbWUiDgoMRGV2U3RhcnRSYWlkIiAKDkRldlN0YXJ0QXR0YWNrEg4KBnNlY3RvchgBIAEoCSIOCgxEZXZTZWFzb25Xb24iHQoLUGlja01pc3Npb24SDgoGc2VjdG9yGAEgASgJIhUKB0NvbGxlY3QSCgoCaWQYASABKA0i7QQKB1dlbGNvbWUSEQoJcGxheWVyX2lkGAEgASgJEg0KBWNvbG9yGAIgASgNEg8KB3NwYXduX3gYAyABKAISDwoHc3Bhd25feRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCXRpY2tfcmF0ZRgGIAEoDRIXCg9jb21wYW5pb25fbGltaXQYByABKA0SDAoEbmFtZRgJIAEoCRISCgpjb21wYW5pb25zGAogAygNEioKCXNxdWFkcm9ucxgLIAEoCzIXLnZvaWRtYXJjaC52MS5TcXVhZHJvbnMSEAoIc3F1YWRyb24YDCABKAkSJQoHdW5sb2NrcxgNIAMoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sSLAoHcGlja3VwcxgOIAMoCzIbLnZvaWRtYXJjaC52MS5QaWNrdXBEcm9wcGVkEiYKB2xvYWRvdXQYDyABKAsyFS52b2lkbWFyY2gudjEuTG9hZG91dBITCgtkZXZlbG9wbWVudBgQIAEoCBIXCg9jbGVhcmVkX3NlY3RvcnMYESADKAkSLQoLd29ybGRfZXZlbnQYEiABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIQCghtYXBfbmFtZRgTIAEoCRIoCghmcm9udGllchgUIAEoCzIWLnZvaWRtYXJjaC52MS5Gcm9udGllchIrCgpzZWFzb25fd29uGBUgASgLMhcudm9pZG1hcmNoLnYxLlNlYXNvbldvbhIqCglzdGFuZGluZ3MYFiABKAsyFy52b2lkbWFyY2gudjEuU3RhbmRpbmdzSgQICBAJUg9zdW1tb25fYW55d2hlcmUiRwoJU3RhbmRpbmdzEioKB3BsYXllcnMYASADKAsyGS52b2lkbWFyY2gudjEuUGxheWVyU3RhdHMSDgoGc2Vhc29uGAIgASgDImkKCVNlYXNvbldvbhIOCgZzZWFzb24YASABKAMSDwoHc2Vjb25kcxgCIAEoBBIqCgdwbGF5ZXJzGAMgAygLMhkudm9pZG1hcmNoLnYxLlBsYXllclN0YXRzEg8KB3NlY3RvcnMYBCABKA0ipQEKC1BsYXllclN0YXRzEhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWtpbGxzGAMgASgNEhcKD2NvbXBhbmlvbl9raWxscxgEIAEoDRINCgVzaG90cxgFIAEoDRIMCgRoaXRzGAYgASgNEg4KBmRlYXRocxgHIAEoDRIPCgdyZXNjdWVzGAggASgNEg8KB3NlY3RvcnMYCSABKA0ijAEKDlBsYXllclNuYXBzaG90EhEKCXBsYXllcl9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEg0KBWNvbG9yGAMgASgNEiYKBXN0YXRlGAQgASgLMhcudm9pZG1hcmNoLnYxLlNoaXBTdGF0ZRIQCghvd25lcl9pZBgFIAEoCRIQCghzcXVhZHJvbhgGIAEoCSJFCg5TcXVhZHJvbk1lbWJlchIRCglwbGF5ZXJfaWQYASABKAkSDAoEbmFtZRgCIAEoCRISCgpjb21wYW5pb25zGAMgASgNImgKDFNxdWFkcm9uSW5mbxIMCgRuYW1lGAEgASgJEi0KB21lbWJlcnMYAiADKAsyHC52b2lkbWFyY2gudjEuU3F1YWRyb25NZW1iZXISDwoHbWlzc2lvbhgEIAEoCUoECAMQBFIEbW9kZSJdCglTcXVhZHJvbnMSLQoJc3F1YWRyb25zGAEgAygLMhoudm9pZG1hcmNoLnYxLlNxdWFkcm9uSW5mbxIRCgluZXh0X25hbWUYAiABKAkSDgoGaGFuZ2FyGAMgASgNIlMKDlNxdWFkcm9uSm9pbmVkEgwKBG5hbWUYASABKAkSEQoJdG9va19vdmVyGAMgASgIEgkKAXgYBCABKAISCQoBeRgFIAEoAkoECAIQA1IEbW9kZSIhCg9TcXVhZHJvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIpMCCgpFbmVteVN0YXRlEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgkKAXgYAyABKAISCQoBeRgEIAEoAhINCgVhbmdsZRgFIAEoAhIKCgJ2eBgGIAEoAhIKCgJ2eRgHIAEoAhIKCgJocBgIIAEoAhIOCgZtYXhfaHAYCSABKAISDgoGc2hpZWxkGAogASgCEisKB2ZhY3Rpb24YDCABKA4yGi52b2lkbWFyY2gudjEuRW5lbXlGYWN0aW9uEhEKCXJlcGFpcmluZxgNIAEoDRIRCglsZWF2ZXNfYXQYDiABKAJKBAgLEAxSCnNjYWxlZF9mb3IiogEKCFNuYXBzaG90EgwKBHRpY2sYASABKA0SLQoHcGxheWVycxgCIAMoCzIcLnZvaWRtYXJjaC52MS5QbGF5ZXJTbmFwc2hvdBIpCgdlbmVtaWVzGAMgAygLMhgudm9pZG1hcmNoLnYxLkVuZW15U3RhdGUSLgoJZGVyZWxpY3RzGAQgAygLMhsudm9pZG1hcmNoLnYxLkRlcmVsaWN0U3RhdGUiegoNRGVyZWxpY3RTdGF0ZRITCgtkZXJlbGljdF9pZBgBIAEoDRIJCgF4GAIgASgCEgkKAXkYAyABKAISDQoFYW5nbGUYBCABKAISDgoGcmVzY3VlGAUgASgCEhEKCWdvbmVfdGljaxgGIAEoDRIMCgRoZWxkGAcgASgIIscBCgpFbmVteUZpcmVkEhAKCGVuZW15X2lkGAEgASgNEiUKBGtpbmQYAiABKA4yFy52b2lkbWFyY2gudjEuRW5lbXlLaW5kEgwKBHRpY2sYAyABKA0SDAoEc2VlZBgEIAEoDRIJCgF4GAUgASgCEgkKAXkYBiABKAISDQoFYW5nbGUYByABKAISEgoKd2Fybl90aWNrcxgIIAEoDRIrCgdmYWN0aW9uGAkgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbiKDAQoORW5lbXlEZXN0cm95ZWQSEAoIZW5lbXlfaWQYASABKA0SJQoEa2luZBgCIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSFAoMYnlfcGxheWVyX2lkGAMgASgJEgwKBHRpY2sYBCABKA0SCQoBeBgFIAEoAhIJCgF5GAYgASgCIkwKCVNob3RFbmRlZBIRCglwbGF5ZXJfaWQYASABKAkSDwoHc2hvdF9pZBgCIAEoDRIMCgR0aWNrGAMgASgNEg0KBXNoYXJkGAQgASgNIlQKClJlbW90ZVNob3QSEQoJcGxheWVyX2lkGAEgASgJEgwKBHRpY2sYAiABKA0SJQoEc2hvdBgDIAEoCzIXLnZvaWRtYXJjaC52MS5TaG90RmlyZWQiHwoKUGxheWVyTGVmdBIRCglwbGF5ZXJfaWQYASABKAkiOwoQQ29tcGFuaW9uR3JhbnRlZBIRCgljb21wYW5pb24YASABKA0SCQoBeBgCIAEoAhIJCgF5GAMgASgCIiIKEENvbXBhbmlvblJlZnVzZWQSDgoGcmVhc29uGAEgASgJIjkKEkNvbXBhbmlvbkRpc21pc3NlZBIRCgljb21wYW5pb24YASABKA0SEAoIdGFrZW5fYnkYAiABKAkiBgoERnVsbCLLCgoNU2VydmVyTWVzc2FnZRIoCgd3ZWxjb21lGAEgASgLMhUudm9pZG1hcmNoLnYxLldlbGNvbWVIABIqCghzbmFwc2hvdBgCIAEoCzIWLnZvaWRtYXJjaC52MS5TbmFwc2hvdEgAEigKBHNob3QYAyABKAsyGC52b2lkbWFyY2gudjEuUmVtb3RlU2hvdEgAEigKBGxlZnQYBCABKAsyGC52b2lkbWFyY2gudjEuUGxheWVyTGVmdEgAEiIKBGZ1bGwYBSABKAsyEi52b2lkbWFyY2gudjEuRnVsbEgAEi8KC2VuZW15X2ZpcmVkGAYgASgLMhgudm9pZG1hcmNoLnYxLkVuZW15RmlyZWRIABI3Cg9lbmVteV9kZXN0cm95ZWQYByABKAsyHC52b2lkbWFyY2gudjEuRW5lbXlEZXN0cm95ZWRIABItCgpzaG90X2VuZGVkGAggASgLMhcudm9pZG1hcmNoLnYxLlNob3RFbmRlZEgAEjsKEWNvbXBhbmlvbl9ncmFudGVkGAkgASgLMh4udm9pZG1hcmNoLnYxLkNvbXBhbmlvbkdyYW50ZWRIABI7ChFjb21wYW5pb25fcmVmdXNlZBgKIAEoCzIeLnZvaWRtYXJjaC52MS5Db21wYW5pb25SZWZ1c2VkSAASPwoTY29tcGFuaW9uX2Rpc21pc3NlZBgLIAEoCzIgLnZvaWRtYXJjaC52MS5Db21wYW5pb25EaXNtaXNzZWRIABIsCglzcXVhZHJvbnMYDCABKAsyFy52b2lkbWFyY2gudjEuU3F1YWRyb25zSAASNwoPc3F1YWRyb25fam9pbmVkGA0gASgLMhwudm9pZG1hcmNoLnYxLlNxdWFkcm9uSm9pbmVkSAASOQoQc3F1YWRyb25fcmVmdXNlZBgOIAEoCzIdLnZvaWRtYXJjaC52MS5TcXVhZHJvblJlZnVzZWRIABI1Cg5waWNrdXBfZHJvcHBlZBgQIAEoCzIbLnZvaWRtYXJjaC52MS5QaWNrdXBEcm9wcGVkSAASMQoMcGlja3VwX3Rha2VuGBEgASgLMhkudm9pZG1hcmNoLnYxLlBpY2t1cFRha2VuSAASOQoQZGVyZWxpY3RfcmVzY3VlZBgSIAEoCzIdLnZvaWRtYXJjaC52MS5EZXJlbGljdFJlc2N1ZWRIABI1Cg5zZWN0b3JfY2xlYXJlZBgTIAEoCzIbLnZvaWRtYXJjaC52MS5TZWN0b3JDbGVhcmVkSAASMwoNZXZlbnRfc3RhcnRlZBgUIAEoCzIaLnZvaWRtYXJjaC52MS5FdmVudFN0YXJ0ZWRIABIvCgtldmVudF9lbmRlZBgVIAEoCzIYLnZvaWRtYXJjaC52MS5FdmVudEVuZGVkSAASKgoIZnJvbnRpZXIYFiABKAsyFi52b2lkbWFyY2gudjEuRnJvbnRpZXJIABIrCglib3NzX2ZlbGwYFyABKAsyFi52b2lkbWFyY2gudjEuQm9zc0ZlbGxIABItCgpzZWFzb25fd29uGBggASgLMhcudm9pZG1hcmNoLnYxLlNlYXNvbldvbkgAEiwKCXN0YW5kaW5ncxgZIAEoCzIXLnZvaWRtYXJjaC52MS5TdGFuZGluZ3NIABIvCgtyYWlkX3dhcm5lZBgaIAEoCzIYLnZvaWRtYXJjaC52MS5SYWlkV2FybmVkSAASLQoKcmFpZF9lbmRlZBgbIAEoCzIXLnZvaWRtYXJjaC52MS5SYWlkRW5kZWRIAEIGCgRraW5kSgQIDxAQUhBzcXVhZHJvbl9vcmRlcmVkIlcKClJhaWRXYXJuZWQSKwoHZmFjdGlvbhgBIAEoDjIaLnZvaWRtYXJjaC52MS5FbmVteUZhY3Rpb24SDgoGc2VjdG9yGAIgASgJEgwKBHRpY2sYAyABKA0ilQEKCVJhaWRFbmRlZBIQCghlbmVteV9pZBgBIAEoDRIrCgdmYWN0aW9uGAIgASgOMhoudm9pZG1hcmNoLnYxLkVuZW15RmFjdGlvbhISCgpkcml2ZW5fb2ZmGAMgASgIEicKBWdhaW5zGAQgAygLMhgudm9pZG1hcmNoLnYxLlBpY2t1cEdhaW4SDAoEdGljaxgFIAEoDSKVAQoIQm9zc0ZlbGwSJQoEa2luZBgBIAEoDjIXLnZvaWRtYXJjaC52MS5FbmVteUtpbmQSJwoFZ2FpbnMYAiADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIMCgR0aWNrGAMgASgNEisKB2ZhY3Rpb24YBCABKA4yGi52b2lkbWFyY2gudjEuRW5lbXlGYWN0aW9uIi4KCEZyb250aWVyEhIKCm9wZW5fcmluZ3MYASABKA0SDgoGb3BlbmVkGAIgAygJInQKDVBpY2t1cERyb3BwZWQSCgoCaWQYASABKA0SIAoEcGFydBgCIAEoCzISLnZvaWRtYXJjaC52MS5QYXJ0EgkKAXgYAyABKAISCQoBeRgEIAEoAhIMCgR0aWNrGAUgASgNEhEKCWdvbmVfdGljaxgGIAEoDSJVCgtQaWNrdXBUYWtlbhIKCgJpZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbiJbCgpXb3JsZEV2ZW50EioKBGtpbmQYASABKA4yHC52b2lkbWFyY2gudjEuV29ybGRFdmVudEtpbmQSDgoGc2VjdG9yGAIgASgJEhEKCWVuZHNfdGljaxgDIAEoDSJICgxFdmVudFN0YXJ0ZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBIPCgdvbmdvaW5nGAIgASgIIkIKCkV2ZW50RW5kZWQSJwoFZXZlbnQYASABKAsyGC52b2lkbWFyY2gudjEuV29ybGRFdmVudBILCgN3b24YAiABKAgiggEKDVNlY3RvckNsZWFyZWQSDgoGc2VjdG9yGAEgASgJEgwKBHRpY2sYAiABKA0SJwoFZ2FpbnMYAyADKAsyGC52b2lkbWFyY2gudjEuUGlja3VwR2FpbhIqCgdtaXNzaW9uGAQgAygLMhkudm9pZG1hcmNoLnYxLlBsYXllclN0YXRzImcKD0RlcmVsaWN0UmVzY3VlZBITCgtkZXJlbGljdF9pZBgBIAEoDRIRCglwbGF5ZXJfaWQYAiABKAkSDAoEdGljaxgDIAEoDRIOCgZoYW5nYXIYBCABKA0SDgoGZG9ja2VkGAUgASgIIkUKClBpY2t1cEdhaW4SEQoJcGxheWVyX2lkGAEgASgJEiQKBnVubG9jaxgCIAEoCzIULnZvaWRtYXJjaC52MS5VbmxvY2sqeQoGV2VhcG9uEhYKEldFQVBPTl9VTlNQRUNJRklFRBAAEhYKEldFQVBPTl9BVVRPX0NBTk5PThABEhIKDldFQVBPTl9ST0NLRVRTEAISGAoUV0VBUE9OX0JJR19TUEFDRV9HVU4QAxIRCg1XRUFQT05fWkFQUEVSEAQqcgoGRW5naW5lEhYKEkVOR0lORV9VTlNQRUNJRklFRBAAEg8KC0VOR0lORV9CQVNFEAESFAoQRU5HSU5FX0JJR19QVUxTRRACEhAKDEVOR0lORV9CVVJTVBADEhcKE0VOR0lORV9TVVBFUkNIQVJHRUQQBCp5CgZTaGllbGQSFgoSU0hJRUxEX1VOU1BFQ0lGSUVEEAASEAoMU0hJRUxEX0ZST05UEAESGQoVU0hJRUxEX0ZST05UX0FORF9TSURFEAISEAoMU0hJRUxEX1JPVU5EEAMSGAoUU0hJRUxEX0lOVklOQ0lCSUxJVFkQBCrQAQoJRW5lbXlLaW5kEhoKFkVORU1ZX0tJTkRfVU5TUEVDSUZJRUQQABIUChBFTkVNWV9LSU5EX1NDT1VUEAESFgoSRU5FTVlfS0lORF9GSUdIVEVSEAISFgoSRU5FTVlfS0lORF9GUklHQVRFEAMSGgoWRU5FTVlfS0lORF9EUkVBRE5PVUdIVBAEEhUKEUVORU1ZX0tJTkRfQk9NQkVSEAUSFgoSRU5FTVlfS0lORF9UT1JQRURPEAYSFgoSRU5FTVlfS0lORF9TVVBQT1JUEAcqfAoMRW5lbXlGYWN0aW9uEh0KGUVORU1ZX0ZBQ1RJT05fVU5TUEVDSUZJRUQQABIXChNFTkVNWV9GQUNUSU9OX0tMQUVEEAESGAoURU5FTVlfRkFDVElPTl9OQUlSQU4QAhIaChZFTkVNWV9GQUNUSU9OX05BVVRPTEFOEAMqbgoOV29ybGRFdmVudEtpbmQSIAocV09STERfRVZFTlRfS0lORF9VTlNQRUNJRklFRBAAEhsKF1dPUkxEX0VWRU5UX0tJTkRfQVRUQUNLEAESHQoZV09STERfRVZFTlRfS0lORF9ESVNUUkVTUxACQkZaRGdpdGh1Yi5jb20vc3RhcnF1YWtlL3ZvaWRtYXJjaC9pbnRlcm5hbC9nZW4vdm9pZG1hcmNoL3YxO3ZvaWRtYXJjaHYxYgZwcm90bzM");
 var ShipStateSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 3);
-var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 12);
-var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 42);
+var ClientMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 11);
+var ServerMessageSchema = /* @__PURE__ */ messageDesc(file_voidmarch_v1_messages, 40);
 var WeaponSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 0);
 var Weapon = /* @__PURE__ */ tsEnum(WeaponSchema);
 var EngineSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 1);
@@ -1321,11 +1321,7 @@ var EnemyKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 3);
 var EnemyKind = /* @__PURE__ */ tsEnum(EnemyKindSchema);
 var EnemyFactionSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 4);
 var EnemyFaction = /* @__PURE__ */ tsEnum(EnemyFactionSchema);
-var CompanionModeSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 5);
-var CompanionMode = /* @__PURE__ */ tsEnum(CompanionModeSchema);
-var CompanionOneShotSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 6);
-var CompanionOneShot = /* @__PURE__ */ tsEnum(CompanionOneShotSchema);
-var WorldEventKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 7);
+var WorldEventKindSchema = /* @__PURE__ */ enumDesc(file_voidmarch_v1_messages, 5);
 var WorldEventKind = /* @__PURE__ */ tsEnum(WorldEventKindSchema);
 
 // src/net/codec.ts
@@ -1341,165 +1337,6 @@ function decodeServer(data) {
   }
   return fromBinary(ServerMessageSchema, data instanceof Uint8Array ? data : new Uint8Array(data));
 }
-
-// src/net/mapping.ts
-import { create } from "./vendor/protobuf.js";
-var WEAPONS2 = {
-  autoCannon: Weapon.AUTO_CANNON,
-  rockets: Weapon.ROCKETS,
-  bigSpaceGun: Weapon.BIG_SPACE_GUN,
-  zapper: Weapon.ZAPPER
-};
-var ENGINES2 = {
-  base: Engine.BASE,
-  bigPulse: Engine.BIG_PULSE,
-  burst: Engine.BURST,
-  supercharged: Engine.SUPERCHARGED
-};
-var SHIELDS2 = {
-  front: Shield.FRONT,
-  frontAndSide: Shield.FRONT_AND_SIDE,
-  round: Shield.ROUND,
-  invincibility: Shield.INVINCIBILITY
-};
-function reverse(map) {
-  return new Map(Object.entries(map).map(([k, v]) => [v, k]));
-}
-var WEAPON_IDS = reverse(WEAPONS2);
-var ENGINE_IDS = reverse(ENGINES2);
-var SHIELD_IDS = reverse(SHIELDS2);
-var toWeapon = (id) => WEAPONS2[id];
-var fromEnemyKind = (kind) => {
-  switch (kind) {
-    case EnemyKind.FIGHTER:
-      return "fighter";
-    case EnemyKind.FRIGATE:
-      return "frigate";
-    case EnemyKind.DREADNOUGHT:
-      return "dreadnought";
-    case EnemyKind.BOMBER:
-      return "bomber";
-    case EnemyKind.TORPEDO:
-      return "torpedo";
-    case EnemyKind.SUPPORT:
-      return "support";
-    default:
-      return "scout";
-  }
-};
-var fromPlayerStats = (p) => ({
-  playerId: p.playerId,
-  name: p.name,
-  kills: p.kills,
-  companionKills: p.companionKills,
-  shots: p.shots,
-  hits: p.hits,
-  deaths: p.deaths,
-  rescues: p.rescues,
-  sectors: p.sectors
-});
-var fromSeasonWon = (won) => ({
-  season: won.season.toString(),
-  seconds: Number(won.seconds),
-  sectors: won.sectors,
-  players: won.players.map(fromPlayerStats)
-});
-var fromEnemyFaction = (faction) => {
-  switch (faction) {
-    case EnemyFaction.NAIRAN:
-      return "nairan";
-    case EnemyFaction.NAUTOLAN:
-      return "nautolan";
-    default:
-      return "klaed";
-  }
-};
-var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
-function fromPart(part) {
-  switch (part?.kind.case) {
-    case "weapon":
-      return WEAPON_IDS.get(part.kind.value);
-    case "engine":
-      return ENGINE_IDS.get(part.kind.value);
-    case "shield":
-      return SHIELD_IDS.get(part.kind.value);
-    default:
-      return void 0;
-  }
-}
-function fromUnlocks(unlocks) {
-  const out = /* @__PURE__ */ new Map();
-  for (const u of unlocks) {
-    const part = fromPart(u.part);
-    if (part !== void 0) {
-      out.set(part, tierOf(u.tier));
-    }
-  }
-  return out;
-}
-function toShipState(ship) {
-  return create(ShipStateSchema, {
-    x: ship.x,
-    y: ship.y,
-    vx: ship.vx,
-    vy: ship.vy,
-    angle: ship.angle,
-    thrusting: ship.thrusting,
-    loadout: {
-      weapon: WEAPONS2[ship.loadout.weapon],
-      engine: ENGINES2[ship.loadout.engine],
-      shield: SHIELDS2[ship.loadout.shield],
-      weaponTier: ship.loadout.weaponTier,
-      engineTier: ship.loadout.engineTier,
-      shieldTier: ship.loadout.shieldTier
-    },
-    damage: ship.damage,
-    shield: ship.shield,
-    revive: ship.revive
-  });
-}
-function fromLoadout(loadout) {
-  return {
-    weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
-    engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
-    shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield,
-    weaponTier: tierOf(loadout?.weaponTier),
-    engineTier: tierOf(loadout?.engineTier),
-    shieldTier: tierOf(loadout?.shieldTier)
-  };
-}
-var tierOf = (tier) => Math.min(tier ?? 0, MAX_TIER);
-function fromShipState(state) {
-  const loadout = state.loadout;
-  return {
-    x: state.x,
-    y: state.y,
-    vx: state.vx,
-    vy: state.vy,
-    angle: state.angle,
-    thrusting: state.thrusting,
-    loadout: fromLoadout(loadout),
-    damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
-    shield: state.shield,
-    revive: state.revive
-  };
-}
-var MODES = {
-  escort: CompanionMode.ESCORT,
-  attack: CompanionMode.ATTACK,
-  guard: CompanionMode.GUARD,
-  hold: CompanionMode.HOLD,
-  stealth: CompanionMode.STEALTH
-};
-var toCompanionMode = (mode) => MODES[mode];
-var fromCompanionMode = (mode) => Object.keys(MODES).find((m) => MODES[m] === mode);
-var ONE_SHOTS = {
-  focus: CompanionOneShot.FOCUS,
-  regroup: CompanionOneShot.REGROUP,
-  goHome: CompanionOneShot.GO_HOME
-};
-var toCompanionOneShot = (oneShot) => ONE_SHOTS[oneShot];
-var fromCompanionOneShot = (oneShot) => Object.keys(ONE_SHOTS).find((k) => ONE_SHOTS[k] === oneShot);
 
 // src/sim/math.ts
 var TAU = Math.PI * 2;
@@ -1522,56 +1359,6 @@ function seededRandom(seed) {
     t ^= t + Math.imul(t ^ t >>> 7, t | 61);
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
-}
-
-// src/ordermenu.ts
-var ORDER_ITEMS = [
-  { kind: "mode", mode: "escort", label: "Escort" },
-  { kind: "mode", mode: "attack", label: "Attack" },
-  { kind: "mode", mode: "guard", label: "Guard" },
-  { kind: "mode", mode: "hold", label: "Hold here" },
-  { kind: "mode", mode: "stealth", label: "Stealth" },
-  { kind: "oneShot", oneShot: "focus", label: "Focus" },
-  { kind: "oneShot", oneShot: "regroup", label: "Regroup" },
-  { kind: "oneShot", oneShot: "goHome", label: "Go home" }
-];
-var RING_ASPECT = 1;
-function itemPosition(index, radius, count = ORDER_ITEMS.length) {
-  const angle = -Math.PI / 2 + index * TAU / count;
-  return { x: Math.cos(angle) * radius * RING_ASPECT, y: Math.sin(angle) * radius };
-}
-function pickItem(dx, dy, deadZone, count = ORDER_ITEMS.length) {
-  const x = dx / RING_ASPECT;
-  if (Math.hypot(x, dy) < deadZone) {
-    return void 0;
-  }
-  const fromTop = Math.atan2(dy, x) + Math.PI / 2;
-  return (Math.round(fromTop * count / TAU) % count + count) % count;
-}
-var FOCUS_PICK_RADIUS = 30;
-var FOCUS_WIDE_RADIUS = 120;
-var FOCUS_LAST_HIT_MS = 3e3;
-function nearestWithin(items, x, y, radius) {
-  let best;
-  let bestDistance = radius;
-  for (const item of items) {
-    const d = Math.hypot(item.x - x, item.y - y);
-    if (d <= bestDistance) {
-      best = item;
-      bestDistance = d;
-    }
-  }
-  return best;
-}
-function chooseFocus(enemies, x, y, lastHit, nowMs) {
-  const under = nearestWithin(enemies, x, y, FOCUS_PICK_RADIUS);
-  if (under !== void 0) {
-    return under.id;
-  }
-  if (lastHit !== void 0 && nowMs - lastHit.atMs <= FOCUS_LAST_HIT_MS && enemies.some((e) => e.id === lastHit.id)) {
-    return lastHit.id;
-  }
-  return nearestWithin(enemies, x, y, FOCUS_WIDE_RADIUS)?.id;
 }
 
 // src/sim/input.ts
@@ -2142,13 +1929,6 @@ function hullPips(damage) {
 function shieldPips(shield, strength) {
   return { on: Math.min(strength, Math.max(0, Math.floor(shield))), of: strength };
 }
-var ORDER_HINTS = {
-  escort: "companions fly with you",
-  attack: "companions hunt enemies near you",
-  guard: "companions shield you",
-  hold: "companions hold their spot",
-  stealth: "companions hold fire"
-};
 function joinNames(names) {
   if (names.length <= 1) {
     return names[0] ?? "";
@@ -2165,8 +1945,6 @@ function panelRows(state) {
     const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? "" : "s"}`];
     const others = [...squadron.others, ...companions];
     row("Squadron", others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
-    const hint = ORDER_HINTS[squadron.mode];
-    row("Orders", hint === void 0 ? squadron.order : `${squadron.order}: ${hint}`);
   }
   if (state.hangar !== void 0) {
     row("Hangar", state.hangar === 0 ? "empty" : `${String(state.hangar)} ship${state.hangar === 1 ? "" : "s"} to summon`);
@@ -2452,8 +2230,8 @@ function parseHex(name) {
     return void 0;
   }
   const q = col - GRID_RINGS;
-  const hex2 = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
-  return ring(hex2) <= GRID_RINGS ? hex2 : void 0;
+  const hex = { q, r: row - GRID_RINGS - (q - (q & 1)) / 2 };
+  return ring(hex) <= GRID_RINGS ? hex : void 0;
 }
 function hexCenter({ q, r }) {
   return { x: SECTOR_RADIUS * 1.5 * q, y: SECTOR_RADIUS * SQRT3 * (r + q / 2) };
@@ -2481,13 +2259,13 @@ function sectorName(x, y) {
   } else if (dr > ds) {
     rr = -rq - rs;
   }
-  const hex2 = { q: rq + 0, r: rr + 0 };
-  return ring(hex2) <= GRID_RINGS ? hexName(hex2) : void 0;
+  const hex = { q: rq + 0, r: rr + 0 };
+  return ring(hex) <= GRID_RINGS ? hexName(hex) : void 0;
 }
 var GRID_EXTENT = { x: SECTOR_RADIUS * (1.5 * GRID_RINGS + 1), y: SECTOR_RADIUS * SQRT3 * (GRID_RINGS + 0.5) };
 function sectorRing(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : ring(hex2);
+  const hex = parseHex(name);
+  return hex === void 0 ? void 0 : ring(hex);
 }
 var SECTOR_NAMES = (() => {
   const names = [];
@@ -2546,19 +2324,19 @@ function sectorLine(x, y, cleared, frontier = ALL_OPEN) {
   return state === "unknown" ? `Sector ${name}` : `Sector ${name} \xB7 ${state}`;
 }
 function sectorCorners(name) {
-  const hex2 = parseHex(name);
-  if (hex2 === void 0) {
+  const hex = parseHex(name);
+  if (hex === void 0) {
     return [];
   }
-  const center = hexCenter(hex2);
+  const center = hexCenter(hex);
   return Array.from({ length: 6 }, (_, i) => ({
     x: center.x + SECTOR_RADIUS * Math.cos(i * Math.PI / 3),
     y: center.y + SECTOR_RADIUS * Math.sin(i * Math.PI / 3)
   }));
 }
 function sectorCenter(name) {
-  const hex2 = parseHex(name);
-  return hex2 === void 0 ? void 0 : hexCenter(hex2);
+  const hex = parseHex(name);
+  return hex === void 0 ? void 0 : hexCenter(hex);
 }
 function missionArrow(ship, target, width, height, margin) {
   const center = sectorCenter(target);
@@ -3051,9 +2829,9 @@ var Sandbox = class {
   setFrontier(openRings, opened) {
     this.exports.setFrontier(openRings);
     for (const name of opened) {
-      const hex2 = sectorAxial(name);
-      if (hex2 !== void 0) {
-        this.exports.openSector(hex2.q, hex2.r);
+      const hex = sectorAxial(name);
+      if (hex !== void 0) {
+        this.exports.openSector(hex.q, hex.r);
       }
     }
   }
@@ -3558,11 +3336,7 @@ function playButtons(screen, dpr) {
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
   const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
   const top = height * TOUCH_BUTTONS_Y;
-  const buttons = [
-    { button: "summon", label: "Summon", x: right, y: top, width: w, height: h, gold: false },
-    { button: "orders", label: "Orders", x: right, y: top + h + gap, width: w, height: h, gold: false }
-  ];
-  return buttons;
+  return [{ button: "summon", label: "Summon", x: right, y: top, width: w, height: h, gold: false }];
 }
 function buttonAt(buttons, x, y) {
   return buttons.find((b) => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height);
@@ -3617,11 +3391,6 @@ var TouchControls = class {
   /** Whether a touch is doing role. */
   held(role) {
     return [...this.tracks.values()].some((t) => t.role === role);
-  }
-  /** Where the touch doing role is now, if any. */
-  position(role) {
-    const t = this.track(role);
-    return t === void 0 ? void 0 : { x: t.x, y: t.y };
   }
   /** A stick's deflection: its offset over its reach, at most length 1, zero inside the dead zone. */
   stick(role) {
@@ -3727,10 +3496,6 @@ function integerZoom(viewportWidth, viewportHeight, targetWidth, targetHeight) {
 
 // src/squadrons.ts
 var SQUADRON_CAP = 4;
-function modeName(info) {
-  const mode = fromCompanionMode(info.mode) ?? "escort";
-  return ORDER_ITEMS.find((i) => i.kind === "mode" && i.mode === mode)?.label ?? "Escort";
-}
 function squadronChoices(list, current = "") {
   const choices = [];
   const full = [];
@@ -3751,7 +3516,6 @@ function squadronChoices(list, current = "") {
       companions,
       seats: "\u25A0".repeat(players.length) + "\u25A3".repeat(shown) + "\u25A1".repeat(free),
       note: own ? "your squadron" : free === 0 ? "you take over one of the companions" : `${String(free)} seat${free === 1 ? "" : "s"} free`,
-      mode: modeName(info),
       current: own
     });
   }
@@ -3873,7 +3637,7 @@ var SquadronScreen = class {
     seats.textContent = c.seats;
     const note = doc.createElement("span");
     note.className = "note";
-    note.textContent = `${c.note} \xB7 orders: ${c.mode}`;
+    note.textContent = c.note;
     row.append(name, who, join, seats, note);
     return row;
   }
@@ -4516,6 +4280,151 @@ var FieldGlow = class {
 
 // src/net/connection.ts
 import { create as create2 } from "./vendor/protobuf.js";
+
+// src/net/mapping.ts
+import { create } from "./vendor/protobuf.js";
+var WEAPONS2 = {
+  autoCannon: Weapon.AUTO_CANNON,
+  rockets: Weapon.ROCKETS,
+  bigSpaceGun: Weapon.BIG_SPACE_GUN,
+  zapper: Weapon.ZAPPER
+};
+var ENGINES2 = {
+  base: Engine.BASE,
+  bigPulse: Engine.BIG_PULSE,
+  burst: Engine.BURST,
+  supercharged: Engine.SUPERCHARGED
+};
+var SHIELDS2 = {
+  front: Shield.FRONT,
+  frontAndSide: Shield.FRONT_AND_SIDE,
+  round: Shield.ROUND,
+  invincibility: Shield.INVINCIBILITY
+};
+function reverse(map) {
+  return new Map(Object.entries(map).map(([k, v]) => [v, k]));
+}
+var WEAPON_IDS = reverse(WEAPONS2);
+var ENGINE_IDS = reverse(ENGINES2);
+var SHIELD_IDS = reverse(SHIELDS2);
+var toWeapon = (id) => WEAPONS2[id];
+var fromEnemyKind = (kind) => {
+  switch (kind) {
+    case EnemyKind.FIGHTER:
+      return "fighter";
+    case EnemyKind.FRIGATE:
+      return "frigate";
+    case EnemyKind.DREADNOUGHT:
+      return "dreadnought";
+    case EnemyKind.BOMBER:
+      return "bomber";
+    case EnemyKind.TORPEDO:
+      return "torpedo";
+    case EnemyKind.SUPPORT:
+      return "support";
+    default:
+      return "scout";
+  }
+};
+var fromPlayerStats = (p) => ({
+  playerId: p.playerId,
+  name: p.name,
+  kills: p.kills,
+  companionKills: p.companionKills,
+  shots: p.shots,
+  hits: p.hits,
+  deaths: p.deaths,
+  rescues: p.rescues,
+  sectors: p.sectors
+});
+var fromSeasonWon = (won) => ({
+  season: won.season.toString(),
+  seconds: Number(won.seconds),
+  sectors: won.sectors,
+  players: won.players.map(fromPlayerStats)
+});
+var fromEnemyFaction = (faction) => {
+  switch (faction) {
+    case EnemyFaction.NAIRAN:
+      return "nairan";
+    case EnemyFaction.NAUTOLAN:
+      return "nautolan";
+    default:
+      return "klaed";
+  }
+};
+var fromWeapon = (w) => WEAPON_IDS.get(w) ?? DEFAULT_LOADOUT.weapon;
+function fromPart(part) {
+  switch (part?.kind.case) {
+    case "weapon":
+      return WEAPON_IDS.get(part.kind.value);
+    case "engine":
+      return ENGINE_IDS.get(part.kind.value);
+    case "shield":
+      return SHIELD_IDS.get(part.kind.value);
+    default:
+      return void 0;
+  }
+}
+function fromUnlocks(unlocks) {
+  const out = /* @__PURE__ */ new Map();
+  for (const u of unlocks) {
+    const part = fromPart(u.part);
+    if (part !== void 0) {
+      out.set(part, tierOf(u.tier));
+    }
+  }
+  return out;
+}
+function toShipState(ship) {
+  return create(ShipStateSchema, {
+    x: ship.x,
+    y: ship.y,
+    vx: ship.vx,
+    vy: ship.vy,
+    angle: ship.angle,
+    thrusting: ship.thrusting,
+    loadout: {
+      weapon: WEAPONS2[ship.loadout.weapon],
+      engine: ENGINES2[ship.loadout.engine],
+      shield: SHIELDS2[ship.loadout.shield],
+      weaponTier: ship.loadout.weaponTier,
+      engineTier: ship.loadout.engineTier,
+      shieldTier: ship.loadout.shieldTier
+    },
+    damage: ship.damage,
+    shield: ship.shield,
+    revive: ship.revive
+  });
+}
+function fromLoadout(loadout) {
+  return {
+    weapon: fromWeapon(loadout?.weapon ?? Weapon.UNSPECIFIED),
+    engine: ENGINE_IDS.get(loadout?.engine ?? Engine.UNSPECIFIED) ?? DEFAULT_LOADOUT.engine,
+    shield: SHIELD_IDS.get(loadout?.shield ?? Shield.UNSPECIFIED) ?? DEFAULT_LOADOUT.shield,
+    weaponTier: tierOf(loadout?.weaponTier),
+    engineTier: tierOf(loadout?.engineTier),
+    shieldTier: tierOf(loadout?.shieldTier)
+  };
+}
+var tierOf = (tier) => Math.min(tier ?? 0, MAX_TIER);
+function fromShipState(state) {
+  const loadout = state.loadout;
+  return {
+    x: state.x,
+    y: state.y,
+    vx: state.vx,
+    vy: state.vy,
+    angle: state.angle,
+    thrusting: state.thrusting,
+    loadout: fromLoadout(loadout),
+    damage: Math.min(state.damage, DAMAGE_STATES.length - 1),
+    shield: state.shield,
+    revive: state.revive
+  };
+}
+
+// src/net/connection.ts
 var CLOSE_UNKNOWN_TOKEN = 4001;
 var CLOSE_TRY_AGAIN_LATER = 1013;
 var BACKOFF_MS = [1e3, 2e3, 4e3, 8e3];
@@ -4579,12 +4488,6 @@ var Connection = class {
   sendChooseSquadron(name) {
     if (this.welcomed) {
       this.send(create2(ClientMessageSchema, { kind: { case: "chooseSquadron", value: { name } } }));
-    }
-  }
-  /** Gives the squadron an order, which the server passes to the squadmates. */
-  sendSquadronOrder(order) {
-    if (this.welcomed) {
-      this.send(create2(ClientMessageSchema, { kind: { case: "squadronOrder", value: order } }));
     }
   }
   /** Asks the server for a companion. */
@@ -4727,9 +4630,6 @@ var Connection = class {
         break;
       case "squadronRefused":
         events.squadronRefused(message.kind.value.reason);
-        break;
-      case "squadronOrdered":
-        events.squadronOrdered(message.kind.value);
         break;
       case "pickupDropped":
         events.pickupDropped(message.kind.value);
@@ -5606,8 +5506,6 @@ var NetPlay = class {
   bumpKeys = /* @__PURE__ */ new Map();
   /** Enemies this player's companions shot down. */
   companionKills = 0;
-  /** The enemy the player last hit, and when (performance.now() ms): what they're shooting at. */
-  lastHit;
   /** How many companions the server allows each player. */
   companionLimit = 0;
   /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
@@ -5715,9 +5613,6 @@ var NetPlay = class {
         squadronRefused: (reason) => {
           this.moving = void 0;
           options.squadronScreen.showError(reason);
-        },
-        squadronOrdered: (ordered) => {
-          this.squadronOrdered(ordered);
         },
         pickupDropped: (dropped) => {
           const pickup = fromPickup(dropped);
@@ -5951,16 +5846,6 @@ var NetPlay = class {
   /** Sends the ship's state now, so the server has a just-fitted loadout (#110). */
   sendStateNow() {
     this.connection.sendStateNow(this.options.sim.ship);
-  }
-  /** Sends the player's order to the squadron, whose other players see it as a callout. */
-  orderSquadron(item, context) {
-    this.connection.sendSquadronOrder({
-      mode: item.kind === "mode" ? toCompanionMode(item.mode) : CompanionMode.UNSPECIFIED,
-      oneShot: item.kind === "oneShot" ? toCompanionOneShot(item.oneShot) : CompanionOneShot.UNSPECIFIED,
-      x: context.pointX,
-      y: context.pointY,
-      focusEnemyId: context.focusEnemyId ?? 0
-    });
   }
   /** Asks the server for a companion, or says why there can't be one. */
   summon() {
@@ -6216,21 +6101,6 @@ var NetPlay = class {
       this.options.sim.placeShip(joined.x, joined.y);
     }
   }
-  /** A squadmate's order, as a callout: the hub gives it to every companion. */
-  squadronOrdered(ordered) {
-    const order = ordered.order;
-    if (order === void 0) {
-      return;
-    }
-    const mode = fromCompanionMode(order.mode);
-    const oneShot = fromCompanionOneShot(order.oneShot);
-    const item = ORDER_ITEMS.find(
-      (i) => i.kind === "mode" && i.mode === mode || i.kind === "oneShot" && i.oneShot === oneShot
-    );
-    if (item !== void 0) {
-      this.say(`${ordered.name}: ${item.label}`);
-    }
-  }
   /** Shows a notice in the HUD for a few seconds. */
   say(text) {
     this.notice = { text, untilMs: now() + NOTICE_MS };
@@ -6344,7 +6214,6 @@ var NetPlay = class {
       if (damage === 0) {
         continue;
       }
-      this.lastHit = { id: target.id, atMs: now() };
       this.connection.sendHit(target.id, p.shotId, damage, p.shard, goesOn);
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
@@ -7058,38 +6927,11 @@ var DOWN_PANEL_PADDING_Y = 8;
 var DOWN_PANEL_Y = 0.8;
 var BLOOM_CHECK_FRAME = 30;
 var KEY_HINT = "F1 help \xB7 Esc settings";
-var ORDER_HOLD_MS = 200;
 var PART_KEY_SLOTS = /* @__PURE__ */ new Map([
   ["Digit1", "weapon"],
   ["Digit2", "engine"],
   ["Digit3", "shield"]
 ]);
-var ORDER_RING_PX = 88;
-var ORDER_DEAD_ZONE_PX = 24;
-var ORDER_COLORS = { mode: 9427199, oneShot: 16769162 };
-var ORDER_PICKED_TEXT = "#ffffff";
-var ORDER_BACKDROP = 328458;
-var ORDER_BACKDROP_ALPHA = 0.72;
-var ORDER_BACKDROP_PAD = 40;
-var ORDER_ICON_RISE = 10;
-var ORDER_LABEL_DROP = 12;
-var ORDER_ICONS = {
-  Escort: { key: keys.hull("fullHealth"), scale: 1 },
-  Attack: { key: keys.weapon("rockets"), scale: 1.1 },
-  Guard: { key: keys.shield("front"), scale: 0.9 },
-  "Hold here": { key: keys.engine("base"), scale: 1.2 },
-  Stealth: { key: keys.weapon("autoCannon"), dim: true, scale: 1.1 },
-  Focus: { key: keys.projectile("bigSpaceGun"), frame: 3, scale: 1.3 },
-  Regroup: { key: keys.flamePowering("base"), frame: 2, scale: 1.4 },
-  "Go home": { key: keys.planet, scale: 0.35 }
-};
-var hex = (color) => `#${color.toString(16).padStart(6, "0")}`;
-function destroyRing(press) {
-  for (const object of [...press.labels ?? [], ...press.extras]) {
-    object.destroy();
-  }
-  press.backdrop?.destroy();
-}
 var SandboxScene = class extends Phaser14.Scene {
   sim = sandbox();
   world;
@@ -7189,8 +7031,6 @@ var SandboxScene = class extends Phaser14.Scene {
   weaponFrames = new WeaponAnimator(weaponTiming("autoCannon"));
   audioSettings;
   audio;
-  orderPress;
-  lastOrder;
   /** Closes the drop-up a tap of 1, 2 or 3 showed (#259). */
   partList = new PartListTimer();
   constructor(options) {
@@ -7303,7 +7143,6 @@ var SandboxScene = class extends Phaser14.Scene {
       companionKills: 0,
       notice: void 0,
       hud: { panel: [], toasts: [] },
-      orderMenuOpen: false,
       squadron: "",
       squadronScreen: false,
       victoryScreen: false,
@@ -7330,8 +7169,7 @@ var SandboxScene = class extends Phaser14.Scene {
       rescues: 0,
       teleports: 0,
       departing: 0,
-      hangar: void 0,
-      squadronMode: void 0
+      hangar: void 0
     };
     this.refreshDebug = publishDebugState(() => this.debugState());
     this.ready();
@@ -7355,7 +7193,6 @@ var SandboxScene = class extends Phaser14.Scene {
       this.showHits(net);
     }
     this.drawProjectiles();
-    this.updateOrderMenu(time);
     this.updatePartList();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
@@ -7633,8 +7470,6 @@ var SandboxScene = class extends Phaser14.Scene {
         this.standingsHeld = true;
       } else if (event.code === "KeyO") {
         this.openVictory();
-      } else if (event.code === "KeyQ") {
-        this.pressOrders();
       } else if (event.code === "KeyC") {
         this.openSquadrons();
       } else if (event.code === "Escape") {
@@ -7646,14 +7481,11 @@ var SandboxScene = class extends Phaser14.Scene {
       }
     };
     const onKeyUp = (event) => {
-      if (event.code === "KeyQ") {
-        this.releaseOrders();
-      } else if (event.code === "Tab") {
+      if (event.code === "Tab") {
         this.standingsHeld = false;
       }
     };
     const onBlur = () => {
-      this.closeOrderRing();
       this.standingsHeld = false;
     };
     this.input.on(Phaser14.Input.Events.POINTER_DOWN, (pointer) => {
@@ -7674,13 +7506,13 @@ var SandboxScene = class extends Phaser14.Scene {
       window.removeEventListener("blur", onBlur);
     });
   }
-  /** The full map opens online, and not over the join screen or the order ring, where the keys and the mouse are theirs. */
+  /** The full map opens online, and not over the join screen, where the keys and the mouse are its own. */
   canOpenMap() {
-    return this.net?.status === "online" && this.orderPress === void 0 && !this.squadronScreen.open;
+    return this.net?.status === "online" && !this.squadronScreen.open;
   }
-  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over the order ring or another screen. */
+  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over another screen. */
   openSquadrons() {
-    if (!this.sim.downed || this.orderPress !== void 0 || this.screenOpen) {
+    if (!this.sim.downed || this.screenOpen) {
       return;
     }
     if (this.net?.openSquadrons() === true) {
@@ -7830,13 +7662,10 @@ var SandboxScene = class extends Phaser14.Scene {
   get screenOpen() {
     return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened;
   }
-  /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
+  /** Opens the intro screen in place of any other screen, map or list, or closes it. */
   toggleIntro() {
     if (this.introScreen.open) {
       this.introScreen.hide();
-      return;
-    }
-    if (this.orderPress !== void 0) {
       return;
     }
     this.settingsScreen.hide();
@@ -7852,9 +7681,9 @@ var SandboxScene = class extends Phaser14.Scene {
       this.introScreen.hide();
     }
   }
-  /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
+  /** Opens the settings screen (#145), unless the join screen is up. */
   openSettings() {
-    if (this.orderPress !== void 0 || this.squadronScreen.open) {
+    if (this.squadronScreen.open) {
       return;
     }
     this.settingsScreen.show(optionRows(this.options()));
@@ -8006,162 +7835,6 @@ var SandboxScene = class extends Phaser14.Scene {
         break;
       default:
     }
-  }
-  /** Q down: remember where the pointer is. */
-  pressOrders(at2) {
-    this.closeOrderRing();
-    const pointer = this.input.activePointer;
-    const screen = at2 ?? { x: pointer.x, y: pointer.y };
-    const world = this.cameras.main.getWorldPoint(screen.x, screen.y);
-    this.orderPress = {
-      downAt: this.time.now,
-      touch: at2 !== void 0,
-      screenX: screen.x,
-      screenY: screen.y,
-      worldX: world.x,
-      worldY: world.y,
-      labels: void 0,
-      backdrop: void 0,
-      extras: []
-    };
-  }
-  /** While Q is held: open the ring once held long enough, and light the item pointed at. */
-  updateOrderMenu(time) {
-    const press = this.orderPress;
-    if (press === void 0 || time - press.downAt < ORDER_HOLD_MS) {
-      return;
-    }
-    press.labels ??= this.openOrderRing(press);
-    const picked = this.pickedOrder(press);
-    this.drawRingBackdrop(press, picked);
-    press.labels.forEach((label, i) => {
-      const item = ORDER_ITEMS[i];
-      label.setColor(i === picked || item === void 0 ? ORDER_PICKED_TEXT : hex(ORDER_COLORS[item.kind]));
-      label.setScale(i === picked ? 1.15 : 1);
-    });
-  }
-  /** Lays out the ring: a label and its pack icon per order, and the wing's mode in the center. */
-  openOrderRing(press) {
-    const dpr = this.dpr();
-    const style = { fontFamily: UI_FONT, fontSize: `${String(HUD_FONT_PX * dpr)}px` };
-    const info = this.net?.squadronInfo;
-    const mode = info === void 0 ? void 0 : fromCompanionMode(info.mode) ?? "escort";
-    press.backdrop = this.add.graphics();
-    this.cameras.main.ignore(press.backdrop);
-    const labels = ORDER_ITEMS.map((item, i) => {
-      const at2 = itemPosition(i, ORDER_RING_PX * dpr);
-      const x = press.screenX + at2.x;
-      const y = press.screenY + at2.y + ORDER_LABEL_DROP * dpr;
-      const inForce = item.kind === "mode" && item.mode === mode;
-      const label = this.add.text(x, y, `${inForce ? "\u2022 " : ""}${item.label}`, { ...style, color: hex(ORDER_COLORS[item.kind]) }).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
-      this.cameras.main.ignore(label);
-      const icon = ORDER_ICONS[item.label];
-      if (icon !== void 0) {
-        const image = this.add.image(x, press.screenY + at2.y - ORDER_ICON_RISE * dpr, icon.key, icon.frame ?? 0).setScale(icon.scale * dpr);
-        if (icon.dim === true) {
-          image.setTint(10132122);
-        }
-        this.cameras.main.ignore(image);
-        press.extras.push(image);
-      }
-      return label;
-    });
-    const count = this.net?.companionCount ?? 0;
-    const center = this.add.text(
-      press.screenX,
-      press.screenY,
-      count === 0 || info === void 0 ? "no companions" : `wing (${String(count)})
-${modeName(info)}`,
-      { ...style, color: "#ffffff", align: "center" }
-    ).setOrigin(0.5).setShadow(1, 1, "#000000", 0);
-    this.cameras.main.ignore(center);
-    press.extras.push(center);
-    return labels;
-  }
-  /** The ring's backdrop, with the wedge of the item pointed at lit in its color. */
-  drawRingBackdrop(press, picked) {
-    const g = press.backdrop;
-    if (g === void 0) {
-      return;
-    }
-    const dpr = this.dpr();
-    const rx = (ORDER_RING_PX * RING_ASPECT + ORDER_BACKDROP_PAD) * dpr;
-    const ry = (ORDER_RING_PX + ORDER_BACKDROP_PAD) * dpr;
-    const { screenX: cx, screenY: cy } = press;
-    g.clear();
-    g.fillStyle(ORDER_BACKDROP, ORDER_BACKDROP_ALPHA).fillEllipse(cx, cy, rx * 2, ry * 2);
-    g.lineStyle(dpr, ORDER_COLORS.mode, 0.35).strokeEllipse(cx, cy, rx * 2, ry * 2);
-    const item = picked === void 0 ? void 0 : ORDER_ITEMS[picked];
-    if (picked === void 0 || item === void 0) {
-      return;
-    }
-    const n = ORDER_ITEMS.length;
-    const mid = -Math.PI / 2 + picked * Math.PI * 2 / n;
-    const points = [new Phaser14.Math.Vector2(cx, cy)];
-    const steps = 8;
-    for (let k = 0; k <= steps; k++) {
-      const a = mid - Math.PI / n + k * 2 * Math.PI / n / steps;
-      points.push(new Phaser14.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
-    }
-    g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
-  }
-  pickedOrder(press) {
-    const pointer = press.touch ? this.touch.position("orders") ?? { x: press.screenX, y: press.screenY } : this.input.activePointer;
-    return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
-  }
-  /** Drops a Q press and its ring without giving an order. */
-  closeOrderRing() {
-    if (this.orderPress !== void 0) {
-      destroyRing(this.orderPress);
-    }
-    this.orderPress = void 0;
-  }
-  /** Q up: give the item pointed at, or repeat the last order after a tap. */
-  releaseOrders() {
-    const press = this.orderPress;
-    this.orderPress = void 0;
-    if (press === void 0) {
-      return;
-    }
-    if (press.labels === void 0) {
-      const world = press.touch ? { x: press.worldX, y: press.worldY } : this.input.activePointer.positionToCamera(this.cameras.main);
-      if (this.lastOrder === void 0) {
-        this.net?.say("no order to repeat yet: hold Q");
-      } else {
-        this.giveOrder(this.lastOrder, { ...press, worldX: world.x, worldY: world.y });
-      }
-      return;
-    }
-    const picked = this.pickedOrder(press);
-    destroyRing(press);
-    const item = picked === void 0 ? void 0 : ORDER_ITEMS[picked];
-    if (item !== void 0) {
-      this.giveOrder(item, press);
-    }
-  }
-  /**
-   * Gives an order to the squadron: the hub gives it to every companion in
-   * it, and squadmates see it as a callout.
-   */
-  giveOrder(item, press) {
-    const net = this.net;
-    if (net === void 0) {
-      return;
-    }
-    const squadmates = (net.squadronInfo?.members.length ?? 1) - 1;
-    if (net.companionCount === 0 && squadmates === 0) {
-      net.say("no companions: press G at the home planet");
-      return;
-    }
-    const focusEnemyId = chooseFocus(net.enemyList, press.worldX, press.worldY, net.lastHit, performance.now());
-    if (item.kind === "oneShot" && item.oneShot === "focus" && focusEnemyId === void 0) {
-      net.say("no enemy to focus: hit one, or point at it");
-      return;
-    }
-    this.lastOrder = item;
-    net.orderSquadron(item, { pointX: press.worldX, pointY: press.worldY, focusEnemyId });
-    net.say(item.label);
-    this.updateHud();
   }
   /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
   dpr() {
@@ -8338,17 +8011,11 @@ ${modeName(info)}`,
       }
       return;
     }
-    const role = this.touch.start(id, p.x, p.y, this.scale.width, this.touchButtonRects, this.maps.onMinimap(p.x, p.y), this.dpr());
-    if (role === "orders") {
-      this.pressOrders(p);
-    }
+    this.touch.start(id, p.x, p.y, this.scale.width, this.touchButtonRects, this.maps.onMinimap(p.x, p.y), this.dpr());
   }
   /** A touch lifts: a button does its job on release, like its key. */
   touchEnd(id) {
     switch (this.touch.end(id)) {
-      case "orders":
-        this.releaseOrders();
-        break;
       case "summon":
         this.net?.summon();
         break;
@@ -8721,9 +8388,7 @@ ${modeName(info)}`,
         squadron: info === void 0 ? void 0 : {
           name: info.name,
           others: info.members.filter((m) => m.playerId !== net?.playerId).map((m) => m.name),
-          companions: info.members.reduce((n, m) => n + m.companions, 0),
-          order: modeName(info),
-          mode: fromCompanionMode(info.mode) ?? "escort"
+          companions: info.members.reduce((n, m) => n + m.companions, 0)
         },
         hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : void 0,
         // How many of your companions are out, which the loadout screen showed until #191.
@@ -8792,10 +8457,8 @@ ${modeName(info)}`,
     this.debug.revives = this.revives;
     this.debug.downPanel = this.downPanel.visible ? this.downPanel.text : void 0;
     this.debug.companions = (this.net?.others ?? []).filter((o) => o.ownerId !== "" && o.ownerId === this.net?.playerId).map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));
-    this.debug.squadronMode = this.net?.squadronInfo === void 0 ? void 0 : modeName(this.net.squadronInfo);
     this.debug.companionKills = this.net?.companionKills ?? 0;
     this.debug.notice = this.net?.noticeText;
-    this.debug.orderMenuOpen = this.orderPress?.labels !== void 0;
     this.debug.squadron = this.net?.squadron ?? "";
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = this.squadronScreen.open;

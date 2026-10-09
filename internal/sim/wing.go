@@ -6,13 +6,6 @@ import "math"
 // flies the same.
 const companionSeed = 0x5eed
 
-// PendingOrders are orders on their way: they take effect after the ticks
-// left.
-type PendingOrders struct {
-	Orders    Orders
-	TicksLeft int
-}
-
 // Companion is a wingmate flown by a brain (docs/design.md, section 13).
 type Companion struct {
 	// Number is its number from the server; its seat is "<playerId>/<number>".
@@ -20,8 +13,9 @@ type Companion struct {
 	Ship   *Ship
 	// Previous is its position before the last tick, for smooth drawing.
 	Previous Vec
-	Orders   Orders
-	Pending  *PendingOrders
+	// GoingHome is set while it flies home, as the server sends a dropped
+	// player's companions; it ends once there.
+	GoingHome bool
 	// ReactionTicks is how many ticks late it reacts, from its seed.
 	ReactionTicks int
 	Random        *Random
@@ -60,9 +54,9 @@ func ownerTrailTicks() int {
 	return int(math.Ceil(BrainReactionMax/TickSeconds)) + 1
 }
 
-// Add puts companion number in the wing at (x, y) under orders, with the
-// default parts; [Companion.Fit] gives it others.
-func (w *Wing) Add(number int, x, y float64, orders Orders) *Companion {
+// Add puts companion number in the wing at (x, y), with the default parts;
+// [Companion.Fit] gives it others.
+func (w *Wing) Add(number int, x, y float64) *Companion {
 	w.Remove(number)
 	seed := uint32(companionSeed + number) //nolint:gosec // companion numbers are small.
 	random := NewRandom(seed)
@@ -71,7 +65,6 @@ func (w *Wing) Add(number int, x, y float64, orders Orders) *Companion {
 		Number:        number,
 		Ship:          NewShip(x, y, DefaultLoadout()),
 		Previous:      Vec{X: x, Y: y},
-		Orders:        orders,
 		ReactionTicks: int(round(reaction / TickSeconds)),
 		Random:        random,
 	}
@@ -111,23 +104,6 @@ func (w *Wing) Find(number int) *Companion {
 	return nil
 }
 
-// OrdersFor is the orders a companion will follow: an order on its way, else
-// its current ones.
-func (*Wing) OrdersFor(c *Companion) Orders {
-	if c.Pending != nil {
-		return c.Pending.Orders
-	}
-
-	return c.Orders
-}
-
-// Order gives a companion new orders. They arrive after its reaction time
-// plus a fresh jitter, so a wing doesn't react as one.
-func (*Wing) Order(c *Companion, orders Orders) {
-	delay := c.ReactionTicks + int(round(c.Random.Next()*BrainOrderJitter/TickSeconds))
-	c.Pending = &PendingOrders{Orders: orders, TicksLeft: delay}
-}
-
 // Observe records where the owner is this tick; companions see it a
 // reaction time later.
 func (w *Wing) Observe(owner Mover) {
@@ -148,13 +124,6 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 	var shots []CompanionShot
 	for slot, c := range w.Companions {
 		c.Previous = Vec{X: c.Ship.X, Y: c.Ship.Y}
-		if c.Pending != nil {
-			c.Pending.TicksLeft--
-			if c.Pending.TicksLeft <= 0 {
-				c.Orders = c.Pending.Orders
-				c.Pending = nil
-			}
-		}
 		// It sees its owner as they were its reaction time ago.
 		seen := w.ownerTrail[max(0, len(w.ownerTrail)-1-c.ReactionTicks)]
 		friends := w.friendsOf(c, others)
@@ -172,12 +141,12 @@ func (w *Wing) Step(enemies []BrainEnemy, others []Friend) []CompanionShot {
 					Derelicts: w.Derelicts,
 					Bullets:   w.Bullets,
 					SpreadKey: spreadKey(w.Key, c.Number),
+					GoingHome: c.GoingHome,
 				},
-				c.Orders,
 				c.Random,
 			)
-			if step.Done {
-				c.Orders.OneShot = OneShot{}
+			if step.Home {
+				c.GoingHome = false
 			}
 			StepShip(c.Ship, step.Command, TickSeconds)
 		}

@@ -4,7 +4,7 @@ import type { FileBytes } from './sim/loading.ts';
 
 /** The game's code in bytes, by URL: main.js and every module it imports. */
 export const CODE_BYTES: Readonly<Record<string, number>> = {
-  "/static/js/main.js": 324755,
+  "/static/js/main.js": 310498,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
@@ -13,7 +13,7 @@ export const CODE_BYTES: Readonly<Record<string, number>> = {
 
 /** Every other file loaded before play, by loader key: its bytes, or a sound's per format, best first. */
 export const FILE_BYTES: Readonly<Record<string, FileBytes>> = {
-  "rules": 168479,
+  "rules": 157726,
   "font-Exo 2": 40932,
   "font-Orbitron": 11768,
   "hull-fullHealth": 485,

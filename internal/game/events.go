@@ -250,7 +250,6 @@ func (h *Hub) retireFrigate(i int) {
 	spot := &h.frigates[i]
 	if spot.enemyID != 0 {
 		delete(h.enemies, spot.enemyID)
-		h.forgetEnemy(spot.enemyID)
 	}
 	spot.enemyID, spot.respawnAt = 0, math.MaxUint32
 }

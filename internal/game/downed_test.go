@@ -8,16 +8,20 @@ import (
 	. "github.com/starquake/voidmarch/internal/game"
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
 	"github.com/starquake/voidmarch/internal/sim"
+	"github.com/starquake/voidmarch/internal/world"
 )
 
-// companionDown flies a's stealthy companion out with a, parked at (0, 1000) in D5,
-// until enemy fire takes it down, and returns its state then.
+// underFire is a map whose D5 garrison never runs out, so a companion parked
+// there stays under fire.
+var underFire = &world.Map{Name: "under fire", Garrisons: map[string]int{"D5": 500}}
+
+// companionDown flies a's companion out with a, parked at (0, 1000) in D5,
+// until enemy fire takes it down, and returns its state then. The hub must
+// hold the companions' fire, or the companion fights the garrison off, and
+// map underFire downs it soon, every time.
 func companionDown(t *testing.T, a *Session, tick func(int)) *pb.ShipState {
 	t.Helper()
 
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
-		Mode: pb.CompanionMode_COMPANION_MODE_STEALTH,
-	}}})
 	var down *pb.ShipState
 	for range 120 * TickRate {
 		snap, _ := latest(t, a, tick, 1, 0, 1000)
@@ -88,7 +92,7 @@ func dockedWithin(t *testing.T, a *Session, tick func(int), n int) bool {
 func TestDowned_RespawnHomeDocksADownedCompanion(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t, WithPoolStart(1))
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire(), WithPoolStart(1))
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -126,8 +130,7 @@ func TestDowned_RespawnHomeDocksADownedCompanion(t *testing.T) {
 }
 
 // flyOutWithCompanion has b fetch b/1 from home and fly it out to (x, y),
-// beside the downed a/1. a keeps out of revive reach, and in Stealth b/1
-// doesn't revive it.
+// beside the downed a/1, while a keeps out of revive reach.
 func flyOutWithCompanion(
 	t *testing.T,
 	a, b *Session,
@@ -160,12 +163,6 @@ func flyOutWithCompanion(
 func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 	t.Parallel()
 
-	const (
-		escort = pb.CompanionMode_COMPANION_MODE_ESCORT
-		hold   = pb.CompanionMode_COMPANION_MODE_HOLD
-		// stealth is no order: companionDown left the squadron in Stealth.
-		stealth = pb.CompanionMode_COMPANION_MODE_UNSPECIFIED
-	)
 	tests := []struct {
 		name string
 		// near is b's offset from the downed a/1, or 0 for b staying away.
@@ -177,26 +174,18 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 		// second gives a another companion, up, flown out with a this far
 		// above a/1, or 0 for none.
 		second float32
-		// mode is ordered to the squadron's companions just before H.
-		mode  pb.CompanionMode
-		stays bool
+		stays  bool
 	}{
 		{name: "alone", near: 0},
 		{name: "squadmate up within reach", near: 400, mate: true, stays: true},
 		{name: "squadmate up out of reach", near: 1200, mate: true},
 		{name: "player up outside the squadron", near: 400},
 		{name: "squadmate down within reach", near: 400, mate: true, bDown: true},
-		{name: "own companion escorting within reach", second: 250, mode: escort, stays: true},
-		{name: "own companion escorting out of reach", second: 650, mode: escort},
-		{name: "own companion holding within reach", second: 250, mode: hold},
-		{name: "own companion in stealth within reach", second: 250, mode: stealth},
+		{name: "own companion within reach", second: 250, stays: true},
+		{name: "own companion out of reach", second: 650},
 		{
-			name: "squadmate's companion escorting within reach", near: 250, mate: true,
-			bDown: true, bCompanion: true, mode: escort, stays: true,
-		},
-		{
-			name: "squadmate's companion in stealth within reach", near: 250, mate: true,
-			bDown: true, bCompanion: true, mode: stealth,
+			name: "squadmate's companion within reach", near: 250, mate: true,
+			bDown: true, bCompanion: true, stays: true,
 		},
 	}
 
@@ -204,21 +193,22 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			hub, tick := testHub(t)
+			hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 			a, _ := pilot(t, hub, "a")
 			a.Send(state(0, 180))
 			grant(t, a)
 			down := companionDown(t, a, tick)
-			var holdX, holdY float32
 			if tc.second != 0 {
-				// a fetches a/2 from home and flies it out near a/1; in Stealth it doesn't revive it.
+				// a fetches a/2 from home and flies it out near a/1.
 				a.Send(state(0, 180))
 				grant(t, a)
 				snap, _ := latest(t, a, tick, 5*TickRate, down.GetX(), down.GetY()-tc.second)
 				down = companion(snap)
 				other := shipOf(snap, "a/2")
-				holdX, holdY = other.GetX(), other.GetY()
-				d := math.Hypot(float64(holdX-down.GetX()), float64(holdY-down.GetY()))
+				d := math.Hypot(
+					float64(other.GetX()-down.GetX()),
+					float64(other.GetY()-down.GetY()),
+				)
 				far := tc.second > sim.BrainReviveRange
 				if other.GetDamage() >= sim.MaxDamage || (d > sim.BrainReviveRange) != far ||
 					d > sim.CompanionWaitRadius {
@@ -249,12 +239,6 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 			}
 
 			a.Send(state(0, sim.HomeSpawnY))
-			if tc.mode != stealth {
-				order := &pb.SquadronOrder{Mode: tc.mode, X: holdX, Y: holdY}
-				a.Send(
-					&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: order}},
-				)
-			}
 			a.Send(respawnHome)
 			if got := !dockedWithin(t, a, tick, TickRate); got != tc.stays {
 				t.Errorf("a/1 stayed down = %v, want %v", got, tc.stays)
@@ -266,7 +250,7 @@ func TestDowned_RespawnHomeLeavesOneNearAnUpSquadmate(t *testing.T) {
 func TestDowned_ARespawnWithoutRespawnHomeLeavesThemDown(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -283,7 +267,7 @@ func TestDowned_ARespawnWithoutRespawnHomeLeavesThemDown(t *testing.T) {
 func TestDowned_ItsOwnerRevivesACompanion(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
@@ -315,7 +299,7 @@ func TestDowned_ItsOwnerRevivesACompanion(t *testing.T) {
 func TestDowned_ALostCompanionGoesHome(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)

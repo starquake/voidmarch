@@ -83,8 +83,6 @@ export interface DebugState {
   notice: string | undefined;
   /** The HUD (#91): the panel's rows as "Label: value", and the toasts showing. */
   hud: { panel: string[]; toasts: string[] };
-  /** Whether the Q order ring is showing. */
-  orderMenuOpen: boolean;
   /** The player's squadron, "" before choosing, and whether the join screen is up. */
   squadron: string;
   squadronScreen: boolean;
@@ -132,8 +130,6 @@ export interface DebugState {
   boss: BossBar | undefined;
   /** Companion ships waiting in the shared hangar, once the server has listed them. */
   hangar: number | undefined;
-  /** The squadron's mode as the ring labels it ("Attack"), once in a squadron. */
-  squadronMode: string | undefined;
   audio: {
     muted: boolean;
     music: boolean;

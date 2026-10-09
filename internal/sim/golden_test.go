@@ -23,7 +23,10 @@ const tolerance = 1e-9
 // when the formation widened and companions kept clear of their owner (#68); the rockets'
 // weapon cases were, when rockets began seeking at a lower damage rate (#72);
 // brain cases 0 and 6 and the screen sandbox's trace from frame 126 were,
-// when companions began spreading over the nearest enemies (#165).
+// when companions began spreading over the nearest enemies (#165). When the
+// order ring went (#325), the brain cases of the other modes and orders were
+// dropped, and the sandboxes' companion traces and shots re-recorded with no
+// order given, from the code before it, which the code after must match.
 type golden struct {
 	Math        goldenMath         `json:"math"`
 	Ships       []goldenShip       `json:"ships"`
@@ -34,7 +37,6 @@ type golden struct {
 	Patterns    []goldenPattern    `json:"patterns"`
 	Brain       []goldenBrain      `json:"brain"`
 	Sandboxes   []goldenSandbox    `json:"sandboxes"`
-	OrderSets   []Orders           `json:"orderSets"`
 }
 
 type goldenMath struct {
@@ -112,10 +114,10 @@ type goldenBrain struct {
 	Owner     Mover        `json:"owner"`
 	Slot      int          `json:"slot"`
 	Enemies   []BrainEnemy `json:"enemies"`
-	Orders    Orders       `json:"orders"`
+	GoingHome bool         `json:"goingHome"`
 	Seed      uint32       `json:"seed"`
 	Command   [5]float64   `json:"command"`
-	Done      bool         `json:"done"`
+	Home      bool         `json:"home"`
 	Formation [2]float64   `json:"formation"`
 	Arrive    [2]float64   `json:"arrive"`
 }
@@ -130,7 +132,6 @@ type goldenFrame struct {
 	Input   Input        `json:"input"`
 	Seconds float64      `json:"seconds"`
 	Enemies []BrainEnemy `json:"enemies"`
-	Order   int          `json:"order"`
 }
 
 type goldenTrace struct {
@@ -353,7 +354,9 @@ func TestGolden_Brain(t *testing.T) {
 		)
 		self.VX, self.VY, self.Angle = c.Self[2], c.Self[3], c.Self[4]
 		self.Damage = int(c.Self[8])
-		view := BrainView{Self: self, Owner: c.Owner, Slot: c.Slot, Enemies: c.Enemies}
+		view := BrainView{
+			Self: self, Owner: c.Owner, Slot: c.Slot, Enemies: c.Enemies, GoingHome: c.GoingHome,
+		}
 		what := "brain case " + strconv.Itoa(i)
 
 		f := FormationPoint(c.Owner, c.Slot, 1)
@@ -361,7 +364,7 @@ func TestGolden_Brain(t *testing.T) {
 		a := Arrive(self, Vec{}, Vec{})
 		checkNear(t, what+" Arrive", []float64{a.X, a.Y}, c.Arrive[:])
 
-		step := Think(view, c.Orders, NewRandom(c.Seed))
+		step := Think(view, NewRandom(c.Seed))
 		fire := 0.0
 		if step.Command.Fire {
 			fire = 1
@@ -374,8 +377,8 @@ func TestGolden_Brain(t *testing.T) {
 			fire,
 		}
 		checkNear(t, what+" Think", got, c.Command[:])
-		if step.Done != c.Done {
-			t.Errorf("%s: Done = %t, want %t", what, step.Done, c.Done)
+		if step.Home != c.Home {
+			t.Errorf("%s: Home = %t, want %t", what, step.Home, c.Home)
 		}
 	}
 }
@@ -383,8 +386,7 @@ func TestGolden_Brain(t *testing.T) {
 func TestGolden_Sandbox(t *testing.T) {
 	t.Parallel()
 
-	g := loadGolden(t)
-	for v, c := range g.Sandboxes {
+	for _, c := range loadGolden(t).Sandboxes {
 		s := NewSandbox()
 		s.ControlMode = c.ControlMode
 		for n := 1; n <= 3; n++ {
@@ -392,12 +394,6 @@ func TestGolden_Sandbox(t *testing.T) {
 		}
 		companionShots := 0
 		for f, frame := range c.Frames {
-			if frame.Order >= 0 {
-				next := g.OrderSets[(frame.Order*2+v)%len(g.OrderSets)]
-				for _, comp := range s.Companions {
-					s.Order(comp, next)
-				}
-			}
 			events := s.Advance(frame.Seconds, frame.Input, frame.Enemies)
 			want := c.Trace[f]
 			what := string(c.ControlMode) + " frame " + strconv.Itoa(f)

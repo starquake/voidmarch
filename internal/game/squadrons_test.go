@@ -2,7 +2,6 @@ package game_test
 
 import (
 	"maps"
-	"math"
 	"slices"
 	"testing"
 
@@ -136,41 +135,6 @@ func TestSquadrons_JoiningAFullSquadronTakesOverACompanion(t *testing.T) {
 	}
 }
 
-func TestSquadrons_OrdersReachTheOthers(t *testing.T) {
-	t.Parallel()
-
-	hub, _ := testHub(t)
-	a, _ := pilot(t, hub, "a")
-	b, _ := join(t, hub, "b")
-	chooseAndWait(t, b, "Alpha")
-	outsider, _ := pilot(t, hub, "c")
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
-		Mode: pb.CompanionMode_COMPANION_MODE_ATTACK,
-	}}})
-
-	for {
-		msg := next(t, b)
-		if o := msg.GetSquadronOrdered(); o != nil {
-			if o.GetPlayerId() != "a" || o.GetName() != "name-a" ||
-				o.GetOrder().GetMode() != pb.CompanionMode_COMPANION_MODE_ATTACK {
-				t.Errorf("ordered = %v, want a's Attack", o)
-			}
-
-			break
-		}
-	}
-	for {
-		list := nextSquadrons(t, outsider)
-		i := slices.IndexFunc(
-			list.GetSquadrons(),
-			func(sq *pb.SquadronInfo) bool { return sq.GetName() == "Alpha" },
-		)
-		if i >= 0 && list.GetSquadrons()[i].GetMode() == pb.CompanionMode_COMPANION_MODE_ATTACK {
-			return
-		}
-	}
-}
-
 func TestSquadrons_KeptOnReconnectAndLeftOnDrop(t *testing.T) {
 	t.Parallel()
 
@@ -200,46 +164,6 @@ func TestSquadrons_SnapshotsNameThem(t *testing.T) {
 
 	if got, want := snapshotPlayers(t, b, tick)["a"].GetSquadron(), "Alpha"; got != want {
 		t.Errorf("a's squadron in b's snapshot = %q, want %q", got, want)
-	}
-}
-
-func TestSquadrons_OrdersReachEveryCompanion(t *testing.T) {
-	t.Parallel()
-
-	hub, tick := testHub(t)
-	a, _ := pilot(t, hub, "a")
-	b, _ := join(t, hub, "b")
-	chooseAndWait(t, b, "Alpha")
-	a.Send(state(0, 180))
-	b.Send(state(0, -180))
-	grant(t, a)
-	grant(t, b)
-
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
-		Mode: pb.CompanionMode_COMPANION_MODE_HOLD, X: 150, Y: 150,
-	}}})
-	var snap *pb.Snapshot
-	for range 4 * TickRate {
-		b.Send(state(0, -180))
-		drain(b)
-		snap, _ = latest(t, a, tick, 1, 0, 180)
-	}
-	for _, p := range snap.GetPlayers() {
-		if p.GetOwnerId() == "" {
-			continue
-		}
-		x, y := float64(p.GetState().GetX()), float64(p.GetState().GetY())
-		if math.Hypot(x-150, y-150) > 40 {
-			t.Errorf(
-				"%s at (%v, %v), want holding near (150, 150)",
-				p.GetPlayerId(),
-				p.GetState().GetX(),
-				p.GetState().GetY(),
-			)
-		}
-	}
-	if len(snap.GetPlayers()) != 3 {
-		t.Errorf("a sees %d ships, want b, a/1 and b/1", len(snap.GetPlayers()))
 	}
 }
 
@@ -358,7 +282,7 @@ func TestSquadrons_MovingBringsCompanionsAsFarAsThereIsRoom(t *testing.T) {
 func TestSquadrons_MovingDocksDownedCompanionsFirst(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithMap(underFire), WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)

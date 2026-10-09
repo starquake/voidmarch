@@ -227,7 +227,6 @@ func (h *Hub) stepEnemies() {
 		}
 		if h.tick-e.lastNear > despawnAfter || e.leaving && h.outOfView(e) {
 			delete(h.enemies, id)
-			h.forgetEnemy(id)
 		}
 	}
 	h.stepRepairs()
@@ -481,7 +480,6 @@ func (h *Hub) fireUnwarned(e *enemy, angle float64, seed uint32) {
 // launch fires e's pattern along angle with seed ahead ticks from now,
 // its weapon animating for the last warning of them.
 func (h *Hub) launch(e *enemy, angle float64, seed, ahead, warning uint32) {
-	h.noteAttack(e)
 	// The hub flies the bullets too, against its companions (#46).
 	h.volleys = append(
 		h.volleys,
@@ -551,7 +549,6 @@ func (h *Hub) hit(except, shooter string, enemyID uint32, shot shotHit, damage u
 	if e.garrison != nil {
 		h.garrisonLost(e)
 	}
-	h.forgetEnemy(e.id)
 	h.sendNear(
 		e.id,
 		&pb.ServerMessage{Kind: &pb.ServerMessage_EnemyDestroyed{EnemyDestroyed: &pb.EnemyDestroyed{

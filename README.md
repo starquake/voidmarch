@@ -56,8 +56,6 @@ From a checkout, `go run ./cmd/voidmarch -new-season` resets the file at
 | Tab (hold) | The season so far: the top players by kills, and you, while held |
 | C (when down) | The squadron screen, to move to another squadron or start one; C or Esc closes it and keeps you where you are |
 | O | Victory screen, once the season is won: everyone's kills, hit rate, deaths, rescues and sectors; O or Esc closes it |
-| Q (hold) | Order ring: point at an order and let go |
-| Q (tap) | Repeat the last order |
 | Esc | Settings, when no other screen is open; Esc closes it |
 | F1 | The intro screen: what the game is, the controls, the sectors and the link to share; F1 or Esc closes it |
 
@@ -73,7 +71,7 @@ screen is open, with a crossfade between them.
 
 The HUD shows your ship bottom left: the three fitted parts as their icons,
 in their tier's color, and the hull and shield as pips. Top left, a panel
-names your squadron and its orders, the hangar at home, how many of your
+names your squadron, the hangar at home, how many of your
 companions are out, the sector you're in, your mission and any alert. Notices, and the connection while it isn't
 online, show as toasts at the top. Bottom right, a hint names F1 for the intro screen and Esc for the settings. On a
 development server or offline, **F3** shows frames per second, with the
@@ -90,7 +88,6 @@ turns them on anywhere, and `?touch=0` off. Play in landscape.
 | Left half | A stick where your thumb lands: move that way on the screen, as far as you push |
 | Right half | A stick where your thumb lands: aim that way and fire while pushed; let go to stop (the big space gun fires on release) |
 | Summon | Draw a companion from the hangar |
-| Orders (hold) | Order ring: slide to an order and let go; a tap repeats the last order |
 | Part slots | Bottom left: tap one for its list of parts, and tap a part to fit it |
 | Minimap | Full map: tap a sector to send your squadron there, tap beside it to close |
 | Respawn buttons | When down, respawn at home or beside a squadmate |
@@ -124,8 +121,9 @@ game keeps running on its own and reconnects when it can.
 ## Companions
 
 Press **G** at the home planet to draw a companion from the hangar, up to
-three: AI wingmates that fly in formation with you, in your colour, and dodge
-enemy fire as they fight. The hangar
+three: AI wingmates that fly in formation with you, in your colour, shoot
+enemies within 300 px of you and dodge enemy fire as they fight. They take no
+orders. The hangar
 is shared by everyone on the server; the HUD shows its ships while you're at
 the home planet. A companion sent home, or one whose player leaves, docks back
 into it. A new server starts with `POOL_START` ships in it (3 unless set), and
@@ -133,12 +131,9 @@ keeps the count across restarts. A derelict ship waits beside every Frigate,
 held while any enemy is within 600 px of it: destroy the Frigate and its
 escort, then hover beside it for 5 s, or let a companion do it, to rescue it
 into the hangar before it drifts off 2 minutes after it was freed. The fleet tops out at 16
-ships; past that a rescue still counts, but no ship joins. Hold **Q**
-for a ring of orders, point at one and let go; tap Q to repeat the last. Every
-order goes to your whole squadron. There are five modes, Escort, Attack, Guard,
-Hold here and Stealth, and three one-shots that return to the mode when done:
-Focus (the enemy under the cursor, or else the one you last hit), Regroup and
-Go home.
+ships; past that a rescue still counts, but no ship joins. A companion
+also flies over to revive a downed squadmate, or to rescue a derelict, within
+400 px of it.
 
 Other players see your companions as ships of yours. Companions count toward
 the 16 seats, so a player joining a full world sends the newest companion
@@ -149,8 +144,8 @@ home.
 Everyone flies in a squadron of up to 4 ships, companions included. Joining a
 server with squadrons that have room, you pick one or start your own (Alpha,
 Beta, Gamma…); alone, you just start one. Joining a squadron that is at 4
-ships takes over one of its companions. Orders are the squadron's: your
-squadmates see "you: Attack", and every companion in the squadron follows.
+ships takes over one of its companions. Every companion in the squadron
+revives any squadmate who is down near it.
 
 You move to another squadron while you're down: **C** (or the Squadron button
 on touch) opens the squadron screen again. It lists your own squadron too,
@@ -201,8 +196,7 @@ and you're down: you drift until a friend hovers beside you to revive you,
 or after 3 s you respawn with **H** at home or **J** beside a squadmate.
 **H** also brings your downed companions home to the hangar, ready for **G**,
 except one that someone will come to revive: a player of your squadron up
-within 800 px, or a companion up within 400 px that isn't in Hold or
-Stealth. A downed companion nobody revives goes home after 60 s.
+within 800 px, or a companion up within 400 px. A downed companion nobody revives goes home after 60 s.
 While down, **C** switches squadron, and you stay down.
 Enemies need the server, so
 offline the sandbox stays empty.

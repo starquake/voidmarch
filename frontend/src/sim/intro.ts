@@ -72,7 +72,6 @@ const KEYBOARD: ControlColumn = {
   rows: [
     { keys: ['W', 'A', 'S', 'D'], text: 'move' },
     { keys: ['G'], text: 'draw a companion, at home' },
-    { keys: ['Q'], text: 'hold for orders, tap to repeat' },
     { keys: ['1', '2', '3'], text: 'tap to switch weapon, engine, shield; the list shows for 2 s' },
     { keys: ['M'], text: 'map' },
     { keys: ['Tab'], text: 'hold for the standings' },
@@ -111,7 +110,6 @@ const BUTTONS: ControlColumn = {
   style: 'buttons',
   rows: [
     { keys: ['Summon'], text: 'draw a companion, at home' },
-    { keys: ['Orders'], text: 'hold for the order ring, tap to repeat' },
     { keys: ['Respawn'], text: 'when down: at home, or beside a squadmate' },
     { keys: ['Squadron'], text: 'when down: switch squadrons' },
     { keys: ['Settings'], text: 'sound, controls, effects' },
@@ -139,7 +137,7 @@ const SECTORS: readonly Line[] = [
 /** The five extras (decision 5), with the parts line for keys or for touch. */
 function extras(touch: boolean): Line[] {
   return [
-    [blue('Companions'), plain(' are AI wingmates from the shared hangar, up to three. They follow your squadron\'s orders from the order ring.')],
+    [blue('Companions'), plain(' are AI wingmates from the shared hangar, up to three. They fly beside you, fight what comes near, and revive downed squadmates.')],
     [
       blue('Parts'),
       plain(
@@ -154,7 +152,7 @@ function extras(touch: boolean): Line[] {
         ` ${numberWord(MAX_DAMAGE, true)} hull hits. A friend hovering beside you revives you, or after ${String(RESPAWN_DELAY)} s respawn at home or beside a squadmate.`,
       ),
     ],
-    [blue('Squadrons'), plain(' are up to 4 ships, companions included. An order from anyone reaches every companion in it.')],
+    [blue('Squadrons'), plain(' are up to 4 ships, companions included.')],
     [blue('The season'), plain(" is won when the Nautolan Dreadnought in ring 3 falls; the victory screen then shows everyone's stats.")],
   ];
 }

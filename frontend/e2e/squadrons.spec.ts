@@ -1,10 +1,8 @@
 import type { Browser, Page } from '@playwright/test';
 
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
-import { noticesShown, recordNotices } from './notices.ts';
 
 import type { DebugState } from '../src/debug.ts';
-import { ORDER_ITEMS, itemPosition } from '../src/ordermenu.ts';
 
 const state = (page: Page): Promise<DebugState> =>
   page.evaluate(() => {
@@ -30,7 +28,7 @@ async function otherPlayer(browser: Browser, baseURL: string, name: string): Pro
   return page;
 }
 
-test('squadmates join from the screen and hear each other\'s orders', async ({ page, browser, baseURL }) => {
+test('a second player joins the first one\'s squadron from the screen', async ({ page, browser, baseURL }) => {
   test.setTimeout(90_000);
   // Alone, there's nothing to choose: the first player starts a squadron straight away.
   await page.goto('/');
@@ -51,22 +49,6 @@ test('squadmates join from the screen and hear each other\'s orders', async ({ p
     await mo.keyboard.press('Enter');
     await expect.poll(async () => (await state(mo)).squadron).toBe(squadron);
     await expect.poll(async () => (await state(mo)).squadronScreen).toBe(false);
-
-    // An order from the first player reaches the second as a callout.
-    const view = page.viewportSize() ?? { width: 640, height: 360 };
-    const x = view.width / 2 + 180;
-    const y = view.height / 2;
-    await recordNotices(mo);
-    await page.mouse.move(x, y);
-    await page.keyboard.down('q');
-    await expect.poll(async () => (await state(page)).orderMenuOpen).toBe(true);
-    const at = itemPosition(
-      ORDER_ITEMS.findIndex((item) => item.label === 'Attack'),
-      60,
-    );
-    await page.mouse.move(x + at.x, y + at.y, { steps: 4 });
-    await page.keyboard.up('q');
-    await expect.poll(async () => (await noticesShown(mo)).some((n) => n.endsWith(': Attack'))).toBe(true);
   } finally {
     // An open page keeps rendering WebGL through later specs (#22).
     await mo.context().close();

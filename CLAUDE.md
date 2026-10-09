@@ -128,16 +128,19 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   Frigate is an enemy with a fight of its own (`internal/game/frigate.go`):
   its health, shield and scaling go out in `EnemyState`.
 - **Companion brains are Go sim code** (`internal/sim/brain.go`): `Think`
-  turns a companion's view and orders into the same `Command` the keyboard
-  makes, pure and seeded, and `sim.Wing` flies a player's companions. The
-  view holds the enemy bullets the hub flies, which it dodges
-  (`internal/sim/dodge.go`, #249).
+  turns a companion's view into the same `Command` the keyboard makes, pure
+  and seeded, and `sim.Wing` flies a player's companions. The view holds the
+  enemy bullets the hub flies, which it dodges (`internal/sim/dodge.go`,
+  #249). Companions take no orders (#325): each flies in formation, shoots
+  what comes near its owner and revives squadmates near it; only the hub
+  sends a dropped player's companions home. Hub tests that need a companion
+  to take fire hide the enemies from it with `WithCompanionsHoldingFire`.
 - **Companions are the hub's seats** (`internal/game/companions.go`,
   `flight.go`): the server grants `Summon`, and a companion is then the seat
   `<playerId>/<n>`, flown by the hub at the sim's 60 Hz (three steps per hub
   tick) and sent in snapshots like any ship, its owner's included. The hub
-  fires its shots as `RemoteShot`, tests them against its enemies and gives
-  `SquadronOrder` to every companion in the squadron. Clients never report a
+  fires its shots as `RemoteShot` and tests them against its enemies.
+  Clients never report a
   companion's state, shot or hit (#51). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
   home planet, 4 ships per squadron). Summons draw from the shared hangar,
@@ -156,9 +159,7 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   `REGISTER_LIMIT=0`.
 - **Squadrons** (`internal/game/squadrons.go`): everyone picks one with
   `ChooseSquadron` (empty starts a new one, Greek-named); the server sends
-  `Squadrons` on every change and caps them at 4 ships. `SquadronOrder` is
-  relayed to squadmates as `SquadronOrdered`, and every client applies it to its
-  own companions. On joining, the squadron screen (`frontend/src/squadrons.ts`)
+  `Squadrons` on every change and caps them at 4 ships. On joining, the squadron screen (`frontend/src/squadrons.ts`)
   only shows when there's a squadron with room; E2E's first page per spec
   starts its own. Only while the ship is down, C (or the down panel's Squadron
   button on touch) reopens it to switch squadrons (#45); a revive closes it.

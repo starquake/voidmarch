@@ -26,6 +26,10 @@ func (h *Hub) flyCompanions() {
 	derelicts := h.derelictPoints()
 	for range substeps {
 		bullets := h.enemyBullets()
+		enemies := h.brainEnemies()
+		if h.holdFire {
+			enemies = nil
+		}
 		for _, id := range owners {
 			m := h.members[id]
 			if m == nil || len(m.wing.Companions) == 0 || (m.state == nil && !m.gone) {
@@ -39,7 +43,7 @@ func (h *Hub) flyCompanions() {
 			m.wing.Derelicts = derelicts
 			m.wing.Bullets = bullets
 			m.wing.Frontier = h.frontier
-			for _, shot := range m.wing.Step(h.brainEnemies(m), h.othersThan(id)) {
+			for _, shot := range m.wing.Step(enemies, h.othersThan(id)) {
 				h.fireCompanionShot(id, shot)
 			}
 		}
@@ -89,17 +93,15 @@ func (h *Hub) othersThan(id string) []sim.Friend {
 	return out
 }
 
-// brainEnemies are the enemies as m's companions see them.
-func (h *Hub) brainEnemies(m *member) []sim.BrainEnemy {
+// brainEnemies are the enemies as companions see them.
+func (h *Hub) brainEnemies() []sim.BrainEnemy {
 	out := make([]sim.BrainEnemy, 0, len(h.enemies))
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
 		out = append(out, sim.BrainEnemy{
-			ID:           int(id),
-			Kind:         simEnemyKind(e.kind),
-			X:            e.x,
-			Y:            e.y,
-			AttackedWing: m.attackers[id],
+			ID: int(id),
+			X:  e.x,
+			Y:  e.y,
 		})
 	}
 
@@ -290,65 +292,6 @@ func (h *Hub) companionTargets() ([]sim.ShipTarget, []*sim.Ship) {
 	return targets, ships
 }
 
-// noteAttack marks e as an attacker of every wing it fired near, which
-// defensive orders and return fire answer.
-func (h *Hub) noteAttack(e *enemy) {
-	near := func(x, y float64) bool {
-		return math.Hypot(x-e.x, y-e.y) <= sim.BrainAttackerRange
-	}
-	for _, m := range h.members {
-		attacked := m.state != nil && near(float64(m.state.GetX()), float64(m.state.GetY()))
-		for _, c := range m.wing.Companions {
-			attacked = attacked || near(c.Ship.X, c.Ship.Y)
-		}
-		if attacked {
-			m.attackers[e.id] = true
-		}
-	}
-}
-
-// forgetEnemy drops a gone enemy from every wing's attackers.
-func (h *Hub) forgetEnemy(id uint32) {
-	for _, m := range h.members {
-		delete(m.attackers, id)
-	}
-}
-
-// squadronModeOrders are the standing orders of m's squadron's mode, holding
-// at m's ship in Hold.
-func (h *Hub) squadronModeOrders(m *member) sim.Orders {
-	mode := sim.ModeEscort
-	if sq := h.squadrons[m.squadron]; sq != nil {
-		mode = simMode(sq.mode)
-	}
-
-	return sim.ModeOrders(
-		mode,
-		sim.DefaultOrders(),
-		float64(m.state.GetX()),
-		float64(m.state.GetY()),
-	)
-}
-
-// orderWing gives every companion in m's wing an order from the squadron.
-func orderWing(m *member, order *pb.SquadronOrder) {
-	mode, oneShot := order.GetMode(), order.GetOneShot()
-	x, y := float64(order.GetX()), float64(order.GetY())
-	for _, c := range m.wing.Companions {
-		next, ok := m.wing.OrdersFor(c), false
-		switch {
-		case mode != pb.CompanionMode_COMPANION_MODE_UNSPECIFIED:
-			next, ok = sim.ModeOrders(simMode(mode), next, x, y), true
-		case oneShot != pb.CompanionOneShot_COMPANION_ONE_SHOT_UNSPECIFIED:
-			next, ok = sim.WithOneShot(simOneShot(oneShot), next, int(order.GetFocusEnemyId()))
-		default:
-		}
-		if ok {
-			m.wing.Order(c, next)
-		}
-	}
-}
-
 // companionState is a companion's ship as the protocol has it.
 func companionState(c *sim.Companion) *pb.ShipState {
 	s := c.Ship
@@ -423,38 +366,6 @@ func pbEnemyFaction(faction sim.EnemyFaction) pb.EnemyFaction {
 		fallthrough
 	default:
 		return pb.EnemyFaction_ENEMY_FACTION_KLAED
-	}
-}
-
-func simMode(mode pb.CompanionMode) sim.Mode {
-	switch mode {
-	case pb.CompanionMode_COMPANION_MODE_ATTACK:
-		return sim.ModeAttack
-	case pb.CompanionMode_COMPANION_MODE_GUARD:
-		return sim.ModeGuard
-	case pb.CompanionMode_COMPANION_MODE_HOLD:
-		return sim.ModeHold
-	case pb.CompanionMode_COMPANION_MODE_STEALTH:
-		return sim.ModeStealth
-	case pb.CompanionMode_COMPANION_MODE_ESCORT, pb.CompanionMode_COMPANION_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return sim.ModeEscort
-	}
-}
-
-func simOneShot(kind pb.CompanionOneShot) sim.OneShotKind {
-	switch kind {
-	case pb.CompanionOneShot_COMPANION_ONE_SHOT_FOCUS:
-		return sim.OneShotFocus
-	case pb.CompanionOneShot_COMPANION_ONE_SHOT_REGROUP:
-		return sim.OneShotRegroup
-	case pb.CompanionOneShot_COMPANION_ONE_SHOT_GO_HOME:
-		return sim.OneShotGoHome
-	case pb.CompanionOneShot_COMPANION_ONE_SHOT_UNSPECIFIED:
-		fallthrough
-	default:
-		return sim.OneShotNone
 	}
 }
 

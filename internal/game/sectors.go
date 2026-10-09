@@ -298,7 +298,6 @@ func (h *Hub) standDown(g *garrison) {
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		if h.enemies[id].garrison == g {
 			delete(h.enemies, id)
-			h.forgetEnemy(id)
 		}
 	}
 	g.field = 0

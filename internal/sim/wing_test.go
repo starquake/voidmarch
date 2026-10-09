@@ -10,7 +10,7 @@ func TestWing_FollowsAnOwnerItOnlyObserves(t *testing.T) {
 	t.Parallel()
 
 	var w Wing
-	c := w.Add(1, 0, 300, DefaultOrders())
+	c := w.Add(1, 0, 300)
 	if len(w.Step(nil, nil)) != 0 || c.Ship.X != 0 || c.Ship.Y != 300 {
 		t.Fatalf("stepped before seeing its owner: %+v", c.Ship)
 	}
@@ -29,8 +29,8 @@ func TestWing_ShotsNameTheirCompanion(t *testing.T) {
 	t.Parallel()
 
 	var w Wing
-	w.Add(2, 0, 0, ModeOrders(ModeAttack, DefaultOrders(), 0, 0))
-	enemies := []BrainEnemy{{ID: 1, Kind: EnemyScout, Y: -150, AttackedWing: true}}
+	w.Add(2, 0, 0)
+	enemies := []BrainEnemy{{ID: 1, Y: -150}}
 	shots := make([]CompanionShot, 0, 16)
 	for range 2 * TickRate {
 		w.Observe(Mover{Y: 40})
@@ -50,8 +50,8 @@ func TestWing_AddRemoveFind(t *testing.T) {
 	t.Parallel()
 
 	var w Wing
-	w.Add(1, 0, 0, DefaultOrders())
-	w.Add(2, 0, 0, DefaultOrders())
+	w.Add(1, 0, 0)
+	w.Add(2, 0, 0)
 	if w.Find(2) == nil || w.Find(3) != nil {
 		t.Error("Find() doesn't find what was added")
 	}
@@ -60,22 +60,23 @@ func TestWing_AddRemoveFind(t *testing.T) {
 	}
 }
 
-func TestWing_CompanionsHoldingOnePointSpreadOut(t *testing.T) {
+func TestWing_CompanionsSentToOnePointSpreadOut(t *testing.T) {
 	t.Parallel()
 
 	// Apart at first, and on one point, where the formation slot picks the way out.
 	for _, gap := range []float64{10, 0} {
 		var w Wing
-		hold := ModeOrders(ModeHold, DefaultOrders(), 200, 0)
-		a := w.Add(1, 0, 0, hold)
-		b := w.Add(2, gap, 0, hold)
+		// Both come to one derelict, on its side they came from.
+		w.Derelicts = []Vec{{X: 200, Y: 0}}
+		a := w.Add(1, 0, 0)
+		b := w.Add(2, gap, 0)
 		for range 4 * TickRate {
 			w.Observe(Mover{X: -300})
 			w.Step(nil, nil)
 		}
 		if d := dist(a.Ship.X, a.Ship.Y, b.Ship.X, b.Ship.Y); d < 2*ShipRadius {
 			t.Errorf(
-				"starting %v apart, two companions holding one point end %v apart; want at least %v, not touching",
+				"starting %v apart, two companions sent to one point end %v apart; want at least %v, not touching",
 				gap,
 				d,
 				2*ShipRadius,
@@ -87,16 +88,18 @@ func TestWing_CompanionsHoldingOnePointSpreadOut(t *testing.T) {
 func TestWing_KeepsClearOfOtherShips(t *testing.T) {
 	t.Parallel()
 
-	hold := ModeOrders(ModeHold, DefaultOrders(), 200, 0)
+	owner := Mover{X: -300}
+	slot := FormationPoint(owner, 0, 1)
+	other := Friend{X: slot.X - 20, Y: slot.Y}
 	var alone, crowded Wing
-	lone := alone.Add(1, 200, 0, hold)
-	nudged := crowded.Add(1, 200, 0, hold)
+	lone := alone.Add(1, slot.X, slot.Y)
+	nudged := crowded.Add(1, slot.X, slot.Y)
 	for range 2 * TickRate {
-		alone.Observe(Mover{X: -300})
-		crowded.Observe(Mover{X: -300})
+		alone.Observe(owner)
+		crowded.Observe(owner)
 		alone.Step(nil, nil)
-		// Another player parked just left of the hold point.
-		crowded.Step(nil, []Friend{{X: 180, Y: 0}})
+		// Another player parked just left of its slot.
+		crowded.Step(nil, []Friend{other})
 	}
 	if nudged.Ship.X <= lone.Ship.X {
 		t.Errorf(
@@ -105,7 +108,7 @@ func TestWing_KeepsClearOfOtherShips(t *testing.T) {
 			lone.Ship.X,
 		)
 	}
-	if d := dist(nudged.Ship.X, nudged.Ship.Y, 180, 0); d >= BrainSpacing+1 {
+	if d := dist(nudged.Ship.X, nudged.Ship.Y, other.X, other.Y); d >= BrainSpacing+1 {
 		t.Errorf(
 			"%v from the other ship, want no farther than about BrainSpacing (%v): only a nudge",
 			d,
@@ -117,14 +120,34 @@ func TestWing_KeepsClearOfOtherShips(t *testing.T) {
 func TestWing_KeepsClearOfItsOwner(t *testing.T) {
 	t.Parallel()
 
-	// Told to hold right where its owner parks, it keeps its distance.
+	// Sent to a derelict right where its owner parks, it keeps its distance.
 	var w Wing
-	c := w.Add(1, 10, 0, ModeOrders(ModeHold, DefaultOrders(), 0, 0))
+	w.Derelicts = []Vec{{}}
+	c := w.Add(1, 10, 0)
 	for range 4 * TickRate {
 		w.Observe(Mover{Angle: -1.5707963267948966})
 		w.Step(nil, nil)
 	}
 	if d := dist(c.Ship.X, c.Ship.Y, 0, 0); d < BrainOwnerSpacing-5 {
 		t.Errorf("%v from its owner, want about BrainOwnerSpacing (%v)", d, BrainOwnerSpacing)
+	}
+}
+
+func TestWing_GoingHomeEndsThere(t *testing.T) {
+	t.Parallel()
+
+	var w Wing
+	c := w.Add(1, 600, 0)
+	c.GoingHome = true
+	for tick := 0; c.GoingHome; tick++ {
+		if tick > 10*TickRate {
+			t.Fatalf("still going home after 10 s, at (%v, %v)", c.Ship.X, c.Ship.Y)
+		}
+		// Its owner, last seen far out, no longer leads it.
+		w.Observe(Mover{X: 600})
+		w.Step(nil, nil)
+	}
+	if d := dist(c.Ship.X, c.Ship.Y, 0, 0); d > BrainHomeRadius {
+		t.Errorf("stopped going home %v from home, want within %v", d, BrainHomeRadius)
 	}
 }

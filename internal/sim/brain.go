@@ -5,76 +5,6 @@ import (
 	"slices"
 )
 
-// Stance is how a companion positions itself (docs/design.md, section 13).
-type Stance string
-
-// The stances.
-const (
-	StanceEscort     Stance = "escort"
-	StanceAggressive Stance = "aggressive"
-	StanceDefensive  Stance = "defensive"
-	StanceHold       Stance = "hold"
-)
-
-// FireOrder is when a companion may shoot.
-type FireOrder string
-
-// The fire orders.
-const (
-	FireFree   FireOrder = "free"
-	FireReturn FireOrder = "return"
-	FireHold   FireOrder = "hold"
-)
-
-// ResourceOrder is whether a companion spends its big shots and its hull
-// freely, or saves them.
-type ResourceOrder string
-
-// The resource orders.
-const (
-	ResourcesSpend    ResourceOrder = "spend"
-	ResourcesConserve ResourceOrder = "conserve"
-)
-
-// OneShotKind is an order that runs until it is done, then gives way to the
-// standing orders.
-type OneShotKind string
-
-// The one-shot orders; "" is none.
-const (
-	OneShotNone     OneShotKind = ""
-	OneShotFocus    OneShotKind = "focus"
-	OneShotRegroup  OneShotKind = "regroup"
-	OneShotGoHome   OneShotKind = "goHome"
-	OneShotShieldMe OneShotKind = "shieldMe"
-)
-
-// OneShot is the one-shot order a companion is carrying out, if any.
-type OneShot struct {
-	Kind OneShotKind `json:"kind"`
-	// EnemyID is the focus target.
-	EnemyID int `json:"enemyId"`
-}
-
-// Orders are a companion's standing orders, plus the one-shot it is carrying
-// out.
-type Orders struct {
-	Stance    Stance        `json:"stance"`
-	Fire      FireOrder     `json:"fire"`
-	Resources ResourceOrder `json:"resources"`
-	// SupportFirst goes for Support Ships before anything else.
-	SupportFirst bool `json:"supportFirst"`
-	// HoldX and HoldY are where the hold stance holds.
-	HoldX   float64 `json:"holdX"`
-	HoldY   float64 `json:"holdY"`
-	OneShot OneShot `json:"oneShot"`
-}
-
-// DefaultOrders is escorting, weapons free, spending.
-func DefaultOrders() Orders {
-	return Orders{Stance: StanceEscort, Fire: FireFree, Resources: ResourcesSpend}
-}
-
 // Mover is a ship as another ship sees it.
 type Mover struct {
 	X     float64 `json:"x"`
@@ -88,12 +18,9 @@ type Mover struct {
 
 // BrainEnemy is an enemy as a companion sees it.
 type BrainEnemy struct {
-	ID   int       `json:"id"`
-	Kind EnemyKind `json:"kind"`
-	X    float64   `json:"x"`
-	Y    float64   `json:"y"`
-	// AttackedWing: it has fired at this wing.
-	AttackedWing bool `json:"attackedWing"`
+	ID int     `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
 }
 
 // BrainView is everything a companion knows when it decides.
@@ -113,6 +40,9 @@ type BrainView struct {
 	SpreadKey uint32
 	// Bullets are the enemy bullets in flight, which it dodges (#249).
 	Bullets []Bullet
+	// GoingHome is set while it flies home, as the server sends a dropped
+	// player's companions.
+	GoingHome bool
 }
 
 // Friend is another friendly ship as a companion sees it.
@@ -124,11 +54,11 @@ type Friend struct {
 	Downed bool
 }
 
-// BrainStep is one decision: the command for this tick, and whether the
-// one-shot order is finished.
+// BrainStep is one decision: the command for this tick, and whether a
+// companion going home is there.
 type BrainStep struct {
 	Command Command
-	Done    bool
+	Home    bool
 }
 
 type goal struct {
@@ -187,119 +117,53 @@ func ownerVelocity(owner Mover) Vec {
 	return Vec{X: owner.VX, Y: owner.VY}
 }
 
-// stanceGoal is where the stance puts a companion, and how fast that point
-// moves.
-func stanceGoal(view *BrainView, orders *Orders) goal {
-	switch orders.Stance {
-	case StanceHold:
-		return goal{point: Vec{X: orders.HoldX, Y: orders.HoldY}}
-	case StanceDefensive:
-		// Guarding: between the owner and whoever attacks the wing, else close in.
-		if attackers := attackersNearOwner(view); len(attackers) > 0 {
-			return shieldGoal(view, attackers)
-		}
-
-		return goal{
-			point:    FormationPoint(view.Owner, view.Slot, BrainTightFormation),
-			velocity: ownerVelocity(view.Owner),
-		}
-	case StanceEscort, StanceAggressive:
-		fallthrough
-	default:
-		return goal{
-			point:    FormationPoint(view.Owner, view.Slot, 1),
-			velocity: ownerVelocity(view.Owner),
-		}
-	}
-}
-
-// candidates are the enemies the standing orders allow this companion to
-// shoot.
-func candidates(view *BrainView, orders *Orders) []BrainEnemy {
-	attackersOnly := orders.Fire == FireReturn || orders.Stance == StanceDefensive
-	inReach := func(e *BrainEnemy) bool {
-		switch orders.Stance {
-		case StanceAggressive:
-			return distance(e.X, e.Y, view.Owner.X, view.Owner.Y) <= BrainLeash
-		case StanceHold:
-			return distance(e.X, e.Y, view.Self.X, view.Self.Y) <= weaponRange(view.Self)
-		case StanceEscort, StanceDefensive:
-			fallthrough
-		default:
-			return distance(e.X, e.Y, view.Owner.X, view.Owner.Y) <= BrainEscortRange
-		}
-	}
+// candidates are the enemies a companion may shoot: those near its owner.
+func candidates(view *BrainView) []BrainEnemy {
 	var out []BrainEnemy
-	for i := range view.Enemies {
-		e := &view.Enemies[i]
-		if inReach(e) && (!attackersOnly || e.AttackedWing) {
-			out = append(out, *e)
+	for _, e := range view.Enemies {
+		if distance(e.X, e.Y, view.Owner.X, view.Owner.Y) <= BrainEscortRange {
+			out = append(out, e)
 		}
 	}
 
 	return out
 }
 
-// chooseTarget is the enemy to shoot, if any. A focus order names it; hold
-// fire means none; otherwise Support Ships come first when ordered, the
-// weakest first when aggressive, and then the nearest.
-func chooseTarget(view *BrainView, orders *Orders) (BrainEnemy, bool) {
-	if orders.OneShot.Kind == OneShotFocus {
-		i := slices.IndexFunc(
-			view.Enemies,
-			func(e BrainEnemy) bool { return e.ID == orders.OneShot.EnemyID },
-		)
-		if i < 0 {
-			return BrainEnemy{}, false
-		}
-
-		return view.Enemies[i], true
-	}
-	if orders.Fire == FireHold {
-		return BrainEnemy{}, false
-	}
-	rankOf := func(e *BrainEnemy) rank {
-		support, weakness := float64(1), float64(0)
-		if orders.SupportFirst && IsSupport(e.Kind) {
-			support = 0
-		}
-		if orders.Stance == StanceAggressive {
-			weakness = EnemyHP(e.Kind)
-		}
-
-		return rank{support, weakness, distance(e.X, e.Y, view.Self.X, view.Self.Y)}
-	}
-	ranked := candidates(view, orders)
+// chooseTarget is the enemy to shoot, if any: the nearest of the candidates,
+// spread over the nearest few.
+func chooseTarget(view *BrainView) (BrainEnemy, bool) {
+	self := view.Self
+	reach := func(e *BrainEnemy) float64 { return distance(e.X, e.Y, self.X, self.Y) }
+	ranked := candidates(view)
 	if len(ranked) == 0 {
 		return BrainEnemy{}, false
 	}
 	slices.SortStableFunc(ranked, func(a, b BrainEnemy) int {
-		switch ra, rb := rankOf(&a), rankOf(&b); {
-		case before(ra, rb):
+		switch ra, rb := reach(&a), reach(&b); {
+		case ra < rb:
 			return -1
-		case before(rb, ra):
+		case rb < ra:
 			return 1
 		default:
 			return 0
 		}
 	})
 
-	return spreadPick(ranked, rankOf, view.SpreadKey), true
+	return spreadPick(ranked, reach, view.SpreadKey), true
 }
 
-// spreadPick is one of the best few of ranked, best first, for the companion
-// with key: among those as good on everything but distance, and not much
-// farther than the best, the one its key hashes lowest with. The pick is
-// pure and holds while the same enemies are there, and companions with
-// different keys spread over them (#165).
-func spreadPick(ranked []BrainEnemy, rankOf func(*BrainEnemy) rank, key uint32) BrainEnemy {
+// spreadPick is one of the nearest few of ranked, nearest first, for the
+// companion with key: among those not much farther than the nearest, the one
+// its key hashes lowest with. The pick is pure and holds while the same
+// enemies are there, and companions with different keys spread over them
+// (#165).
+func spreadPick(ranked []BrainEnemy, reach func(*BrainEnemy) float64, key uint32) BrainEnemy {
 	best := ranked[0]
-	top := rankOf(&best)
+	nearest := reach(&best)
 	pick, lowest := best, spreadHash(key, best.ID)
 	for i := 1; i < min(len(ranked), TargetSpreadCount); i++ {
 		e := ranked[i]
-		r := rankOf(&e)
-		if r[0] != top[0] || r[1] != top[1] || r[2] > top[2]*TargetSpreadReach {
+		if reach(&e) > nearest*TargetSpreadReach {
 			break
 		}
 		if h := spreadHash(key, e.ID); h < lowest {
@@ -332,119 +196,28 @@ func spreadHash(key uint32, id int) uint32 {
 	return h
 }
 
-// rankParts is how many criteria a target is ranked on.
-const rankParts = 3
-
-// rank orders targets: Support Ships first when ordered, then the weakest
-// when aggressive, then the nearest.
-type rank [rankParts]float64
-
-// before compares two ranks: the first place they differ decides.
-func before(a, b rank) bool {
-	for k := range a {
-		if a[k] != b[k] {
-			return a[k] < b[k]
-		}
+// chooseGoal is where to fly this tick: home when going home, else beside a
+// downed squadmate or a derelict in reach, else its formation slot.
+func chooseGoal(view *BrainView) goal {
+	if view.GoingHome {
+		return goal{}
 	}
-
-	return false
-}
-
-// attackGoal is a point at attack distance from the target, on the
-// companion's side of it.
-func attackGoal(self *Ship, target *BrainEnemy) goal {
-	away := math.Atan2(self.Y-target.Y, self.X-target.X)
-
-	return goal{point: Vec{
-		X: target.X + BrainAttackDistance*math.Cos(away),
-		Y: target.Y + BrainAttackDistance*math.Sin(away),
-	}}
-}
-
-// attackersNearOwner are the attackers near the owner: the fire a shielding
-// companion blocks.
-func attackersNearOwner(view *BrainView) []BrainEnemy {
-	var out []BrainEnemy
-	for _, e := range view.Enemies {
-		if e.AttackedWing && distance(e.X, e.Y, view.Owner.X, view.Owner.Y) <= BrainEscortRange {
-			out = append(out, e)
-		}
+	if downed, ok := downedSquadmate(view); ok {
+		return goal{point: reviveSpot(view.Self, downed)}
 	}
-
-	return out
-}
-
-// shieldGoal is between the owner and the attackers' average position,
-// moving with the owner.
-func shieldGoal(view *BrainView, attackers []BrainEnemy) goal {
-	var sumX, sumY float64
-	for _, e := range attackers {
-		sumX += e.X
-		sumY += e.Y
+	if derelict, ok := nearestDerelict(view); ok {
+		return goal{point: reviveSpot(view.Self, derelict)}
 	}
-	cx, cy := sumX/float64(len(attackers)), sumY/float64(len(attackers))
-	toward := math.Atan2(cy-view.Owner.Y, cx-view.Owner.X)
 
 	return goal{
-		point: Vec{
-			X: view.Owner.X + BrainShieldDistance*math.Cos(toward),
-			Y: view.Owner.Y + BrainShieldDistance*math.Sin(toward),
-		},
+		point:    FormationPoint(view.Owner, view.Slot, 1),
 		velocity: ownerVelocity(view.Owner),
 	}
 }
 
-// chooseGoal is where to fly this tick: the one-shot's goal first, then
-// falling back, hunting, or the stance.
-func chooseGoal(view *BrainView, orders *Orders, target *BrainEnemy) goal {
-	switch orders.OneShot.Kind {
-	case OneShotRegroup:
-		return goal{
-			point:    FormationPoint(view.Owner, view.Slot, 1),
-			velocity: ownerVelocity(view.Owner),
-		}
-	case OneShotGoHome:
-		return goal{}
-	case OneShotShieldMe:
-		if attackers := attackersNearOwner(view); len(attackers) > 0 {
-			return shieldGoal(view, attackers)
-		}
-	case OneShotFocus:
-		if target != nil {
-			return attackGoal(view.Self, target)
-		}
-	case OneShotNone:
-		fallthrough
-	default:
-	}
-	if downed, ok := downedSquadmate(view, orders); ok {
-		return goal{point: reviveSpot(view.Self, downed)}
-	}
-	if derelict, ok := nearestDerelict(view, orders); ok {
-		return goal{point: reviveSpot(view.Self, derelict)}
-	}
-	fallingBack := view.Self.Damage >= BrainBadlyDamaged &&
-		(orders.Stance == StanceDefensive || orders.Resources == ResourcesConserve)
-	if fallingBack {
-		return goal{
-			point:    FormationPoint(view.Owner, view.Slot, BrainTightFormation),
-			velocity: ownerVelocity(view.Owner),
-		}
-	}
-	if target != nil && orders.Stance == StanceAggressive {
-		return attackGoal(view.Self, target)
-	}
-
-	return stanceGoal(view, orders)
-}
-
 // downedSquadmate is the nearest downed squadmate within BrainReviveRange,
-// its owner included, for a companion that isn't holding a point or staying
-// out of sight.
-func downedSquadmate(view *BrainView, orders *Orders) (Vec, bool) {
-	if !helps(orders) {
-		return Vec{}, false
-	}
+// its owner included.
+func downedSquadmate(view *BrainView) (Vec, bool) {
 	self := view.Self
 	var nearest Vec
 	best := math.Inf(1)
@@ -465,12 +238,9 @@ func downedSquadmate(view *BrainView, orders *Orders) (Vec, bool) {
 	return nearest, best <= BrainReviveRange
 }
 
-// nearestDerelict is the nearest derelict within BrainReviveRange, for a
-// companion that would revive a squadmate: it rescues one the same way.
-func nearestDerelict(view *BrainView, orders *Orders) (Vec, bool) {
-	if !helps(orders) {
-		return Vec{}, false
-	}
+// nearestDerelict is the nearest derelict within BrainReviveRange: a
+// companion rescues one the way it revives a squadmate.
+func nearestDerelict(view *BrainView) (Vec, bool) {
 	self := view.Self
 	var nearest Vec
 	best := math.Inf(1)
@@ -483,24 +253,11 @@ func nearestDerelict(view *BrainView, orders *Orders) (Vec, bool) {
 	return nearest, best <= BrainReviveRange
 }
 
-// ComesToRevive reports whether a companion up at self, under orders, comes
-// to revive a ship downed at (x, y), as chooseGoal decides it: one that
-// helps, within BrainReviveRange, not regrouping or going home. A Focus or
-// Shield Me only puts the revive off until it is done.
-func ComesToRevive(self *Ship, orders Orders, x, y float64) bool {
-	if k := orders.OneShot.Kind; k == OneShotRegroup || k == OneShotGoHome {
-		return false
-	}
-
-	return helps(&orders) && distance(self.X, self.Y, x, y) <= BrainReviveRange
-}
-
-// helps reports whether a companion leaves its post to revive or rescue: not
-// while holding a point or staying out of sight.
-func helps(orders *Orders) bool {
-	mode := ModeOf(*orders)
-
-	return mode != ModeHold && mode != ModeStealth
+// ComesToRevive reports whether a companion at self comes to revive a ship
+// downed at (x, y), as chooseGoal decides it: one that is up, within
+// BrainReviveRange.
+func ComesToRevive(self *Ship, x, y float64) bool {
+	return !self.Downed() && distance(self.X, self.Y, x, y) <= BrainReviveRange
 }
 
 // reviveSpot is where a companion hovers to revive a downed ship: on its
@@ -570,46 +327,14 @@ func awayFrom(view *BrainView, point Vec, x, y, room float64) Vec {
 	return point
 }
 
-// oneShotDone reports whether the one-shot order is finished.
-func oneShotDone(view *BrainView, orders *Orders, target *BrainEnemy) bool {
-	switch orders.OneShot.Kind {
-	case OneShotFocus:
-		return target == nil
-	case OneShotRegroup:
-		slot := FormationPoint(view.Owner, view.Slot, 1)
-
-		return distance(view.Self.X, view.Self.Y, slot.X, slot.Y) <= BrainInFormation
-	case OneShotGoHome:
-		return math.Hypot(view.Self.X, view.Self.Y) <= BrainHomeRadius
-	case OneShotShieldMe:
-		return len(attackersNearOwner(view)) == 0
-	case OneShotNone:
-		fallthrough
-	default:
-		return false
-	}
-}
-
-// holdsVolley: conserving, the big space gun saves its volleys for Support
-// Ships and focus targets.
-func holdsVolley(self *Ship, orders *Orders, target *BrainEnemy) bool {
-	return orders.Resources == ResourcesConserve &&
-		self.Loadout.Weapon == WeaponBigSpaceGun &&
-		orders.OneShot.Kind != OneShotFocus &&
-		!IsSupport(target.Kind)
-}
-
 // Think decides what a companion does this tick; random wobbles its aim.
-func Think(view BrainView, orders Orders, random *Random) BrainStep {
+func Think(view BrainView, random *Random) BrainStep {
 	self, owner := view.Self, view.Owner
 	var target *BrainEnemy
-	// Regrouping disengages: no targets until back in formation.
-	if orders.OneShot.Kind != OneShotRegroup {
-		if t, ok := chooseTarget(&view, &orders); ok {
-			target = &t
-		}
+	if t, ok := chooseTarget(&view); ok {
+		target = &t
 	}
-	g := chooseGoal(&view, &orders, target)
+	g := chooseGoal(&view)
 	g.point = spaced(&view, g.point)
 	move := dodge(&view, g, Arrive(self, g.point, g.velocity))
 
@@ -627,12 +352,11 @@ func Think(view BrainView, orders Orders, random *Random) BrainStep {
 			Y: self.Y + reach*math.Sin(toTarget+wobble),
 		}
 		fire = reach <= weaponRange(self) &&
-			math.Abs(WrapAngle(self.Angle-toTarget)) <= BrainFireCone &&
-			!holdsVolley(self, &orders, target)
+			math.Abs(WrapAngle(self.Angle-toTarget)) <= BrainFireCone
 	}
 
 	return BrainStep{
 		Command: Command{MoveX: move.X, MoveY: move.Y, AimX: aim.X, AimY: aim.Y, Fire: fire},
-		Done:    oneShotDone(&view, &orders, target),
+		Home:    view.GoingHome && math.Hypot(self.X, self.Y) <= BrainHomeRadius,
 	}
 }

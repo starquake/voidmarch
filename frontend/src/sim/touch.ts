@@ -14,7 +14,7 @@ import {
 } from './tuning.ts';
 
 /** The touch buttons (#180): what the keyboard's G, Q, H, J, C while down, Esc and F1 do, and switching to fullscreen and back. */
-export type TouchButton = 'summon' | 'orders' | 'respawnHome' | 'respawnBeside' | 'squadron' | 'settings' | 'help' | 'fullscreen';
+export type TouchButton = 'summon' | 'respawnHome' | 'respawnBeside' | 'squadron' | 'settings' | 'help' | 'fullscreen';
 
 /** A touch button's place on the canvas, in device pixels, and its label. */
 export interface ButtonRect {
@@ -57,8 +57,8 @@ export interface TouchScreen {
 }
 
 /**
- * The buttons for screen, as mocked (#180): Summon and Orders on the right
- * edge; while down, only the respawns and switching squadron.
+ * The buttons for screen, as mocked (#180): Summon on the right edge; while
+ * down, only the respawns and switching squadron.
  */
 export function touchButtons(screen: TouchScreen): ButtonRect[] {
   const dpr = touchUnit(screen.height, screen.dpr);
@@ -88,7 +88,7 @@ export function touchButtons(screen: TouchScreen): ButtonRect[] {
   return [...playButtons(screen, dpr), settings, help, ...switcher];
 }
 
-/** The buttons for playing: Summon and Orders, or while down the respawns and Squadron. */
+/** The buttons for playing: Summon, or while down the respawns and Squadron. */
 function playButtons(screen: TouchScreen, dpr: number): ButtonRect[] {
   const { width, height } = screen;
   const h = TOUCH_BUTTON_PX * dpr;
@@ -118,12 +118,8 @@ function playButtons(screen: TouchScreen, dpr: number): ButtonRect[] {
   const w = TOUCH_BUTTON_WIDTH_PX * dpr;
   const right = width - TOUCH_EDGE_PX * dpr - w - (screen.insetRight ?? 0);
   const top = height * TOUCH_BUTTONS_Y;
-  const buttons: ButtonRect[] = [
-    { button: 'summon', label: 'Summon', x: right, y: top, width: w, height: h, gold: false },
-    { button: 'orders', label: 'Orders', x: right, y: top + h + gap, width: w, height: h, gold: false },
-  ];
 
-  return buttons;
+  return [{ button: 'summon', label: 'Summon', x: right, y: top, width: w, height: h, gold: false }];
 }
 
 /** The button at (x, y), if any. */
@@ -211,13 +207,6 @@ export class TouchControls {
   /** Whether a touch is doing role. */
   held(role: TouchRole): boolean {
     return [...this.tracks.values()].some((t) => t.role === role);
-  }
-
-  /** Where the touch doing role is now, if any. */
-  position(role: TouchRole): Point | undefined {
-    const t = this.track(role);
-
-    return t === undefined ? undefined : { x: t.x, y: t.y };
   }
 
   /** A stick's deflection: its offset over its reach, at most length 1, zero inside the dead zone. */

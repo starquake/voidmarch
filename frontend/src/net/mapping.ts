@@ -1,8 +1,6 @@
 import { create } from '@bufbuild/protobuf';
 
 import {
-  CompanionMode,
-  CompanionOneShot,
   EnemyFaction as WireEnemyFaction,
   EnemyKind as WireEnemyKind,
   Engine,
@@ -16,8 +14,6 @@ import {
   type ShipState,
   type Unlock,
 } from '../gen/voidmarch/v1/messages_pb.js';
-import type { Mode } from '../ordermenu.ts';
-import type { OneShotOrder } from '../ordermenu.ts';
 import type { EnemyFaction, EnemyKind } from '../sim/enemies.ts';
 import { DAMAGE_STATES, DEFAULT_LOADOUT, type EngineId, type Loadout, type ShieldId, type WeaponId } from '../sim/loadout.ts';
 import type { PartId } from '../sim/parts.ts';
@@ -210,33 +206,3 @@ export function fromShipState(state: ShipState): RemoteShip {
     revive: state.revive,
   };
 }
-
-const MODES: Readonly<Record<Mode, CompanionMode>> = {
-  escort: CompanionMode.ESCORT,
-  attack: CompanionMode.ATTACK,
-  guard: CompanionMode.GUARD,
-  hold: CompanionMode.HOLD,
-  stealth: CompanionMode.STEALTH,
-};
-
-/** The wire mode for a squadron order. */
-export const toCompanionMode = (mode: Mode): CompanionMode => MODES[mode];
-
-/** The mode on the wire, or undefined for none (a one-shot order). */
-export const fromCompanionMode = (mode: CompanionMode): Mode | undefined =>
-  (Object.keys(MODES) as Mode[]).find((m) => MODES[m] === mode);
-
-const ONE_SHOTS: Readonly<Record<'focus' | 'regroup' | 'goHome', CompanionOneShot>> = {
-  focus: CompanionOneShot.FOCUS,
-  regroup: CompanionOneShot.REGROUP,
-  goHome: CompanionOneShot.GO_HOME,
-};
-
-/** The wire one-shot for a squadron order. */
-export const toCompanionOneShot = (oneShot: OneShotOrder): CompanionOneShot => ONE_SHOTS[oneShot];
-
-/** The one-shot on the wire, or undefined for none (a mode order). */
-export const fromCompanionOneShot = (
-  oneShot: CompanionOneShot,
-): OneShotOrder | undefined =>
-  (Object.keys(ONE_SHOTS) as (keyof typeof ONE_SHOTS)[]).find((k) => ONE_SHOTS[k] === oneShot);

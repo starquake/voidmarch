@@ -81,17 +81,11 @@ func (s *Sandbox) Alpha() float64 {
 	return s.accumulator / TickSeconds
 }
 
-// AddCompanion adds a companion the server granted, at (x, y). It joins the
-// wing's standing orders: the wing follows one set.
+// AddCompanion adds a companion the server granted, at (x, y).
 func (s *Sandbox) AddCompanion(number int, x, y float64) *Companion {
 	s.RemoveCompanion(number)
-	orders := DefaultOrders()
-	if len(s.Companions) > 0 {
-		orders = s.OrdersFor(s.Companions[0])
-		orders.OneShot = OneShot{}
-	}
 
-	return s.Add(number, x, y, orders)
+	return s.Add(number, x, y)
 }
 
 // RemoveCompanion removes a companion, and its shots still in flight, which

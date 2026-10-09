@@ -554,13 +554,11 @@ func TestEnemyKinds_TheDreadnoughtIsTheBiggest(t *testing.T) {
 	if !slices.Contains(EnemyKinds(), EnemyDreadnought) {
 		t.Fatal("EnemyKinds() leaves out the Dreadnought")
 	}
-	if EnemyRadius(EnemyDreadnought, Klaed) <= EnemyRadius(EnemyFrigate, Klaed) ||
-		EnemyHP(EnemyDreadnought) != DreadnoughtMaxHP(1) {
+	if EnemyRadius(EnemyDreadnought, Klaed) <= EnemyRadius(EnemyFrigate, Klaed) {
 		t.Errorf(
-			"Dreadnought radius %v, hp %v; want bigger than a Frigate, %v",
+			"Dreadnought radius %v, want bigger than a Frigate's %v",
 			EnemyRadius(EnemyDreadnought, Klaed),
-			EnemyHP(EnemyDreadnought),
-			DreadnoughtMaxHP(1),
+			EnemyRadius(EnemyFrigate, Klaed),
 		)
 	}
 	for _, id := range []EnemyBulletID{KlaedRay, KlaedWave} {

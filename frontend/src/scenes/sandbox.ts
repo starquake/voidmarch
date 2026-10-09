@@ -4,15 +4,6 @@ import { BackgroundTicker, workerTimer } from '../background.ts';
 import { publishDebugState, type DebugState } from '../debug.ts';
 import { FrameTimes, GpuTimer } from '../frametimes.ts';
 import { wireFormatFrom } from '../net/codec.ts';
-import { fromCompanionMode } from '../net/mapping.ts';
-import {
-  ORDER_ITEMS,
-  RING_ASPECT,
-  chooseFocus,
-  itemPosition,
-  pickItem,
-  type OrderItem,
-} from '../ordermenu.ts';
 import { renderRatio } from '../display.ts';
 import {
   clearToken,
@@ -96,7 +87,7 @@ import {
 import { musicPlace } from '../sim/music.ts';
 import { asteroidField } from '../sim/world.ts';
 import { integerZoom } from '../sim/zoom.ts';
-import { SquadronScreen, modeName } from '../squadrons.ts';
+import { SquadronScreen } from '../squadrons.ts';
 import { WeaponAnimator } from '../weaponframes.ts';
 import { bossBar } from '../net/boss.ts';
 import { delayLine } from '../net/timeline.ts';
@@ -156,67 +147,12 @@ const DOWN_PANEL_Y = 0.8;
 const BLOOM_CHECK_FRAME = 30;
 /** Bottom right: the keys to the intro screen, which lists the rest (#193), and the settings. */
 const KEY_HINT = 'F1 help · Esc settings';
-/** Holding Q this long opens the order ring; a shorter tap repeats the last order. */
-const ORDER_HOLD_MS = 200;
 /** The gauge slot each part key switches, and whose list it shows (#191, #259). */
 const PART_KEY_SLOTS: ReadonlyMap<string, SlotKind> = new Map([
   ['Digit1', 'weapon'],
   ['Digit2', 'engine'],
   ['Digit3', 'shield'],
 ]);
-/** The order ring's height radius and its dead center, in CSS pixels. */
-const ORDER_RING_PX = 88;
-const ORDER_DEAD_ZONE_PX = 24;
-/** The ring's colors: modes and one-shots apart, the picked item white. */
-const ORDER_COLORS: Readonly<Record<OrderItem['kind'], number>> = { mode: 0x8fd8ff, oneShot: 0xffe08a };
-const ORDER_PICKED_TEXT = '#ffffff';
-const ORDER_BACKDROP = 0x05030a;
-const ORDER_BACKDROP_ALPHA = 0.72;
-/** How far past the items' circle the backdrop reaches, in CSS pixels. */
-const ORDER_BACKDROP_PAD = 40;
-/** Each item is its icon with the label under it: offsets from the item's point, in CSS pixels. */
-const ORDER_ICON_RISE = 10;
-const ORDER_LABEL_DROP = 12;
-
-/**
- * A Void-pack sprite beside each order (#35), scaled per sprite: the ship
- * parts sit small in mostly empty 48 and 64 px frames.
- */
-const ORDER_ICONS: Readonly<Record<string, { key: string; frame?: number; dim?: boolean; scale: number }>> = {
-  Escort: { key: keys.hull('fullHealth'), scale: 1 },
-  Attack: { key: keys.weapon('rockets'), scale: 1.1 },
-  Guard: { key: keys.shield('front'), scale: 0.9 },
-  'Hold here': { key: keys.engine('base'), scale: 1.2 },
-  Stealth: { key: keys.weapon('autoCannon'), dim: true, scale: 1.1 },
-  Focus: { key: keys.projectile('bigSpaceGun'), frame: 3, scale: 1.3 },
-  Regroup: { key: keys.flamePowering('base'), frame: 2, scale: 1.4 },
-  'Go home': { key: keys.planet, scale: 0.35 },
-};
-
-const hex = (color: number): string => `#${color.toString(16).padStart(6, '0')}`;
-
-/** Q held down: where the pointer was. */
-interface OrderPress {
-  downAt: number;
-  /** Set when the Orders touch button opened it (#180): the ring follows that touch, not the mouse. */
-  touch: boolean;
-  screenX: number;
-  screenY: number;
-  worldX: number;
-  worldY: number;
-  /** The ring, once open: its labels, and its backdrop, icons and center. */
-  labels: Phaser.GameObjects.Text[] | undefined;
-  backdrop: Phaser.GameObjects.Graphics | undefined;
-  extras: Phaser.GameObjects.GameObject[];
-}
-
-/** Removes everything the ring drew. */
-function destroyRing(press: OrderPress): void {
-  for (const object of [...(press.labels ?? []), ...press.extras]) {
-    object.destroy();
-  }
-  press.backdrop?.destroy();
-}
 
 interface Background {
   sprite: Phaser.GameObjects.TileSprite;
@@ -333,8 +269,6 @@ export class SandboxScene extends Phaser.Scene {
   private weaponFrames = new WeaponAnimator(weaponTiming('autoCannon'));
   private audioSettings!: AudioSettings;
   private audio!: ShipAudio;
-  private orderPress: OrderPress | undefined;
-  private lastOrder: OrderItem | undefined;
   /** Closes the drop-up a tap of 1, 2 or 3 showed (#259). */
   private readonly partList = new PartListTimer<SlotKind>();
 
@@ -452,7 +386,6 @@ export class SandboxScene extends Phaser.Scene {
       companionKills: 0,
       notice: undefined,
       hud: { panel: [], toasts: [] },
-      orderMenuOpen: false,
       squadron: '',
       squadronScreen: false,
       victoryScreen: false,
@@ -480,7 +413,6 @@ export class SandboxScene extends Phaser.Scene {
       teleports: 0,
       departing: 0,
       hangar: undefined,
-      squadronMode: undefined,
     };
     this.refreshDebug = publishDebugState(() => this.debugState());
     this.ready();
@@ -505,7 +437,6 @@ export class SandboxScene extends Phaser.Scene {
       this.showHits(net);
     }
     this.drawProjectiles();
-    this.updateOrderMenu(time);
     this.updatePartList();
     this.playEffects(events);
     this.audio.update(this.sim.ship, events);
@@ -830,8 +761,6 @@ export class SandboxScene extends Phaser.Scene {
         this.standingsHeld = true;
       } else if (event.code === 'KeyO') {
         this.openVictory();
-      } else if (event.code === 'KeyQ') {
-        this.pressOrders();
       } else if (event.code === 'KeyC') {
         this.openSquadrons();
       } else if (event.code === 'Escape') {
@@ -843,15 +772,12 @@ export class SandboxScene extends Phaser.Scene {
       }
     };
     const onKeyUp = (event: KeyboardEvent): void => {
-      if (event.code === 'KeyQ') {
-        this.releaseOrders();
-      } else if (event.code === 'Tab') {
+      if (event.code === 'Tab') {
         this.standingsHeld = false;
       }
     };
-    // Letting go of Q in another window never reaches us: close the ring unused.
+    // Letting go of Tab in another window never reaches us.
     const onBlur = (): void => {
-      this.closeOrderRing();
       this.standingsHeld = false;
     };
     // A click on the open full map sends the squadron there (#100, decision 10).
@@ -875,14 +801,14 @@ export class SandboxScene extends Phaser.Scene {
     });
   }
 
-  /** The full map opens online, and not over the join screen or the order ring, where the keys and the mouse are theirs. */
+  /** The full map opens online, and not over the join screen, where the keys and the mouse are its own. */
   private canOpenMap(): boolean {
-    return this.net?.status === 'online' && this.orderPress === undefined && !this.squadronScreen.open;
+    return this.net?.status === 'online' && !this.squadronScreen.open;
   }
 
-  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over the order ring or another screen. */
+  /** Reopens the join screen to move to another squadron, only while down (#45, decision 3), and not over another screen. */
   private openSquadrons(): void {
-    if (!this.sim.downed || this.orderPress !== undefined || this.screenOpen) {
+    if (!this.sim.downed || this.screenOpen) {
       return;
     }
     if (this.net?.openSquadrons() === true) {
@@ -1044,14 +970,11 @@ export class SandboxScene extends Phaser.Scene {
     return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened;
   }
 
-  /** Opens the intro screen in place of any other screen, map or list, or closes it; not while the order ring is up. */
+  /** Opens the intro screen in place of any other screen, map or list, or closes it. */
   private toggleIntro(): void {
     if (this.introScreen.open) {
       this.introScreen.hide();
 
-      return;
-    }
-    if (this.orderPress !== undefined) {
       return;
     }
     this.settingsScreen.hide();
@@ -1069,9 +992,9 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Opens the settings screen (#145), unless the join screen or the order ring is up. */
+  /** Opens the settings screen (#145), unless the join screen is up. */
   private openSettings(): void {
-    if (this.orderPress !== undefined || this.squadronScreen.open) {
+    if (this.squadronScreen.open) {
       return;
     }
     this.settingsScreen.show(optionRows(this.options()));
@@ -1234,185 +1157,6 @@ export class SandboxScene extends Phaser.Scene {
         break;
       default:
     }
-  }
-
-  /** Q down: remember where the pointer is. */
-  private pressOrders(at?: Point): void {
-    this.closeOrderRing();
-    const pointer = this.input.activePointer;
-    const screen = at ?? { x: pointer.x, y: pointer.y };
-    const world = this.cameras.main.getWorldPoint(screen.x, screen.y);
-    this.orderPress = {
-      downAt: this.time.now,
-      touch: at !== undefined,
-      screenX: screen.x,
-      screenY: screen.y,
-      worldX: world.x,
-      worldY: world.y,
-      labels: undefined,
-      backdrop: undefined,
-      extras: [],
-    };
-  }
-
-  /** While Q is held: open the ring once held long enough, and light the item pointed at. */
-  private updateOrderMenu(time: number): void {
-    const press = this.orderPress;
-    if (press === undefined || time - press.downAt < ORDER_HOLD_MS) {
-      return;
-    }
-    press.labels ??= this.openOrderRing(press);
-    const picked = this.pickedOrder(press);
-    this.drawRingBackdrop(press, picked);
-    press.labels.forEach((label, i) => {
-      const item = ORDER_ITEMS[i];
-      label.setColor(i === picked || item === undefined ? ORDER_PICKED_TEXT : hex(ORDER_COLORS[item.kind]));
-      label.setScale(i === picked ? 1.15 : 1);
-    });
-  }
-
-  /** Lays out the ring: a label and its pack icon per order, and the wing's mode in the center. */
-  private openOrderRing(press: OrderPress): Phaser.GameObjects.Text[] {
-    const dpr = this.dpr();
-    const style = { fontFamily: UI_FONT, fontSize: `${String(HUD_FONT_PX * dpr)}px` };
-    const info = this.net?.squadronInfo;
-    const mode = info === undefined ? undefined : fromCompanionMode(info.mode) ?? 'escort';
-    press.backdrop = this.add.graphics();
-    this.cameras.main.ignore(press.backdrop);
-    const labels = ORDER_ITEMS.map((item, i) => {
-      const at = itemPosition(i, ORDER_RING_PX * dpr);
-      const x = press.screenX + at.x;
-      const y = press.screenY + at.y + ORDER_LABEL_DROP * dpr;
-      // A dot marks the mode the wing is in.
-      const inForce = item.kind === 'mode' && item.mode === mode;
-      const label = this.add
-        .text(x, y, `${inForce ? '• ' : ''}${item.label}`, { ...style, color: hex(ORDER_COLORS[item.kind]) })
-        .setOrigin(0.5)
-        .setShadow(1, 1, '#000000', 0);
-      this.cameras.main.ignore(label);
-      const icon = ORDER_ICONS[item.label];
-      if (icon !== undefined) {
-        const image = this.add
-          .image(x, press.screenY + at.y - ORDER_ICON_RISE * dpr, icon.key, icon.frame ?? 0)
-          .setScale(icon.scale * dpr);
-        if (icon.dim === true) {
-          image.setTint(0x9a9a9a);
-        }
-        this.cameras.main.ignore(image);
-        press.extras.push(image);
-      }
-
-      return label;
-    });
-    const count = this.net?.companionCount ?? 0;
-    const center = this.add
-      .text(
-        press.screenX,
-        press.screenY,
-        count === 0 || info === undefined ? 'no companions' : `wing (${String(count)})\n${modeName(info)}`,
-        { ...style, color: '#ffffff', align: 'center' },
-      )
-      .setOrigin(0.5)
-      .setShadow(1, 1, '#000000', 0);
-    this.cameras.main.ignore(center);
-    press.extras.push(center);
-
-    return labels;
-  }
-
-  /** The ring's backdrop, with the wedge of the item pointed at lit in its color. */
-  private drawRingBackdrop(press: OrderPress, picked: number | undefined): void {
-    const g = press.backdrop;
-    if (g === undefined) {
-      return;
-    }
-    const dpr = this.dpr();
-    const rx = (ORDER_RING_PX * RING_ASPECT + ORDER_BACKDROP_PAD) * dpr;
-    const ry = (ORDER_RING_PX + ORDER_BACKDROP_PAD) * dpr;
-    const { screenX: cx, screenY: cy } = press;
-    g.clear();
-    g.fillStyle(ORDER_BACKDROP, ORDER_BACKDROP_ALPHA).fillEllipse(cx, cy, rx * 2, ry * 2);
-    g.lineStyle(dpr, ORDER_COLORS.mode, 0.35).strokeEllipse(cx, cy, rx * 2, ry * 2);
-    const item = picked === undefined ? undefined : ORDER_ITEMS[picked];
-    if (picked === undefined || item === undefined) {
-      return;
-    }
-    const n = ORDER_ITEMS.length;
-    const mid = -Math.PI / 2 + (picked * Math.PI * 2) / n;
-    const points = [new Phaser.Math.Vector2(cx, cy)];
-    const steps = 8;
-    for (let k = 0; k <= steps; k++) {
-      const a = mid - Math.PI / n + (k * 2 * Math.PI) / n / steps;
-      points.push(new Phaser.Math.Vector2(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
-    }
-    g.fillStyle(ORDER_COLORS[item.kind], 0.22).fillPoints(points, true);
-  }
-
-  private pickedOrder(press: OrderPress): number | undefined {
-    const pointer = press.touch ? (this.touch.position('orders') ?? { x: press.screenX, y: press.screenY }) : this.input.activePointer;
-
-    return pickItem(pointer.x - press.screenX, pointer.y - press.screenY, ORDER_DEAD_ZONE_PX * this.dpr());
-  }
-
-  /** Drops a Q press and its ring without giving an order. */
-  private closeOrderRing(): void {
-    if (this.orderPress !== undefined) {
-      destroyRing(this.orderPress);
-    }
-    this.orderPress = undefined;
-  }
-
-  /** Q up: give the item pointed at, or repeat the last order after a tap. */
-  private releaseOrders(): void {
-    const press = this.orderPress;
-    this.orderPress = undefined;
-    if (press === undefined) {
-      return;
-    }
-    if (press.labels === undefined) {
-      const world = press.touch ? { x: press.worldX, y: press.worldY } : (this.input.activePointer.positionToCamera(this.cameras.main) as Phaser.Math.Vector2);
-      if (this.lastOrder === undefined) {
-        this.net?.say('no order to repeat yet: hold Q');
-      } else {
-        this.giveOrder(this.lastOrder, { ...press, worldX: world.x, worldY: world.y });
-      }
-
-      return;
-    }
-    const picked = this.pickedOrder(press);
-    destroyRing(press);
-    const item = picked === undefined ? undefined : ORDER_ITEMS[picked];
-    if (item !== undefined) {
-      this.giveOrder(item, press);
-    }
-  }
-
-  /**
-   * Gives an order to the squadron: the hub gives it to every companion in
-   * it, and squadmates see it as a callout.
-   */
-  private giveOrder(item: OrderItem, press: Pick<OrderPress, 'worldX' | 'worldY'>): void {
-    const net = this.net;
-    if (net === undefined) {
-      return;
-    }
-    // Squadmates hear the order even when nobody has companions yet; alone, it needs some.
-    const squadmates = (net.squadronInfo?.members.length ?? 1) - 1;
-    if (net.companionCount === 0 && squadmates === 0) {
-      net.say('no companions: press G at the home planet');
-
-      return;
-    }
-    const focusEnemyId = chooseFocus(net.enemyList, press.worldX, press.worldY, net.lastHit, performance.now());
-    if (item.kind === 'oneShot' && item.oneShot === 'focus' && focusEnemyId === undefined) {
-      net.say('no enemy to focus: hit one, or point at it');
-
-      return;
-    }
-    this.lastOrder = item;
-    net.orderSquadron(item, { pointX: press.worldX, pointY: press.worldY, focusEnemyId });
-    net.say(item.label);
-    this.updateHud();
   }
 
   /** Device pixels per CSS pixel the canvas renders at, for sizing the HUD: 1 when P picked CSS pixels (#143). */
@@ -1618,18 +1362,12 @@ export class SandboxScene extends Phaser.Scene {
 
       return;
     }
-    const role = this.touch.start(id, p.x, p.y, this.scale.width, this.touchButtonRects, this.maps.onMinimap(p.x, p.y), this.dpr());
-    if (role === 'orders') {
-      this.pressOrders(p);
-    }
+    this.touch.start(id, p.x, p.y, this.scale.width, this.touchButtonRects, this.maps.onMinimap(p.x, p.y), this.dpr());
   }
 
   /** A touch lifts: a button does its job on release, like its key. */
   private touchEnd(id: number): void {
     switch (this.touch.end(id)) {
-      case 'orders':
-        this.releaseOrders();
-        break;
       case 'summon':
         this.net?.summon();
         break;
@@ -2043,8 +1781,6 @@ export class SandboxScene extends Phaser.Scene {
                 name: info.name,
                 others: info.members.filter((m) => m.playerId !== net?.playerId).map((m) => m.name),
                 companions: info.members.reduce((n, m) => n + m.companions, 0),
-                order: modeName(info),
-                mode: fromCompanionMode(info.mode) ?? 'escort',
               },
         hangar: Math.hypot(ship.x, ship.y) <= SAFE_ZONE_RADIUS ? net?.hangar : undefined,
         // How many of your companions are out, which the loadout screen showed until #191.
@@ -2116,10 +1852,8 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.companions = (this.net?.others ?? [])
       .filter((o) => o.ownerId !== '' && o.ownerId === this.net?.playerId)
       .map((o) => ({ number: Number(o.id.slice(o.ownerId.length + 1)), x: o.x, y: o.y }));
-    this.debug.squadronMode = this.net?.squadronInfo === undefined ? undefined : modeName(this.net.squadronInfo);
     this.debug.companionKills = this.net?.companionKills ?? 0;
     this.debug.notice = this.net?.noticeText;
-    this.debug.orderMenuOpen = this.orderPress?.labels !== undefined;
     this.debug.squadron = this.net?.squadron ?? '';
     this.debug.hangar = this.net?.hangar;
     this.debug.squadronScreen = this.squadronScreen.open;

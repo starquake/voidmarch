@@ -56,7 +56,7 @@ export const BOMBER_WARN_TINT = 0x1f5480;
 export const ENEMY_FIRE_GLOW_STRENGTH = 6;
 export const ENEMY_FIRE_GLOW_QUALITY = 3;
 export const ENEMY_FIRE_GLOW_DISTANCE = 4;
-/** A Support Ship's repair line (#184): thin, green, at the order ring's alpha. */
+/** A Support Ship's repair line (#184): thin, green and faint. */
 export const REPAIR_LINE_COLOR = 0x5ee05e;
 export const REPAIR_LINE_ALPHA = 0.35;
 export const REPAIR_LINE_WIDTH = 1;

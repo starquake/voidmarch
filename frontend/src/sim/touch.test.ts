@@ -56,23 +56,21 @@ test('buttons and the minimap take their touches before the sticks', () => {
   const buttons = touchButtons(screen);
   assert.deepEqual(
     buttons.map((b) => b.button),
-    ['summon', 'orders', 'settings', 'help'],
+    ['summon', 'settings', 'help'],
   );
-  const orders = buttons[1];
-  assert.ok(orders);
+  const summon = buttons[0];
+  assert.ok(summon);
   const t = new TouchControls();
-  assert.equal(t.start(1, orders.x + 5, orders.y + 5, 1000, buttons, false, 1), 'orders');
-  assert.deepEqual(t.position('orders'), { x: orders.x + 5, y: orders.y + 5 });
+  assert.equal(t.start(1, summon.x + 5, summon.y + 5, 1000, buttons, false, 1), 'summon');
   t.moveTo(1, 10, 10);
-  assert.deepEqual(t.position('orders'), { x: 10, y: 10 });
-  assert.equal(t.held('orders'), true);
+  assert.equal(t.held('summon'), true);
   assert.equal(t.start(2, 900, 20, 1000, buttons, true, 1), 'map');
   assert.equal(buttonAt(buttons, 0, 0), undefined);
-  assert.equal(t.position('aim'), undefined);
+  assert.equal(t.held('aim'), false);
 });
 
 test('while down, only the respawns show, outside a squadron', () => {
-  assert.equal(play(screen).length, 2);
+  assert.equal(play(screen).length, 1);
   assert.deepEqual(play({ ...screen, down: true }), [], 'not yet allowed to respawn');
   const respawns = play({ ...screen, down: true, canRespawn: true, beside: 'Mira' });
   assert.deepEqual(
@@ -88,7 +86,7 @@ test('while down, only the respawns show, outside a squadron', () => {
 test('while down in a squadron, a Squadron button sits beside the respawns, or alone before them (#45)', () => {
   assert.deepEqual(
     play({ ...screen, squadron: true }).map((b) => b.button),
-    ['summon', 'orders'],
+    ['summon'],
     'only while down',
   );
   const waiting = play({ ...screen, down: true, squadron: true });
