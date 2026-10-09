@@ -374,46 +374,6 @@ export declare type ChooseSquadron = Message<"voidmarch.v1.ChooseSquadron"> & {
 export declare const ChooseSquadronSchema: GenMessage<ChooseSquadron>;
 
 /**
- * SquadronOrder is an order a player gives their squadron: a mode or a
- * one-shot, with where the pointer was (the point to hold) and the enemy to
- * focus. Every client applies it to its own companions.
- *
- * @generated from message voidmarch.v1.SquadronOrder
- */
-export declare type SquadronOrder = Message<"voidmarch.v1.SquadronOrder"> & {
-  /**
-   * @generated from field: voidmarch.v1.CompanionMode mode = 1;
-   */
-  mode: CompanionMode;
-
-  /**
-   * @generated from field: voidmarch.v1.CompanionOneShot one_shot = 2;
-   */
-  oneShot: CompanionOneShot;
-
-  /**
-   * @generated from field: float x = 3;
-   */
-  x: number;
-
-  /**
-   * @generated from field: float y = 4;
-   */
-  y: number;
-
-  /**
-   * @generated from field: uint32 focus_enemy_id = 5;
-   */
-  focusEnemyId: number;
-};
-
-/**
- * Describes the message voidmarch.v1.SquadronOrder.
- * Use `create(SquadronOrderSchema)` to create a new message.
- */
-export declare const SquadronOrderSchema: GenMessage<SquadronOrder>;
-
-/**
  * Dismiss gives a companion's seat back.
  *
  * @generated from message voidmarch.v1.Dismiss
@@ -489,12 +449,6 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: ChooseSquadron;
     case: "chooseSquadron";
-  } | {
-    /**
-     * @generated from field: voidmarch.v1.SquadronOrder squadron_order = 9;
-     */
-    value: SquadronOrder;
-    case: "squadronOrder";
   } | {
     /**
      * @generated from field: voidmarch.v1.Collect collect = 10;
@@ -1016,11 +970,6 @@ export declare type SquadronInfo = Message<"voidmarch.v1.SquadronInfo"> & {
   members: SquadronMember[];
 
   /**
-   * @generated from field: voidmarch.v1.CompanionMode mode = 3;
-   */
-  mode: CompanionMode;
-
-  /**
    * The sector the squadron is sent to ("D5"); empty once every sector is
    * cleared (#101). Everyone sees every squadron's.
    *
@@ -1079,11 +1028,6 @@ export declare type SquadronJoined = Message<"voidmarch.v1.SquadronJoined"> & {
   name: string;
 
   /**
-   * @generated from field: voidmarch.v1.CompanionMode mode = 2;
-   */
-  mode: CompanionMode;
-
-  /**
    * @generated from field: bool took_over = 3;
    */
   tookOver: boolean;
@@ -1122,35 +1066,6 @@ export declare type SquadronRefused = Message<"voidmarch.v1.SquadronRefused"> & 
  * Use `create(SquadronRefusedSchema)` to create a new message.
  */
 export declare const SquadronRefusedSchema: GenMessage<SquadronRefused>;
-
-/**
- * SquadronOrdered is a squadmate's order: a callout for the players, and
- * the orders for everyone's companions.
- *
- * @generated from message voidmarch.v1.SquadronOrdered
- */
-export declare type SquadronOrdered = Message<"voidmarch.v1.SquadronOrdered"> & {
-  /**
-   * @generated from field: string player_id = 1;
-   */
-  playerId: string;
-
-  /**
-   * @generated from field: string name = 2;
-   */
-  name: string;
-
-  /**
-   * @generated from field: voidmarch.v1.SquadronOrder order = 3;
-   */
-  order?: SquadronOrder | undefined;
-};
-
-/**
- * Describes the message voidmarch.v1.SquadronOrdered.
- * Use `create(SquadronOrderedSchema)` to create a new message.
- */
-export declare const SquadronOrderedSchema: GenMessage<SquadronOrdered>;
 
 /**
  * EnemyState is one enemy at a tick; the server moves enemies.
@@ -1709,12 +1624,6 @@ export declare type ServerMessage = Message<"voidmarch.v1.ServerMessage"> & {
      */
     value: SquadronRefused;
     case: "squadronRefused";
-  } | {
-    /**
-     * @generated from field: voidmarch.v1.SquadronOrdered squadron_ordered = 15;
-     */
-    value: SquadronOrdered;
-    case: "squadronOrdered";
   } | {
     /**
      * @generated from field: voidmarch.v1.PickupDropped pickup_dropped = 16;
@@ -2390,80 +2299,6 @@ export enum EnemyFaction {
  * Describes the enum voidmarch.v1.EnemyFaction.
  */
 export declare const EnemyFactionSchema: GenEnum<EnemyFaction>;
-
-/**
- * CompanionMode is a squadron's standing orders for its companions.
- *
- * @generated from enum voidmarch.v1.CompanionMode
- */
-export enum CompanionMode {
-  /**
-   * @generated from enum value: COMPANION_MODE_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * @generated from enum value: COMPANION_MODE_ESCORT = 1;
-   */
-  ESCORT = 1,
-
-  /**
-   * @generated from enum value: COMPANION_MODE_ATTACK = 2;
-   */
-  ATTACK = 2,
-
-  /**
-   * @generated from enum value: COMPANION_MODE_GUARD = 3;
-   */
-  GUARD = 3,
-
-  /**
-   * @generated from enum value: COMPANION_MODE_HOLD = 4;
-   */
-  HOLD = 4,
-
-  /**
-   * @generated from enum value: COMPANION_MODE_STEALTH = 5;
-   */
-  STEALTH = 5,
-}
-
-/**
- * Describes the enum voidmarch.v1.CompanionMode.
- */
-export declare const CompanionModeSchema: GenEnum<CompanionMode>;
-
-/**
- * CompanionOneShot is an order that runs until done, then returns to the mode.
- *
- * @generated from enum voidmarch.v1.CompanionOneShot
- */
-export enum CompanionOneShot {
-  /**
-   * @generated from enum value: COMPANION_ONE_SHOT_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * @generated from enum value: COMPANION_ONE_SHOT_FOCUS = 1;
-   */
-  FOCUS = 1,
-
-  /**
-   * @generated from enum value: COMPANION_ONE_SHOT_REGROUP = 2;
-   */
-  REGROUP = 2,
-
-  /**
-   * @generated from enum value: COMPANION_ONE_SHOT_GO_HOME = 3;
-   */
-  GO_HOME = 3,
-}
-
-/**
- * Describes the enum voidmarch.v1.CompanionOneShot.
- */
-export declare const CompanionOneShotSchema: GenEnum<CompanionOneShot>;
 
 /**
  * WorldEventKind is what a world event is (#102).

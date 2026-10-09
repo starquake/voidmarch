@@ -67,7 +67,7 @@ func (h *Hub) summon(owner string, m *member) {
 		int(number),
 		float64(m.state.GetX()),
 		float64(m.state.GetY()),
-		h.squadronModeOrders(m),
+		sim.DefaultOrders(),
 	)
 	flight.Fit(loadout)
 	m.companions[number] = &companion{number: number, granted: h.nextGrant, flight: flight}

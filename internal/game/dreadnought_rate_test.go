@@ -11,11 +11,12 @@ import (
 )
 
 // The simulated Dreadnought fight (#223): how long the companions fight,
-// how far from it their owner stands, and how many fly.
+// how far from it their owner stands (inside sim.BrainEscortRange, so the
+// companions shoot it), and how many fly.
 const (
 	rateMinutes  = 5
 	rateWarmUp   = 90 * TickRate
-	rateStandOff = 380
+	rateStandOff = 250
 	rateWingSize = 3
 	rateTicks    = rateMinutes * 60 * TickRate
 	// rateHealthScale gives the Dreadnought enough health to outlast the
@@ -84,8 +85,8 @@ func (o *owner) step(snap *pb.Snapshot) {
 }
 
 // fightDreadnought flies a wing of companions, every one with weapon at
-// tier, in attack mode against an awake Kla'ed Dreadnought for rateMinutes
-// once they've reached it, their owner reviving any that go down.
+// tier, against an awake Kla'ed Dreadnought for rateMinutes once they've
+// reached it, their owner reviving any that go down.
 func fightDreadnought(t *testing.T, weapon sim.WeaponID, tier sim.Tier) wingFight {
 	t.Helper()
 
@@ -101,9 +102,6 @@ func fightDreadnought(t *testing.T, weapon sim.WeaponID, tier sim.Tier) wingFigh
 	for range rateWingSize {
 		grant(t, a)
 	}
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
-		Mode: pb.CompanionMode_COMPANION_MODE_ATTACK,
-	}}})
 	d := dreadnoughtIn(must(latest(t, a, tick, 1, 0, sim.HomeSpawnY)))
 	dx, dy := float64(d.GetX()), float64(d.GetY())
 	reach := math.Hypot(dx, dy)
@@ -177,12 +175,11 @@ func TestDreadnought_DamageRate(t *testing.T) {
 					rateMinutes,
 				)
 				// Loose: the test documents the rate rather than pinning it.
-				if fight.perShipMinute() <= 0 || fight.hits == 0 {
+				if fight.perShipMinute() <= 0 {
 					t.Errorf(
-						"%s took off %.0f a ship a minute and took %d hits, want both above 0",
+						"%s took off %.0f a ship a minute, want above 0",
 						name,
 						fight.perShipMinute(),
-						fight.hits,
 					)
 				}
 			})

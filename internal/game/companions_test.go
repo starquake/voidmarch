@@ -505,14 +505,10 @@ func TestCompanions_FightOnTheHub(t *testing.T) {
 func TestCompanions_ClientsCantShootForThem(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	n := grant(t, a)
-	// Stealth: the companion itself never fires.
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
-		Mode: pb.CompanionMode_COMPANION_MODE_STEALTH,
-	}}})
 
 	var target *pb.EnemyState
 	outThere(t, a, tick, func(snap *pb.Snapshot, _ []*pb.ServerMessage) bool {
@@ -549,14 +545,10 @@ func TestCompanions_ClientsCantShootForThem(t *testing.T) {
 func TestCompanions_EnemyBulletsWearThemDown(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
-	// Stealth: the companion never fires back, so the enemies keep shooting.
-	a.Send(&pb.ClientMessage{Kind: &pb.ClientMessage_SquadronOrder{SquadronOrder: &pb.SquadronOrder{
-		Mode: pb.CompanionMode_COMPANION_MODE_STEALTH,
-	}}})
 
 	var full, worn *pb.ShipState
 	outThere(t, a, tick, func(snap *pb.Snapshot, _ []*pb.ServerMessage) bool {
@@ -911,7 +903,7 @@ func TestCompanions_TheNewCompanionDoesNotCountItself(t *testing.T) {
 func TestCompanions_ADownedOneDocksAfterItsOwnerDrops(t *testing.T) {
 	t.Parallel()
 
-	hub, tick := testHub(t)
+	hub, tick := testHub(t, WithCompanionsHoldingFire())
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)

@@ -25,8 +25,6 @@ type squadron struct {
 	name string
 	// members are player ids, in the order they joined.
 	members []string
-	// mode is the squadron's standing orders for every companion in it.
-	mode pb.CompanionMode
 	// mission is the sector it's sent to, while hasMission (#101).
 	mission    sim.Sector
 	hasMission bool
@@ -72,7 +70,7 @@ func (h *Hub) squadronsMessage() *pb.Squadrons {
 		Hangar:   uint32(max(h.hangar, 0)), //nolint:gosec // never negative.
 	}
 	for _, sq := range list {
-		info := &pb.SquadronInfo{Name: sq.name, Mode: sq.mode}
+		info := &pb.SquadronInfo{Name: sq.name}
 		if sq.hasMission {
 			info.Mission = sq.mission.Name()
 		}
@@ -120,7 +118,7 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 			return
 		}
 		h.leaveSquadron(id, m)
-		sq = &squadron{name: next, mode: pb.CompanionMode_COMPANION_MODE_ESCORT}
+		sq = &squadron{name: next}
 		sq.mission, sq.hasMission = sim.MissionFor(h.cleared, h.frontier, shipAt(m))
 		h.squadrons[next] = sq
 	case m.squadron:
@@ -140,7 +138,7 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		h.leaveSquadron(id, m)
 	}
 
-	joined := &pb.SquadronJoined{Name: sq.name, Mode: sq.mode}
+	joined := &pb.SquadronJoined{Name: sq.name}
 	if !slices.Contains(sq.members, id) {
 		if h.squadronShips(sq) >= squadronCap {
 			if owner, c := h.newestCompanionIn(sq); c != nil {
@@ -159,9 +157,6 @@ func (h *Hub) chooseSquadron(id string, m *member, name string) {
 		}
 		sq.members = append(sq.members, id)
 		m.squadron = sq.name
-		for _, c := range m.wing.Companions {
-			m.wing.Order(c, h.squadronModeOrders(m))
-		}
 	}
 	h.send(id, &pb.ServerMessage{Kind: &pb.ServerMessage_SquadronJoined{SquadronJoined: joined}})
 	h.broadcastSquadrons()
@@ -228,37 +223,4 @@ func nextToDock(m *member) *companion {
 	}
 
 	return newest
-}
-
-// squadronOrder gives a player's order to every companion in their
-// squadron, passes it to the other players as a callout, and keeps a new mode
-// as the squadron's.
-func (h *Hub) squadronOrder(id string, m *member, order *pb.SquadronOrder) {
-	sq := h.squadrons[m.squadron]
-	if sq == nil {
-		return
-	}
-	modeChanged := order.GetMode() != pb.CompanionMode_COMPANION_MODE_UNSPECIFIED &&
-		order.GetMode() != sq.mode
-	if modeChanged {
-		sq.mode = order.GetMode()
-	}
-	ordered := &pb.ServerMessage{
-		Kind: &pb.ServerMessage_SquadronOrdered{SquadronOrdered: &pb.SquadronOrdered{
-			PlayerId: id,
-			Name:     m.session.Player.Name,
-			Order:    order,
-		}},
-	}
-	for _, other := range sq.members {
-		if om := h.members[other]; om != nil {
-			orderWing(om, order)
-		}
-		if other != id {
-			h.send(other, ordered)
-		}
-	}
-	if modeChanged {
-		h.broadcastSquadrons()
-	}
 }

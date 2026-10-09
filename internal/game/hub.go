@@ -240,6 +240,9 @@ type Hub struct {
 	rams sim.Rams[ramPair]
 	// interestRadius is how near a member's ships an enemy is sent to them.
 	interestRadius float64
+	// holdFire drops every companion shot, for tests that keep a companion
+	// under fire.
+	holdFire bool
 }
 
 // HubOption configures a [Hub].
@@ -649,8 +652,6 @@ func (h *Hub) handleMessage(in inbound) {
 		h.dockDownedCompanions(in.session.Player.ID, m)
 	case *pb.ClientMessage_ChooseSquadron:
 		h.chooseSquadron(in.session.Player.ID, m, kind.ChooseSquadron.GetName())
-	case *pb.ClientMessage_SquadronOrder:
-		h.squadronOrder(in.session.Player.ID, m, kind.SquadronOrder)
 	case *pb.ClientMessage_Collect:
 		h.collect(in.session.Player.ID, m, kind.Collect.GetId())
 	case *pb.ClientMessage_PickMission:
