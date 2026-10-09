@@ -122,7 +122,6 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     squadrons: (list) => log.events.push(`squadrons ${String(list.squadrons.length)}`),
     squadronJoined: (j) => log.events.push(`joined ${j.name}`),
     squadronRefused: (reason) => log.events.push(`squadron refused ${reason}`),
-    squadronOrdered: (o) => log.events.push(`ordered by ${o.playerId}`),
     pickupDropped: (p) => log.events.push(`pickup dropped ${p.id}`),
     pickupTaken: (p) => log.events.push(`pickup taken ${p.id} by ${p.playerId}`),
     derelictRescued: (r) => log.events.push(`derelict ${r.derelictId} rescued by ${r.playerId}`),

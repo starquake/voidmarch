@@ -4,7 +4,6 @@ import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { flyOut } from './hunt.ts';
 
 import type { DebugState } from '../src/debug.ts';
-import { ORDER_ITEMS, itemPosition } from '../src/ordermenu.ts';
 
 const state = (page: Page): Promise<DebugState> =>
   page.evaluate(() => {
@@ -40,19 +39,6 @@ async function summon(page: Page, count: number): Promise<void> {
   await expect.poll(async () => (await state(page)).companions.length).toBe(count);
 }
 
-/** Holds Q with the pointer at (x, y), points at the order, and lets go. */
-async function giveOrder(page: Page, x: number, y: number, label: string): Promise<void> {
-  await page.mouse.move(x, y);
-  await page.keyboard.down('q');
-  await expect.poll(async () => (await state(page)).orderMenuOpen).toBe(true);
-  const at = itemPosition(
-    ORDER_ITEMS.findIndex((item) => item.label === label),
-    60,
-  );
-  await page.mouse.move(x + at.x, y + at.y, { steps: 4 });
-  await page.keyboard.up('q');
-}
-
 test('the server lists the hangar\'s ships to a joining player', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
@@ -78,16 +64,11 @@ test('summoned companions fly with their owner, and others see them as theirs', 
   }
 });
 
-test('the Attack mode reaches the squadron, and its companions shoot down an enemy', async ({ page }) => {
+test('companions come along into a garrison and shoot down an enemy', async ({ page }) => {
   test.setTimeout(90_000);
   await summon(page, 2);
 
-  const view = page.viewportSize() ?? { width: 640, height: 360 };
-  await giveOrder(page, view.width / 2 + 180, view.height / 2, 'Attack');
-  // The hub flies the companions under the squadron's mode.
-  await expect.poll(async () => (await state(page)).squadronMode).toBe('Attack');
-
-  // Fly into D5 and its garrison; the companions come along and hunt.
+  // Fly into D5 and its garrison; the companions come along and fight what comes near.
   await flyOut(page);
   await expect
     .poll(async () => (await state(page)).companionKills, { message: 'a companion shot down an enemy', timeout: 45_000 })

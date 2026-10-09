@@ -32,9 +32,6 @@ export interface PanelState {
         /** The other players in it. */
         others: readonly string[];
         companions: number;
-        /** The order's name as the ring shows it ("Escort"), and its mode id. */
-        order: string;
-        mode: string;
       }
     | undefined;
   /** The ships in the hangar, shown at home where G draws one. */
@@ -47,15 +44,6 @@ export interface PanelState {
   /** A world event's line, "E4 under attack · 6:34", or empty. */
   event: string;
 }
-
-/** What each order does, in a few words, for the panel. */
-const ORDER_HINTS: Readonly<Record<string, string>> = {
-  escort: 'companions fly with you',
-  attack: 'companions hunt enemies near you',
-  guard: 'companions shield you',
-  hold: 'companions hold their spot',
-  stealth: 'companions hold fire',
-};
 
 /** Names joined as a sentence: "Mira", "Mira and Jo", "Mira, Jo and Sam". */
 export function joinNames(names: readonly string[]): string {
@@ -77,8 +65,6 @@ export function panelRows(state: PanelState): PanelRow[] {
     const companions = squadron.companions === 0 ? [] : [`${String(squadron.companions)} companion${squadron.companions === 1 ? '' : 's'}`];
     const others = [...squadron.others, ...companions];
     row('Squadron', others.length === 0 ? squadron.name : `${squadron.name}, with ${joinNames(others)}`);
-    const hint = ORDER_HINTS[squadron.mode];
-    row('Orders', hint === undefined ? squadron.order : `${squadron.order}: ${hint}`);
   }
   if (state.hangar !== undefined) {
     row('Hangar', state.hangar === 0 ? 'empty' : `${String(state.hangar)} ship${state.hangar === 1 ? '' : 's'} to summon`);

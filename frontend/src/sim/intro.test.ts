@@ -36,13 +36,21 @@ test('the keyboard variant names every key the game answers to, and no loadout',
     ['Keyboard', 'Mouse'],
   );
   const keys = controls[0].rows.flatMap((r) => r.keys);
-  for (const key of ['W', 'A', 'S', 'D', 'G', 'Q', '1', '2', '3', 'M', 'Tab', 'C', 'H', 'J', 'O', 'Esc', 'F1']) {
+  for (const key of ['W', 'A', 'S', 'D', 'G', '1', '2', '3', 'M', 'Tab', 'C', 'H', 'J', 'O', 'Esc', 'F1']) {
     assert.ok(keys.includes(key), `${key} is listed`);
   }
   assert.match(controls[0].rows.find((r) => r.keys.includes('1'))?.text ?? '', /tap.*2 s/, 'a tap of 1, 2 or 3 shows the list for 2 s (#259)');
   const text = allText(introContent(false));
   assert.doesNotMatch(text, /\bL\b|loadout/i, 'the loadout screen and L are gone (#191)');
   assert.match(text, /slot/, 'the gauge slots can be clicked');
+});
+
+test('neither variant mentions orders, the order ring or Q (#325)', () => {
+  for (const touch of [false, true]) {
+    const content = introContent(touch);
+    assert.doesNotMatch(allText(content), /\border/i);
+    assert.ok(!content.controls.some((c) => c.rows.some((r) => r.keys.includes('Q') || r.keys.includes('Orders'))));
+  }
 });
 
 test('the touch variant names the thumbs and buttons, Help among them, and no key', () => {

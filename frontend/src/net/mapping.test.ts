@@ -3,14 +3,11 @@ import { test } from 'node:test';
 
 import { create } from '@bufbuild/protobuf';
 
-import { CompanionMode, CompanionOneShot, EnemyFaction, EnemyKind, Engine, Shield, ShipStateSchema, UnlockSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
-import { MODES } from '../ordermenu.ts';
+import { EnemyFaction, EnemyKind, Engine, Shield, ShipStateSchema, UnlockSchema, Weapon } from '../gen/voidmarch/v1/messages_pb.js';
 import { ENGINES, SHIELDS, WEAPONS } from '../sim/loadout.ts';
 import { MAX_TIER } from '../sim/rules.gen.ts';
 import type { Ship } from '../simwasm.ts';
 import {
-  fromCompanionMode,
-  fromCompanionOneShot,
   fromEnemyFaction,
   fromEnemyKind,
   fromLoadout,
@@ -19,8 +16,6 @@ import {
   fromUnlocks,
   fromWeapon,
   tierOf,
-  toCompanionMode,
-  toCompanionOneShot,
   toShipState,
   toWeapon,
 } from './mapping.ts';
@@ -88,16 +83,6 @@ test('enemy factions map from the wire, unset as the Kla\'ed', () => {
   assert.equal(fromEnemyFaction(EnemyFaction.UNSPECIFIED), 'klaed');
 });
 
-test('modes and one-shots round-trip through the wire', () => {
-  for (const mode of MODES) {
-    assert.equal(fromCompanionMode(toCompanionMode(mode)), mode);
-  }
-  for (const oneShot of ['focus', 'regroup', 'goHome'] as const) {
-    assert.equal(fromCompanionOneShot(toCompanionOneShot(oneShot)), oneShot);
-  }
-  assert.equal(fromCompanionMode(CompanionMode.UNSPECIFIED), undefined);
-  assert.equal(fromCompanionOneShot(CompanionOneShot.UNSPECIFIED), undefined);
-});
 
 test('a wire tier above Hyper is held to Hyper', () => {
   assert.equal(tierOf(undefined), 0);

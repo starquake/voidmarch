@@ -15,17 +15,14 @@ import type {
   WorldEvent,
   SquadronInfo,
   SquadronJoined,
-  SquadronOrdered,
   Squadrons,
   Welcome,
 } from '../gen/voidmarch/v1/messages_pb.js';
-import { CompanionMode, CompanionOneShot, WorldEventKind } from '../gen/voidmarch/v1/messages_pb.js';
+import { WorldEventKind } from '../gen/voidmarch/v1/messages_pb.js';
 import type { WireFormat } from '../net/codec.ts';
 import { Connection } from '../net/connection.ts';
 import { StateBuffer, type Pose } from '../net/interpolation.ts';
 import {
-  fromCompanionMode,
-  fromCompanionOneShot,
   fromEnemyFaction,
   fromEnemyKind,
   fromLoadout,
@@ -36,11 +33,8 @@ import {
   fromUnlocks,
   fromWeapon,
   tierOf,
-  toCompanionMode,
-  toCompanionOneShot,
   type RemoteShip,
 } from '../net/mapping.ts';
-import { ORDER_ITEMS, type OrderContext, type OrderItem } from '../ordermenu.ts';
 import { loadLastSquadron, loadSeenSeason, saveLastSquadron, saveSeenSeason } from '../settings.ts';
 import type { SeasonResult } from '../victory.ts';
 import { missionStatsLine, type PlayerStatsRow } from '../sim/standings.ts';
@@ -289,8 +283,6 @@ export class NetPlay {
   private readonly bumpKeys = new Map<string, number>();
   /** Enemies this player's companions shot down. */
   companionKills = 0;
-  /** The enemy the player last hit, and when (performance.now() ms): what they're shooting at. */
-  lastHit: { id: number; atMs: number } | undefined;
   /** How many companions the server allows each player. */
   companionLimit = 0;
   /** The squadrons as the server last listed them, and the player's own, "" before choosing. */
@@ -402,9 +394,6 @@ export class NetPlay {
         squadronRefused: (reason) => {
           this.moving = undefined;
           options.squadronScreen.showError(reason);
-        },
-        squadronOrdered: (ordered) => {
-          this.squadronOrdered(ordered);
         },
         pickupDropped: (dropped) => {
           const pickup = fromPickup(dropped);
@@ -668,17 +657,6 @@ export class NetPlay {
   /** Sends the ship's state now, so the server has a just-fitted loadout (#110). */
   sendStateNow(): void {
     this.connection.sendStateNow(this.options.sim.ship);
-  }
-
-  /** Sends the player's order to the squadron, whose other players see it as a callout. */
-  orderSquadron(item: OrderItem, context: OrderContext): void {
-    this.connection.sendSquadronOrder({
-      mode: item.kind === 'mode' ? toCompanionMode(item.mode) : CompanionMode.UNSPECIFIED,
-      oneShot: item.kind === 'oneShot' ? toCompanionOneShot(item.oneShot) : CompanionOneShot.UNSPECIFIED,
-      x: context.pointX,
-      y: context.pointY,
-      focusEnemyId: context.focusEnemyId ?? 0,
-    });
   }
 
   /** Asks the server for a companion, or says why there can't be one. */
@@ -962,22 +940,6 @@ export class NetPlay {
     }
   }
 
-  /** A squadmate's order, as a callout: the hub gives it to every companion. */
-  private squadronOrdered(ordered: SquadronOrdered): void {
-    const order = ordered.order;
-    if (order === undefined) {
-      return;
-    }
-    const mode = fromCompanionMode(order.mode);
-    const oneShot = fromCompanionOneShot(order.oneShot);
-    const item = ORDER_ITEMS.find(
-      (i) => (i.kind === 'mode' && i.mode === mode) || (i.kind === 'oneShot' && i.oneShot === oneShot),
-    );
-    if (item !== undefined) {
-      this.say(`${ordered.name}: ${item.label}`);
-    }
-  }
-
   /** Shows a notice in the HUD for a few seconds. */
   say(text: string): void {
     this.notice = { text, untilMs: now() + NOTICE_MS };
@@ -1107,7 +1069,6 @@ export class NetPlay {
       if (damage === 0) {
         continue;
       }
-      this.lastHit = { id: target.id, atMs: now() };
       this.connection.sendHit(target.id, p.shotId, damage, p.shard, goesOn);
       this.enemies.get(target.id)?.view.flash();
       frame.enemyHits.push({ x: p.x, y: p.y });
