@@ -30,7 +30,7 @@ async function otherPlayer(browser: Browser, baseURL: string, name: string): Pro
   return page;
 }
 
-/** Summons count companions; the specs share one server's 16 seats, so they use few. */
+/** Summons count companions; each takes one of the server's 16 seats, so the specs use few. */
 async function summon(page: Page, count: number): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
@@ -57,7 +57,7 @@ test('the server lists the hangar\'s ships to a joining player', async ({ page }
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   await expect.poll(async () => (await state(page)).hangar).toBeDefined();
-  // Other specs share the hangar, so only the range is ours to assert.
+  // Earlier specs on this worker's server use the hangar too, so only the range is ours to assert.
   const hangar = (await state(page)).hangar ?? -1;
   expect(hangar).toBeGreaterThanOrEqual(0);
   expect(hangar).toBeLessThanOrEqual(15);

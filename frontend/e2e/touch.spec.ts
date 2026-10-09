@@ -23,6 +23,8 @@ async function touch(page: Page, type: 'touchstart' | 'touchmove' | 'touchend', 
 }
 
 test('the touch controls move the ship, aim and fire, and their buttons work', async ({ page }) => {
+  // A tablet-sized page; the default 30 s is tight where WebGL renders in software (#22).
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 1180, height: 820 });
   await page.goto('/?touch=1');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');

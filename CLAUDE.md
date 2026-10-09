@@ -141,10 +141,9 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   companion's state, shot or hit (#51). Seats count toward
   `MaxPlayers`. Development and E2E keep the production limits (3 each, at the
   home planet, 4 ships per squadron). Summons draw from the shared hangar,
-  `POOL_START` ships on a fresh database (3 by default); the E2E server sets 13,
-  since the specs share it and the 16-ship fleet cap must leave room for its
-  derelict rescues (#52), and hub tests without `WithPoolStart` get a ship
-  per seat. The hub saves the fleet through `WithSaveFleet`.
+  `POOL_START` ships on a fresh database (3 by default); the E2E servers set
+  13, which leaves room under the 16-ship fleet cap for the derelict spec's
+  rescue (#52), and hub tests without `WithPoolStart` get a ship per seat. The hub saves the fleet through `WithSaveFleet`.
 - **Persistence** (`internal/store`, #76): a SQLite file at `DB_PATH` through
   `modernc.org/sqlite`, pure Go so the build stays cgo-free. Migrations are
   embedded `internal/store/migrations/NNN_*.sql`, applied in order and
@@ -153,7 +152,7 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   typed Go in `internal/db` (committed, never edited; `make sqlc-check` fails
   when it is stale). It keeps players (`players.Store`, tokens as SHA-256
   hashes) and the fleet. Tests open a real temporary database with `testutil.OpenDB`;
-  `startServer` and the E2E server each get their own file, and E2E sets
+  `startServer` and each E2E server get their own file, and E2E sets
   `REGISTER_LIMIT=0`.
 - **Squadrons** (`internal/game/squadrons.go`): everyone picks one with
   `ChooseSquadron` (empty starts a new one, Greek-named); the server sends
@@ -167,9 +166,15 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
   animation frames, so a worker (`frontend/src/background.ts`) steps the sim
   and sends the ship's state instead, drawing nothing. The hub drops a player
   only after 10 s of silence (`silenceTicks`).
-- **E2E runs everyone on one server**: each test's page is a registered player
-  (`frontend/e2e/fixtures.ts`), so specs see each other's ships and shots.
-  Assert on your own state (`shotsFired`, `ship`), never on shared counts.
+- **E2E gives each Playwright worker a server of its own** (#321):
+  `frontend/e2e/global-setup.ts` builds it once, and a worker fixture in
+  `frontend/e2e/fixtures.ts` starts it on a free port with its own database
+  (`frontend/e2e/server.ts`). Each test's page is a registered player. A
+  worker runs its tests one at a time, so a test meets what earlier tests on
+  that server left (a cleared sector, a smaller hangar) and the server's own
+  timers (a derelict coming back with a notice). Assert on your own state
+  (`shotsFired`, `ship`, notices shown, `recordNotices`), never on shared
+  counts or on the notice showing now.
 
 ## How work lands
 
@@ -375,7 +380,12 @@ for looking, never for assuring behaviour.
 - **E2E**, `frontend/e2e/*.spec.ts`, for what only a browser shows: the
   client boots with no console errors or failed requests, input moves the
   ship. The page publishes read-only state on `window.voidmarch` for the specs
-  to inspect.
+  to inspect. The suite runs 4 workers locally; in CI, 2 for Firefox and 1
+  for Chromium, whose software WebGL slows the game down with two
+  (`frontend/playwright.config.ts`). `--workers=1` runs one test at a time,
+  and `E2E_BASE_URL` points every worker at a server already running, for
+  debugging. The specs' helpers have unit tests beside them
+  (`frontend/e2e/*.test.ts`, run by `make ts-test`).
 - **Coverage**: CI fails the Go total below 80% (`threshold-total` in
   `ci.yml`, which overrides `.testcoverage.yml`). Aim well above it.
 - **A flaky test is a bug to file**, not to rerun past.

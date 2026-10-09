@@ -125,8 +125,8 @@ test('the big space gun charges, and the ball leaves on the recoil frame', async
   // Held while sampling: a click shorter than one game frame is never seen.
   await page.mouse.down();
 
-  // Sample every animation frame until our own ball is out (other players' shots
-  // arrive too, since every test is a player on the same server).
+  // Sample every animation frame until our own ball is out, counted apart from
+  // any other ship's shots.
   const samples = await page.evaluate(
     () =>
       new Promise<{ frame: number; shots: number }[]>((resolve) => {

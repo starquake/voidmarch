@@ -1,5 +1,8 @@
 import { test as base, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 
+import { claimFirefoxHome } from './firefox.ts';
+import { RUN_DIR, startServer } from './server.ts';
+
 export { expect } from '@playwright/test';
 
 /** Registers a player through the API and returns their token. */
@@ -45,11 +48,70 @@ export async function signIn(target: Page | BrowserContext, token: string, contr
 }
 
 /**
- * Every page starts as a registered player, so the game skips the name screen;
- * the name screen's own spec opts out with a fresh page. A spec testing the
- * game's own control or effects default sets `controls` or `effects` to `game`.
+ * A page that starts as a first visit. Each worker plays on a server of its
+ * own, with its own port and database, so its tests run one at a time on it
+ * and never meet another worker's (#321). E2E_BASE_URL points every worker
+ * at a server already running instead, for debugging.
  */
-export const test = base.extend<{ token: string; controls: Controls; effects: Effects }>({
+export const fresh = base.extend<object, { server: string }>({
+  server: [
+    // eslint-disable-next-line no-empty-pattern -- Playwright reads a fixture's dependencies from this pattern.
+    async ({}, use, workerInfo) => {
+      const running = process.env.E2E_BASE_URL;
+      if (running !== undefined) {
+        await use(running);
+
+        return;
+      }
+      const dir = process.env[RUN_DIR];
+      if (dir === undefined) {
+        throw new Error(`${RUN_DIR} is unset: the global setup builds the server`);
+      }
+      const server = await startServer(dir, `worker-${String(workerInfo.workerIndex)}`);
+      try {
+        await use(server.url);
+      } finally {
+        await server.stop();
+      }
+    },
+    { scope: 'worker', timeout: 60_000 },
+  ],
+  baseURL: async ({ server }, use) => {
+    await use(server);
+  },
+  // macOS keeps other apps out of the installed Firefox's ~/Library/Application
+  // Support/Firefox, and Firefox won't start without it, so on macOS it gets a
+  // home folder of its own (#247), one per worker (#312).
+  launchOptions: [
+    async ({ launchOptions, browserName }, use) => {
+      if (browserName !== 'firefox' || process.platform !== 'darwin') {
+        await use(launchOptions);
+
+        return;
+      }
+      const home = claimFirefoxHome();
+      const env: Record<string, string> = {};
+      for (const [key, value] of Object.entries(process.env)) {
+        if (value !== undefined) {
+          env[key] = value;
+        }
+      }
+      try {
+        await use({ ...launchOptions, env: { ...env, CFFIXED_USER_HOME: home.path } });
+      } finally {
+        home.release();
+      }
+    },
+    { scope: 'worker' },
+  ],
+});
+
+/**
+ * Every page starts as a registered player, so the game skips the name screen;
+ * a spec testing the name screen uses `fresh`. A spec testing the game's own
+ * control or effects default sets `controls` or `effects` to `game`.
+ */
+export const test = fresh.extend<{ token: string; controls: Controls; effects: Effects }>({
   controls: ['ship', { option: true }],
   effects: ['on', { option: true }],
   token: [

@@ -1,7 +1,7 @@
-import { test as fresh, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import { touchButtons } from '../src/sim/touch.ts';
-import { expect, registerPlayer, test } from './fixtures.ts';
+import { expect, fresh, registerPlayer, test } from './fixtures.ts';
 import { state, thrustSeen } from './hunt.ts';
 
 const online = async (page: Page): Promise<void> => {

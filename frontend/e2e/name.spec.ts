@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, fresh as test } from './fixtures.ts';
 
 test('the first visit asks for a name, then plays online', async ({ page }) => {
   await page.goto('/');

@@ -8,8 +8,7 @@
   "dreadnoughtAwake": true,
   "garrisons": {
     "D5": 500,
-    "E4": 2,
-    "C4": 2
+    "E4": 2
   },
   "derelicts": [
     { "x": -420, "y": -120 }
