@@ -10,7 +10,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
   // Each worker plays on a server of its own. CI's 4 cores render WebGL in
-  // software, where more pages at once would starve each other (#22).
+  // software, where more pages at once starve each other (#22).
   workers: ci ? 2 : 4,
   forbidOnly: ci,
   reporter: ci ? [['list'], ['html', { open: 'never' }]] : 'list',
@@ -21,7 +21,9 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   projects: [
-    { name: 'chromium', use: {
+    // Two Chromium workers in CI slow the game itself down: ships fall short
+    // of where the specs fly them, and banners end before they're checked.
+    { name: 'chromium', ...(ci ? { workers: 1 } : {}), use: {
       ...devices['Desktop Chrome'],
       viewport: { width: 640, height: 360 },
       // The game plays music; keep test runs silent.

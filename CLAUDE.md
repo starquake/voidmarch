@@ -380,12 +380,12 @@ for looking, never for assuring behaviour.
 - **E2E**, `frontend/e2e/*.spec.ts`, for what only a browser shows: the
   client boots with no console errors or failed requests, input moves the
   ship. The page publishes read-only state on `window.voidmarch` for the specs
-  to inspect. The suite runs 4 workers locally and 2 in CI
-  (`frontend/playwright.config.ts`); `--workers=1` runs one test at a time,
+  to inspect. The suite runs 4 workers locally; in CI, 2 for Firefox and 1
+  for Chromium, whose software WebGL slows the game down with two
+  (`frontend/playwright.config.ts`). `--workers=1` runs one test at a time,
   and `E2E_BASE_URL` points every worker at a server already running, for
-  debugging.
-  The specs' helpers have unit tests beside them (`frontend/e2e/*.test.ts`,
-  run by `make ts-test`).
+  debugging. The specs' helpers have unit tests beside them
+  (`frontend/e2e/*.test.ts`, run by `make ts-test`).
 - **Coverage**: CI fails the Go total below 80% (`threshold-total` in
   `ci.yml`, which overrides `.testcoverage.yml`). Aim well above it.
 - **A flaky test is a bug to file**, not to rerun past.
