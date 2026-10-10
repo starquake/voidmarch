@@ -118,7 +118,8 @@ long.
 ### 3. GitHub environments
 
 Create `production`, `staging` and `development` under Settings, Environments.
-On each:
+On `development`, also limit the deployment branches to `main`. A PR preview
+runs from `main` (`pull_request_target`), so it still deploys. On each:
 
 - Secrets:
   - `SSH_HOST`: `zoot.linuxeverywhere.link`, the same on all three.
@@ -167,10 +168,14 @@ gh label create deploy:dev --repo starquake/voidmarch --color 0e8a16 --descripti
 ```
 
 Adding it to a pull request deploys that PR to development, and every push to
-the PR while it carries the label deploys again. The workflow runs from the PR
-branch's own copy of `deploy.yml`, so a branch older than the deploy pipeline
-has to be rebased first. Development is one slot: the last deploy, a PR or
-`main`, is the one running, so the next merge to `main` replaces a PR.
+the PR while it carries the label deploys again. Other labels don't deploy.
+The job runs on `pull_request_target`, so `main`'s copy of `deploy.yml` and
+`.github/scripts/` runs, never the PR's: the PR's tree is only the context of
+the Docker build. Its build writes to its own cache scope, `preview`.
+Development is one slot: the last deploy, a PR or `main`, is the one running,
+so the next merge to `main` replaces a PR. Deploys are never cancelled
+halfway: `main`'s and the previews queue separately, and a lock in
+`deploy-remote.sh` makes them change the server one at a time.
 
 ## By hand
 

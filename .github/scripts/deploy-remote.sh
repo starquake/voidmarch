@@ -15,6 +15,9 @@ case "$IMAGE_NAME$TRUSTED_PROXY_IPS" in
 esac
 
 cd ~/"$DEPLOY_DIR"
+# Two deploys can reach this directory at once.
+exec 9>.deploy.lock
+flock -w 900 9
 umask 077
 cat > .env <<ENV
 IMAGE_NAME='${IMAGE_NAME}'
