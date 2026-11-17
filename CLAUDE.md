@@ -410,8 +410,8 @@ A required context that no job produces blocks every PR.
 
 ## Deployment
 
-`.github/workflows/deploy.yml` deploys to one VPS behind SWAG
-(`deployments/README.md` has the server's setup), each environment one step
+`.github/workflows/deploy.yml` deploys to one VPS, rootless Podman behind Caddy
+(`deployments/README.md` has the layout), each environment one step
 more stable (#316): development from `main`'s `:edge` on every merge, or a PR
 labeled `deploy:dev` until the next merge; staging from a `vX.Y.Z-rc.N`
 release candidate tag; production from a `vX.Y.Z` tag. A tag doesn't rebuild:

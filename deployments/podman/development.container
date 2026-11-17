@@ -1,0 +1,33 @@
+# Voidmarch development (voidmarch-development.bananajuice.net), as the user
+# voidmarch-development: main's latest build. A deploy:dev pull request takes
+# the slot over with development-preview.container (same unit name, port and
+# user; its own data). As production.container otherwise, which explains each
+# setting. The user's slice is capped on the server: it runs pull requests' code.
+[Unit]
+Description=Voidmarch (development)
+
+[Container]
+ContainerName=voidmarch
+Image=@IMAGE@
+PublishPort=127.0.0.1:8122:8080
+Network=pasta:--host-lo-to-ns-lo
+Environment=TRUSTED_PROXY_IPS=127.0.0.1/32
+UserNS=keep-id:uid=65532,gid=65532
+Volume=%h/data/voidmarch:/data:Z,U
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+HealthCmd=["/voidmarch","-healthcheck"]
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=10s
+HealthRetries=3
+HealthOnFailure=kill
+StopTimeout=20
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

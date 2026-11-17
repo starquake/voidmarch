@@ -1,0 +1,35 @@
+# A deploy:dev pull request's build in the development slot, as the user
+# voidmarch-development: installed as voidmarch.container in place of
+# development.container until the next main deploy takes the slot back. Its
+# database is ~/data/preview, never main's ~/data/voidmarch, so a pull
+# request's migrations never touch main's; deploy.sh empties it when the slot
+# switches to another pull request. As production.container otherwise, which
+# explains each setting.
+[Unit]
+Description=Voidmarch (development, pull request preview)
+
+[Container]
+ContainerName=voidmarch
+Image=@IMAGE@
+PublishPort=127.0.0.1:8122:8080
+Network=pasta:--host-lo-to-ns-lo
+Environment=TRUSTED_PROXY_IPS=127.0.0.1/32
+UserNS=keep-id:uid=65532,gid=65532
+Volume=%h/data/preview:/data:Z,U
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+HealthCmd=["/voidmarch","-healthcheck"]
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=10s
+HealthRetries=3
+HealthOnFailure=kill
+StopTimeout=20
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
