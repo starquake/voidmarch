@@ -1,0 +1,44 @@
+# Voidmarch production (voidmarch.bananajuice.net), a rootless Podman container
+# run by systemd (Quadlet) as the user voidmarch-production. deploy.sh installs
+# it as ~/.config/containers/systemd/voidmarch.container with Image= pinned to
+# the digest the deploy verified (deployments/README.md).
+[Unit]
+Description=Voidmarch (production)
+
+[Container]
+ContainerName=voidmarch
+Image=@IMAGE@
+# Caddy on the host proxies the site, the WebSocket at /ws included, to this
+# port. With --host-lo-to-ns-lo the server sees Caddy as 127.0.0.1, so it takes
+# the player's address from X-Forwarded-For only when 127.0.0.1 sends it, and
+# REGISTER_LIMIT counts players, not Caddy.
+PublishPort=127.0.0.1:8120:8080
+Network=pasta:--host-lo-to-ns-lo
+Environment=TRUSTED_PROXY_IPS=127.0.0.1/32
+# The image runs as nonroot (65532): map it to this user, so the database in
+# ~/data/voidmarch stays the user's. :Z gives the files a label only this
+# container can use; :U hands them to the container's user (this user) on
+# start, in case a copy left them owned by someone else.
+UserNS=keep-id:uid=65532,gid=65532
+Volume=%h/data/voidmarch:/data:Z,U
+ReadOnly=true
+NoNewPrivileges=true
+DropCapability=ALL
+# JSON, so it runs without a shell: the image has none.
+HealthCmd=["/voidmarch","-healthcheck"]
+HealthInterval=30s
+HealthTimeout=5s
+HealthStartPeriod=10s
+HealthRetries=3
+# An unhealthy container is stopped, and Restart=always starts it again.
+HealthOnFailure=kill
+# Above the server's shutdown: 8s for HTTP and the WebSockets, then up to 5s
+# to save the fleet.
+StopTimeout=20
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

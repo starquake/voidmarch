@@ -1,6 +1,7 @@
 name: Deploy
 
-# One VPS, three environments; deployments/README.md has the server's setup.
+# One VPS, three environments, each run by its own user with rootless Podman
+# and a Quadlet unit from deployments/podman; deployments/README.md has the layout.
 on:
   workflow_run:
     workflows: [CI]
@@ -41,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    # Queued, never cancelled: a cancelled run can stop between pull and up.
+    # Queued, never cancelled: a cancelled run can stop halfway through a deploy.
     concurrency:
       group: deploy-staging
       cancel-in-progress: false
@@ -64,29 +65,20 @@ jobs:
         env:
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
         run: .github/scripts/verify-image.sh "$IMAGE_REF" >> "$GITHUB_OUTPUT"
-      - name: Copy the compose file
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: deployments/app/docker-compose.staging.yml
-          target: ~/voidmarch-staging
-          strip_components: 2
+      # deploy-ssh.sh sends main's deploy.sh and unit to the environment's user
+      # and runs deploy.sh there (deployments/README.md).
       - name: Deploy
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          DEPLOY_DIR: voidmarch-staging
-          COMPOSE_FILE: docker-compose.staging.yml
-          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          IMAGE_DIGEST: ${{ steps.digest.outputs.digest }}
-          TRUSTED_PROXY_IPS: ${{ vars.TRUSTED_PROXY_IPS }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: DEPLOY_DIR,COMPOSE_FILE,IMAGE_NAME,IMAGE_DIGEST,TRUSTED_PROXY_IPS
-          script_path: .github/scripts/deploy-remote.sh
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_ENV: staging
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}
+        run: |
+          upload="$RUNNER_TEMP/upload"
+          mkdir -p "$upload"
+          cp deployments/podman/deploy.sh "deployments/podman/$DEPLOY_ENV.container" "$upload/"
+          .github/scripts/deploy-ssh.sh "$upload"
       - name: Health check
         run: .github/scripts/health-check.sh "${{ vars.SERVER_URL }}/healthz"
 
@@ -128,29 +120,20 @@ jobs:
         env:
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
         run: .github/scripts/verify-image.sh "$IMAGE_REF" >> "$GITHUB_OUTPUT"
-      - name: Copy the compose file
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: deployments/app/docker-compose.production.yml
-          target: ~/voidmarch-production
-          strip_components: 2
+      # deploy-ssh.sh sends main's deploy.sh and unit to the environment's user
+      # and runs deploy.sh there (deployments/README.md).
       - name: Deploy
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          DEPLOY_DIR: voidmarch-production
-          COMPOSE_FILE: docker-compose.production.yml
-          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          IMAGE_DIGEST: ${{ steps.digest.outputs.digest }}
-          TRUSTED_PROXY_IPS: ${{ vars.TRUSTED_PROXY_IPS }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: DEPLOY_DIR,COMPOSE_FILE,IMAGE_NAME,IMAGE_DIGEST,TRUSTED_PROXY_IPS
-          script_path: .github/scripts/deploy-remote.sh
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_ENV: production
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}
+        run: |
+          upload="$RUNNER_TEMP/upload"
+          mkdir -p "$upload"
+          cp deployments/podman/deploy.sh "deployments/podman/$DEPLOY_ENV.container" "$upload/"
+          .github/scripts/deploy-ssh.sh "$upload"
       - name: Health check
         run: .github/scripts/health-check.sh "${{ vars.SERVER_URL }}/healthz"
 
@@ -166,7 +149,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    # Apart from previews, never cancelled; deploy-remote.sh's lock serializes the two.
+    # Apart from previews, never cancelled; deploy.sh's lock on the server serializes the two.
     concurrency:
       group: deploy-development
       cancel-in-progress: false
@@ -189,29 +172,20 @@ jobs:
         env:
           IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
         run: .github/scripts/verify-image.sh "$IMAGE_REF" >> "$GITHUB_OUTPUT"
-      - name: Copy the compose file
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: deployments/app/docker-compose.development.yml
-          target: ~/voidmarch-development
-          strip_components: 2
+      # deploy-ssh.sh sends main's deploy.sh and unit to the environment's user
+      # and runs deploy.sh there (deployments/README.md).
       - name: Deploy
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          DEPLOY_DIR: voidmarch-development
-          COMPOSE_FILE: docker-compose.development.yml
-          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          IMAGE_DIGEST: ${{ steps.digest.outputs.digest }}
-          TRUSTED_PROXY_IPS: ${{ vars.TRUSTED_PROXY_IPS }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: DEPLOY_DIR,COMPOSE_FILE,IMAGE_NAME,IMAGE_DIGEST,TRUSTED_PROXY_IPS
-          script_path: .github/scripts/deploy-remote.sh
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_ENV: development
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.digest.outputs.digest }}
+        run: |
+          upload="$RUNNER_TEMP/upload"
+          mkdir -p "$upload"
+          cp deployments/podman/deploy.sh "deployments/podman/$DEPLOY_ENV.container" "$upload/"
+          .github/scripts/deploy-ssh.sh "$upload"
       - name: Health check
         run: .github/scripts/health-check.sh "${{ vars.SERVER_URL }}/healthz"
 
@@ -268,28 +242,20 @@ jobs:
             type=gha
             type=gha,scope=preview
           cache-to: type=gha,mode=max,scope=preview
-      - name: Copy the compose file
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: deployments/app/docker-compose.development.yml
-          target: ~/voidmarch-development
-          strip_components: 2
+      # deploy-ssh.sh sends main's deploy.sh and unit to the environment's user
+      # and runs deploy.sh there (deployments/README.md).
       - name: Deploy
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         env:
-          DEPLOY_DIR: voidmarch-development
-          COMPOSE_FILE: docker-compose.development.yml
-          IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
-          TRUSTED_PROXY_IPS: ${{ vars.TRUSTED_PROXY_IPS }}
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          envs: DEPLOY_DIR,COMPOSE_FILE,IMAGE_NAME,IMAGE_DIGEST,TRUSTED_PROXY_IPS
-          script_path: .github/scripts/deploy-remote.sh
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_ENV: development-preview
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          upload="$RUNNER_TEMP/upload"
+          mkdir -p "$upload"
+          cp deployments/podman/deploy.sh "deployments/podman/$DEPLOY_ENV.container" "$upload/"
+          .github/scripts/deploy-ssh.sh "$upload"
       - name: Health check
         run: .github/scripts/health-check.sh "${{ vars.SERVER_URL }}/healthz"
