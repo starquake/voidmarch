@@ -132,7 +132,6 @@ async function startGame(page: Page): Promise<{ x: number; y: number }> {
 test.use({ controls: 'game' });
 
 test('a window plays in real time without focus and once it gets focus back (#322)', async ({ page }) => {
-  test.fail(true, 'Phaser caps a frame at 1/60 s without focus, and for 120 frames after the game starts or gets focus back (#322)');
   await startGame(page);
   await slowDown(page, BUSY_FRAME_MS);
   const focused = await gameSpeed(page, MEASURE_MS);
@@ -150,7 +149,6 @@ test('a window plays in real time without focus and once it gets focus back (#32
 });
 
 test('a tab shown again plays in real time (#322)', async ({ page }) => {
-  test.fail(true, 'Phaser caps a frame at 1/60 s for 120 frames after the tab shows again (#322)');
   await startGame(page);
   await slowDown(page, BUSY_FRAME_MS);
   await setFocus(page, false);
