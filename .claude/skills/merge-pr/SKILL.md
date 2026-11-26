@@ -111,6 +111,10 @@ checked. The repo deletes merged branches automatically. Then:
   wrong. Reopen it (`gh issue reopen <n>`), move it to the state of whoever
   holds that task, and post a Next-steps comment naming it
   (starquake-recompiled#22).
+- **A sub-issue closed?** When it was its parent's last open sub-issue and
+  every box in the parent's plan is ticked, close the parent too
+  (`gh issue close <parent> --reason completed`); no PR does, since a PR closes
+  only its own sub-issue.
 - Otherwise the board's `Item closed → Done` workflow moves the card. Check
   that it did (`board.sh get <issue>`); if it didn't, move it and report that
   the workflow is off.
