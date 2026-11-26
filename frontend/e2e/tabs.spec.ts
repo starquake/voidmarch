@@ -10,7 +10,7 @@ const status = (page: Page): Promise<NetStatus | undefined> => page.evaluate(() 
 /** Two pages render WebGL in software at once in CI, so each gets a small viewport (#22). */
 const VIEWPORT = { width: 640, height: 360 };
 
-/** A second tab of the same player: a page in the same browser context, so the same token. */
+/** A new tab of the context's player, online: every page in one context shares its token. */
 async function tab(context: BrowserContext, query = ''): Promise<Page> {
   const page = await context.newPage();
   await page.goto(`/${query}`);

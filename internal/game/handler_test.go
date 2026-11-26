@@ -260,7 +260,7 @@ func TestHandleWS_SecondTabClosesTheFirst(t *testing.T) {
 	}
 }
 
-func TestHandleWS_ReconnectAfterADropIsNotReplaced(t *testing.T) {
+func TestHandleWS_ReconnectAfterADropPlaysOn(t *testing.T) {
 	t.Parallel()
 
 	s := newWSServer(t)
