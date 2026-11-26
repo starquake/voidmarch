@@ -195,14 +195,18 @@ answer given in chat is written back into the issue body before acting on it.
   `ticket` what gets filed for later while the PR stays as it is. A bare
   "Reply `fix`, `skip` or `ticket`" is unclear (@starquake, 2026-10-06, #267).
 - **Everything lands via a pull request** with an issue behind it, including
-  chores and docs. One issue, one deliverable; a ticket that needs several PRs
-  in different states is split into sub-issues. A PR says `Closes #NN` only
-  when it completes every task in the ticket's plan, maintainer steps included;
-  otherwise `Part of #NN`, and the ticket stays open. **A parent issue with a
-  sub-issue still open is never closed by a PR**, whatever its own plan says,
-  and a sub-issue's ticket or PR never mentions closing its parent: they say
+  chores and docs. One issue, one deliverable. **Every PR closes exactly one
+  issue**, since a closing keyword is the only link GitHub shows both ways
+  (#343). A ticket built in one PR is closed by it, but only when the PR
+  completes every task in the ticket's plan, maintainer steps included. A
+  ticket built in several PRs gets a sub-issue per PR when its build starts,
+  in the parent's lane with no route label, and each PR closes its own
+  (`Closes #<sub>`, then `Part of #NN`). **A parent issue with a sub-issue
+  still open is never closed by a PR**, whatever its own plan says, and a
+  sub-issue's ticket or PR never mentions closing its parent: they say
   `Part of #NN` (starquake-recompiled#76 closed its #1 with four sub-issues
-  still open, starquake-recompiled#84).
+  still open, starquake-recompiled#84). `merge-pr` closes the parent once its
+  last sub-issue closes and every box in its plan is ticked.
 - **Dependabot's pull requests are the one exception**: they have no issue
   behind them and no card (`.github/dependabot.yml`), and they merge
   themselves: `.github/workflows/dependabot-auto-merge.yml` squash-merges each
