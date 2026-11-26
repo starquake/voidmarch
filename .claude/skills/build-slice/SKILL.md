@@ -237,5 +237,5 @@ the maintainer's replies are part of the review.
   sub-issue, never for its parent.
 - Move the card to **`Your review`** (NOT `Your sign-off`, which is the
   pre-build gate), and the PR's sub-issue with it if it has one, and post a
-  Next-steps comment: *Next: review the PR and add `ready to merge`.* List any task still open after the merge in that comment,
-  with whose it is.
+  Next-steps comment: *Next: review the PR and add `ready to merge`.* List
+  any task still open after the merge in that comment, with whose it is.
