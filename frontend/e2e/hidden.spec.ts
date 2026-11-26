@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
+import { setHidden } from './visibility.ts';
 
 import type { DebugState } from '../src/debug.ts';
 
@@ -12,33 +13,6 @@ const state = (page: Page): Promise<DebugState> =>
 
     return structuredClone(window.voidmarch);
   });
-
-/**
- * Emulates switching tabs as a browser does it: the page reports hidden, says
- * so, and gets no animation frames (they wait until it shows again).
- */
-async function setHidden(page: Page, hidden: boolean): Promise<void> {
-  await page.evaluate((h) => {
-    const w = window as unknown as { realFrame?: typeof requestAnimationFrame; waiting?: FrameRequestCallback[] };
-    if (h) {
-      w.realFrame = window.requestAnimationFrame.bind(window);
-      w.waiting = [];
-      window.requestAnimationFrame = (callback) => {
-        w.waiting?.push(callback);
-
-        return 0;
-      };
-    } else if (w.realFrame !== undefined) {
-      window.requestAnimationFrame = w.realFrame;
-      for (const callback of w.waiting ?? []) {
-        w.realFrame(callback);
-      }
-    }
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
-    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (h ? 'hidden' : 'visible') });
-    document.dispatchEvent(new Event('visibilitychange'));
-  }, hidden);
-}
 
 test('a hidden tab stays in the world, with its squadron and companion', async ({ page }) => {
   test.setTimeout(60_000);

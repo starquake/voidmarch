@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures.ts';
 import { state } from './hunt.ts';
+import { setHidden } from './visibility.ts';
 
 /** How long each frame is kept busy, so the game draws well below 60 fps on any machine, as on a slow computer. */
 const BUSY_FRAME_MS = 30;
@@ -41,7 +42,7 @@ const recordStarts = (page: Page): Promise<void> =>
     };
   });
 
-/** The sounds started since the page's clock read from ms. */
+/** The sounds started at or after from, on the page's clock. */
 const startsSince = (page: Page, from: number): Promise<Started[]> =>
   page.evaluate((since) => (window as unknown as { started: Started[] }).started.filter((s) => s.at >= since), from);
 
@@ -85,34 +86,6 @@ const setFocus = (page: Page, focus: boolean): Promise<void> =>
   page.evaluate((f) => {
     window.dispatchEvent(new Event(f ? 'focus' : 'blur'));
   }, focus);
-
-/**
- * Emulates switching tabs as a browser does it: the page reports hidden, says
- * so, and gets no animation frames (they wait until it shows again), as in
- * hidden.spec.ts.
- */
-async function setHidden(page: Page, hidden: boolean): Promise<void> {
-  await page.evaluate((h) => {
-    const w = window as unknown as { realFrame?: typeof requestAnimationFrame; waiting?: FrameRequestCallback[] };
-    if (h) {
-      w.realFrame = window.requestAnimationFrame.bind(window);
-      w.waiting = [];
-      window.requestAnimationFrame = (callback) => {
-        w.waiting?.push(callback);
-
-        return 0;
-      };
-    } else if (w.realFrame !== undefined) {
-      window.requestAnimationFrame = w.realFrame;
-      for (const callback of w.waiting ?? []) {
-        w.realFrame(callback);
-      }
-    }
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
-    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (h ? 'hidden' : 'visible') });
-    document.dispatchEvent(new Event('visibilitychange'));
-  }, hidden);
-}
 
 /** Starts the game with its audio unlocked, and gives the point the mouse clicked. */
 async function startGame(page: Page): Promise<{ x: number; y: number }> {

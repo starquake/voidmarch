@@ -79,8 +79,7 @@ export function start({ door, intro, token, rules }: Handover): void {
       zoom: size.zoom,
     },
     scene: [boot],
-    // V caps it at 60 (#143); 0 follows the display. Phaser's smoothing caps a frame at 1/60 s
-    // without focus and for a while after it, slow motion below 60 fps (#322); the sim caps a long frame itself.
+    // V caps it at 60 (#143); 0 follows the display. Phaser's smoothing would cap frames at 1/60 s around a focus change (#322).
     fps: { limit: display.fpsCap ? FPS_CAP : 0, smoothStep: false },
   });
   fitToWindow(game);
