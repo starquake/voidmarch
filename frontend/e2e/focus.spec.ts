@@ -163,7 +163,6 @@ test('a tab shown again plays in real time (#322)', async ({ page }) => {
 });
 
 test('sounds are dropped while the window has no focus, not played in a burst when it gets focus back (#322)', async ({ page }) => {
-  test.fail(true, 'a sound started while the audio is suspended waits, and plays when it resumes (#322)');
   const at = await startGame(page);
   await recordStarts(page);
   await page.mouse.move(at.x, at.y);
