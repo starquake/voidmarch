@@ -10,6 +10,8 @@ const BUSY_FRAME_MS = 30;
 const MEASURE_MS = 1000;
 /** How near real time the game must run: a frame's game time over its real time. */
 const MIN_GAME_SPEED = 0.8;
+/** How long the audio may take to resume once focus is back. */
+const RESUME_TIMEOUT_MS = 10_000;
 
 /** A sound source started, and whether the audio was running then. */
 interface Started {
@@ -148,17 +150,19 @@ test('sounds are dropped while the window has no focus, not played in a burst wh
   const shotsPaused = (await state(page)).shotsFired - shotsBefore;
   await setFocus(page, true);
   const back = await now(page);
-  await page.waitForTimeout(MEASURE_MS);
-  const paused = (await startsSince(page, 0)).filter((s) => s.at < back && !s.running);
-  const after = (await startsSince(page, back)).filter((s) => s.at < back + MEASURE_MS);
+  // The audio takes a moment to resume; on CI's Firefox, sometimes more than a second.
+  await expect
+    .poll(async () => (await startsSince(page, back)).some((s) => s.running), { message: 'shot sounds play again once focus is back', timeout: RESUME_TIMEOUT_MS })
+    .toBe(true);
+  const resumed = (await startsSince(page, back)).find((s) => s.running)?.at ?? back;
+  const paused = (await startsSince(page, 0)).filter((s) => !s.running);
   await page.mouse.up();
 
   console.log(
     `${test.info().project.name} sounds started: ${String(firing.length)} in a second of firing, ` +
-      `${String(paused.length)} while paused (${String(shotsPaused)} shots), ${String(after.length)} in the second after focus`,
+      `${String(paused.length)} while paused (${String(shotsPaused)} shots), the first ${(resumed - back).toFixed(0)} ms after focus`,
   );
   expect(firing.length, 'holding fire plays shot sounds').toBeGreaterThan(0);
   expect(shotsPaused, 'the ship fires on without focus').toBeGreaterThan(0);
   expect(paused.length, 'sounds started while the audio was paused, which all play when it resumes').toBe(0);
-  expect(after.length, 'shot sounds play again once focus is back').toBeGreaterThan(0);
 });
