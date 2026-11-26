@@ -44,6 +44,8 @@ maintainer's.
   its plan ask its PR to close the parent. A parent's own plan, while any
   sub-issue is open, ends in `Part of #NN` too: starquake-recompiled#76 closed
   its #1 with four sub-issues still open (starquake-recompiled#84).
+- **A plan built in several PRs** names each PR; `build-slice` gives each one
+  a sub-issue for its PR to close, so every PR links to an issue.
 - **The issue exists but is free-form?** Restructure its body into the
   template's sections, keeping everything true that's already there.
 - **The BODY is the living spec; the COMMENTS are the history.** Opposite
