@@ -1,5 +1,6 @@
 import { FACTION_NAMES, type EnemyFaction, type EnemyKind } from '../sim/enemies.ts';
 import { DREADNOUGHT_SHIELD, FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
+import { BOSS_FALL_SHAKE_RANGE } from '../sim/tuning.ts';
 
 /** A boss's health as the server sends it (#89). */
 export interface BossHealth {
@@ -57,4 +58,9 @@ export function bossBar(bosses: readonly DrawnBoss[], x: number, y: number): Bos
     shield: Math.min(Math.max(nearest.shield / boss.shield, 0), 1),
     text: `${String(hp)} / ${String(max)}`,
   };
+}
+
+/** Whether a boss shot down at (x, y) shakes the camera of a ship at (shipX, shipY): on or near its screen (#355). */
+export function bossFallShakes(kind: EnemyKind, x: number, y: number, shipX: number, shipY: number): boolean {
+  return BOSSES[kind] !== undefined && Math.hypot(x - shipX, y - shipY) <= BOSS_FALL_SHAKE_RANGE;
 }

@@ -75,7 +75,6 @@ export const WEAPON_STATS = {
     lifetime: 0.9,
     muzzles: [{ forward: 9, right: -10.5 }, { forward: 9, right: 10.5 }],
     alternate: true,
-    shake: 0,
   },
   rockets: {
     interval: 0.4,
@@ -85,7 +84,6 @@ export const WEAPON_STATS = {
     lifetime: 1.5,
     muzzles: [{ forward: 7, right: -12 }, { forward: 7, right: 12 }],
     alternate: true,
-    shake: 0,
   },
   bigSpaceGun: {
     interval: 0.9,
@@ -95,7 +93,6 @@ export const WEAPON_STATS = {
     lifetime: 0.5,
     muzzles: [{ forward: 16, right: 0 }],
     alternate: false,
-    shake: 0.002,
   },
   zapper: {
     interval: 0.24,
@@ -105,7 +102,6 @@ export const WEAPON_STATS = {
     lifetime: 0.75,
     muzzles: [{ forward: 15, right: -11 }, { forward: 15, right: 11 }],
     alternate: false,
-    shake: 0,
   },
 } as const;
 

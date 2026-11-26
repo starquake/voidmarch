@@ -73,7 +73,7 @@ import { repairLines } from '../net/repair.ts';
 import { ALL_OPEN, missionCompleteBanner, sectorName, type Frontier } from '../sim/sectors.ts';
 import type { MapState } from '../sim/sectormap.ts';
 import { AttackReminder, eventEndBanner, eventLine, eventStartBanner } from '../net/events.ts';
-import type { BossHealth, DrawnBoss } from '../net/boss.ts';
+import { bossFallShakes, type BossHealth, type DrawnBoss } from '../net/boss.ts';
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
 
@@ -165,8 +165,8 @@ interface EnemyVolley {
 export interface NetFrame {
   enemyHits: { x: number; y: number }[];
   hitsOnMe: { x: number; y: number }[];
-  /** Our own shots that burst on a hit this frame. */
-  ownBursts: WeaponId[];
+  /** The bosses shot down on or near the screen this frame (#355). */
+  bossFalls: number;
 }
 
 /** A derelict waiting to be rescued, for the E2E tests (#52). */
@@ -778,7 +778,7 @@ export class NetPlay {
    * their shots, and test hits. Returns where hits landed.
    */
   update(events: FrameEvents): NetFrame {
-    const frame: NetFrame = { enemyHits: [], hitsOnMe: [], ownBursts: [] };
+    const frame: NetFrame = { enemyHits: [], hitsOnMe: [], bossFalls: 0 };
     const nowMs = now();
     const seconds = nowMs / 1000;
     this.connection.sendState(this.options.sim.ship, nowMs);
@@ -873,7 +873,7 @@ export class NetPlay {
       }
     }
 
-    this.drawEnemies(renderTick);
+    this.drawEnemies(renderTick, frame);
     // Rockets seek among the enemies as drawn: ours for real, the others' for the picture (#72).
     const stepSeconds = events.ticks * TICK_SECONDS;
     sim.steer('own', stepSeconds, this.enemyTargets());
@@ -945,7 +945,7 @@ export class NetPlay {
     this.notice = { text, untilMs: now() + NOTICE_MS };
   }
 
-  private drawEnemies(renderTick: number): void {
+  private drawEnemies(renderTick: number, frame: NetFrame): void {
     for (const enemy of this.enemies.values()) {
       const pose = enemy.buffer.draw(renderTick);
       enemy.drawn = enemy.destroyedAt === undefined ? pose : undefined;
@@ -964,7 +964,7 @@ export class NetPlay {
       this.fireVolley(volley, ageSeconds);
     }
     for (const { item: destroyed } of this.destructions.due(renderTick)) {
-      this.destroyEnemy(destroyed);
+      this.destroyEnemy(destroyed, frame);
     }
     // Missing from a newer snapshot and passed on the timeline: it despawned.
     // One shot down waits for its destruction instead: the hub's companions
@@ -1074,7 +1074,6 @@ export class NetPlay {
       frame.enemyHits.push({ x: p.x, y: p.y });
       if (p.kind === 'bigSpaceGun' && !goesOn) {
         sim.burst(p.kind, 'own', p.x, p.y, p.shotId, this.playerId ?? '', p.slot);
-        frame.ownBursts.push(p.kind);
       }
     }
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
@@ -1189,7 +1188,7 @@ export class NetPlay {
     });
   }
 
-  private destroyEnemy(destroyed: EnemyDestroyed): void {
+  private destroyEnemy(destroyed: EnemyDestroyed, frame: NetFrame): void {
     const enemy = this.enemies.get(destroyed.enemyId);
     if (enemy === undefined) {
       return;
@@ -1199,6 +1198,9 @@ export class NetPlay {
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
+    }
+    if (bossFallShakes(fromEnemyKind(destroyed.kind), enemy.view.x, enemy.view.y, ship.x, ship.y)) {
+      frame.bossFalls++;
     }
     enemy.view.destroy(true);
     if (destroyed.byPlayerId === this.playerId) {

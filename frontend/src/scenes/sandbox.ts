@@ -29,7 +29,7 @@ import type { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
 import { AnnouncementView } from '../announcement.ts';
 import { connectionToast, downPanelText, hullPips, panelRows, shieldPips } from '../sim/hud.ts';
-import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout, type WeaponId } from '../sim/loadout.ts';
+import { ENGINES, SHIELD_STATS, SHIELDS, WEAPONS, damageState, type Loadout } from '../sim/loadout.ts';
 import { PART_HINTS, defaultUnlocks, nextPart, ownedParts, partLabel, tierCss, withTiers, type PartId } from '../sim/parts.ts';
 import { PartListTimer } from '../sim/partkeys.ts';
 import { VictoryScreen } from '../victory.ts';
@@ -38,6 +38,8 @@ import { MapView, polygon } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   BRAIN_SPACING,
+  BOSS_FALL_SHAKE_INTENSITY,
+  BOSS_FALL_SHAKE_MS,
   HOME_SPAWN_Y,
   RESPAWN_DELAY,
   ROTATION_SNAP_STEPS,
@@ -1600,22 +1602,10 @@ export class SandboxScene extends Phaser.Scene {
     }
     for (const p of events.expired) {
       this.puff.explode(4, p.x, p.y);
-      if (p.faction === 'own' && isWeapon(p.kind)) {
-        this.shakeFor(p.kind);
-      }
     }
   }
 
-  /** Our own shot bursting shakes the camera, if its weapon does. */
-  private shakeFor(weapon: WeaponId): void {
-    const shake = WEAPON_STATS[weapon].shake;
-    if (this.effects && shake > 0) {
-      this.cameras.main.shake(120, shake);
-      this.debug.shakes++;
-    }
-  }
-
-  /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
+  /** Sparks where shots land, a hull flash when an enemy bullet hits us, and a shake when a boss falls near us (#355). */
   private showHits(net: NetFrame): void {
     for (const hit of net.enemyHits) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
@@ -1623,8 +1613,9 @@ export class SandboxScene extends Phaser.Scene {
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
     }
-    for (const weapon of net.ownBursts) {
-      this.shakeFor(weapon);
+    if (this.effects && net.bossFalls > 0) {
+      this.cameras.main.shake(BOSS_FALL_SHAKE_MS, BOSS_FALL_SHAKE_INTENSITY);
+      this.debug.shakes++;
     }
   }
 

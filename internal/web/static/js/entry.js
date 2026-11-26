@@ -1,13 +1,13 @@
 // src/bootsizes.gen.ts
 var CODE_BYTES = {
-  "/static/js/main.js": 310498,
+  "/static/js/main.js": 310589,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
   "/static/js/vendor/protobuf-codegenv2.js": 7637
 };
 var FILE_BYTES = {
-  "rules": 157726,
+  "rules": 157696,
   "font-Exo 2": 40932,
   "font-Orbitron": 11768,
   "hull-fullHealth": 485,

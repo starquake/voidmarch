@@ -199,11 +199,6 @@ test('a big space gun ball fired at nothing bursts into a star when it runs out'
   await expect
     .poll(async () => (await state(page)).ownShards, { message: 'the ball bursts', timeout: 10_000, intervals: [50] })
     .toBe(8);
-  // The camera shakes once per burst, not on firing.
-  await expect
-    .poll(async () => {
-      const s = await state(page);
-      return s.shakes === s.shotsFired;
-    })
-    .toBe(true);
+  // Our own shots never shake the camera (#355).
+  expect((await state(page)).shakes).toBe(0);
 });
