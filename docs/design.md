@@ -30,7 +30,7 @@
 
 Everything is pixel art at native resolution. Render with nearest-neighbor scaling (e.g. 2× or 3×). Aseprite sources are included if re-exporting is needed.
 
-Sound comes from CC0 packs too: Kenney's Sci-Fi Sounds for effects, and Juhani Junkala's 5 Chiptunes (Action) for music. The music follows place, each place looping one track: Title Screen in the home sector, Level 1, 2 and 3 in rings 1, 2 and 3 (outside the map counts as ring 3), and Ending while the victory screen is open. It crossfades over 2 s as the place changes (#187).
+Sound comes from CC0 packs too: Kenney's Sci-Fi Sounds for effects, and Juhani Junkala's 5 Chiptunes (Action) for music. The music follows place, each place looping one track: Title Screen in the home sector, Level 1, 2 and 3 in rings 1, 2 and 3 (outside the map counts as ring 3), and Ending while the victory screen is open. It crossfades over 2 s as the place changes (#187). While the window has no focus the game goes quiet but plays on at full speed; the sound effects of that time are dropped, not played in a burst when focus comes back (#322).
 
 **Things intentionally NOT in the game (no art for them):** currency/scrap, space stations, outposts, base building, player ship explosion.
 

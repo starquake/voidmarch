@@ -166,7 +166,9 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
 - **A hidden tab keeps playing** (#57): browsers stop a hidden tab's
   animation frames, so a worker (`frontend/src/background.ts`) steps the sim
   and sends the ship's state instead, drawing nothing. The hub drops a player
-  only after 10 s of silence (`silenceTicks`).
+  only after 10 s of silence (`silenceTicks`). Without focus the game keeps
+  real time (Phaser's `smoothStep` is off) and goes quiet: one-shot sound
+  effects are dropped while the audio is suspended, not queued (#322).
 - **E2E gives each Playwright worker a server of its own** (#321):
   `frontend/e2e/global-setup.ts` builds it once, and a worker fixture in
   `frontend/e2e/fixtures.ts` starts it on a free port with its own database
