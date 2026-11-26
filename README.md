@@ -116,7 +116,9 @@ with a Copy link button (and Share on a phone or tablet) to send to friends.
 **F1**, or **Help** on touch, brings it back. Other players show up with
 their name under their ship, in their own colour. Up to 16 players fit; the
 17th sees "the frontier is full, try again soon". Without a connection the
-game keeps running on its own and reconnects when it can.
+game keeps running on its own and reconnects when it can. The game plays in
+one tab at a time: opened in a second tab of the same browser, it moves
+there, and the first tab waits with a **Play here** button to take it back.
 
 ## Companions
 
