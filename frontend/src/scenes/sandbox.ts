@@ -25,6 +25,7 @@ import { drawLayer } from './starlayer.ts';
 import { type InputSnapshot } from '../sim/input.ts';
 import { changeOption, optionRows, type OptionId, type Options } from '../sim/options.ts';
 import { SettingsScreen } from '../settingsscreen.ts';
+import { ElsewhereScreen } from '../elsewherescreen.ts';
 import type { IntroScreen } from '../introscreen.ts';
 import { HudView, type GaugeSlot, type PartView, type SlotKind } from '../hud.ts';
 import { AnnouncementView } from '../announcement.ts';
@@ -196,6 +197,8 @@ export class SandboxScene extends Phaser.Scene {
     this.setOption(row.id);
   });
   private readonly squadronScreen = new SquadronScreen();
+  /** Shown while another tab of the same player plays (#353). */
+  private readonly elsewhereScreen = new ElsewhereScreen();
   /** The intro screen (#193), from the first visit's front door (#227) and from F1. */
   private readonly introScreen: IntroScreen;
   /** Tells the front door the game is up. */
@@ -567,6 +570,9 @@ export class SandboxScene extends Phaser.Scene {
         clearToken();
         window.location.reload();
       },
+      onReplaced: () => {
+        this.showElsewhere();
+      },
       squadronScreen: this.squadronScreen,
       pickups: this.pickups,
     });
@@ -740,7 +746,9 @@ export class SandboxScene extends Phaser.Scene {
         return;
       }
       const partSlot = PART_KEY_SLOTS.get(event.code);
-      if (event.code === 'F1') {
+      if (this.elsewhereScreen.open) {
+        this.elsewhereKey(event);
+      } else if (event.code === 'F1') {
         // Some browsers open their own help on F1.
         event.preventDefault();
         this.toggleIntro();
@@ -969,7 +977,35 @@ export class SandboxScene extends Phaser.Scene {
    * a joining ship flies while its player picks.
    */
   private get screenOpen(): boolean {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened;
+    return (
+      this.maps.open ||
+      this.victoryScreen.open ||
+      this.settingsScreen.open ||
+      this.introScreen.open ||
+      this.squadronScreen.reopened ||
+      this.elsewhereScreen.open
+    );
+  }
+
+  /** Another tab took the game over: every other screen, map and list closes under the one that says so. */
+  private showElsewhere(): void {
+    this.introScreen.hide();
+    this.settingsScreen.hide();
+    this.victoryScreen.hide();
+    this.maps.close();
+    this.hudView.close();
+    this.standingsHeld = false;
+    this.elsewhereScreen.show(this.touchOn, () => {
+      this.net?.playHere();
+    });
+  }
+
+  /** A key while another tab plays: Enter plays here, and the rest wait. */
+  private elsewhereKey(event: KeyboardEvent): void {
+    if (event.code === 'Enter' || event.code === 'NumpadEnter') {
+      event.preventDefault();
+      this.elsewhereScreen.choose();
+    }
   }
 
   /** Opens the intro screen in place of any other screen, map or list, or closes it. */
@@ -1334,6 +1370,10 @@ export class SandboxScene extends Phaser.Scene {
 
   /** A touch lands: it closes an open screen (the join screen only when reopened) or map, picks a sector, or starts a stick, a button or the map. */
   private touchStart(id: number, p: Point): void {
+    if (this.elsewhereScreen.open) {
+      // Only Play here takes the game back, so a stray tap doesn't push the other tab out.
+      return;
+    }
     if (this.introScreen.open) {
       this.introScreen.hide();
 

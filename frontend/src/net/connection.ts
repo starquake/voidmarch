@@ -30,6 +30,8 @@ import { toShipState, toWeapon } from './mapping.ts';
 
 /** The server closes with this when it doesn't know the token (it restarted). */
 export const CLOSE_UNKNOWN_TOKEN = 4001;
+/** The server closes with this when the player joined again from another tab (#353). */
+export const CLOSE_REPLACED = 4002;
 /** The server closes with this after Full. */
 export const CLOSE_TRY_AGAIN_LATER = 1013;
 
@@ -56,6 +58,8 @@ export interface ConnectionEvents {
   full(): void;
   /** The server forgot the token; the player must register again. */
   unknownToken(): void;
+  /** Another tab of the same player took over; the connection waits for start. */
+  replaced(): void;
   /** The link dropped; the connection is retrying. */
   disconnected(): void;
   enemyFired(fired: EnemyFired): void;
@@ -122,7 +126,8 @@ const browserTimers: Timers = {
 /**
  * One player's link to the server: Hello, then states at the server's tick
  * rate and a message per shot. It reconnects on its own, so the game keeps
- * running offline and picks the others up again when the server is back.
+ * running offline and picks the others up again when the server is back,
+ * except after another tab of the same player took over.
  */
 export class Connection {
   private readonly options: ConnectionOptions;
@@ -391,6 +396,12 @@ export class Connection {
     this.options.events.disconnected();
     if (code === CLOSE_UNKNOWN_TOKEN) {
       this.options.events.unknownToken();
+
+      return;
+    }
+    if (code === CLOSE_REPLACED) {
+      // Reconnecting would push the other tab out in turn, and so on (#353).
+      this.options.events.replaced();
 
       return;
     }

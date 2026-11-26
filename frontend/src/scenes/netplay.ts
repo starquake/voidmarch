@@ -77,8 +77,8 @@ import { bossFallShakes, type BossHealth, type DrawnBoss } from '../net/boss.ts'
 import type { Pickup, PickupsView } from './pickups.ts';
 import { ShipView, type ShipParent } from './shipview.ts';
 
-/** Where the game is with the server. */
-export type NetStatus = 'connecting' | 'online' | 'offline' | 'full';
+/** Where the game is with the server; 'elsewhere' while another tab of the same player plays (#353). */
+export type NetStatus = 'connecting' | 'online' | 'offline' | 'full' | 'elsewhere';
 
 /** Another player's shot, waiting for the delayed timeline. */
 interface RemoteShotItem {
@@ -119,6 +119,8 @@ export interface NetPlayOptions {
   labelResolution: () => number;
   /** The server forgot the token (it restarted); the player registers again. */
   onUnknownToken: () => void;
+  /** Another tab of the same player took over; this one waits for playHere. */
+  onReplaced: () => void;
   /** Where the player picks a squadron when there's one to pick. */
   squadronScreen: SquadronScreen;
   /** Where pickups are drawn (#77). */
@@ -345,6 +347,11 @@ export class NetPlay {
         unknownToken: () => {
           options.onUnknownToken();
         },
+        replaced: () => {
+          this.status = 'elsewhere';
+          options.squadronScreen.hide();
+          options.onReplaced();
+        },
         disconnected: () => {
           if (this.status !== 'full') {
             this.status = 'offline';
@@ -461,6 +468,15 @@ export class NetPlay {
   }
 
   start(): void {
+    this.connection.start();
+  }
+
+  /** Takes the game back from the tab that took over, which then waits in turn. */
+  playHere(): void {
+    if (this.status !== 'elsewhere') {
+      return;
+    }
+    this.status = 'connecting';
     this.connection.start();
   }
 

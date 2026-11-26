@@ -106,6 +106,16 @@ body {
   color: #ff9a8a;
 }
 
+/* The screen of a tab another tab of the same player took over (#353), in the name screen's style. */
+.elsewhere-screen p {
+  margin: 0;
+}
+
+.elsewhere-screen .elsewhere-note {
+  font-size: 13px;
+  color: #b4ff8c;
+}
+
 /* The squadron join screen (#42), in the name screen's style, scrolling where it doesn't fit (#45). */
 .squadron-screen {
   width: min(34rem, calc(100% - 2rem));

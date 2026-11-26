@@ -1639,6 +1639,43 @@ var SettingsScreen = class {
   }
 };
 
+// src/elsewherescreen.ts
+var ElsewhereScreen = class {
+  form;
+  play;
+  playHere = () => void 0;
+  constructor(doc = document) {
+    this.form = doc.querySelector("#elsewhere-form");
+    this.play = doc.querySelector("#elsewhere-play");
+    this.form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      this.choose();
+    });
+  }
+  get open() {
+    return this.form !== null && !this.form.hidden;
+  }
+  /** Opens the screen; playHere runs once, when the player takes the game back. */
+  show(touch, playHere) {
+    if (this.form === null) {
+      return;
+    }
+    this.playHere = playHere;
+    this.form.hidden = false;
+    if (!touch) {
+      this.play?.focus({ preventScroll: true });
+    }
+  }
+  /** Takes the game back to this tab, once per showing. */
+  choose() {
+    if (!this.open || this.form === null) {
+      return;
+    }
+    this.form.hidden = true;
+    this.playHere();
+  }
+};
+
 // src/hud.ts
 var ASSETS2 = `${STATIC}assets`;
 var TOAST_FADE_MS = 600;
@@ -1979,6 +2016,8 @@ function connectionToast(status) {
       return "The frontier is full, try again soon";
     case "offline":
       return "Offline, reconnecting";
+    case "elsewhere":
+      return "Playing in another tab";
     default:
       return "Connecting";
   }
@@ -4428,6 +4467,7 @@ function fromShipState(state) {
 
 // src/net/connection.ts
 var CLOSE_UNKNOWN_TOKEN = 4001;
+var CLOSE_REPLACED = 4002;
 var CLOSE_TRY_AGAIN_LATER = 1013;
 var BACKOFF_MS = [1e3, 2e3, 4e3, 8e3];
 var MAX_BACKOFF_MS = 1e4;
@@ -4684,6 +4724,10 @@ var Connection = class {
     this.options.events.disconnected();
     if (code === CLOSE_UNKNOWN_TOKEN) {
       this.options.events.unknownToken();
+      return;
+    }
+    if (code === CLOSE_REPLACED) {
+      this.options.events.replaced();
       return;
     }
     const delay = code === CLOSE_TRY_AGAIN_LATER ? FULL_RETRY_MS : BACKOFF_MS[this.attempts] ?? MAX_BACKOFF_MS;
@@ -5567,6 +5611,11 @@ var NetPlay = class {
         unknownToken: () => {
           options.onUnknownToken();
         },
+        replaced: () => {
+          this.status = "elsewhere";
+          options.squadronScreen.hide();
+          options.onReplaced();
+        },
         disconnected: () => {
           if (this.status !== "full") {
             this.status = "offline";
@@ -5681,6 +5730,14 @@ var NetPlay = class {
     });
   }
   start() {
+    this.connection.start();
+  }
+  /** Takes the game back from the tab that took over, which then waits in turn. */
+  playHere() {
+    if (this.status !== "elsewhere") {
+      return;
+    }
+    this.status = "connecting";
     this.connection.start();
   }
   stop() {
@@ -6960,6 +7017,8 @@ var SandboxScene = class extends Phaser14.Scene {
     this.setOption(row.id);
   });
   squadronScreen = new SquadronScreen();
+  /** Shown while another tab of the same player plays (#353). */
+  elsewhereScreen = new ElsewhereScreen();
   /** The intro screen (#193), from the first visit's front door (#227) and from F1. */
   introScreen;
   /** Tells the front door the game is up. */
@@ -7310,6 +7369,9 @@ var SandboxScene = class extends Phaser14.Scene {
         clearToken();
         window.location.reload();
       },
+      onReplaced: () => {
+        this.showElsewhere();
+      },
       squadronScreen: this.squadronScreen,
       pickups: this.pickups
     });
@@ -7452,7 +7514,9 @@ var SandboxScene = class extends Phaser14.Scene {
         return;
       }
       const partSlot = PART_KEY_SLOTS.get(event.code);
-      if (event.code === "F1") {
+      if (this.elsewhereScreen.open) {
+        this.elsewhereKey(event);
+      } else if (event.code === "F1") {
         event.preventDefault();
         this.toggleIntro();
       } else if (this.introScreen.open) {
@@ -7664,7 +7728,26 @@ var SandboxScene = class extends Phaser14.Scene {
    * a joining ship flies while its player picks.
    */
   get screenOpen() {
-    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened;
+    return this.maps.open || this.victoryScreen.open || this.settingsScreen.open || this.introScreen.open || this.squadronScreen.reopened || this.elsewhereScreen.open;
+  }
+  /** Another tab took the game over: every other screen, map and list closes under the one that says so. */
+  showElsewhere() {
+    this.introScreen.hide();
+    this.settingsScreen.hide();
+    this.victoryScreen.hide();
+    this.maps.close();
+    this.hudView.close();
+    this.standingsHeld = false;
+    this.elsewhereScreen.show(this.touchOn, () => {
+      this.net?.playHere();
+    });
+  }
+  /** A key while another tab plays: Enter plays here, and the rest wait. */
+  elsewhereKey(event) {
+    if (event.code === "Enter" || event.code === "NumpadEnter") {
+      event.preventDefault();
+      this.elsewhereScreen.choose();
+    }
   }
   /** Opens the intro screen in place of any other screen, map or list, or closes it. */
   toggleIntro() {
@@ -7990,6 +8073,9 @@ var SandboxScene = class extends Phaser14.Scene {
   }
   /** A touch lands: it closes an open screen (the join screen only when reopened) or map, picks a sector, or starts a stick, a button or the map. */
   touchStart(id, p) {
+    if (this.elsewhereScreen.open) {
+      return;
+    }
     if (this.introScreen.open) {
       this.introScreen.hide();
       return;

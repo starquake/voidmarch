@@ -12,6 +12,7 @@ import {
 } from '../gen/voidmarch/v1/messages_pb.js';
 import type { Ship } from '../simwasm.ts';
 import {
+  CLOSE_REPLACED,
   CLOSE_TRY_AGAIN_LATER,
   CLOSE_UNKNOWN_TOKEN,
   Connection,
@@ -112,6 +113,7 @@ function setup(format: 'binary' | 'json' = 'binary'): { conn: Connection; socket
     left: (id) => log.events.push(`left ${id}`),
     full: () => log.events.push('full'),
     unknownToken: () => log.events.push('unknown token'),
+    replaced: () => log.events.push('replaced'),
     disconnected: () => log.events.push('disconnected'),
     enemyFired: (f) => log.events.push(`enemy fired ${f.enemyId}`),
     enemyDestroyed: (d) => log.events.push(`enemy destroyed ${d.enemyId}`),
@@ -369,6 +371,27 @@ test('a normal close by the server reconnects a second later', () => {
   assert.equal(conn.connected, false);
   assert.equal(timers.fire(), 1000);
   assert.equal(sockets.length, 2);
+});
+
+test('a connection replaced by another tab says so and does not reconnect', () => {
+  const { conn, socket, sockets, timers, log } = welcomed();
+  socket.drop(CLOSE_REPLACED);
+  assert.deepEqual(log.events, ['welcome me', 'disconnected', 'replaced']);
+  assert.equal(conn.connected, false);
+  assert.equal(timers.pending.length, 0);
+  assert.equal(sockets.length, 1);
+});
+
+test('start after a replacement connects again, with the first wait on the next drop', () => {
+  const { conn, socket, sockets, timers } = welcomed();
+  socket.drop(CLOSE_REPLACED);
+  conn.start();
+  assert.equal(sockets.length, 2);
+  sockets[1]?.open();
+  sockets[1]?.deliver(welcome());
+  assert.equal(conn.connected, true);
+  sockets[1]?.drop(1006);
+  assert.equal(timers.fire(), 1000);
 });
 
 test('a full frontier is reported and retried later', () => {

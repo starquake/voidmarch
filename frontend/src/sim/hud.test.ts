@@ -75,6 +75,7 @@ test('the connection toasts only while it is not online', () => {
   assert.equal(connectionToast('offline'), 'Offline, reconnecting');
   assert.equal(connectionToast('full'), 'The frontier is full, try again soon');
   assert.equal(connectionToast('connecting'), 'Connecting');
+  assert.equal(connectionToast('elsewhere'), 'Playing in another tab');
 });
 
 test('the down panel counts down, then lists H, J beside a squadmate, and C beside them in a squadron (#47, #45)', () => {
