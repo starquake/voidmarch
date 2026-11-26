@@ -362,6 +362,15 @@ test('a dropped connection retries with growing waits, reset by a welcome', () =
   assert.equal(timers.fire(), 1000);
 });
 
+test('a normal close by the server reconnects a second later', () => {
+  const { conn, socket, sockets, timers, log } = welcomed();
+  socket.drop(1000);
+  assert.deepEqual(log.events, ['welcome me', 'disconnected']);
+  assert.equal(conn.connected, false);
+  assert.equal(timers.fire(), 1000);
+  assert.equal(sockets.length, 2);
+});
+
 test('a full frontier is reported and retried later', () => {
   const { conn, sockets, timers, log } = setup();
   conn.start();

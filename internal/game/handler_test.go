@@ -239,6 +239,27 @@ func TestHandleWS_UnknownToken(t *testing.T) {
 	}
 }
 
+func TestHandleWS_SecondTabClosesTheFirst(t *testing.T) {
+	t.Parallel()
+
+	s := newWSServer(t)
+	token := s.register(t, "Mo")
+	first := dialWS(t, s.url, wire.Binary)
+	first.send(hello(token))
+	if first.must().GetWelcome() == nil {
+		t.Fatal("no welcome for the first tab")
+	}
+	second := dialWS(t, s.url, wire.Binary)
+	second.send(hello(token))
+	if second.must().GetWelcome() == nil {
+		t.Fatal("no welcome for the second tab")
+	}
+
+	if got, want := closeStatus(t, first), websocket.StatusNormalClosure; got != want {
+		t.Errorf("the first tab's close status = %d, want %d", got, want)
+	}
+}
+
 func TestHandleWS_HelloFirst(t *testing.T) {
 	t.Parallel()
 

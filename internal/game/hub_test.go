@@ -254,6 +254,30 @@ func TestHub_RejoinReplacesSession(t *testing.T) {
 	}
 }
 
+func TestHub_SecondTabTakesThePlayerOver(t *testing.T) {
+	t.Parallel()
+
+	hub, tick := testHub(t)
+	first, _ := join(t, hub, "a")
+	second, _ := join(t, hub, "a")
+	b, _ := join(t, hub, "b")
+
+	if !closed(first) {
+		t.Fatal("the first tab's session is still open")
+	}
+	first.Send(state(10, 20))
+	second.Send(state(30, 40))
+	tick(1)
+
+	ships := next(t, b).GetSnapshot().GetPlayers()
+	if got, want := len(ships), 1; got != want {
+		t.Fatalf("b sees %d players, want %d: one ship for both tabs", got, want)
+	}
+	if got, want := ships[0].GetState().GetX(), float32(30); got != want {
+		t.Errorf("a's x = %v, want the second tab's %v", got, want)
+	}
+}
+
 func TestHub_LeaveTellsOthers(t *testing.T) {
 	t.Parallel()
 
