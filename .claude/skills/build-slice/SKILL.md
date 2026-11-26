@@ -89,11 +89,30 @@ commits, which the ruleset blocks, and linear history refuses a merge commit.
 
 ## The PR
 
-Open it early as a draft, linked to the ticket. **`Closes #NN` only if this PR
-completes every task in the ticket's plan**; otherwise `Part of #NN`. A task
-left for the maintainer (a settings change, a manual step) counts as open: a
-`Closes` would shut the ticket on merge with that task still undone
-(starquake-recompiled#22).
+Open it early as a draft. **Every PR closes exactly one issue.** A closing
+keyword is the only link GitHub shows both ways (the issue's card and
+*Development* section show the PR; the PR shows the issue), and `Part of #NN`
+alone links nothing (#343).
+
+- **A ticket built in one PR**: the body starts `Closes #NN`, but only if this
+  PR completes every task in the ticket's plan. A task left for the maintainer
+  (a settings change, a manual step) counts as open: a `Closes` would shut the
+  ticket on merge with that task still undone (starquake-recompiled#22).
+- **A ticket whose plan has several PRs**: when its build starts, give each PR
+  a sub-issue, titled `<topic>: <the PR's name>`, its body naming the parent
+  and the PR's tasks (the parent's plan stays the progress record):
+
+  ```bash
+  id=$(gh api repos/starquake/voidmarch/issues/<sub> --jq .id)
+  gh api -X POST repos/starquake/voidmarch/issues/<parent>/sub_issues -F sub_issue_id="$id"
+  ```
+
+  Put each sub-issue in the parent's lane (`board.sh state <sub> "<state>"`),
+  never `Backlog`, where a pass would take it for a new ticket, and give it no
+  route label. The PR's body starts `Closes #<sub>`, then `Part of #<parent>`.
+- **A partial PR already merged** can still be linked: adding `Closes #<sub>`
+  to its body makes the link but closes nothing, so close the sub-issue by
+  hand.
 
 **Review is the bottleneck**: the maintainer reviews alone, so the body is a
 guide to reviewing, not a defence.
@@ -217,6 +236,6 @@ the maintainer's replies are part of the review.
   (starquake-recompiled#84). A PR for a sub-issue says `Closes` only for that
   sub-issue, never for its parent.
 - Move the card to **`Your review`** (NOT `Your sign-off`, which is the
-  pre-build gate), and post a Next-steps comment: *Next: review the PR and add
-  `ready to merge`.* List any task still open after the merge in that comment,
+  pre-build gate), and the PR's sub-issue with it if it has one, and post a
+  Next-steps comment: *Next: review the PR and add `ready to merge`.* List any task still open after the merge in that comment,
   with whose it is.
