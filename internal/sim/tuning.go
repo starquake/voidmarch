@@ -431,8 +431,6 @@ type WeaponStats struct {
 	Muzzles []Offset
 	// Alternate fires one muzzle per shot in turn instead of all at once.
 	Alternate bool
-	// Shake is the camera shake when one of our own shots bursts, 0 for none.
-	Shake float64
 	// Seek steers its shots toward enemies (#72); zero for straight shots.
 	Seek Seek
 	// Pierce is how many enemies a shot carries on through after its first.
@@ -484,7 +482,6 @@ func WeaponStatsOf(id WeaponID) WeaponStats {
 			Charge:   0.45,
 			Damage:   12,
 			Muzzles:  []Offset{{Forward: 16}},
-			Shake:    0.002,
 			Burst:    Burst{Shards: 8, Damage: 2},
 		}
 	case WeaponZapper:

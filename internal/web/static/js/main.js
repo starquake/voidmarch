@@ -118,8 +118,7 @@ var WEAPON_STATS = {
     speed: 520,
     lifetime: 0.9,
     muzzles: [{ forward: 9, right: -10.5 }, { forward: 9, right: 10.5 }],
-    alternate: true,
-    shake: 0
+    alternate: true
   },
   rockets: {
     interval: 0.4,
@@ -128,8 +127,7 @@ var WEAPON_STATS = {
     speed: 140,
     lifetime: 1.5,
     muzzles: [{ forward: 7, right: -12 }, { forward: 7, right: 12 }],
-    alternate: true,
-    shake: 0
+    alternate: true
   },
   bigSpaceGun: {
     interval: 0.9,
@@ -138,8 +136,7 @@ var WEAPON_STATS = {
     speed: 300,
     lifetime: 0.5,
     muzzles: [{ forward: 16, right: 0 }],
-    alternate: false,
-    shake: 2e-3
+    alternate: false
   },
   zapper: {
     interval: 0.24,
@@ -148,8 +145,7 @@ var WEAPON_STATS = {
     speed: 430,
     lifetime: 0.75,
     muzzles: [{ forward: 15, right: -11 }, { forward: 15, right: 11 }],
-    alternate: false,
-    shake: 0
+    alternate: false
   }
 };
 var ENEMY_RADIUS = {
@@ -5954,7 +5950,7 @@ var NetPlay = class {
    * their shots, and test hits. Returns where hits landed.
    */
   update(events) {
-    const frame = { enemyHits: [], hitsOnMe: [], ownBursts: [] };
+    const frame = { enemyHits: [], hitsOnMe: [] };
     const nowMs = now();
     const seconds = nowMs / 1e3;
     this.connection.sendState(this.options.sim.ship, nowMs);
@@ -6219,7 +6215,6 @@ var NetPlay = class {
       frame.enemyHits.push({ x: p.x, y: p.y });
       if (p.kind === "bigSpaceGun" && !goesOn) {
         sim.burst(p.kind, "own", p.x, p.y, p.shotId, this.playerId ?? "", p.slot);
-        frame.ownBursts.push(p.kind);
       }
     }
     for (const { projectile: p, ship: target, from } of sim.shipScan(stepSeconds, ships)) {
@@ -8225,17 +8220,6 @@ var SandboxScene = class extends Phaser14.Scene {
     }
     for (const p of events.expired) {
       this.puff.explode(4, p.x, p.y);
-      if (p.faction === "own" && isWeapon(p.kind)) {
-        this.shakeFor(p.kind);
-      }
-    }
-  }
-  /** Our own shot bursting shakes the camera, if its weapon does. */
-  shakeFor(weapon) {
-    const shake = WEAPON_STATS[weapon].shake;
-    if (this.effects && shake > 0) {
-      this.cameras.main.shake(120, shake);
-      this.debug.shakes++;
     }
   }
   /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
@@ -8245,9 +8229,6 @@ var SandboxScene = class extends Phaser14.Scene {
     }
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
-    }
-    for (const weapon of net.ownBursts) {
-      this.shakeFor(weapon);
     }
   }
   /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */

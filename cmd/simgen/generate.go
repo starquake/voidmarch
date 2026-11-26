@@ -128,7 +128,7 @@ func writeTunables(w writer) {
 		)
 		w("    speed: %s,\n    lifetime: %s,\n", num(s.Speed), num(s.Lifetime))
 		w("    muzzles: [%s],\n", strings.Join(muzzles, ", "))
-		w("    alternate: %t,\n    shake: %s,\n", s.Alternate, num(s.Shake))
+		w("    alternate: %t,\n", s.Alternate)
 		w("  },\n")
 	}
 	w(endObject)
