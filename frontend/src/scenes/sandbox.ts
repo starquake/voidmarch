@@ -38,6 +38,8 @@ import { MapView, polygon } from './mapview.ts';
 import { isWeapon, sandbox, type FrameEvents } from '../simwasm.ts';
 import {
   BRAIN_SPACING,
+  BOSS_FALL_SHAKE_INTENSITY,
+  BOSS_FALL_SHAKE_MS,
   HOME_SPAWN_Y,
   RESPAWN_DELAY,
   ROTATION_SNAP_STEPS,
@@ -1603,13 +1605,17 @@ export class SandboxScene extends Phaser.Scene {
     }
   }
 
-  /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
+  /** Sparks where shots land, a hull flash when an enemy bullet hits us, and a shake when a boss falls near us (#355). */
   private showHits(net: NetFrame): void {
     for (const hit of net.enemyHits) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
     }
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    if (this.effects && net.bossFalls > 0) {
+      this.cameras.main.shake(BOSS_FALL_SHAKE_MS, BOSS_FALL_SHAKE_INTENSITY);
+      this.debug.shakes++;
     }
   }
 

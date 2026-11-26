@@ -42,6 +42,11 @@ export const ASTEROID_CLEAR_RADIUS = 260;
 export const ENEMY_VOLLEY_RANGE = 800;
 /** Enemies explode audibly only this close to the ship, about the view. */
 export const ENEMY_SOUND_RANGE = 400;
+/** A Frigate or Dreadnought shot down this close to the ship shakes the camera (#355): the view's corner is about 370 px away. */
+export const BOSS_FALL_SHAKE_RANGE = 500;
+/** The boss fall's camera shake, in ms and as Phaser's intensity, a fraction of the view. */
+export const BOSS_FALL_SHAKE_MS = 400;
+export const BOSS_FALL_SHAKE_INTENSITY = 0.006;
 /** How far the engine loop's rate or volume moves before it is set again: each rate change restarts the loop's source (#263). */
 export const ENGINE_MIX_STEP = 0.01;
 

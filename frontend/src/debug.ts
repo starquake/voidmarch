@@ -36,7 +36,7 @@ export interface DebugState {
   projectiles: number;
   /** This player's own burst shards in flight (#72). */
   ownShards: number;
-  /** Camera shakes so far: our own shots shake nothing (#355). */
+  /** Camera shakes so far, one per frame a boss falls near the ship (#355). */
   shakes: number;
   /** The parts this player owns, at their tiers, and the pickups on the ground (#77). */
   unlocks: Record<string, number>;

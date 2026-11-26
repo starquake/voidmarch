@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { bossBar, type DrawnBoss } from './boss.ts';
+import { bossBar, bossFallShakes, type DrawnBoss } from './boss.ts';
 import { DREADNOUGHT_BASE_HP, DREADNOUGHT_SHIELD, FRIGATE_REACH, FRIGATE_SHIELD } from '../sim/rules.gen.ts';
+import { BOSS_FALL_SHAKE_RANGE } from '../sim/tuning.ts';
 
 const frigate = (over: Partial<DrawnBoss> = {}): DrawnBoss => ({
   kind: 'frigate',
@@ -67,4 +68,21 @@ test('the fills stay between 0 and 1, and an enemy without health has no bar', (
   assert.equal(bar.text, '0 / 130');
   assert.equal(bossBar([frigate({ maxHp: 0 })], 0, 0), undefined);
   assert.equal(bossBar([frigate({ kind: 'fighter' })], 0, 0), undefined);
+});
+
+test('a Frigate or a Dreadnought falling on or near the screen shakes it', () => {
+  assert.equal(bossFallShakes('frigate', 100, 50, 0, 0), true);
+  assert.equal(bossFallShakes('dreadnought', 0, BOSS_FALL_SHAKE_RANGE, 0, 0), true);
+  assert.equal(bossFallShakes('frigate', 1000 + BOSS_FALL_SHAKE_RANGE, 1000, 1000, 1000), true);
+});
+
+test('a boss falling far off screen shakes nothing', () => {
+  assert.equal(bossFallShakes('frigate', BOSS_FALL_SHAKE_RANGE + 1, 0, 0, 0), false);
+  assert.equal(bossFallShakes('dreadnought', 3000, -2000, 0, 0), false);
+});
+
+test('a smaller enemy falling shakes nothing, however close', () => {
+  for (const kind of ['scout', 'fighter', 'bomber', 'torpedo', 'support'] as const) {
+    assert.equal(bossFallShakes(kind, 0, 0, 0, 0), false, kind);
+  }
 });

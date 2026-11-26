@@ -284,6 +284,9 @@ var ASTEROID_COUNT = 60;
 var ASTEROID_CLEAR_RADIUS = 260;
 var ENEMY_VOLLEY_RANGE = 800;
 var ENEMY_SOUND_RANGE = 400;
+var BOSS_FALL_SHAKE_RANGE = 500;
+var BOSS_FALL_SHAKE_MS = 400;
+var BOSS_FALL_SHAKE_INTENSITY = 6e-3;
 var ENGINE_MIX_STEP = 0.01;
 var ENEMY_FIRE_GLOW_COLOR = 4172031;
 var BOMBER_WARN_TINT = 2053248;
@@ -3735,6 +3738,9 @@ function bossBar(bosses, x, y) {
     text: `${String(hp)} / ${String(max)}`
   };
 }
+function bossFallShakes(kind, x, y, shipX, shipY) {
+  return BOSSES[kind] !== void 0 && Math.hypot(x - shipX, y - shipY) <= BOSS_FALL_SHAKE_RANGE;
+}
 
 // src/net/clock.ts
 var ServerClock = class _ServerClock {
@@ -5950,7 +5956,7 @@ var NetPlay = class {
    * their shots, and test hits. Returns where hits landed.
    */
   update(events) {
-    const frame = { enemyHits: [], hitsOnMe: [] };
+    const frame = { enemyHits: [], hitsOnMe: [], bossFalls: 0 };
     const nowMs = now();
     const seconds = nowMs / 1e3;
     this.connection.sendState(this.options.sim.ship, nowMs);
@@ -6039,7 +6045,7 @@ var NetPlay = class {
         sim.burst(e.kind, "remote", e.x, e.y, e.shotId, e.owner);
       }
     }
-    this.drawEnemies(renderTick);
+    this.drawEnemies(renderTick, frame);
     const stepSeconds = events.ticks * TICK_SECONDS;
     sim.steer("own", stepSeconds, this.enemyTargets());
     sim.steer("remote", stepSeconds, this.enemyTargets());
@@ -6101,7 +6107,7 @@ var NetPlay = class {
   say(text) {
     this.notice = { text, untilMs: now() + NOTICE_MS };
   }
-  drawEnemies(renderTick) {
+  drawEnemies(renderTick, frame) {
     for (const enemy of this.enemies.values()) {
       const pose = enemy.buffer.draw(renderTick);
       enemy.drawn = enemy.destroyedAt === void 0 ? pose : void 0;
@@ -6120,7 +6126,7 @@ var NetPlay = class {
       this.fireVolley(volley, ageSeconds);
     }
     for (const { item: destroyed } of this.destructions.due(renderTick)) {
-      this.destroyEnemy(destroyed);
+      this.destroyEnemy(destroyed, frame);
     }
     for (const [id, enemy] of this.enemies) {
       if (enemy.destroyedAt === void 0 && enemy.lastSeen < this.latestSnapshot && enemy.lastSeen < renderTick) {
@@ -6317,7 +6323,7 @@ var NetPlay = class {
       y: fired.y
     });
   }
-  destroyEnemy(destroyed) {
+  destroyEnemy(destroyed, frame) {
     const enemy = this.enemies.get(destroyed.enemyId);
     if (enemy === void 0) {
       return;
@@ -6327,6 +6333,9 @@ var NetPlay = class {
     const ship = this.options.sim.ship;
     if (Math.hypot(enemy.view.x - ship.x, enemy.view.y - ship.y) <= ENEMY_SOUND_RANGE) {
       this.options.audio.enemyDestroyed();
+    }
+    if (bossFallShakes(fromEnemyKind(destroyed.kind), enemy.view.x, enemy.view.y, ship.x, ship.y)) {
+      frame.bossFalls++;
     }
     enemy.view.destroy(true);
     if (destroyed.byPlayerId === this.playerId) {
@@ -8222,13 +8231,17 @@ var SandboxScene = class extends Phaser14.Scene {
       this.puff.explode(4, p.x, p.y);
     }
   }
-  /** Sparks where shots land; a hull flash when an enemy bullet hits us. */
+  /** Sparks where shots land, a hull flash when an enemy bullet hits us, and a shake when a boss falls near us (#355). */
   showHits(net) {
     for (const hit of net.enemyHits) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
     }
     for (const hit of net.hitsOnMe) {
       this.puff.explode(HIT_SPARKS, hit.x, hit.y);
+    }
+    if (this.effects && net.bossFalls > 0) {
+      this.cameras.main.shake(BOSS_FALL_SHAKE_MS, BOSS_FALL_SHAKE_INTENSITY);
+      this.debug.shakes++;
     }
   }
   /** Scrolls each layer at its parallax factor and tints it for the ship's ring; TileSprites cannot play animations, so frames step here. */
