@@ -265,6 +265,12 @@ func TestHub_SecondTabTakesThePlayerOver(t *testing.T) {
 	if !closed(first) {
 		t.Fatal("the first tab's session is still open")
 	}
+	if !first.Replaced() {
+		t.Error("first.Replaced() = false, want true: the second tab took over")
+	}
+	if second.Replaced() {
+		t.Error("second.Replaced() = true, want false")
+	}
 	first.Send(state(10, 20))
 	second.Send(state(30, 40))
 	tick(1)
@@ -291,6 +297,9 @@ func TestHub_LeaveTellsOthers(t *testing.T) {
 	}
 	if !closed(a) {
 		t.Error("the leaving session is still open")
+	}
+	if a.Replaced() {
+		t.Error("a.Replaced() = true, want false: a leave is not a second tab")
 	}
 
 	_, again := join(t, hub, "c")
@@ -342,6 +351,9 @@ func TestHub_SilentPlayerLeaves(t *testing.T) {
 
 	if !closed(a) {
 		t.Error("the silent session is still open")
+	}
+	if a.Replaced() {
+		t.Error("a.Replaced() = true, want false: a silent tab reconnects on its own")
 	}
 	var left bool
 	for !left {

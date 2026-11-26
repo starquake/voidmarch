@@ -21,6 +21,9 @@ const (
 	// StatusUnknownToken closes a connection whose Hello token the server
 	// doesn't know (a server restart forgets names); the client registers again.
 	StatusUnknownToken websocket.StatusCode = 4001
+	// StatusReplaced closes a connection whose player joined again from
+	// another tab; the client waits for its player rather than reconnecting.
+	StatusReplaced websocket.StatusCode = 4002
 
 	helloTimeout = 5 * time.Second
 	writeTimeout = 5 * time.Second
@@ -145,7 +148,8 @@ func (c *connection) readAll(ctx context.Context, session *Session) {
 	}
 }
 
-// writeAll sends the session's messages until the hub closes it.
+// writeAll sends the session's messages until the hub closes it, then
+// closes the connection, saying why when another tab took over.
 func (c *connection) writeAll(ctx context.Context, session *Session) {
 	for msg := range session.Out {
 		if err := c.write(ctx, msg); err != nil {
@@ -153,6 +157,11 @@ func (c *connection) writeAll(ctx context.Context, session *Session) {
 
 			return
 		}
+	}
+	if session.Replaced() {
+		_ = c.conn.Close(StatusReplaced, "playing in another tab")
+
+		return
 	}
 	_ = c.conn.Close(websocket.StatusNormalClosure, "")
 }
