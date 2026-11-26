@@ -32,9 +32,9 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Dispatches CI on main once auto-merge lands the PR, which publishes :edge
-  # and deploys development; workflow_dispatch is exempt from the GITHUB_TOKEN rule.
-  ci-on-main:
+  # Once auto-merge lands the PR, dispatches CI on main, which publishes :edge,
+  # and then Deploy for development: a dispatch is exempt from the GITHUB_TOKEN rule.
+  main-after-merge:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'workflow_run' &&
@@ -42,29 +42,23 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.pull_requests[0].number
+    # 10 minutes for the merge and an hour for CI, in dispatch-after-merge.sh.
+    timeout-minutes: 80
     permissions:
       actions: write
+      contents: read
       pull-requests: read
     steps:
-      # A merge by a person pushes as that person, which runs CI by itself.
-      - name: Wait for the merge and run CI on main
+      # A workflow_run checks out main, never the PR's branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run CI on main, then deploy development
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+          GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.workflow_run.pull_requests[0].number }}
-        run: |
-          for _ in $(seq 40); do
-            pr="$(gh pr view "$PR" -R "$REPO" --json state,mergedBy -q '.state + " " + ((.mergedBy.is_bot // false) | tostring)')"
-            case "$pr" in
-              "MERGED true")
-                gh workflow run CI --ref main -R "$REPO"
-                exit 0
-                ;;
-              MERGED* | CLOSED*) exit 0 ;;
-            esac
-            sleep 15
-          done
-          echo "#${PR} did not merge within 10 minutes"
+        run: .github/scripts/dispatch-after-merge.sh "$PR"
 
 # Auto-merge does not bring a branch up to date, and the ruleset requires it:
 # a PR that main has moved past is rebased locally and force-pushed, which

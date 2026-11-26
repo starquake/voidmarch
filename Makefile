@@ -106,6 +106,7 @@ test-coverage: ## All Go tests with a coverage profile in build/coverage
 .PHONY: test-scripts
 test-scripts: ## Test the deploy workflow's shell scripts
 	bash .github/scripts/image-tag_test.sh
+	bash .github/scripts/dispatch-after-merge_test.sh
 	bash deployments/podman/deploy_test.sh
 
 .PHONY: test-coverage-html

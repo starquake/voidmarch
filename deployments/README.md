@@ -149,10 +149,12 @@ Other labels don't deploy.
 
 ### Redeploy
 
-Actions, Deploy, Run workflow, then pick `staging` or `production`. Staging
-deploys the release candidate tag picked under "Use workflow from" (a branch
-fails); production deploys the newest release, `:latest`. Development is
-deployed by a merge to `main` or the label only.
+Actions, Deploy, Run workflow, then pick an environment. Staging deploys the
+release candidate tag picked under "Use workflow from" (a branch fails);
+production deploys the newest release, `:latest`; development deploys `main`'s
+`:edge` (any other branch fails). A Dependabot merge deploys development this
+way: `dependabot-auto-merge.yml` runs `.github/scripts/dispatch-after-merge.sh`,
+which dispatches CI on `main` and, once it passes, Deploy for development.
 
 ### A shell as the environment's user
 
