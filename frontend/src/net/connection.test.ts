@@ -439,7 +439,7 @@ test('hits before the welcome are not sent', () => {
   assert.deepEqual(sockets[0]?.sent, []);
 });
 
-test('summon, dismiss, and a hit carry what the server needs, and never a companion state', () => {
+test('summon, dismiss, and a hit carry what the server needs', () => {
   const { conn, socket } = welcomed();
   conn.sendState(createShip(1, 2), 1000);
   conn.sendSummon();
@@ -449,7 +449,6 @@ test('summon, dismiss, and a hit carry what the server needs, and never a compan
   assert.ok(kinds.some((k) => k.case === 'summon'));
   assert.ok(kinds.some((k) => k.case === 'dismiss' && k.value.companion === 2));
   assert.ok(kinds.some((k) => k.case === 'hit' && k.value.enemyId === 7 && k.value.shotId === 5));
-  assert.ok(!kinds.some((k) => k.case === 'companion'), 'the hub flies companions');
 });
 
 test('nothing about companions is sent before the welcome', () => {

@@ -17,14 +17,6 @@ import (
 
 var summon = &pb.ClientMessage{Kind: &pb.ClientMessage_Summon{Summon: &pb.Summon{}}}
 
-func companionState(number uint32, x, y float32) *pb.ClientMessage {
-	//nolint:staticcheck // an old client's report, which the hub must ignore.
-	return &pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
-		Companion: number,
-		State:     &pb.ShipState{X: x, Y: y},
-	}}}
-}
-
 func chooseSquadron(name string) *pb.ClientMessage {
 	return &pb.ClientMessage{
 		Kind: &pb.ClientMessage_ChooseSquadron{ChooseSquadron: &pb.ChooseSquadron{Name: name}},
@@ -232,10 +224,10 @@ func TestCompanions_TheHubFliesThem(t *testing.T) {
 	hub, tick := testHub(t)
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
-	n := grant(t, a)
+	grant(t, a)
+	// An old client's companion report decodes to a message with no kind.
+	a.Send(&pb.ClientMessage{})
 
-	// A client's own report for a companion changes nothing: the hub flies it.
-	a.Send(companionState(n, 999, 999))
 	var snap *pb.Snapshot
 	messages := make([]*pb.ServerMessage, 0, 4*TickRate)
 	for range 4 * TickRate {
