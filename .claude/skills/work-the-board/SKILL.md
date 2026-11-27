@@ -141,7 +141,8 @@ direct maintainer request, and they are named as exceptions.
    fetch its comments and look for the maintainer's answer block or go signal
    *after your last comment*. Scope that read by your last comment, never by a
    wall-clock window. An answer is a comment by @starquake; yours are by
-   @starquake-bot.
+   @starquake-bot. A @starquake comment that starts with `> 🤖` is yours too:
+   Claude posted it through @starquake's account before the bot (#373).
 
    **Read a ticket before answering anything about it**, including your own
    earlier comments. After a context break especially: a summary carries
