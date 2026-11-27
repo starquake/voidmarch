@@ -36,7 +36,7 @@ func main() {
 	flag.StringVar(&o.Out, "o", "THIRD-PARTY.md", "where to write the file")
 	flag.Parse()
 	if err := thirdparty.Run(o); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

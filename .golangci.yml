@@ -136,6 +136,9 @@ linters:
             - "**/export_test.go"
         - name: dot-imports
           exclude: ["**/*_test.go"]
+        - name: unhandled-error
+          arguments:
+            - "strings.Builder.WriteString" # never returns an error
     nolintlint:
       require-explanation: true
       require-specific: true
