@@ -126,6 +126,8 @@ export function connectionToast(status: string | undefined): string | undefined 
       return 'The frontier is full, try again soon';
     case 'offline':
       return 'Offline, reconnecting';
+    case 'elsewhere':
+      return 'Playing in another tab';
     default:
       return 'Connecting';
   }

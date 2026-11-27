@@ -68,6 +68,14 @@ type Session struct {
 
 	queue chan *pb.ServerMessage
 	hub   *Hub
+	// replaced is set by the hub before it closes queue.
+	replaced bool
+}
+
+// Replaced reports whether the session ended because the player joined
+// again, from another tab. It is only meaningful once Out is closed.
+func (s *Session) Replaced() bool {
+	return s.replaced
 }
 
 // Send passes a message from the player to the hub. It never blocks once the
@@ -393,7 +401,8 @@ func newRand(o hubOptions) *rand.Rand {
 }
 
 // Join adds a player's ship to the world. A player who is already in (a
-// second tab, a reconnect) replaces their old session.
+// second tab, a reconnect) replaces their old session, which then reports
+// [Session.Replaced].
 func (h *Hub) Join(ctx context.Context, player players.Player) (*Session, *pb.Welcome, error) {
 	reply := make(chan joinResult, 1)
 	select {
@@ -527,6 +536,7 @@ func (h *Hub) handleJoin(player players.Player) joinResult {
 				c.GoingHome = false
 			}
 		} else {
+			old.session.replaced = true
 			close(old.session.queue)
 		}
 		delete(h.members, player.ID)
