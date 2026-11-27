@@ -400,7 +400,7 @@ var SHOT_SOUNDS = {
   autoCannon: ["sfx-auto-cannon-0", "sfx-auto-cannon-1", "sfx-auto-cannon-2"],
   rockets: ["sfx-rocket-launch"],
   bigSpaceGun: ["sfx-big-space-gun-0", "sfx-big-space-gun-1"],
-  zapper: ["sfx-zapper-0", "sfx-zapper-1", "sfx-zapper-2"]
+  zapper: ["sfx-zapper-0", "sfx-zapper-1"]
 };
 var EXPIRE_SOUNDS = {
   rockets: "sfx-rocket-blast",
@@ -431,7 +431,7 @@ var MUSIC = {
 function effectFiles() {
   const files = [
     ...[0, 1, 2].map((i) => both(`sfx-auto-cannon-${i}`, `sfx/auto-cannon-${i}`)),
-    ...[0, 1, 2].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
+    ...[0, 1].map((i) => both(`sfx-zapper-${i}`, `sfx/zapper-${i}`)),
     ...[0, 1].map((i) => both(`sfx-big-space-gun-${i}`, `sfx/big-space-gun-${i}`)),
     both("sfx-rocket-launch", "sfx/rocket-launch"),
     both("sfx-rocket-blast", "sfx/rocket-blast"),

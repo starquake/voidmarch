@@ -10,7 +10,8 @@ required; it is given here anyway.
     `enemy-shot` is `laserSmall_004`;
   - `big-space-gun-0` and `-1` are `laserLarge_000` and `_001`, and
     `teleport` is `laserLarge_002`;
-  - `zapper-0` to `-2` are `laserRetro_000` to `_002`;
+  - `zapper-0` and `-1` are the first 0.15 s of `laserLarge_003` and
+    `_004`, faded out over their last 30 ms, at 70% volume (#356);
   - `shield` is `forceField_000`, `field-zap-0` to `-2` are
     `forceField_001`, `_003` and `_004`, and `charge` is `forceField_002`;
   - `rocket-blast` is `explosionCrunch_000`, `enemy-explosion` is

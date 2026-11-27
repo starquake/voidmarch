@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 
@@ -13,6 +13,13 @@ test('every sound file exists in both formats', () => {
     for (const url of sound.urls) {
       assert.ok(existsSync(path.join(STATIC_DIR, url.replace(/^\/static\//, ''))), `${sound.key}: ${url}`);
     }
+  }
+});
+
+test('every sound effect file on disk is loaded', () => {
+  const loaded = new Set(effectFiles().flatMap((s) => s.urls.map((url) => url.replace(/^\/static\//, ''))));
+  for (const file of readdirSync(path.join(STATIC_DIR, 'audio/sfx'))) {
+    assert.ok(loaded.has(`audio/sfx/${file}`), file);
   }
 });
 
