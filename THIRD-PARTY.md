@@ -270,7 +270,7 @@ support library is itself covered by the above license.
 Used by:
 
 - `Go` 1.27.1 (runtime)
-- `golang.org/x/sys/unix` v0.48.0 (Go module)
+- `golang.org/x/sys/unix` v0.49.0 (Go module)
 
 ```text
 Copyright 2009 The Go Authors.
@@ -457,7 +457,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Used by:
 
-- `modernc.org/libc` v1.77.1 (Go module)
+- `modernc.org/libc` v1.80.1 (Go module)
 
 ```text
 Copyright (c) 2017 The Libc Authors. All rights reserved.
@@ -565,7 +565,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Used by:
 
-- `modernc.org/sqlite` v1.60.1 (Go module)
+- `modernc.org/sqlite` v1.62.0 (Go module)
 
 ```text
 Copyright (c) 2017 The Sqlite Authors. All rights reserved.
@@ -622,7 +622,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 Used by:
 
-- `github.com/dustin/go-humanize` v1.0.1 (Go module)
+- `github.com/dustin/go-humanize` v1.1.0 (Go module)
 
 ```text
 Copyright (c) 2005-2008  Dustin Sallings <dustin@spy.net>
