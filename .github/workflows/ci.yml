@@ -90,7 +90,7 @@ jobs:
     # frontend/package.json. Chromium runs as uid 1001, the runner's, which
     # owns the workspace; Firefox as root, to install its sound card.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.65.1-noble
       options: ${{ matrix.browser == 'firefox' && '--user root --ipc=host' || '--user 1001 --ipc=host' }}
     strategy:
       fail-fast: false
