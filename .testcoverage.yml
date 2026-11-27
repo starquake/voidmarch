@@ -1,5 +1,5 @@
 # The total-coverage threshold is set in .github/workflows/ci.yml: the action's
-# threshold-total input defaults to -1 and overrides any value here. What the
-# profile leaves out is the Makefile's COVERPKG.
+# threshold-total input defaults to -1 and overrides any value here.
+# Excluded packages: see COVERPKG in the Makefile.
 
 profile: build/coverage/coverage.out
