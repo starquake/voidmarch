@@ -41,12 +41,14 @@ Re-read it from the API at merge time, never from a notification:
 gh pr view <n> --json headRefOid,reviewDecision,reviews,mergeable,mergeStateStatus --jq '
   .headRefOid as $head
   | ([.reviews[] | select(.author.login == "starquake" and .state != "COMMENTED")] | last) as $r
-  | {approved: ($r.state == "APPROVED"), current: ($r.commit.oid == $head),
+  | {head: $head, approved: ($r.state == "APPROVED"), current: ($r.commit.oid == $head),
      decision: .reviewDecision, mergeable, state: .mergeStateStatus}'
 ```
 
 Merge only when `approved` and `current` are both `true`: @starquake's latest
-review is an approval, and it is for the commit the PR has now. Replying to a
+review is an approval, and it is for the commit the PR has now. **Write down
+`head`**: it is the commit the approval covers, and Step 5 merges exactly that
+commit. Replying to a
 review thread makes a `COMMENTED` review, which neither gives nor takes away
 an approval, so the filter skips those. `decision` reads `APPROVED` too once
 the ruleset requires the review.
@@ -112,12 +114,14 @@ maintainer approves the new head before it merges.
 ## Step 5: merge
 
 ```bash
-gh pr merge <n> --squash --match-head-commit "$(gh pr view <n> --json headRefOid -q .headRefOid)"
+gh pr merge <n> --squash --match-head-commit <head from Step 1>
 ```
 
-You merge as @starquake-bot, so the squash commit on `main` is the bot's,
-signed by GitHub. `--match-head-commit` refuses the merge if anything was
-pushed since you checked. The repo deletes merged branches automatically. Then:
+Pass the `head` Step 1 checked, never a fresh read of the PR's head: a fresh
+read would merge a commit pushed after the check, which nobody approved.
+`--match-head-commit` refuses the merge if the head moved since Step 1. You
+merge as @starquake-bot, so the squash commit on `main` is the bot's, signed
+by GitHub. The repo deletes merged branches automatically. Then:
 
 - Update the local checkout: `git checkout main && git pull --ff-only`. Do
   this only if no agent is working in the shared checkout; the merge itself is
