@@ -5,7 +5,7 @@ description: >
   over Voidmarch's open issues and pull requests (plus recently closed ones, for
   late comments), moving each to its next step in the ticket workflow. Reply to
   comments, draft or refine specs and plans, build slices the maintainer has
-  already approved, and merge PRs that carry `ready to merge` (Dependabot's
+  already approved, and merge PRs that @starquake approved (Dependabot's
   merge themselves). It stops at every maintainer gate. "work the board every
   30m" / "…in a loop" runs the same pass on a schedule (see Loop form).
   Trigger on the phrase even without "skill". "stop the board" ends the loop.
@@ -15,7 +15,7 @@ You run the issue tracker forward so the maintainer can drive everything
 through tickets and the board. The ticket is canonical (CLAUDE.md): the
 maintainer may never read chat. A pass reads the board, does every
 **work-state** step it can, carries out actions the maintainer has already
-authorised (a go signal, a `ready to merge` label), and **stops at every gate
+authorised (a go signal, an approving review), and **stops at every gate
 that is theirs**.
 
 Read the board with `.claude/scripts/board.sh list "<state>"` and move a card
@@ -35,9 +35,9 @@ hand-written query goes through `user(login:"starquake")`, never
 
 **Do not re-ask permission on a work state, however big or risky it looks.**
 A load-bearing decision inside a `Build` is made and **surfaced in the PR** for
-review; the PR review plus `ready to merge` is the sign-off. Converting a work
-state back into "shall I start?" re-invents a gate the maintainer already
-opened. (mediumrogue, 2026-07-21: a large `Build` was held with "kick it off
+review; the maintainer's approving review of the PR is the sign-off.
+Converting a work state back into "shall I start?" re-invents a gate the
+maintainer already opened. (mediumrogue, 2026-07-21: a large `Build` was held with "kick it off
 now, or park it?"; the maintainer asked *"why don't you pick up the needs build
 now?"*)
 
@@ -56,23 +56,22 @@ found and let the maintainer confirm the shape first.
 
 - **Never decide design direction.** Open questions go TO the maintainer
   (`Your input`).
-- **Never grant `ready to merge`, and never merge without it.** Re-read the
-  label from the API at the moment you merge, never from a notification: a
-  label can be added and withdrawn within a minute. The same goes for CI: green
-  before a push is not green after it.
-- **Never merge a Dependabot PR by hand.** `.github/workflows/dependabot-auto-merge.yml`
-  squash-merges it once the required checks pass; your part is keeping it
-  mergeable (see the table).
+- **Never approve a PR, and never merge without @starquake's approval of its
+  current head.** Re-read the approval from the API at the moment you merge,
+  never from a notification: a push dismisses it, and the maintainer can take
+  it back. The same goes for CI: green before a push is not green after it.
+- **Never merge or approve a Dependabot PR by hand.**
+  `.github/workflows/dependabot-auto-merge.yml` approves it and squash-merges
+  it once the required checks pass; your part is keeping it mergeable (see
+  the table).
 - **Build only what's authorised**: a card the maintainer moved to `Build`, a
   `go` / `approved` comment on a `Your sign-off` ticket, or a **bug** or
   **tweak** small enough to need no plan. Never build a `Your input` or
   `Your sign-off` ticket.
 - **Skip anything labelled `hold`** entirely: no comment, no build, no merge.
-- **Every issue, comment and PR description you post opens with the 🤖
-  attribution line** (CLAUDE.md), posted with `--body-file`. The monitor
-  tells your comments from the maintainer's by that prefix, so an unmarked
-  comment reads as their answer. **Commit messages carry no such line**: the
-  squash-merge commit is the maintainer's own.
+- **You post as @starquake-bot, with no attribution line** (CLAUDE.md). The
+  monitor tells your comments from the maintainer's by the author: anything by
+  @starquake is theirs.
 - **Never bring a branch forward on the server.** No merging `main` into a
   branch, no `gh pr update-branch`, no "Update branch" button: those make
   unsigned commits, which the ruleset refuses. Rebase locally and
@@ -115,13 +114,14 @@ while it is red inherits the breakage. Fix it, say what it was, and carry on.
 **Standing authorised work goes first.** Read every work lane (`Build`, then
 `Plan`, then `Spec`) and work from there. A spec waiting to be written is
 standing work exactly as a build is. Work does not earn priority by being new;
-the only pre-emptions are a red `main`, a PR carrying `ready to merge`, and a
+the only pre-emptions are a red `main`, a PR the maintainer approved, and a
 direct maintainer request, and they are named as exceptions.
 
 0. **Reconcile before anything else.** Never trust what you remember, or what
-   a summary says, about whether a pull request is still open. The maintainer
-   merges, Dependabot's PRs merge themselves, and a pass that assumes otherwise
-   works on a branch that has already landed.
+   a summary says, about whether a pull request is still open. Another session
+   or the maintainer may have merged it, Dependabot's PRs merge themselves,
+   and a pass that assumes otherwise works on a branch that has already
+   landed.
 
    ```bash
    gh pr list -R "$R" --state merged --limit 10 --json number,title,mergedAt,mergeCommit
@@ -140,7 +140,8 @@ direct maintainer request, and they are named as exceptions.
    **Read the comments, not just the states.** For every ticket at a gate,
    fetch its comments and look for the maintainer's answer block or go signal
    *after your last comment*. Scope that read by your last comment, never by a
-   wall-clock window. An answer is a comment that does NOT start with `> 🤖`.
+   wall-clock window. An answer is a comment by @starquake; yours are by
+   @starquake-bot.
 
    **Read a ticket before answering anything about it**, including your own
    earlier comments. After a context break especially: a summary carries
@@ -151,8 +152,8 @@ direct maintainer request, and they are named as exceptions.
    pending merge lands on a stale base):
 
    1. cheap advancement (replies, labels, specs, plans, reminders)
-   2. every PR carrying `ready to merge`: merge them all (`merge-pr`), then
-      re-pull
+   2. every PR whose current head @starquake approved: merge them all
+      (`merge-pr`), then re-pull
    3. then the pass's one build, branched off the freshly merged `main`
 
    Hand each item to the skill that owns that step:
@@ -167,11 +168,11 @@ direct maintainer request, and they are named as exceptions.
 | `Plan` | write the plan (and mockup) → `Your sign-off`. A plan already in the body (ported, or drafted earlier)? Check it against this repository, say in the Next-steps comment what does not fit, and move on to `Your sign-off` | `design-slice`, `mockup` |
 | `Your sign-off` | **stop**, UNLESS the maintainer signalled go (a `go`/`approved` comment, OR moved it to `Build`) → build | `build-slice` |
 | `Build` | build the slice → green PR → `Your review`. No plan that fits this repository? Write it into the body first and build it: the move was the go. | `build-slice` |
-| `Your review` | **stop**: only `ready to merge` moves it. Do keep the PR mergeable: CI green, rebased locally if behind, and no thread left open that Claude has acted on (the ruleset refuses to merge with one). | `merge-pr` |
+| `Your review` | **stop**: only @starquake's approving review moves it. Do keep the PR mergeable: CI green, rebased locally if behind, and no thread left open that Claude has acted on (the ruleset refuses to merge with one). | `merge-pr` |
 | reply to one of Claude's review comments | `fix`: fix, push, reply with the commit, **resolve the thread**; `skip`: acknowledge, resolve; `ticket`: file a Backlog issue, reply with the link, resolve; anything else: answer in the thread (starquake-recompiled#77) | `build-slice` |
 | PR with new maintainer comments | address them, re-push | rework |
-| PR carrying `ready to merge` | **merge it** (label + green CI + title + squash) | `merge-pr` |
-| Dependabot PR (no issue, no card) | **never merged by hand**: the auto-merge workflow lands it once the required checks pass. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. No auto-merge enabled on it: say so in the report | rework |
+| PR whose current head @starquake approved | **merge it** (approval + green CI + title + squash) | `merge-pr` |
+| Dependabot PR (no issue, no card) | **never merged or approved by hand**: the auto-merge workflow approves it and lands it once the required checks pass. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits, and the workflow approves the new head again), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. No auto-merge enabled on it: say so in the report | rework |
 
 3. **Post a Next-steps comment on every ticket whose state you moved** (below).
 4. **The build cap: at most one build per pass, and ZERO is a valid pass.**
@@ -255,8 +256,8 @@ Next-steps comment saying it was picked up and by whose request.
 
 ## The Next-steps comment: a new one whenever the state moves
 
-Every open ticket carries a comment headed `> 🤖 **Next steps**`, under the
-attribution line, stating where the ticket is and what moves it.
+Every open ticket carries a comment headed `> 🤖 **Next steps**`, stating
+where the ticket is and what moves it.
 
 **Post a NEW comment each time the state changes; never edit the previous
 one.** The thread is the ticket's history. Nothing changed? Post nothing.
@@ -278,10 +279,9 @@ it):
   builds it into a PR.*
 - `Spec` / `Plan`: *Next: Claude drafts it and hands back; nothing needed from
   you.*
-- `Build`: *Next: Claude builds a PR; then add `ready to merge` once you've
-  reviewed it.*
-- `Your review`: *Next: review the PR and add `ready to merge`; a pass merges
+- `Build`: *Next: Claude builds a PR; then approve it once you've reviewed
   it.*
+- `Your review`: *Next: review the PR and approve it; a pass merges it.*
 - `Backlog`: blocked (name the blocker), a record (no action), or waiting for a
   go (say what the go is).
 
@@ -309,9 +309,9 @@ real miss on mediumrogue.
 
 | signal | why the pass cares |
 |---|---|
-| issue/PR conversation comments not starting `> 🤖` | the maintainer's answers and go signals |
+| issue/PR conversation comments not by @starquake-bot | the maintainer's answers and go signals |
 | PR review comments (a different endpoint) | inline diff feedback |
-| `ready to merge` added | the only merge authorisation |
+| a new approving review by @starquake | the only merge authorisation |
 | `hold` added / lifted | an override that stops or releases work |
 | board Status transitions | a move to `Build` authorises a build |
 | `main` going red | pre-empts everything |
@@ -334,7 +334,9 @@ GQ='query($endCursor: String) { user(login:"starquake"){ projectV2(number:6){
 # No `|| true` on a snapshot: a failed call must FAIL so the diff is skipped.
 snap_board(){ gh api graphql --paginate -f query="$GQ" --jq '.data.user.projectV2.items.nodes[]
   | select(.content.number != null) | "\(.content.number)|\(.fieldValueByName.name // "none")"' 2>/dev/null | sort -n; }
-snap_label(){ gh pr list -R $R --state open --label "$1" --json number -q '.[].number' 2>/dev/null | sort; }
+# One line per approval by starquake on an open PR; a re-approval after a push is a new line.
+snap_approved(){ gh pr list -R $R --state open --json number,reviews -q '.[] | .number as $n | .reviews[]
+  | select(.author.login == "starquake" and .state == "APPROVED") | "\($n)|\(.submittedAt)"' 2>/dev/null | sort; }
 snap_hold(){ gh issue list -R $R --state open --label hold --json number -q '.[].number' 2>/dev/null | sort; }
 snap_main(){ gh run list -R $R --branch main --workflow CI --limit 1 \
   --json conclusion -q '.[0].conclusion // "none"' 2>/dev/null || echo none; }
@@ -350,23 +352,24 @@ cards(){ printf '%s\n' "$1" | grep -c '|'; }
 until prev_s=$(snap_board) && again=$(snap_board); do sleep 30; done
 [ "$(cards "$again")" -gt "$(cards "$prev_s")" ] && prev_s=$again
 most=$(cards "$prev_s")
-prev_l=$(snap_label "ready to merge"); prev_h=$(snap_hold); prev_main=$(snap_main)
+prev_a=$(snap_approved); prev_h=$(snap_hold); prev_main=$(snap_main)
 prev_head=$(snap_head); ticks=0
 while true; do
   sleep 60
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+  # Claude's own: by starquake-bot, or older ones posted through starquake with the robot line.
   gh api "repos/$R/issues/comments?since=$since&per_page=30" \
-    --jq '.[] | select((.body | startswith("> 🤖")) | not)
+    --jq '.[] | select((.body | startswith("> 🤖")) or .user.login == "starquake-bot" | not)
           | "COMMENT on #\(.issue_url | split("/") | last): \(.body | gsub("\n"; " ") | .[0:120])"' 2>/dev/null || true
   gh api "repos/$R/pulls/comments?since=$since&per_page=30" \
-    --jq '.[] | select((.body | startswith("> 🤖")) | not)
+    --jq '.[] | select((.body | startswith("> 🤖")) or .user.login == "starquake-bot" | not)
           | "REVIEW COMMENT on #\(.pull_request_url | split("/") | last) \(.path): \(.body | gsub("\n"; " ") | .[0:100])"' 2>/dev/null || true
 
   # A set that was non-empty and is now empty is an outage until proven otherwise.
-  if cur=$(snap_label "ready to merge") && { [ -n "$cur" ] || [ -z "$prev_l" ]; }; then
-    comm -13 <(echo "$prev_l") <(echo "$cur") | grep -E '^[0-9]+$' | sed 's/^/READY TO MERGE: PR #/' || true
-    prev_l=$cur
+  if cur=$(snap_approved) && { [ -n "$cur" ] || [ -z "$prev_a" ]; }; then
+    comm -13 <(echo "$prev_a") <(echo "$cur") | grep -E '^[0-9]+\|' | cut -d'|' -f1 | sed 's/^/APPROVED by starquake: PR #/' || true
+    prev_a=$cur
   fi
   if cur=$(snap_hold) && { [ -n "$cur" ] || [ -z "$prev_h" ]; }; then
     comm -13 <(echo "$prev_h") <(echo "$cur") | grep -E '^[0-9]+$' | sed 's/^/HOLD ADDED: #/' || true

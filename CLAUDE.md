@@ -216,13 +216,14 @@ answer given in chat is written back into the issue body before acting on it.
   last sub-issue closes and every box in its plan is ticked.
 - **Dependabot's pull requests are the one exception**: they have no issue
   behind them and no card (`.github/dependabot.yml`), and they merge
-  themselves: `.github/workflows/dependabot-auto-merge.yml` squash-merges each
-  once the required checks pass. Its merge starts no workflows, so the same
-  workflow then dispatches CI on `main`, which publishes `:edge`, and when it
-  passes Deploy for development. Claude never merges one by hand and never adds
-  `ready to merge` to one. It keeps them mergeable: one left behind `main` is
-  rebased locally and force-pushed, and a `frontend/` bump that fails only on
-  bundle drift gets the rebuilt bundle committed onto its branch, and one that
+  themselves: `.github/workflows/dependabot-auto-merge.yml` approves each with
+  its `GITHUB_TOKEN` and squash-merges it once the required checks pass. Its
+  merge starts no workflows, so the same workflow then dispatches CI on
+  `main`, which publishes `:edge`, and when it passes Deploy for development.
+  Claude never merges one by hand and never approves one. It keeps them
+  mergeable: one left behind `main` is rebased locally and force-pushed (the
+  workflow approves the new head again), and a `frontend/` bump that fails
+  only on bundle drift gets the rebuilt bundle committed onto its branch, and one that
   changes `THIRD-PARTY.md` gets `make third-party` committed the same way. A bump of
   `@playwright/test` gets the E2E job's image tag (`ci.yml`,
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
@@ -231,15 +232,16 @@ answer given in chat is written back into the issue body before acting on it.
   bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
   for anything touching the client, on every commit. The ruleset lives as code
   in `.github/rulesets/main.json`: squash only, signed commits, linear history,
-  every review thread resolved, the branch up to date with `main`, and the
-  required checks `lint`, `build`, `e2e (chromium)`, `e2e (firefox)` and
-  `docker`.
+  one approving review (a push after it needs a new one), every review thread
+  resolved, the branch up to date with `main`, and the required checks
+  `lint`, `build`, `e2e (chromium)`, `e2e (firefox)` and `docker`.
 - **Branches and commits**: a branch is `<issue>-<slug>`
   (`1-single-player-sandbox`). A commit is a plain one-line capitalized
-  subject with no body and no trailer, signed with the local SSH key, staging
-  explicit paths. A branch behind `main` is rebased locally and force-pushed:
-  never merge `main` into a branch and never `gh pr update-branch`, since a
-  server-side update makes unsigned commits, which the ruleset blocks.
+  subject with no body and no trailer, made by @starquake-bot and signed with
+  its SSH key, staging explicit paths. A branch behind `main` is rebased
+  locally and force-pushed: never merge `main` into a branch and never
+  `gh pr update-branch`, since a server-side update makes unsigned commits,
+  which the ruleset blocks.
 - **The board is the handoff baton**: the Status field of the "Voidmarch"
   user Project (https://github.com/users/starquake/projects/6).
   Read and move it with `.claude/scripts/board.sh`.
@@ -252,8 +254,8 @@ answer given in chat is written back into the issue body before acting on it.
   `Spec`, `Plan` and `Build` are Claude's and proceed without re-asking.
   `Your input` (questions) can interrupt any stage. `Your sign-off` comes
   BEFORE a build (approve the spec, plan or mockup); `Your review` comes AFTER
-  it (the PR is open, awaiting `ready to merge`). Cards move both ways and
-  stages can be skipped: a bug or tweak goes straight to `Build`.
+  it (the PR is open, awaiting @starquake's approving review). Cards move both
+  ways and stages can be skipped: a bug or tweak goes straight to `Build`.
 
 - **Approval** of a spec or plan is the maintainer dragging the card on, or a
   `go` / `approved` comment. Never proceed from plan to build without it.
@@ -272,10 +274,12 @@ answer given in chat is written back into the issue body before acting on it.
   the release is cut, Claude proposes the level and the milestone is renamed
   if it changed. The issues titled "Milestone 1" to "Milestone 10" are the
   design's stages, not releases (#279).
-- **Merging needs the `ready to merge` label** on the PR, re-read from the API
-  at the moment of merging. Claude never adds it and never merges without it.
+- **Merging needs @starquake's approving review** of the PR's current head
+  commit, re-read from the API at the moment of merging. Claude never approves
+  a PR, and never merges without that approval. With it, Claude merges the PR
+  as @starquake-bot, after the `merge-pr` checks.
 - **A position in the flow is a Status; a property of a ticket is a label**:
-  `ready to merge`, `hold` (skip entirely), `dependencies` (Dependabot's),
+  `hold` (skip entirely), `dependencies` (Dependabot's),
   and, **only while a ticket waits in `Backlog`**, its route: `needs: spec` (a
   design question to settle) or `needs: build` (none left), with the routing
   reason in the body. The route says where the card goes when it is picked up.
@@ -305,21 +309,19 @@ answer given in chat is written back into the issue body before acting on it.
   exist yet. Mockups are committed under `docs/mockups/`.
 - **Nothing becomes public without asking**: the board, a release or a tag.
 
-### Attribution: issues and comments yes, PR descriptions and commits no
+### Claude's account: @starquake-bot
 
-`gh` acts as @starquake, so an unmarked Claude comment reads as the
-maintainer's own answer — and the board monitor tells them apart by exactly
-that prefix. So **every issue and comment Claude posts** opens with one of
-these lines, posted via `--body-file`:
+Claude works on GitHub as its own machine account, @starquake-bot (#373): it
+files the issues, posts the comments, opens the pull requests, makes the
+commits and presses merge. The author's name says who wrote something, so
+nothing Claude posts carries an attribution line. Write long bodies to a file
+and post them with `--body-file`. The board monitor and `issue-comment-replies`
+tell Claude's comments from the maintainer's by the author: @starquake-bot is
+Claude, @starquake is the maintainer.
 
-- `> 🤖 **Issue by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
-- `> 🤖 **Comment by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
-
-**Pull request descriptions and commit messages carry no attribution line**
-(#257): the maintainer reviews and merges a pull request and takes
-accountability for what is merged, and the squash-merge commit on `main` is
-their own, signed by GitHub. Line comments on a pull request are comments,
-so they keep their line.
+@starquake reviews and approves a pull request and takes accountability for
+what is merged. Claude merges it as @starquake-bot once that approval is
+there, so the squash-merge commit on `main` is the bot's, signed by GitHub.
 
 The procedure behind each step lives in the skills: `work-the-board` (and its
 `/board` alias), `design-slice`, `mockup`, `build-slice`, `merge-pr`,

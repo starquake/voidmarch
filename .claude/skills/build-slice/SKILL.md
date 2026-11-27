@@ -8,8 +8,8 @@ description: >
   plan task by task on ONE PR: branch `<issue>-<slug>`, failing tests first,
   `make check` (and `make test-e2e` for the client) green per signed one-line
   commit, CI watched after every push, then the ticket moves to `Your review`.
-  Merging stays gated on the `ready to merge` label. Trigger even if the user
-  doesn't say "skill".
+  Merging stays gated on @starquake's approving review. Trigger even if the
+  user doesn't say "skill".
 ---
 
 You execute an approved plan from a ticket, task by task, on one PR.
@@ -64,8 +64,8 @@ ticket nobody moved: that one goes back to `Plan`.
    `e2e (firefox)` are required checks. The tool shell is zsh: never pipe the
    gate into `tail` and read `$?`, since that's the pipe's status.
 4. One commit per task. The message is a plain one-line capitalized subject
-   saying what: no body, no attribution trailer. Commits are signed (local SSH
-   signing; the ruleset refuses unsigned ones). Stage explicit paths
+   saying what: no body, no trailer. Commits are @starquake-bot's, signed with
+   its SSH key (the ruleset refuses unsigned ones). Stage explicit paths
    (`git add <path> …`), never `-A` or `.`. Push, then tick the task in the
    issue's *Plan*.
 5. **Watch CI to completion in the foreground and read EVERY job**, for the
@@ -117,8 +117,8 @@ alone links nothing (#343).
 **Review is the bottleneck**: the maintainer reviews alone, so the body is a
 guide to reviewing, not a defence.
 
-0. **The PR body carries no attribution line** (CLAUDE.md, #257), unlike
-   issues and comments; commit messages carry none either.
+0. **The PR body carries no attribution line** (CLAUDE.md): you open it as
+   @starquake-bot, and the author's name says who wrote it.
 1. **`## Where to look`**: the two or three judgement calls the maintainer
    might disagree with, each naming its file. None? Say so in one line.
 2. `---`, then *Mechanically verified — skip unless curious.* and ONE short
@@ -174,8 +174,8 @@ The gates prove it compiles, lints and passes its tests. They cannot see:
   accounts, their machine, security settings, merging). When unsure which
   kind a finding is, or which answer is right, ask.
 
-Ask by posting a review comment on the line it is about. It opens with the 🤖
-attribution line, says what is wrong and what you recommend, and **ends with
+Ask by posting a review comment on the line it is about. It says what is
+wrong and what you recommend, and **ends with
 what each of the three replies does for this finding**, one concrete line
 each, the recommended one marked (#267). A bare "Reply `fix`, `skip` or
 `ticket`" is unclear, above all when the recommendation is to keep it as
@@ -232,9 +232,9 @@ the maintainer's replies are part of the review.
 - **A mockup in the ticket?** Its image must reach `main` in this PR. Once
   merged, repoint the embed from `/raw/<branch>/` to `/raw/main/`, because
   merging deletes the branch and a branch embed 404s.
-- `gh pr ready <n>`, watch CI green, then **STOP. Never merge.** The
-  `ready to merge` label is the maintainer's; `merge-pr` lands it once they
-  add it.
+- `gh pr ready <n>`, watch CI green, then **STOP. Never merge, and never
+  approve.** The approval is the maintainer's; `merge-pr` lands the PR once
+  @starquake has approved its current head.
 - **Re-read the ticket's plan before handing over.** Every box this PR covers
   is ticked. If any box is still open, including one that's the maintainer's,
   the PR body must say `Part of #NN`, not `Closes #NN`; fix it now.
@@ -246,5 +246,5 @@ the maintainer's replies are part of the review.
   sub-issue, never for its parent.
 - Move the card to **`Your review`** (NOT `Your sign-off`, which is the
   pre-build gate), and the PR's sub-issue with it if it has one, and post a
-  Next-steps comment: *Next: review the PR and add `ready to merge`.* List
+  Next-steps comment: *Next: review the PR and approve it.* List
   any task still open after the merge in that comment, with whose it is.

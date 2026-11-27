@@ -2,44 +2,58 @@
 name: merge-pr
 description: >
   Use whenever a Voidmarch pull request should be merged or landed: "merge
-  #NN", "land this PR", "merge the ready PRs", or a board pass finding a PR
-  that carries `ready to merge`. Runs this repo's merge checks: the
-  `ready to merge` label (the maintainer's approval; NEVER merge without it),
-  green required checks, every review thread resolved, a title that still
-  describes the diff, and a local rebase if behind, then squash-merges.
-  Dependabot PRs are not merged here: a workflow auto-merges them. Trigger for
-  any merge request even if the user doesn't say "skill".
+  #NN", "land this PR", "merge the approved PRs", or a board pass finding a
+  PR that @starquake approved. Runs this repo's merge checks: @starquake's
+  approving review of the current head commit (the maintainer's approval;
+  NEVER merge without it), green required checks, every review thread
+  resolved, a title that still describes the diff, and a local rebase if
+  behind, then squash-merges as @starquake-bot. Dependabot PRs are not merged
+  here: a workflow approves and auto-merges them. Trigger for any merge
+  request even if the user doesn't say "skill".
 ---
 
-**A PR is mergeable only when it carries the `ready to merge` label.** The
-label *is* the maintainer's approval (GitHub won't let the author approve
-their own PR, and `gh` acts as the maintainer). It's their "ask one last
-time", given on GitHub. Without it you stop and say so. Never add it yourself.
+**A PR is mergeable only when @starquake has approved its current head
+commit.** That review *is* the maintainer's approval: their "ask one last
+time", given on GitHub. Without it you stop and say so. Claude works as
+@starquake-bot and **never approves a PR**, its own or anyone else's.
 
 **Dependabot's PRs are the exception, and not yours to merge.**
-`.github/workflows/dependabot-auto-merge.yml` squash-merges them once the
-required checks pass. Never merge one by hand and never add the label to one;
-keeping it mergeable (a local rebase, a rebuilt bundle) is `work-the-board`'s.
+`.github/workflows/dependabot-auto-merge.yml` approves them and squash-merges
+them once the required checks pass. Never merge one by hand and never approve
+one; keeping it mergeable (a local rebase, a rebuilt bundle) is
+`work-the-board`'s.
 
-**Anything that becomes permanent at merge is verified AT merge**: the label
-can be withdrawn, CI can go stale on a push, and the title can be outrun by
-its own diff. Re-read all three at the last moment.
+**Anything that becomes permanent at merge is verified AT merge**: a push
+dismisses the approval, CI can go stale on a push, and the title can be
+outrun by its own diff. Re-read all three at the last moment.
 
 The ruleset (`.github/rulesets/main.json`) is what the merge must satisfy:
-squash only, signed commits, linear history, every review thread resolved,
-the branch up to date with `main`, and the required checks `lint`, `build`,
-`e2e (chromium)`, `e2e (firefox)` and `docker` green.
+squash only, signed commits, linear history, one approving review (a later
+push dismisses it), every review thread resolved, the branch up to date with
+`main`, and the required checks `lint`, `build`, `e2e (chromium)`,
+`e2e (firefox)` and `docker` green.
 
-## Step 1: the label
+## Step 1: the approval
+
+Re-read it from the API at merge time, never from a notification:
 
 ```bash
-gh pr view <n> --json labels,mergeable,mergeStateStatus \
-  --jq '{labels: [.labels[].name], mergeable, state: .mergeStateStatus}'
+gh pr view <n> --json headRefOid,reviewDecision,reviews,mergeable,mergeStateStatus --jq '
+  .headRefOid as $head
+  | ([.reviews[] | select(.author.login == "starquake" and .state != "COMMENTED")] | last) as $r
+  | {approved: ($r.state == "APPROVED"), current: ($r.commit.oid == $head),
+     decision: .reviewDecision, mergeable, state: .mergeStateStatus}'
 ```
 
-No `ready to merge`? **STOP**, and tell the maintainer it's missing. "Merge
-it" in chat without the label means: surface that the label is missing, and
-let them add it or explicitly override.
+Merge only when `approved` and `current` are both `true`: @starquake's latest
+review is an approval, and it is for the commit the PR has now. Replying to a
+review thread makes a `COMMENTED` review, which neither gives nor takes away
+an approval, so the filter skips those. `decision` reads `APPROVED` too once
+the ruleset requires the review.
+
+No approval, or one for an older commit? **STOP**, and tell the maintainer.
+"Merge it" in chat without the approval means: say that it's missing, and
+let them approve on GitHub or explicitly override.
 
 ## Step 2: CI must be green
 
@@ -92,7 +106,8 @@ git push --force-with-lease
 ruleset blocks, and a merge commit breaks linear history. The local rebase
 re-signs the commits with the local SSH key.
 
-A force-push re-runs CI and can drop the label, so go back to Step 1.
+A force-push re-runs CI and dismisses the approval, so go back to Step 1: the
+maintainer approves the new head before it merges.
 
 ## Step 5: merge
 
@@ -100,8 +115,9 @@ A force-push re-runs CI and can drop the label, so go back to Step 1.
 gh pr merge <n> --squash --match-head-commit "$(gh pr view <n> --json headRefOid -q .headRefOid)"
 ```
 
-`--match-head-commit` refuses the merge if anything was pushed since you
-checked. The repo deletes merged branches automatically. Then:
+You merge as @starquake-bot, so the squash commit on `main` is the bot's,
+signed by GitHub. `--match-head-commit` refuses the merge if anything was
+pushed since you checked. The repo deletes merged branches automatically. Then:
 
 - Update the local checkout: `git checkout main && git pull --ff-only`. Do
   this only if no agent is working in the shared checkout; the merge itself is
@@ -131,8 +147,8 @@ checked. The repo deletes merged branches automatically. Then:
 **Merging several:** one at a time, re-checking the next PR after each merge.
 Merging one advances `main` and puts every other open PR behind it, which the
 strict ruleset refuses: rebase the next one locally (Step 4), wait for its CI,
-and re-read its label before merging it.
+and wait for the maintainer to approve its new head before merging it.
 
-If `gh pr merge` is refused by the permission classifier while the label is
-present and CI is green, re-read the label and retry once. If the label is
-absent, that's a real stop.
+If `gh pr merge` is refused by the permission classifier while the approval
+is there and CI is green, re-read the approval and retry once. If the
+approval is missing, that's a real stop.

@@ -6,46 +6,39 @@ description: >
   reply to?", "catch up on the tickets", or a board pass finding an unanswered
   comment. Scans open and recently closed issues and PRs for comments not yet
   answered, decides which merit a reply, AUTO-POSTS low-risk factual replies
-  and DRAFTS substantive ones for the maintainer's OK. Every posted comment
-  opens with the "🤖 Comment by Claude" attribution line. Trigger even if the
-  user doesn't say "skill".
+  and DRAFTS substantive ones for the maintainer's OK. Comments post as
+  @starquake-bot, with no attribution line. Trigger even if the user doesn't
+  say "skill".
 ---
 
 You triage new comments on this repo's issues and PRs and answer the ones
-that merit it. Comments post under the maintainer's own account (@starquake)
-through `gh`, so **every** reply opens with the attribution line, and a
-public comment under someone else's name is hard to take back. Split replies
-into *auto-post* (safe, factual) and *draft for approval* (substantive,
-contestable). When unsure, it's a draft.
-
-## The attribution line (never omit it)
-
-Every comment you post starts with this exact line, then a blank line, then
-the reply:
-
-```
-> 🤖 **Comment by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.
-```
+that merit it. You post as @starquake-bot, Claude's own account, so the
+author's name says who wrote it and no attribution line is needed. A public
+comment is still hard to take back: split replies into *auto-post* (safe,
+factual) and *draft for approval* (substantive, contestable). When unsure,
+it's a draft.
 
 Write the comment to a file and post with `gh issue comment <n> --body-file
-<file>` (or `gh pr comment`): multi-line markdown with the `>` header breaks
-`--body "…"` quoting.
+<file>` (or `gh pr comment`): multi-line markdown breaks `--body "…"`
+quoting.
 
 ## Step 1: find unanswered comments
 
-Both the maintainer and Claude post as @starquake, so authorship can't tell
-them apart; **the `> 🤖` prefix can**. A maintainer comment is a @starquake
-comment that does NOT start with `> 🤖`.
+**The author tells Claude's comments from the maintainer's**: Claude's are by
+@starquake-bot, the maintainer's by @starquake. Before the bot (#373), Claude
+posted through @starquake's account with a `> 🤖` line at the top, so an
+older @starquake comment that starts with `> 🤖` is Claude's too.
 
 1. List candidate threads (open, and touched in the last ~2 weeks):
    `gh issue list --state all --limit 40 --json number,title,updatedAt,state`
    and the same for `gh pr list`.
-2. Pull each thread: `gh issue view <n> --json title,body,comments`.
-3. **Unanswered** means a human comment (the maintainer's unmarked ones, or
-   anyone else's) with no `> 🤖` comment after it. Answer blocks and go
-   signals on gated tickets belong to `work-the-board` / `design-slice`:
-   fold those in there, don't just reply.
-4. Skip bot noise (Dependabot's included), and threads where a `> 🤖` reply
+2. Pull each thread: `gh issue view <n> --json title,body,comments`; each
+   comment's author is `.author.login`.
+3. **Unanswered** means a human comment (the maintainer's, or anyone else's)
+   with no comment by Claude after it. Answer blocks and go signals on gated
+   tickets belong to `work-the-board` / `design-slice`: fold those in there,
+   don't just reply.
+4. Skip bot noise (Dependabot's included), and threads where Claude's reply
    already came last.
 
 Report what you found before replying: "thread → unanswered comment".
@@ -73,8 +66,6 @@ the **first line**; reasoning goes below. Link the file, issue or PR you cite.
 Example (auto-post, factual):
 
 ```
-> 🤖 **Comment by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.
-
 No new sprite is drawn for it: the art rule (CLAUDE.md) allows only what
 exists in Foozle's "Void" packs, recolored or tinted at most. The boss is a
 pack ship with a red tint, committed under `internal/web/static/assets/`;
@@ -83,7 +74,8 @@ the ticket's *Art constraint* names the file.
 
 ## Guardrails
 
-- The attribution line goes on every posted comment, with no exceptions.
+- Post only as @starquake-bot (`gh auth status` shows the active account),
+  never as @starquake.
 - Never post a design decision, only grounded observations.
 - Never write in the maintainer's own voice.
 - Don't double-reply. Prefer a few high-value replies over covering every

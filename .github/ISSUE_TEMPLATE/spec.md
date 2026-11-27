@@ -17,8 +17,7 @@ labels: 'needs: spec'
          the state changes; never edit an old one. Answers given in chat are
          written back into this BODY.
 
-     Filed by Claude? The body's first line is the attribution header:
-     > 🤖 **Issue by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.
+     Filed by Claude? It files as @starquake-bot, with no attribution line.
      `gh issue create --body-file` bypasses this template, so read it and fill
      its sections by hand. -->
 

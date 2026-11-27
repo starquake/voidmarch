@@ -3,8 +3,8 @@
 #
 # State lives in the Status field of the "Voidmarch" user Project,
 # so the maintainer can drag a card (web or mobile) and Claude can set the same
-# value from the CLI — one source of truth either way. `ready to merge` is a PR
-# LABEL and is not managed here.
+# value from the CLI — one source of truth either way. A merge's approval is a
+# PR REVIEW and is not managed here.
 #
 # The opaque node ids below are why this file exists: they belong in one place
 # rather than copy-pasted into every skill. Ported from zx-sidekick.
