@@ -25,6 +25,8 @@ const (
 	// unlisted is the quality of a coding Accept-Encoding does not name.
 	unlisted    = -1.0
 	float64Bits = 64
+	// errReadingFile wraps a failed read of an embedded file.
+	errReadingFile = "error reading %q: %w"
 )
 
 // compressible reports whether the named file is worth gzipping; images,
@@ -98,7 +100,7 @@ func buildID(fsys fs.FS) (string, error) {
 		}
 		data, err := fs.ReadFile(fsys, name)
 		if err != nil {
-			return fmt.Errorf("error reading %q: %w", name, err)
+			return fmt.Errorf(errReadingFile, name, err)
 		}
 		sum := sha256.Sum256(data)
 		_, _ = h.Write([]byte(name + "\x00"))
@@ -218,11 +220,11 @@ func (s *staticFiles) fileInfo(name string) (*fileInfo, error) {
 
 	stat, err := f.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("error reading %q: %w", name, err)
+		return nil, fmt.Errorf(errReadingFile, name, err)
 	}
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("error reading %q: %w", name, err)
+		return nil, fmt.Errorf(errReadingFile, name, err)
 	}
 
 	info := &fileInfo{modTime: stat.ModTime()}
@@ -371,7 +373,7 @@ func (n noDirFS) Open(name string) (fs.File, error) {
 	if err != nil {
 		_ = f.Close()
 
-		return nil, fmt.Errorf("error reading %q: %w", name, err)
+		return nil, fmt.Errorf(errReadingFile, name, err)
 	}
 	if info.IsDir() {
 		_ = f.Close()

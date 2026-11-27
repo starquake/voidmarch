@@ -101,7 +101,11 @@ const (
 	maxPatterns  = sim.MaxVolleyBullets
 	// TargetSize is the numbers per HitScan target: x, y, radius and its id,
 	// so a piercing shot hits each enemy once (#72).
-	TargetSize = 4
+	TargetSize   = 4
+	targetX      = 0
+	targetY      = 1
+	targetRadius = 2
+	targetID     = 3
 	// ShipTargetSize is the numbers per ship ShipScan reads: x, y, angle,
 	// shield index and charges.
 	ShipTargetSize = 5
@@ -367,8 +371,13 @@ func (b *Bridge) HitScan(faction int, stepSeconds float64, n int) int {
 	ids := make([]int, n)
 	for i := range n {
 		at := b.Scratch[i*TargetSize:]
-		targets[i] = sim.Target[int]{ID: i, X: at[0], Y: at[1], Radius: at[2]}
-		ids[i] = int(at[3])
+		targets[i] = sim.Target[int]{
+			ID:     i,
+			X:      at[targetX],
+			Y:      at[targetY],
+			Radius: at[targetRadius],
+		}
+		ids[i] = int(at[targetID])
 	}
 	hits := 0
 	items := b.sandbox.Projectiles.Items()
