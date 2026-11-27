@@ -133,7 +133,7 @@ export class ShipAudio {
     for (const weapon of events.charges) {
       const key = CHARGE_SOUNDS[weapon];
       if (key !== undefined) {
-        this.scene.sound.play(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
+        this.effect(key, { volume: CHARGE_VOLUME, detune: CHARGE_DETUNE });
       }
     }
     const volleys = new Set<string>();
@@ -146,13 +146,13 @@ export class ShipAudio {
       volleys.add(volley);
       const key = nextVariant(SHOT_SOUNDS[shot.weapon], this.shots++);
       if (key !== undefined) {
-        this.scene.sound.play(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
+        this.effect(key, { volume: SHOT_VOLUME, detune: shotDetune(Math.random) });
       }
     }
     for (const expired of events.expired) {
       const key = isWeapon(expired.kind) ? EXPIRE_SOUNDS[expired.kind] : undefined;
       if (key !== undefined) {
-        this.scene.sound.play(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+        this.effect(key, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
       }
     }
   }
@@ -161,33 +161,33 @@ export class ShipAudio {
   remoteShot(weapon: WeaponId): void {
     const key = nextVariant(SHOT_SOUNDS[weapon], this.shots++);
     if (key !== undefined) {
-      this.scene.sound.play(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
+      this.effect(key, { volume: SHOT_VOLUME * REMOTE_SHOT_VOLUME, detune: shotDetune(Math.random) });
     }
   }
 
   /** An enemy's shot: their own laser, soft and a little low. */
   enemyShot(): void {
-    this.scene.sound.play(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
+    this.effect(ENEMY_SHOT_SOUND, { volume: ENEMY_SHOT_VOLUME, detune: ENEMY_SHOT_DETUNE + shotDetune(Math.random) });
   }
 
   enemyDestroyed(): void {
-    this.scene.sound.play(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
+    this.effect(ENEMY_EXPLOSION_SOUND, { volume: EXPIRE_VOLUME, detune: shotDetune(Math.random) });
   }
 
   /** A derelict teleporting away (#190), or a Dreadnought (#223). */
   teleported(): void {
-    this.scene.sound.play(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
+    this.effect(TELEPORT_SOUND, { volume: TELEPORT_VOLUME });
   }
 
   /** A Dreadnought coming to raid (#223): the teleport's sound, an octave down, louder, twice. */
   raidWarned(): void {
     for (const delay of RAID_WARNING_DELAYS) {
-      this.scene.sound.play(TELEPORT_SOUND, { volume: RAID_WARNING_VOLUME, detune: RAID_WARNING_DETUNE, delay });
+      this.effect(TELEPORT_SOUND, { volume: RAID_WARNING_VOLUME, detune: RAID_WARNING_DETUNE, delay });
     }
   }
 
   shieldSwitched(): void {
-    this.scene.sound.play(SHIELD_SOUND, { volume: UI_VOLUME });
+    this.effect(SHIELD_SOUND, { volume: UI_VOLUME });
   }
 
   /** A force field zap (#127), at a volume from 0 to 1: a random one, never the last one again. */
@@ -195,12 +195,12 @@ export class ShipAudio {
     const key = randomVariant(FIELD_ZAP_SOUNDS, this.lastZap, Math.random);
     this.lastZap = key;
     if (key !== undefined) {
-      this.scene.sound.play(key, { volume });
+      this.effect(key, { volume });
     }
   }
 
   partSwitched(): void {
-    this.scene.sound.play(PART_SWITCH_SOUND, { volume: UI_VOLUME });
+    this.effect(PART_SWITCH_SOUND, { volume: UI_VOLUME });
   }
 
   toggleMute(): void {
@@ -285,6 +285,19 @@ export class ShipAudio {
       this.fadeInNext = false;
       this.fadeTo(music, MUSIC_VOLUME);
     }
+  }
+
+  /**
+   * Plays a one-shot sound, unless the sound is paused (the window has no
+   * focus, or the browser hasn't unlocked audio yet): a sound started then
+   * would wait, and play with all the others when the sound resumes (#322).
+   */
+  private effect(key: string, config: Phaser.Types.Sound.SoundConfig): void {
+    const sound = this.scene.sound;
+    if (sound instanceof Phaser.Sound.WebAudioSoundManager && sound.context.state !== 'running') {
+      return;
+    }
+    sound.play(key, config);
   }
 
   private fadeOut(music: Sound): void {

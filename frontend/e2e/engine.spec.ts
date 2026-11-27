@@ -83,9 +83,9 @@ const TOP_SPEED_TIMEOUT_MS = 20_000;
  * The frames drawn until the ship flies at top speed, measured from its
  * position between frames. The sim moves it a tick at a time, and a frame
  * runs any whole number of ticks, so at top speed every frame moves it a
- * whole number of steps. A fixed wait isn't enough: for 120 frames after the
- * page gains focus, Phaser steps the game at most 1/60 s a frame, so at
- * CI's 17 fps the game runs at under a third of real time (#293).
+ * whole number of steps. A fixed wait isn't enough: a frame catches the sim
+ * up by at most 5 ticks, so below 12 fps the game runs slower than real time
+ * (#293, #322).
  */
 const framesToTopSpeed = (page: Page, step: number): Promise<number> =>
   page.evaluate(

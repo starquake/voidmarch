@@ -3,6 +3,10 @@ import { state } from './hunt.ts';
 import { coveredOnScreen } from './screens.ts';
 import { PART_LIST_IDLE_MS } from '../src/sim/tuning.ts';
 
+/** How long a newly fitted weapon waits before it fires (sim.WeaponSwapSeconds), and the frames that may blur its measure. */
+const SWAP_MS = 500;
+const SWAP_SLACK_MS = 150;
+
 test('the HUD shows the fitted parts, the hull and shield, and a labelled panel (#91)', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
@@ -187,13 +191,31 @@ test('a newly fitted weapon waits out the swap before it fires (#191)', async ({
   await page.waitForFunction(() => window.voidmarch?.net.status === 'online');
   const view = page.viewportSize() ?? { width: 640, height: 360 };
   await page.mouse.move(view.width / 2 + 100, view.height / 2);
-  await page.keyboard.press('1');
-  await expect.poll(async () => (await state(page)).loadout.weapon).not.toBe('autoCannon');
-  const before = (await state(page)).shotsFired;
   await page.mouse.down();
-  await page.waitForTimeout(200);
-  expect((await state(page)).shotsFired, 'nothing fires during the half-second swap').toBe(before);
-  await expect.poll(async () => (await state(page)).shotsFired, { timeout: 5_000 }).toBeGreaterThan(before);
+  // Timed in the page, frame by frame: the game runs in real time (#322), and round trips to the page take a while.
+  const waited = page.evaluate(async (timeout) => {
+    const frame = (): Promise<number> => new Promise((resolve) => requestAnimationFrame(resolve));
+    const end = performance.now() + timeout;
+    while (window.voidmarch?.loadout.weapon === 'autoCannon') {
+      if (performance.now() > end) {
+        throw new Error('the weapon was never swapped');
+      }
+      await frame();
+    }
+    const fitted = await frame();
+    const before = window.voidmarch?.shotsFired ?? 0;
+    for (;;) {
+      const at = await frame();
+      if ((window.voidmarch?.shotsFired ?? 0) > before) {
+        return at - fitted;
+      }
+      if (at > end) {
+        throw new Error('the new weapon never fired');
+      }
+    }
+  }, 10_000);
+  await page.keyboard.press('1');
+  expect(await waited, 'ms from the swap to the new weapon\'s first shot').toBeGreaterThan(SWAP_MS - SWAP_SLACK_MS);
   await page.mouse.up();
 });
 
