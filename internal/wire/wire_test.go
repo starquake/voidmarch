@@ -175,7 +175,7 @@ func TestFormat_RoundTrip(t *testing.T) {
 func TestFormat_OldCompanionReportDecodesEmpty(t *testing.T) {
 	t.Parallel()
 
-	// Field 6 was an old client's report for its own companion (#51, #368).
+	// Field 6 was an old client's report for its own companion (#51).
 	report := protowire.AppendTag(nil, 1, protowire.VarintType)
 	report = protowire.AppendVarint(report, 2)
 	data := protowire.AppendTag(nil, 6, protowire.BytesType)

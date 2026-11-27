@@ -225,6 +225,8 @@ func TestCompanions_TheHubFliesThem(t *testing.T) {
 	a, _ := pilot(t, hub, "a")
 	a.Send(state(0, 180))
 	grant(t, a)
+	// An old client's companion report decodes to a message with no kind.
+	a.Send(&pb.ClientMessage{})
 
 	var snap *pb.Snapshot
 	messages := make([]*pb.ServerMessage, 0, 4*TickRate)
