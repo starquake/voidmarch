@@ -336,8 +336,11 @@ GQ='query($endCursor: String) { user(login:"starquake"){ projectV2(number:6){
 snap_board(){ gh api graphql --paginate -f query="$GQ" --jq '.data.user.projectV2.items.nodes[]
   | select(.content.number != null) | "\(.content.number)|\(.fieldValueByName.name // "none")"' 2>/dev/null | sort -n; }
 # One line per approval by starquake on an open PR; a re-approval after a push is a new line.
-snap_approved(){ gh pr list -R $R --state open --json number,reviews -q '.[] | .number as $n | .reviews[]
-  | select(.author.login == "starquake" and .state == "APPROVED") | "\($n)|\(.submittedAt)"' 2>/dev/null | sort; }
+# Filtered on the server: every thread reply adds a COMMENTED review, so a PR's first 100 miss new ones.
+AQ='{ repository(owner:"starquake", name:"voidmarch"){ pullRequests(states:OPEN, first:50){ nodes{ number
+  reviews(states:[APPROVED], author:"starquake", last:20){ nodes{ submittedAt } } } } } }'
+snap_approved(){ gh api graphql -f query="$AQ" --jq '.data.repository.pullRequests.nodes[]
+  | .number as $n | .reviews.nodes[] | "\($n)|\(.submittedAt)"' 2>/dev/null | sort; }
 snap_hold(){ gh issue list -R $R --state open --label hold --json number -q '.[].number' 2>/dev/null | sort; }
 snap_main(){ gh run list -R $R --branch main --workflow CI --limit 1 \
   --json conclusion -q '.[0].conclusion // "none"' 2>/dev/null || echo none; }
@@ -353,18 +356,21 @@ cards(){ printf '%s\n' "$1" | grep -c '|'; }
 until prev_s=$(snap_board) && again=$(snap_board); do sleep 30; done
 [ "$(cards "$again")" -gt "$(cards "$prev_s")" ] && prev_s=$again
 most=$(cards "$prev_s")
-prev_a=$(snap_approved); prev_h=$(snap_hold); prev_main=$(snap_main)
+# A failed first read would report every standing approval as new.
+until prev_a=$(snap_approved); do sleep 30; done
+prev_h=$(snap_hold); prev_main=$(snap_main)
 prev_head=$(snap_head); ticks=0
 while true; do
   sleep 60
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
   # Claude's own: by starquake-bot, or older ones posted through starquake with the robot line.
+  MINE='def mine: .user.login == "starquake-bot" or (.user.login == "starquake" and (.body | startswith("> 🤖")));'
   gh api "repos/$R/issues/comments?since=$since&per_page=30" \
-    --jq '.[] | select((.body | startswith("> 🤖")) or .user.login == "starquake-bot" | not)
+    --jq "$MINE"'.[] | select(mine | not)
           | "COMMENT on #\(.issue_url | split("/") | last): \(.body | gsub("\n"; " ") | .[0:120])"' 2>/dev/null || true
   gh api "repos/$R/pulls/comments?since=$since&per_page=30" \
-    --jq '.[] | select((.body | startswith("> 🤖")) or .user.login == "starquake-bot" | not)
+    --jq "$MINE"'.[] | select(mine | not)
           | "REVIEW COMMENT on #\(.pull_request_url | split("/") | last) \(.path): \(.body | gsub("\n"; " ") | .[0:100])"' 2>/dev/null || true
 
   # A set that was non-empty and is now empty is an outage until proven otherwise.
