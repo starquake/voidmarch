@@ -25,7 +25,7 @@ const (
 	// unlisted is the quality of a coding Accept-Encoding does not name.
 	unlisted    = -1.0
 	float64Bits = 64
-	// errReadingFile wraps a failed read of an embedded file.
+	// errReadingFile wraps a failed read of a static file.
 	errReadingFile = "error reading %q: %w"
 )
 
