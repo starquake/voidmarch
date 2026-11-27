@@ -4,7 +4,7 @@ import type { FileBytes } from './sim/loading.ts';
 
 /** The game's code in bytes, by URL: main.js and every module it imports. */
 export const CODE_BYTES: Readonly<Record<string, number>> = {
-  "/static/js/main.js": 313317,
+  "/static/js/main.js": 313298,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27603,
   "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
@@ -164,9 +164,8 @@ export const FILE_BYTES: Readonly<Record<string, FileBytes>> = {
   "sfx-auto-cannon-0": { ogg: 2298, mp3: 2622 },
   "sfx-auto-cannon-1": { ogg: 2485, mp3: 3014 },
   "sfx-auto-cannon-2": { ogg: 3166, mp3: 3613 },
-  "sfx-zapper-0": { ogg: 2882, mp3: 3824 },
-  "sfx-zapper-1": { ogg: 2818, mp3: 3641 },
-  "sfx-zapper-2": { ogg: 2938, mp3: 3433 },
+  "sfx-zapper-0": { ogg: 1947, mp3: 2504 },
+  "sfx-zapper-1": { ogg: 1961, mp3: 2425 },
   "sfx-big-space-gun-0": { ogg: 5154, mp3: 6527 },
   "sfx-big-space-gun-1": { ogg: 5354, mp3: 6499 },
   "sfx-rocket-launch": { ogg: 5065, mp3: 8420 },
