@@ -2,9 +2,9 @@
 var CODE_BYTES = {
   "/static/js/main.js": 313298,
   "/static/js/vendor/phaser.js": 1377611,
-  "/static/js/vendor/protobuf.js": 27603,
-  "/static/js/vendor/protobuf-4RWUWZKO.js": 81354,
-  "/static/js/vendor/protobuf-codegenv2.js": 7637
+  "/static/js/vendor/protobuf.js": 27604,
+  "/static/js/vendor/protobuf-ULXGU3X6.js": 82257,
+  "/static/js/vendor/protobuf-codegenv2.js": 7666
 };
 var FILE_BYTES = {
   "rules": 157696,

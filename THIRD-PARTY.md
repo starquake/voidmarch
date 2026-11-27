@@ -21,7 +21,7 @@ Packages per licence:
 
 Used by:
 
-- `@bufbuild/protobuf` 2.16.0 (npm package)
+- `@bufbuild/protobuf` 2.17.0 (npm package)
 
 ```text
                                  Apache License
