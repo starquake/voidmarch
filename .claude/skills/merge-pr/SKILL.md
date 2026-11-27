@@ -17,6 +17,8 @@ commit.** That review *is* the maintainer's approval: their "ask one last
 time", given on GitHub. Without it you stop and say so. Claude works as
 @starquake-bot and **never approves a PR**, its own or anyone else's.
 
+**Never run `gh auth switch`, and never approve a PR as any account.**
+
 **Dependabot's PRs are the exception, and not yours to merge.**
 `.github/workflows/dependabot-auto-merge.yml` approves them and squash-merges
 them once the required checks pass. Never merge one by hand and never approve

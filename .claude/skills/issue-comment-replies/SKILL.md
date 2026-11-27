@@ -76,6 +76,7 @@ the ticket's *Art constraint* names the file.
 
 - Post only as @starquake-bot (`gh auth status` shows the active account),
   never as @starquake.
+- Never run `gh auth switch`, and never approve a PR as any account.
 - Never post a design decision, only grounded observations.
 - Never write in the maintainer's own voice.
 - Don't double-reply. Prefer a few high-value replies over covering every
