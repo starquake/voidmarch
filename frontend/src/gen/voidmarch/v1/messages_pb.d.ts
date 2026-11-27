@@ -329,32 +329,6 @@ export declare type Summon = Message<"voidmarch.v1.Summon"> & {
 export declare const SummonSchema: GenMessage<Summon>;
 
 /**
- * CompanionState was one of the player's companions, simulated by their
- * client. Deprecated: the hub flies companions (#51) and ignores these.
- *
- * @generated from message voidmarch.v1.CompanionState
- * @deprecated
- */
-export declare type CompanionState = Message<"voidmarch.v1.CompanionState"> & {
-  /**
-   * @generated from field: uint32 companion = 1;
-   */
-  companion: number;
-
-  /**
-   * @generated from field: voidmarch.v1.ShipState state = 2;
-   */
-  state?: ShipState | undefined;
-};
-
-/**
- * Describes the message voidmarch.v1.CompanionState.
- * Use `create(CompanionStateSchema)` to create a new message.
- * @deprecated
- */
-export declare const CompanionStateSchema: GenMessage<CompanionState>;
-
-/**
  * ChooseSquadron joins the named squadron, or starts a new one when the name
  * is empty (docs/design.md, section 13).
  *
@@ -430,13 +404,6 @@ export declare type ClientMessage = Message<"voidmarch.v1.ClientMessage"> & {
      */
     value: Summon;
     case: "summon";
-  } | {
-    /**
-     * @generated from field: voidmarch.v1.CompanionState companion = 6 [deprecated = true];
-     * @deprecated
-     */
-    value: CompanionState;
-    case: "companion";
   } | {
     /**
      * @generated from field: voidmarch.v1.Dismiss dismiss = 7;

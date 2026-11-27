@@ -141,15 +141,6 @@ message Hit {
 // Summon asks for a companion seat (docs/design.md, section 13).
 message Summon {}
 
-// CompanionState was one of the player's companions, simulated by their
-// client. Deprecated: the hub flies companions (#51) and ignores these.
-message CompanionState {
-  option deprecated = true;
-
-  uint32 companion = 1;
-  ShipState state = 2;
-}
-
 // ChooseSquadron joins the named squadron, or starts a new one when the name
 // is empty (docs/design.md, section 13).
 message ChooseSquadron {
@@ -169,7 +160,6 @@ message ClientMessage {
     ShotFired shot = 3;
     Hit hit = 4;
     Summon summon = 5;
-    CompanionState companion = 6 [deprecated = true];
     Dismiss dismiss = 7;
     ChooseSquadron choose_squadron = 8;
     Collect collect = 10;
@@ -179,6 +169,9 @@ message ClientMessage {
     DevStartRaid dev_start_raid = 14;
     RespawnHome respawn_home = 15;
   }
+  // Was companion: clients flew their own companions until #51.
+  reserved 6;
+  reserved "companion";
   // Was squadron_order: companions took orders until #325.
   reserved 9;
   reserved "squadron_order";

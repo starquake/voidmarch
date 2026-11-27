@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 
 	pb "github.com/starquake/voidmarch/internal/gen/voidmarch/v1"
@@ -95,10 +96,6 @@ func messages() []proto.Message {
 				DevStartAttack: &pb.DevStartAttack{Sector: "E4"},
 			},
 		},
-		//nolint:staticcheck // old clients may still send it, so it still decodes.
-		&pb.ClientMessage{Kind: &pb.ClientMessage_Companion{Companion: &pb.CompanionState{
-			Companion: 2, State: &pb.ShipState{X: 1, Y: 2},
-		}}},
 		&pb.ClientMessage{Kind: &pb.ClientMessage_Dismiss{Dismiss: &pb.Dismiss{Companion: 2}}},
 		&pb.ServerMessage{Kind: &pb.ServerMessage_CompanionGranted{
 			CompanionGranted: &pb.CompanionGranted{Companion: 1, X: 3, Y: 4},
@@ -172,6 +169,24 @@ func TestFormat_RoundTrip(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestFormat_OldCompanionReportDecodesEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Field 6 was an old client's report for its own companion (#51, #368).
+	report := protowire.AppendTag(nil, 1, protowire.VarintType)
+	report = protowire.AppendVarint(report, 2)
+	data := protowire.AppendTag(nil, 6, protowire.BytesType)
+	data = protowire.AppendBytes(data, report)
+
+	var msg pb.ClientMessage
+	if err := Binary.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if got := msg.GetKind(); got != nil {
+		t.Errorf("an old companion report's kind = %v, want none, so the hub ignores it", got)
 	}
 }
 
