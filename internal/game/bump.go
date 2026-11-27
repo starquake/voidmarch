@@ -101,7 +101,7 @@ func (h *Hub) bumpers() []bumper {
 	for _, id := range slices.Sorted(maps.Keys(h.enemies)) {
 		e := h.enemies[id]
 		out = append(out, bumper{
-			key: "enemy " + strconv.FormatUint(uint64(e.id), 10),
+			key: "enemy " + strconv.FormatUint(uint64(e.id), decimal),
 			body: sim.Body{
 				X:      e.x,
 				Y:      e.y,

@@ -88,7 +88,7 @@ func ReadGoReport(r io.Reader, readFile func(string) ([]byte, error)) ([]Package
 		if line == "" {
 			continue
 		}
-		const fields = 4
+		const fields, pathField = 4, 3
 		parts := strings.Split(line, "\t")
 		if len(parts) != fields {
 			return nil, fmt.Errorf(
@@ -98,7 +98,7 @@ func ReadGoReport(r io.Reader, readFile func(string) ([]byte, error)) ([]Package
 				ErrBadReport,
 			)
 		}
-		text, err := readFile(parts[3])
+		text, err := readFile(parts[pathField])
 		if err != nil {
 			return nil, fmt.Errorf("error reading the licence of %s: %w", parts[0], err)
 		}
