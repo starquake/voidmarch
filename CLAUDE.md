@@ -220,7 +220,7 @@ answer given in chat is written back into the issue body before acting on it.
   its `GITHUB_TOKEN` and squash-merges it once the required checks pass. Its
   merge starts no workflows, so the same workflow then dispatches CI on
   `main`, which publishes `:edge`, and when it passes Deploy for development.
-  Claude never merges one by hand and never approves one. It keeps them
+  Claude never approves one. It keeps them
   mergeable: one left behind `main` is rebased locally and force-pushed, and
   a `frontend/` bump that fails only on bundle drift gets the rebuilt bundle
   committed onto its branch, and one that changes `THIRD-PARTY.md` gets
@@ -229,7 +229,10 @@ answer given in chat is written back into the issue body before acting on it.
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
   on its branch: the image carries the browsers that version expects. A push
   by Claude takes away the workflow's approval and the workflow does not give
-  it back, so that PR then waits for @starquake's approval.
+  it back, so that PR then waits for @starquake's approval. So does a direct
+  bump in `/tools`, which the workflow leaves for a person. Once
+  @starquake has approved one of these, Claude merges it through `merge-pr`
+  like any other PR.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,
   bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
   for anything touching the client, on every commit. The ruleset lives as code

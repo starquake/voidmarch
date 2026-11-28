@@ -7,8 +7,9 @@ description: >
   approving review of the current head commit (the maintainer's approval;
   NEVER merge without it), green required checks, every review thread
   resolved, a title that still describes the diff, and a local rebase if
-  behind, then squash-merges as @starquake-bot. Dependabot PRs are not merged
-  here: a workflow approves and auto-merges them. Trigger for any merge
+  behind, then squash-merges as @starquake-bot. Dependabot PRs merge
+  themselves through a workflow, except those waiting for @starquake's
+  approval, which land here like any other. Trigger for any merge
   request even if the user doesn't say "skill".
 ---
 
@@ -19,10 +20,12 @@ time", given on GitHub. Without it you stop and say so. Claude works as
 
 **Never run `gh auth switch`, and never approve a PR as any account.**
 
-**Dependabot's PRs are the exception, and not yours to merge.**
-`.github/workflows/dependabot-auto-merge.yml` approves them and squash-merges
-them once the required checks pass. Never merge one by hand and never approve
-one; keeping it mergeable (a local rebase, a rebuilt bundle) is
+**Dependabot's PRs mostly merge themselves.**
+`.github/workflows/dependabot-auto-merge.yml` approves Dependabot's own pushes
+and squash-merges them once the required checks pass. Never approve one. Two
+kinds wait for @starquake's approval instead: one Claude pushed onto (a
+rebase, a rebuilt bundle), and a direct bump in `/tools`. Once @starquake has
+approved one, merge it here like any other PR. Keeping them mergeable is
 `work-the-board`'s.
 
 **Anything that becomes permanent at merge is verified AT merge**: a push

@@ -60,9 +60,11 @@ found and let the maintainer confirm the shape first.
   current head.** Re-read the approval from the API at the moment you merge,
   never from a notification: a push dismisses it, and the maintainer can take
   it back. The same goes for CI: green before a push is not green after it.
-- **Never merge or approve a Dependabot PR by hand.**
-  `.github/workflows/dependabot-auto-merge.yml` approves it and squash-merges
-  it once the required checks pass; your part is keeping it mergeable (see
+- **Never approve a Dependabot PR.**
+  `.github/workflows/dependabot-auto-merge.yml` approves Dependabot's own
+  pushes and squash-merges them once the required checks pass. One Claude
+  pushed onto, or a direct bump in `/tools`, waits for @starquake's approval
+  and then merges through `merge-pr`. Your part is keeping them mergeable (see
   the table).
 - **Build only what's authorised**: a card the maintainer moved to `Build`, a
   `go` / `approved` comment on a `Your sign-off` ticket, or a **bug** or
@@ -173,7 +175,7 @@ direct maintainer request, and they are named as exceptions.
 | reply to one of Claude's review comments | `fix`: fix, push, reply with the commit, **resolve the thread**; `skip`: acknowledge, resolve; `ticket`: file a Backlog issue, reply with the link, resolve; anything else: answer in the thread (starquake-recompiled#77) | `build-slice` |
 | PR with new maintainer comments | address them, re-push | rework |
 | PR whose current head @starquake approved | **merge it** (approval + green CI + title + squash) | `merge-pr` |
-| Dependabot PR (no issue, no card) | **never merged or approved by hand**: the auto-merge workflow approves it and lands it once the required checks pass. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. Your push takes away the workflow's approval, and only @starquake gives it back: say in the report that it waits for their approval. No auto-merge enabled on it: say so in the report | rework |
+| Dependabot PR (no issue, no card) | **never approved by hand**: the auto-merge workflow approves Dependabot's own pushes and lands them once the required checks pass; one waiting for @starquake's approval merges through `merge-pr` once they give it. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. Your push takes away the workflow's approval, and only @starquake gives it back: say in the report that it waits for their approval. No auto-merge enabled on it: say so in the report | rework |
 
 3. **Post a Next-steps comment on every ticket whose state you moved** (below).
 4. **The build cap: at most one build per pass, and ZERO is a valid pass.**
