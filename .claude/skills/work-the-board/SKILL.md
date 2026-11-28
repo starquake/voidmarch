@@ -63,19 +63,19 @@ found and let the maintainer confirm the shape first.
   green and every thread is resolved. **Never merge one that touches a
   sensitive path** (one in `.github/CODEOWNERS`: `.github/`, `deployments/`,
   `.claude/`, any `CLAUDE.md`, the check configs) **without @starquake's
-  approval of its current head** (`merge-pr`, Step 1). Re-read the gate from the API at the moment you
-  merge, never from a notification: a push dismisses an approval, and the
-  maintainer can take it back. The same goes for CI: green before a push is
-  not green after it.
+  approval of its current head** (`merge-pr`, Step 1). Re-read the gate from
+  the API at the moment you merge, never from a notification: a push
+  dismisses an approval, and the maintainer can take it back. The same goes
+  for CI: green before a push is not green after it.
 - **Never approve a Dependabot PR.**
   `.github/workflows/dependabot-auto-merge.yml` turns on auto-merge for
   Dependabot's own pushes, and GitHub squash-merges them once the required
   checks pass. One that touches `.github/` (an actions bump, or the Playwright
   image tag you moved) gets no auto-merge, waits for @starquake's approval as
-  code owner, and merges through `merge-pr`. A direct bump in `/tools` gets no auto-merge; once you mirror its pin into
-  the Makefile it waits for @starquake's approval too, then merges through
-  `merge-pr`.
-  Your part is keeping them mergeable (see the table).
+  code owner, and merges through `merge-pr`. A direct bump in `/tools` gets
+  no auto-merge; once you mirror its pin into the Makefile it waits for
+  @starquake's approval too, then merges through `merge-pr`. Your part is
+  keeping them mergeable (see the table).
 - **Build only what's authorised**: a card the maintainer moved to `Build`, a
   `go` / `approved` comment on a `Your sign-off` ticket, or a **bug** or
   **tweak** small enough to need no plan. Never build a `Your input` or

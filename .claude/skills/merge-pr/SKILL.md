@@ -19,9 +19,8 @@ decision 8), **except a PR whose diff touches a sensitive path**: one that
 `.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check configs: the
 `Makefile`, `.golangci.yml`, `.testcoverage.yml`, the `Dockerfile`, and
 frontend's ESLint, TypeScript and Playwright configs). That one is mergeable
-only when @starquake has
-approved its current head commit. Claude works as @starquake-bot and **never
-approves a PR**, its own or anyone else's.
+only when @starquake has approved its current head commit. Claude works as
+@starquake-bot and **never approves a PR**, its own or anyone else's.
 
 **Never run `gh auth switch`, and never approve a PR as any account.**
 
@@ -34,9 +33,10 @@ it, never auto-merge: merged as `GITHUB_TOKEN` after
 `dispatch-after-merge.sh` stopped waiting, it would run no CI on `main`. So
 the workflow leaves auto-merge off for an actions bump, and Claude turns it
 off (`gh pr merge <n> --disable-auto`) on a `@playwright/test` bump when it
-moves `ci.yml`'s image tag. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
-into the Makefile's `GOLANGCI_VERSION`, which makes it sensitive (the
-Makefile is @starquake's, decision 9), and merges it here once they approve.
+moves `ci.yml`'s image tag. A direct bump in `/tools` gets no auto-merge:
+Claude mirrors its version into the Makefile's `GOLANGCI_VERSION`, which
+makes it sensitive (the Makefile is @starquake's, decision 9), and merges it
+here once they approve.
 A Dependabot PR needs no *Found in review* while every commit on it is
 Dependabot's, or Claude's that only regenerate output (the bundle, the
 WebAssembly sim, generated code, `THIRD-PARTY.md`). Anything else Claude
@@ -59,7 +59,8 @@ other approval, every review thread resolved, the branch up to date with
 
 Re-read everything from the API at merge time, never from a notification.
 `.claude/scripts/merge-gate.sh` does it in one read of the PR, and
-`make test-scripts` tests it:
+`make test-scripts` tests it. Run it in a checkout of this repository: its
+rebase check fetches into it.
 
 ```bash
 .claude/scripts/merge-gate.sh <n>
@@ -82,11 +83,13 @@ every PR is sensitive while the live ruleset `main` does not require a code
 owner's review** (`require_code_owner_review`, in an active ruleset), or
 can't be read: before @starquake applies `.github/rulesets/main.json`, or
 after anyone loosens it, nothing on GitHub would stop a sensitive PR this
-check missed. The check **fails closed**:
-it knows the CODEOWNERS forms `/dir/`, `/name` (that path and everything
-under it, as GitHub reads it) and a bare `name` with no slash (that name at
-any depth). Any other form, a CODEOWNERS with no patterns, or a failed read
-prints `CHECK FAILED`, and the PR counts as sensitive.
+check missed.
+
+The check **fails closed**: it knows the CODEOWNERS forms `/dir/`, `/name`
+(that path and everything under it, as GitHub reads it) and a bare `name`
+with no slash (that name at any depth). Any other form, a CODEOWNERS with no
+patterns, or a failed read prints `CHECK FAILED`, and the PR counts as
+sensitive.
 
 **Any PR, sensitive or not, is held** while it is labeled `hold`, or while
 @starquake's latest review that is not a plain comment requests changes.
