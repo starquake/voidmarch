@@ -2,65 +2,103 @@
 name: merge-pr
 description: >
   Use whenever a Voidmarch pull request should be merged or landed: "merge
-  #NN", "land this PR", "merge the approved PRs", or a board pass finding a
-  PR that @starquake approved. Runs this repo's merge checks: @starquake's
-  approving review of the current head commit (the maintainer's approval;
-  NEVER merge without it), green required checks, every review thread
-  resolved, a title that still describes the diff, and a local rebase if
-  behind, then squash-merges as @starquake-bot. Dependabot PRs merge
-  themselves through a workflow, except those waiting for @starquake's
-  approval, which land here like any other. Trigger for any merge
-  request even if the user doesn't say "skill".
+  #NN", "land this PR", "merge the ready PRs", or a board pass finding a PR
+  that is reviewed and green, or one that @starquake approved. Runs this
+  repo's merge checks: for a PR touching a path in `.github/CODEOWNERS`,
+  @starquake's approving review of the current head commit (NEVER merge one
+  without it); for any other PR, the separate reviewer agent's review; then
+  green required checks, every review thread resolved, a title that still
+  describes the diff, and a local rebase if behind, then squash-merges as
+  @starquake-bot. Most Dependabot PRs merge themselves through a workflow.
+  Trigger for any merge request even if the user doesn't say "skill".
 ---
 
-**A PR is mergeable only when @starquake has approved its current head
-commit.** That review *is* the maintainer's approval: their "ask one last
-time", given on GitHub. Without it you stop and say so. Claude works as
-@starquake-bot and **never approves a PR**, its own or anyone else's.
+**Claude merges its own PRs once they are reviewed and green** (#373,
+decision 8), **except a PR whose diff touches a sensitive path**: one that
+`.github/CODEOWNERS` gives to @starquake (`.github/`, `deployments/`,
+`CLAUDE.md`, `.claude/`). That one is mergeable only when @starquake has
+approved its current head commit. Claude works as @starquake-bot and **never
+approves a PR**, its own or anyone else's.
 
 **Never run `gh auth switch`, and never approve a PR as any account.**
 
 **Dependabot's PRs mostly merge themselves.**
-`.github/workflows/dependabot-auto-merge.yml` approves Dependabot's own pushes
-and squash-merges them once the required checks pass. Never approve one. Two
-kinds wait for @starquake's approval instead: one Claude pushed onto (a
-rebase, a rebuilt bundle), and a direct bump in `/tools`. Once @starquake has
-approved one, merge it here like any other PR. Keeping them mergeable is
-`work-the-board`'s.
+`.github/workflows/dependabot-auto-merge.yml` turns on auto-merge for
+Dependabot's own pushes, and GitHub squash-merges each once the required
+checks pass. Never approve one. One that touches `.github/` (an actions bump,
+or a `@playwright/test` bump once Claude moved `ci.yml`'s image tag) waits for
+@starquake's approval as code owner, and auto-merge lands it once they give
+it. A direct bump in `/tools` gets no auto-merge: once Claude has mirrored its
+version into the Makefile's `GOLANGCI_VERSION` and CI is green, merge it here.
+A Dependabot PR has no *Found in review*, so its gate is the rest of Step 1's
+three things, unless Claude pushed more onto it than a rebase, regenerated
+output or the pin: a separate agent reviews that first. Keeping them
+mergeable is `work-the-board`'s.
 
 **Anything that becomes permanent at merge is verified AT merge**: a push
-dismisses the approval, CI can go stale on a push, and the title can be
+dismisses an approval, CI can go stale on a push, and the title can be
 outrun by its own diff. Re-read all three at the last moment.
 
 The ruleset (`.github/rulesets/main.json`) is what the merge must satisfy:
-squash only, signed commits, linear history, one approving review (a later
-push dismisses it), every review thread resolved, the branch up to date with
+squash only, signed commits, linear history, a code owner's approval when the
+diff touches a path in `.github/CODEOWNERS` (a later push dismisses it) and no
+other approval, every review thread resolved, the branch up to date with
 `main`, and the required checks `lint`, `build`, `e2e (chromium)`,
 `e2e (firefox)` and `docker` green.
 
-## Step 1: the approval
+## Step 1: which gate, and is it met
 
-Re-read it from the API at merge time, never from a notification:
+Re-read everything from the API at merge time, never from a notification.
+First the head, then the paths in the diff that `main`'s `.github/CODEOWNERS`
+gives to an owner (a rename counts by both names):
 
 ```bash
-gh pr view <n> --json headRefOid,reviewDecision,reviews,mergeable,mergeStateStatus --jq '
+gh pr view <n> --json headRefOid,mergeable,mergeStateStatus
+git fetch origin --quiet
+git show origin/main:.github/CODEOWNERS > "$TMPDIR/owners" &&
+gh api "repos/starquake/voidmarch/pulls/<n>/files" --paginate \
+  --jq '.[] | .filename, (.previous_filename // empty)' > "$TMPDIR/files" &&
+[ -s "$TMPDIR/files" ] &&
+awk 'NR == FNR { if ($0 !~ /^#/ && NF) { p = $1; sub(/^\//, "", p); owned[p] } next }
+     { for (p in owned) if ((p ~ /\/$/ && index($0, p) == 1) || $0 == p) { print; break } }' \
+  "$TMPDIR/owners" "$TMPDIR/files" || echo "CHECK FAILED: treat the PR as sensitive"
+```
+
+**Write down `head`** (`headRefOid`): it is the commit the gate is checked
+on, and Step 5 merges exactly that commit. A path printed, or a failed check,
+means the PR is **sensitive**. No output means it is not.
+
+**A sensitive PR needs @starquake's approval of `head`:**
+
+```bash
+gh pr view <n> --json headRefOid,reviewDecision,reviews --jq '
   .headRefOid as $head
   | ([.reviews[] | select(.author.login == "starquake" and .state != "COMMENTED")] | last) as $r
   | {head: $head, approved: ($r.state == "APPROVED"), current: ($r.commit.oid == $head),
-     decision: .reviewDecision, mergeable, state: .mergeStateStatus}'
+     decision: .reviewDecision}'
 ```
 
-Merge only when `approved` and `current` are both `true`: @starquake's latest
-review is an approval, and it is for the commit the PR has now. **Write down
-`head`**: it is the commit the approval covers, and Step 5 merges exactly that
-commit. Replying to a
-review thread makes a `COMMENTED` review, which neither gives nor takes away
-an approval, so the filter skips those. `decision` reads `APPROVED` too once
-the ruleset requires the review.
+Merge only when `approved` and `current` are both `true`, for the `head` you
+wrote down: @starquake's latest review is an approval, and it is for the
+commit the PR has now. Replying to a review thread makes a `COMMENTED`
+review, which neither gives nor takes away an approval, so the filter skips
+those. `decision` reads `APPROVED` too, since the ruleset requires the code
+owner's review. No approval, or one for an older commit? **STOP**, and tell
+the maintainer. "Merge it" in chat without the approval means: say that it's
+missing, and let them approve on GitHub or explicitly override.
 
-No approval, or one for an older commit? **STOP**, and tell the maintainer.
-"Merge it" in chat without the approval means: say that it's missing, and
-let them approve on GitHub or explicitly override.
+**Any other PR's gate is three things**, and no approval:
+
+- **The separate reviewer agent's review is done**: the PR body's *Found in
+  review* says a separate agent reviewed the whole branch (`build-slice`,
+  *Review the whole diff*), and nothing but a rebase or regenerated output
+  was pushed after it. No such section, or new work since? Have it reviewed
+  first.
+- **CI is green** for `head` (Step 2).
+- **Every review thread is resolved** (Step 2b). A judgement call still
+  waiting for @starquake's `fix`, `skip` or `ticket` holds the PR.
+
+Then Claude merges it as @starquake-bot (Steps 3 to 5).
 
 ## Step 2: CI must be green
 
@@ -113,8 +151,8 @@ git push --force-with-lease
 ruleset blocks, and a merge commit breaks linear history. The local rebase
 re-signs the commits with the local SSH key.
 
-A force-push re-runs CI and dismisses the approval, so go back to Step 1: the
-maintainer approves the new head before it merges.
+A force-push re-runs CI and dismisses an approval, so go back to Step 1 with
+the new head: a sensitive PR waits for @starquake to approve it again.
 
 ## Step 5: merge
 
@@ -123,7 +161,8 @@ gh pr merge <n> --squash --match-head-commit <head from Step 1>
 ```
 
 Pass the `head` Step 1 checked, never a fresh read of the PR's head: a fresh
-read would merge a commit pushed after the check, which nobody approved.
+read would merge a commit pushed after the check, which nobody reviewed or
+approved.
 `--match-head-commit` refuses the merge if the head moved since Step 1. You
 merge as @starquake-bot, so the squash commit on `main` is the bot's, signed
 by GitHub. The repo deletes merged branches automatically. Then:
@@ -156,8 +195,9 @@ by GitHub. The repo deletes merged branches automatically. Then:
 **Merging several:** one at a time, re-checking the next PR after each merge.
 Merging one advances `main` and puts every other open PR behind it, which the
 strict ruleset refuses: rebase the next one locally (Step 4), wait for its CI,
-and wait for the maintainer to approve its new head before merging it.
+and, if it is sensitive, wait for the maintainer to approve its new head
+before merging it.
 
-If `gh pr merge` is refused by the permission classifier while the approval
-is there and CI is green, re-read the approval and retry once. If the
-approval is missing, that's a real stop.
+If `gh pr merge` is refused by the permission classifier while Step 1's gate
+is met and CI is green, re-read the gate and retry once. If the gate is not
+met (a missing approval, a review not done), that's a real stop.
