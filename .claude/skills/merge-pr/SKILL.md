@@ -49,43 +49,34 @@ other approval, every review thread resolved, the branch up to date with
 ## Step 1: which gate, and is it met
 
 Re-read everything from the API at merge time, never from a notification.
-First the head, then the paths in the diff that `main`'s `.github/CODEOWNERS`
-gives to an owner (a rename counts by both names):
+`.claude/scripts/merge-gate.sh` does it in one read of the PR, and
+`make test-scripts` tests it:
 
 ```bash
-gh pr view <n> --json headRefOid,mergeable,mergeStateStatus
-git fetch origin --quiet
-git show origin/main:.github/CODEOWNERS > "$TMPDIR/owners" &&
-gh api "repos/starquake/voidmarch/pulls/<n>/files" --paginate \
-  --jq '.[] | .filename, (.previous_filename // empty)' > "$TMPDIR/files" &&
-[ -s "$TMPDIR/files" ] &&
-awk 'NR == FNR { if ($0 !~ /^#/ && NF) { p = $1; sub(/^\//, "", p); owned[p] } next }
-     { for (p in owned) if ((p ~ /\/$/ && index($0, p) == 1) || $0 == p) { print; break } }' \
-  "$TMPDIR/owners" "$TMPDIR/files" || echo "CHECK FAILED: treat the PR as sensitive"
+.claude/scripts/merge-gate.sh <n>
 ```
 
-**Write down `head`** (`headRefOid`): it is the commit the gate is checked
-on, and Step 5 merges exactly that commit. A path printed, or a failed check,
-means the PR is **sensitive**. No output means it is not.
+It prints `head: <sha>`, a `sensitive:` line for each reason the PR needs
+@starquake's approval, a `hold:` line for each reason it must not merge now,
+and `verdict: merge` (exit 0) or `verdict: hold` (exit 1). **Write down
+`head`**: it is the commit the gate was checked on, and Step 5 merges exactly
+that commit. On `verdict: hold`, **STOP** and tell the maintainer what the
+`hold:` lines say.
 
-**A sensitive PR needs @starquake's approval of `head`:**
+A PR is **sensitive** when its diff touches a path `.github/CODEOWNERS` on
+the base branch gives to an owner (a rename counts by both names), or when
+GitHub's `reviewDecision` is `REVIEW_REQUIRED`. The check **fails closed**:
+it knows the CODEOWNERS forms `/dir/`, `/name` (that path and everything
+under it, as GitHub reads it) and a bare `name` with no slash (that name at
+any depth). Any other form, a CODEOWNERS with no patterns, or a failed read
+prints `CHECK FAILED`, and the PR counts as sensitive.
 
-```bash
-gh pr view <n> --json headRefOid,reviewDecision,reviews --jq '
-  .headRefOid as $head
-  | ([.reviews[] | select(.author.login == "starquake" and .state != "COMMENTED")] | last) as $r
-  | {head: $head, approved: ($r.state == "APPROVED"), current: ($r.commit.oid == $head),
-     decision: .reviewDecision}'
-```
-
-Merge only when `approved` and `current` are both `true`, for the `head` you
-wrote down: @starquake's latest review is an approval, and it is for the
-commit the PR has now. Replying to a review thread makes a `COMMENTED`
-review, which neither gives nor takes away an approval, so the filter skips
-those. `decision` reads `APPROVED` too, since the ruleset requires the code
-owner's review. No approval, or one for an older commit? **STOP**, and tell
-the maintainer. "Merge it" in chat without the approval means: say that it's
-missing, and let them approve on GitHub or explicitly override.
+**A sensitive PR needs @starquake's approval of `head`**: their latest review
+that is not a plain comment is `APPROVED`, and for that commit. Replying to a
+review thread makes a `COMMENTED` review, which neither gives nor takes away
+an approval, so the check skips those. "Merge it" in chat without the
+approval means: say that it's missing, and let them approve on GitHub or
+explicitly override.
 
 **Any other PR's gate is three things**, and no approval:
 
@@ -141,6 +132,7 @@ The ruleset is strict, so a branch behind `main` does not merge. If
 locally:
 
 ```bash
+gh pr view <n> --json mergeable,mergeStateStatus
 git fetch origin --quiet && git checkout <branch> && git rebase origin/main
 make check          # the combined result must be green; add make test-e2e for the client
 git push --force-with-lease

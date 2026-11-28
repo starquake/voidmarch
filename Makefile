@@ -104,10 +104,11 @@ test-coverage: ## All Go tests with a coverage profile in build/coverage
 	go tool cover -func=$(COV_DIR)/coverage.out | tail -1
 
 .PHONY: test-scripts
-test-scripts: ## Test the deploy workflow's shell scripts
+test-scripts: ## Test the workflows' and the skills' shell scripts
 	bash .github/scripts/image-tag_test.sh
 	bash .github/scripts/dispatch-after-merge_test.sh
 	bash deployments/podman/deploy_test.sh
+	bash .claude/scripts/merge-gate_test.sh
 
 .PHONY: test-coverage-html
 test-coverage-html: test-coverage ## Open the Go coverage report in a browser
