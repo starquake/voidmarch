@@ -132,8 +132,13 @@ with the `frontend/` change that moved it.
 
 ## Review the whole diff
 
-Before the PR is handed over, read the change back as a reviewer would, all
-of it against `main`, not just the last commit (starquake-recompiled#74):
+Before the PR is handed over, a **separate reviewer agent** reads the change
+as a reviewer would, all of it against `main`, not just the last commit
+(starquake-recompiled#74; #374). Brief it with the PR, the ticket and what to
+look at, never with your own conclusions, so its read isn't anchored on
+yours. Pick its effort for the change: low for config and one-liners, medium
+for most code, high for protocol, sim or concurrency changes. It reports;
+you act on what it finds. Read the diff yourself too:
 
 ```bash
 git fetch origin && git diff origin/main...HEAD
@@ -162,8 +167,11 @@ The gates prove it compiles, lints and passes its tests. They cannot see:
   says. **Fix it without asking**, in its own commit.
 - **A judgement call**: anything that changes what the player sees or how it
   behaves, departs from the ticket's *Decisions* or the approved mockup,
-  widens or narrows the scope, or leaves the art rule in doubt. **Do not fix
-  it; ask.** When unsure which kind a finding is, it is a judgement call.
+  widens or narrows the scope, or leaves the art rule in doubt. **When you
+  have one recommended answer, decide it yourself**: fix it or keep it, and
+  say so in the PR's *Found in review* (@starquake, 2026-11-28, #374). **Ask
+  only when it is genuinely open**, or the maintainer's by nature (their
+  accounts, their machine, security settings, merging).
 
 Ask by posting a review comment on the line it is about. It opens with the 🤖
 attribution line, says what is wrong and what you recommend, and **ends with

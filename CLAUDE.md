@@ -185,12 +185,17 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
 in its GitHub issue. Chat is optional and the maintainer may not read it: an
 answer given in chat is written back into the issue body before acting on it.
 
-- **Claude reviews its own diff before handing a PR over**: the whole branch
-  against `main`, for what the gates cannot see (leftovers from earlier
-  iterations, behaviour against the ticket, input and state edge cases, the
-  art rule). Defects are fixed straight away and listed in the PR; judgement
-  calls are a review comment on their line, left for the maintainer to answer
-  `fix`, `skip` or `ticket` (`build-slice`). **The comment ends with what each
+- **A separate reviewer agent reads every PR before Claude hands it over**
+  (@starquake, 2026-11-27, #374): the whole branch against `main` and the
+  ticket, briefed with the code and not with Claude's own conclusions, at the
+  effort the change needs. It looks for what the gates cannot see (leftovers
+  from earlier iterations, behaviour against the ticket, input and state edge
+  cases, the art rule). Claude fixes a defect straight away, and decides a
+  judgement call itself when it has one recommended answer, saying so in the
+  PR. Only a genuinely open choice, or one that is the maintainer's by nature
+  (their accounts, their machine, security settings, merging), is a review
+  comment on its line, left for the maintainer to answer `fix`, `skip` or
+  `ticket` (`build-slice`). **The comment ends with what each
   of the three does for that finding**, one concrete line each, the
   recommended one marked: `fix` names the change it makes (the alternative,
   when the recommendation is to keep it as built), `skip` what stays as built,
