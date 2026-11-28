@@ -46,7 +46,11 @@ query='query($owner: String!, $name: String!, $n: Int!) {
     headRepository { nameWithOwner }
     labels(first: 100) { nodes { name } }
     reviews(author: "starquake", states: [APPROVED, CHANGES_REQUESTED, DISMISSED], last: 1) {
-      nodes { state commit { oid } } }
+      nodes { state submittedAt commit { oid } } }
+    timelineItems(itemTypes: [REVIEW_DISMISSED_EVENT], last: 100) {
+      pageInfo { hasPreviousPage }
+      nodes { ... on ReviewDismissedEvent {
+        createdAt actor { login } pullRequestCommit { id } review { author { login } } } } }
   } } }'
 if ! gh api graphql -f query="$query" -f owner="${repo%%/*}" -f name="${repo#*/}" -F n="$pr" \
   > "$tmp/pr.json" 2> /dev/null ||
@@ -64,6 +68,16 @@ echo "head: $head"
 [[ "$(field .baseRefName)" == main ]] || hold "#$pr merges into '$(field .baseRefName)', not main"
 [[ "$(field 'any(.labels.nodes[]; .name == "hold")')" == false ]] || hold "#$pr is labeled hold"
 [[ "$(field '.reviews.nodes[0].state // ""')" != CHANGES_REQUESTED ]] || hold "@starquake requested changes"
+# Anyone with write access can dismiss a review. A push dismissing a stale
+# approval names its commit; only @starquake's own review afterwards clears
+# a dismissal by hand.
+dismissed="$(field '[.timelineItems.nodes[] | select((.review == null or .review.author.login == "starquake")
+  and .pullRequestCommit == null and .actor.login != "starquake") | .createdAt] | max // ""')"
+if [[ "$(field .timelineItems.pageInfo.hasPreviousPage)" != false ]]; then
+  hold "could not read every dismissed review on #$pr"
+elif [[ -n "$dismissed" && ! "$(field '.reviews.nodes[0].submittedAt // ""')" > "$dismissed" ]]; then
+  hold "a review by @starquake was dismissed by someone else at $dismissed"
+fi
 
 # The repository is public: anyone can open a PR and write its body.
 author="$(field '.author.__typename + "/" + .author.login')"

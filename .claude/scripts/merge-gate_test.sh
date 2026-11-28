@@ -75,7 +75,8 @@ pr() {
     reviewDecision: null, body: "## Found in review\n\nReviewed at \($head).\n",
     author: {__typename: "User", login: "starquake-bot"},
     headRepository: {nameWithOwner: "starquake/voidmarch"},
-    labels: {nodes: []}, reviews: {nodes: []}} + $over)}}}' > "$stub/pr.json"
+    labels: {nodes: []}, reviews: {nodes: []},
+    timelineItems: {pageInfo: {hasPreviousPage: false}, nodes: []}} + $over)}}}' > "$stub/pr.json"
 }
 
 # ruleset ENFORCEMENT CODE_OWNER [OVERRIDES]: the live ruleset main, as the API
@@ -97,8 +98,25 @@ files() {
   printf '%s\n' "$@" | jq -R '{filename: .}' | jq -s . > "$stub/files.json"
 }
 
+# approved_at STATE SHA [SUBMITTED]: @starquake's latest review.
 approved_at() {
-  printf '{"reviews": {"nodes": [{"state": "%s", "commit": {"oid": "%s"}}]}}' "$1" "$2"
+  printf '{"reviews": {"nodes": [{"state": "%s", "submittedAt": "%s", "commit": {"oid": "%s"}}]}}' \
+    "$1" "${3:-2026-11-28T10:00:00Z}" "$2"
+}
+
+# dismissed_by ACTOR AT [STALE] [REVIEWER]: a review by REVIEWER (starquake
+# unless given) dismissed by ACTOR at AT; STALE "stale" when a push did it.
+dismissed_by() {
+  jq -n --arg actor "$1" --arg at "$2" --arg stale "${3:-}" --arg reviewer "${4:-starquake}" '{
+    createdAt: $at,
+    actor: (if $actor == "null" then null else {login: $actor} end),
+    pullRequestCommit: (if $stale == "stale" then {id: "PRC_1"} else null end),
+    review: (if $reviewer == "null" then null else {author: {login: $reviewer}} end)}'
+}
+
+# timeline EVENT...: the PR's review dismissals, merged into OVERRIDES-style JSON.
+timeline() {
+  printf '%s\n' "$@" | jq -s '{timelineItems: {pageInfo: {hasPreviousPage: false}, nodes: .}}'
 }
 
 # gitrepos: a bare origin whose main has one commit, a clone of it in $work
@@ -206,6 +224,70 @@ files .github/workflows/ci.yml
 pr "$(approved_at CHANGES_REQUESTED "$head_sha")"
 run
 want "changes requested on a sensitive PR" 1 '^hold: @starquake requested changes'
+
+# both A B: the JSON objects A and B merged.
+both() {
+  jq -n --argjson a "$1" --argjson b "$2" '$a + $b'
+}
+
+# @starquake requested changes at 10:00, and the review now reads DISMISSED.
+cr_dismissed() {
+  pr "$(both "$(approved_at DISMISSED "$head_sha" 2026-11-28T10:00:00Z)" "$(timeline "$@")")"
+}
+
+setup
+cr_dismissed "$(dismissed_by starquake-bot 2026-11-28T11:00:00Z)"
+run
+want "changes requested, dismissed by the bot" 1 \
+  '^hold: a review by @starquake was dismissed by someone else at 2026-11-28T11:00:00Z'
+
+setup
+cr_dismissed "$(dismissed_by null 2026-11-28T11:00:00Z)"
+run
+want "dismissed by a deleted account" 1 '^hold: a review by @starquake was dismissed'
+
+setup
+cr_dismissed "$(dismissed_by starquake-bot 2026-11-28T11:00:00Z "" null)"
+run
+want "dismissed review deleted" 1 '^hold: a review by @starquake was dismissed'
+
+setup
+cr_dismissed "$(dismissed_by starquake 2026-11-28T11:00:00Z)"
+run
+want "dismissed by starquake" 0
+want_not "dismissed by starquake" '^hold:'
+
+setup
+cr_dismissed "$(dismissed_by starquake-bot 2026-11-28T11:00:00Z stale)"
+run
+want "approval made stale by a push" 0
+
+setup
+cr_dismissed "$(dismissed_by starquake-bot 2026-11-28T11:00:00Z "" someone)"
+run
+want "someone else's review dismissed" 0
+
+setup
+pr "$(both "$(approved_at APPROVED "$head_sha" 2026-11-28T12:00:00Z)" \
+  "$(timeline "$(dismissed_by starquake-bot 2026-11-28T11:00:00Z)")")"
+run
+want "starquake reviewed again after the dismissal" 0
+
+setup
+pr "$(both "$(approved_at APPROVED "$head_sha" 2026-11-28T12:00:00Z)" \
+  "$(timeline "$(dismissed_by starquake-bot 2026-11-28T11:00:00Z)" "$(dismissed_by starquake-bot 2026-11-28T13:00:00Z)")")"
+run
+want "dismissed again after the new review" 1 '^hold: a review by @starquake was dismissed by someone else at 2026-11-28T13:00:00Z'
+
+setup
+pr '{"timelineItems": {"pageInfo": {"hasPreviousPage": true}, "nodes": []}}'
+run
+want "too many dismissals to read" 1 "^hold: could not read every dismissed review"
+
+setup
+pr '{"timelineItems": null}'
+run
+want "no timeline" 1 "^hold: could not read every dismissed review"
 
 setup
 pr '{"author": {"__typename": "Bot", "login": "dependabot"}}'

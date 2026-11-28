@@ -22,7 +22,8 @@ frontend's ESLint, TypeScript and Playwright configs). That one is mergeable
 only when @starquake has approved its current head commit. Claude works as
 @starquake-bot and **never approves a PR**, its own or anyone else's.
 
-**Never run `gh auth switch`, and never approve a PR as any account.**
+**Never run `gh auth switch`, never approve a PR as any account, and never
+dismiss a review.**
 
 **Dependabot's PRs mostly merge themselves.**
 `.github/workflows/dependabot-auto-merge.yml` turns on auto-merge for
@@ -95,8 +96,10 @@ with no slash (that name at any depth). Any other form, a CODEOWNERS with no
 patterns, or a failed read prints `CHECK FAILED`, and the PR counts as
 sensitive.
 
-**Any PR, sensitive or not, is held** while it is labeled `hold`, or while
-@starquake's latest review that is not a plain comment requests changes.
+**Any PR, sensitive or not, is held** while it is labeled `hold`, while
+@starquake's latest review that is not a plain comment requests changes, or
+once anyone else has dismissed a review of theirs by hand (a push dismissing a
+stale approval doesn't count) until they review again.
 
 **A sensitive PR needs @starquake's approval of `head`**: their latest review
 that is not a plain comment is `APPROVED`, and for that commit. Replying to a
