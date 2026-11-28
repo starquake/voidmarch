@@ -192,34 +192,32 @@ test('a newly fitted weapon waits out the swap before it fires (#191)', async ({
   const view = page.viewportSize() ?? { width: 640, height: 360 };
   await page.mouse.move(view.width / 2 + 100, view.height / 2);
   await page.mouse.down();
-  // Watched in the page, armed before the key goes down, in the sim's own ticks: a late start or slow frames can't shorten it (#383).
+  // Armed in the page before the key goes down, and counted in sim ticks, so slow frames can't shorten it (#383).
   const watch = await page.evaluateHandle((timeout) => {
     const frame = (): Promise<number> => new Promise((resolve) => requestAnimationFrame(resolve));
     const end = performance.now() + timeout;
     const waited = (async (): Promise<number> => {
-      // The tick the old weapon was last seen at: the swap came no sooner.
-      let swapped: number | undefined;
+      // The old weapon as last seen: the swap came no sooner, and every later shot is the new weapon's.
+      let old: { ticks: number; shots: number } | undefined;
       while (window.voidmarch?.loadout.weapon === 'autoCannon') {
-        swapped = window.voidmarch.simTicks;
+        old = { ticks: window.voidmarch.simTicks, shots: window.voidmarch.shotsFired };
         if (performance.now() > end) {
           throw new Error('the weapon was never swapped');
         }
         await frame();
       }
-      if (swapped === undefined) {
+      if (old === undefined) {
         throw new Error('the weapon was swapped before the watch began');
       }
-      // A frame runs at most MAX_TICKS_PER_FRAME ticks: too few for the new weapon to have fired yet.
-      const before = window.voidmarch?.shotsFired ?? 0;
-      for (;;) {
-        await frame();
-        if ((window.voidmarch?.shotsFired ?? 0) > before) {
-          return (window.voidmarch?.simTicks ?? 0) - swapped;
-        }
+      const swapped = old;
+      while ((window.voidmarch?.shotsFired ?? 0) <= swapped.shots) {
         if (performance.now() > end) {
           throw new Error('the new weapon never fired');
         }
+        await frame();
       }
+
+      return (window.voidmarch?.simTicks ?? 0) - swapped.ticks;
     })();
 
     return { waited };
