@@ -14,7 +14,7 @@ func main() {
 	flag.Parse()
 	const sourceFile = 0o644
 	if err := os.WriteFile(*out, []byte(generate()), sourceFile); err != nil {
-		fmt.Fprintf(os.Stderr, "error writing %s: %v\n", *out, err)
+		_, _ = fmt.Fprintf(os.Stderr, "error writing %s: %v\n", *out, err)
 		os.Exit(1)
 	}
 }

@@ -199,8 +199,8 @@ func TestStore_Touch(t *testing.T) {
 	if err = row.Scan(&seen); err != nil {
 		t.Fatalf("reading last_seen_at: %v", err)
 	}
-	if got, want := seen, at.Unix(); got != want {
-		t.Errorf("last_seen_at = %d, want %d", got, want)
+	if got, wantSec := seen, at.Unix(); got != wantSec {
+		t.Errorf("last_seen_at = %d, want %d", got, wantSec)
 	}
 }
 
