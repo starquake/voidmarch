@@ -15,11 +15,11 @@ description: >
 
 **Claude merges its own PRs once they are reviewed and green** (#373,
 decision 8), **except a PR whose diff touches a sensitive path**: one that
-`.github/CODEOWNERS` gives to @starquake (`.github/`, `deployments/`,
-`.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check configs: the
-`Makefile`, `.golangci.yml`, `.testcoverage.yml`, the `Dockerfile`, the buf
-and sqlc configs, and frontend's ESLint, TypeScript and Playwright configs,
-but not `frontend/package.json`). That one is mergeable
+`.github/CODEOWNERS` gives to @starquake (`.github/`, `deployments/`, at any
+depth `.claude/`, `.mcp.json`, `CLAUDE.md` and `CLAUDE.local.md`, and the
+check configs: the `Makefile`, `.golangci.yml`, `.testcoverage.yml`, the
+`Dockerfile`, the buf and sqlc configs, and frontend's ESLint, TypeScript and
+Playwright configs, but not `frontend/package.json`). That one is mergeable
 only when @starquake has approved its current head commit. Claude works as
 @starquake-bot and **never approves a PR**, its own or anyone else's.
 

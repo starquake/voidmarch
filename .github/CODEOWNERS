@@ -9,6 +9,7 @@
 .claude/ @starquake
 .mcp.json @starquake
 CLAUDE.md @starquake
+CLAUDE.local.md @starquake
 
 # The configs of the checks a merge waits for.
 /Makefile @starquake

@@ -380,7 +380,8 @@ owned_here=(.github/workflows/ci.yml deployments/podman/deploy.sh .claude/skills
   CLAUDE.md frontend/src/CLAUDE.md Makefile .golangci.yml .testcoverage.yml Dockerfile
   frontend/eslint.config.js frontend/tsconfig.json frontend/playwright.config.ts
   frontend/.claude/settings.json internal/.mcp.json .Claude/skills/x.md frontend/Claude.md .GitHub/workflows/x.yml
-  MAKEFILE "deployments/my unit.container" buf.yaml buf.gen.yaml sqlc.yaml)
+  MAKEFILE "deployments/my unit.container" buf.yaml buf.gen.yaml sqlc.yaml CLAUDE.local.md
+  frontend/src/CLAUDE.local.md)
 setup
 cp "$(dirname "$script")/../../.github/CODEOWNERS" "$stub/codeowners"
 files "${owned_here[@]}" internal/sim/sim.go tools/go.mod frontend/src/main.ts frontend/package.json

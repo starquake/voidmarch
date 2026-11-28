@@ -291,9 +291,10 @@ answer given in chat is written back into the issue body before acting on it.
   checks, once the separate agent's review is done, CI is green and every
   thread is resolved (#373, decision 8). **A PR that touches a sensitive
   path** (one `.github/CODEOWNERS` gives to @starquake: `.github/`,
-  `deployments/`, `.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check
-  configs, decision 9) **also needs @starquake's approving review** of its
-  current head commit, re-read from the API at the moment of merging.
+  `deployments/`, and at any depth `.claude/`, `.mcp.json`, `CLAUDE.md` and
+  `CLAUDE.local.md`, and the check configs, decision 9) **also needs
+  @starquake's approving review** of its current head commit, re-read from
+  the API at the moment of merging.
   Claude never approves a PR, never dismisses a review, and never merges a
   sensitive one without that approval.
 - **A position in the flow is a Status; a property of a ticket is a label**:
