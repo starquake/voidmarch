@@ -450,7 +450,9 @@ release candidate tag; production from a `vX.Y.Z` tag. A tag doesn't rebuild:
 `ci.yml`'s `promote` retags main's signed image. Staging, production and
 development's `:edge` only run images `ci.yml` signed on `main`. Tags and
 releases are the maintainer's to make, numbered as the README's Versions
-section says.
+section says. The tag ruleset `.github/rulesets/tags.json` lets only a
+repository admin create, move or delete a `v*` tag, so @starquake-bot can't
+deploy one.
 
 ## Comments
 
