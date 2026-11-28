@@ -334,8 +334,10 @@ files the issues, posts the comments, opens the pull requests, makes the
 commits and presses merge. The author's name says who wrote something, so
 nothing Claude posts carries an attribution line. Write long bodies to a file
 and post them with `--body-file`. The board monitor and `issue-comment-replies`
-tell Claude's comments from the maintainer's by the author: @starquake-bot is
-Claude, @starquake is the maintainer.
+tell Claude's comments from the maintainer's by the author and the date:
+@starquake-bot is Claude, and so is a @starquake comment from before
+2026-11-27T21:00:00Z that starts with `> 🤖` (posted through their account
+before the bot). Any other @starquake comment is the maintainer's.
 
 Claude merges as @starquake-bot, so the squash-merge commit on `main` is the
 bot's, signed by GitHub. @starquake owns the process: they set the rules,
