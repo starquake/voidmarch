@@ -331,6 +331,27 @@ run
 want "renamed out of an owned path" 1 '^sensitive: .github/old.yml is in CODEOWNERS'
 
 setup
+{
+  jq -n '[range(100) | {filename: "internal/sim/f\(.).go"}]'
+  jq -n '[{filename: "internal/sim/last.go"}, {filename: ".github/workflows/ci.yml"}]'
+} > "$stub/files.json"
+pr '{"changedFiles": 102}'
+run
+want "an owned file on the second page" 1 '^sensitive: .github/workflows/ci.yml is in CODEOWNERS'
+if ! grep -q -- '--paginate repos/starquake/voidmarch/pulls/7/files' "$stub/calls"; then
+  fail "paginated files: not read with --paginate: $(cat "$stub/calls")"
+fi
+
+setup
+{
+  jq -n '[range(100) | {filename: "internal/sim/f\(.).go"}]'
+  jq -n '[{filename: "internal/sim/last.go"}]'
+} > "$stub/files.json"
+pr '{"changedFiles": 101}'
+run
+want "two pages, nothing owned" 0
+
+setup
 pr '{"reviewDecision": "REVIEW_REQUIRED"}'
 run
 want "review required" 1 '^sensitive: GitHub says a review is required'
@@ -609,6 +630,47 @@ for f in internal/web/static/js/vendor/phaser.js frontend/src/bootsizes.gen.ts i
   run
   want "regenerated $f" 0 "^reviewed: only Dependabot's commits and regenerated output"
 done
+
+# pages FILE N [LAST]: FILE as the commit endpoint pages it, 300 a page: N
+# regenerated files, then LAST if given.
+pages() {
+  local out="$1" n="$2" last="${3:-}"
+  jq -n --argjson n "$n" --arg last "$last" '
+    [range($n) | {filename: "internal/web/static/js/f\(.).js"}]
+    + (if $last == "" then [] else [{filename: $last}] end)
+    | [range(0; length; 300) as $i | {files: .[$i:$i + 300]}] | .[]' > "$out"
+}
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+commits c2:starquake-bot:starquake-bot:true
+pages "$stub/commit-c2.json" 450
+run
+want "a commit with more than 300 regenerated files" 0 "^reviewed: only Dependabot's commits and regenerated output"
+if ! grep -q -- '--paginate repos/starquake/voidmarch/commits/c2' "$stub/calls"; then
+  fail "a commit with more than 300 files: not read with --paginate: $(cat "$stub/calls")"
+fi
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+commits c2:starquake-bot:starquake-bot:true
+pages "$stub/commit-c2.json" 450 go.mod
+run
+want "a hand edit on a commit's second page" 1 "^hold: no 'Reviewed at <sha>'"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+commits c2:starquake-bot:starquake-bot:true
+pages "$stub/commit-c2.json" 3000
+run
+want "a commit at the 3000-file limit" 1 "^hold: no 'Reviewed at <sha>'"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+commits c2:starquake-bot:starquake-bot:true
+echo '{"files": [{"filename": "THIRD-PARTY.md", "previous_filename": "LICENSE.md"}]}' > "$stub/commit-c2.json"
+run
+want "a regenerated file renamed from another" 1 "^hold: no 'Reviewed at <sha>'"
 
 for f in internal/db/players.sql.go internal/web/static/wasm/extra.js internal/web/static/index.html \
   frontend/src/sim/tuning.ts THIRD-PARTY.md.bak "internal/gen/../../go.mod"; do

@@ -219,8 +219,11 @@ needs_review() {
       .commit.verification.verified == true) | not) | .sha' "$tmp/commits.json" \
       > "$tmp/others" 2> /dev/null || return 0
   while IFS= read -r sha; do
-    gh api "repos/$repo/commits/$sha" > "$tmp/commit.json" 2> /dev/null &&
-      jq -r '.files[].filename' "$tmp/commit.json" > "$tmp/commit-files" 2> /dev/null || return 0
+    # 300 files a page, and no more than 3000 in all.
+    gh api --paginate "repos/$repo/commits/$sha" > "$tmp/commit.json" 2> /dev/null &&
+      jq -r '.files[] | .filename, (.previous_filename // empty)' "$tmp/commit.json" \
+        > "$tmp/commit-files" 2> /dev/null || return 0
+    [[ "$(jq -s 'map(.files | length) | add // 0' "$tmp/commit.json")" -lt 3000 ]] || return 0
     while IFS= read -r f; do
       regenerated "$f" || return 0
     done < "$tmp/commit-files"
