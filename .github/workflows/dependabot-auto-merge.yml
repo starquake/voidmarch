@@ -36,6 +36,29 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # A push by anyone but Dependabot hasn't had merge-pr's checks, so it takes
+  # the PR out of auto-merge and leaves the merge to merge-pr.
+  stop-auto-merge:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'synchronize' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor != 'dependabot[bot]'
+    # The same as turning it on takes; nothing is checked out.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Disable auto-merge
+        run: |
+          if [ -n "$(gh pr view "$PR_URL" --json autoMergeRequest -q '.autoMergeRequest // empty')" ]; then
+            gh pr merge --disable-auto "$PR_URL"
+          fi
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # Once auto-merge lands the PR, dispatches CI on main, which publishes :edge,
   # and then Deploy for development: a dispatch is exempt from the GITHUB_TOKEN rule.
   main-after-merge:

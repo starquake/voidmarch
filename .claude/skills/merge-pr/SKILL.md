@@ -33,9 +33,10 @@ checks pass. Never approve one. One that touches `.github/` waits for
 @starquake's approval as code owner, and Claude merges it here once they give
 it, never auto-merge: merged as `GITHUB_TOKEN` after
 `dispatch-after-merge.sh` stopped waiting, it would run no CI on `main`. So
-the workflow leaves auto-merge off for an actions bump, and Claude turns it
-off (`gh pr merge <n> --disable-auto`) on a `@playwright/test` bump when it
-moves `ci.yml`'s image tag. A direct bump in `/tools` gets no auto-merge:
+the workflow leaves auto-merge off for an actions bump. **A Dependabot PR
+that Claude pushed onto merges only through here**: the workflow turns its
+auto-merge off on any push not by Dependabot (a rebase, a rebuilt bundle,
+`ci.yml`'s Playwright image tag). A direct bump in `/tools` gets no auto-merge:
 Claude mirrors its version into the Makefile's `GOLANGCI_VERSION`, which
 makes it sensitive (the Makefile is @starquake's, decision 9), and merges it
 here once they approve.

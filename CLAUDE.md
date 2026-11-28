@@ -232,11 +232,13 @@ answer given in chat is written back into the issue body before acting on it.
   @starquake's approval as code owner, and Claude merges it through
   `merge-pr`, not auto-merge: a late approval would merge it as
   `GITHUB_TOKEN` after the workflow stopped waiting, and run no CI on `main`.
-  The workflow leaves auto-merge off for an actions bump, and Claude turns it
-  off on the Playwright bump when it moves the tag. A direct bump in `/tools`
-  gets no auto-merge: Claude mirrors its version into the Makefile's
-  `GOLANGCI_VERSION`, and since the Makefile is @starquake's (decision 9) it
-  merges through `merge-pr` once they approve.
+  The workflow leaves auto-merge off for an actions bump. **A Dependabot PR
+  that Claude pushed onto merges only through `merge-pr`**, after a separate
+  review recorded in its body: the workflow turns auto-merge off on any push
+  not by Dependabot. A direct bump in `/tools` gets no auto-merge: Claude
+  mirrors its version into the Makefile's `GOLANGCI_VERSION`, and since the
+  Makefile is @starquake's (decision 9) it merges through `merge-pr` once
+  they approve.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,
   bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
   for anything touching the client, on every commit. The ruleset lives as code
