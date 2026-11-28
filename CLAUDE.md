@@ -293,8 +293,9 @@ answer given in chat is written back into the issue body before acting on it.
   path** (one `.github/CODEOWNERS` gives to @starquake: `.github/`,
   `deployments/`, `.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check
   configs, decision 9) **also needs @starquake's approving review** of its
-  current head commit, re-read from the API at the moment of merging. Claude never approves a PR, and never merges a sensitive one
-  without that approval.
+  current head commit, re-read from the API at the moment of merging.
+  Claude never approves a PR, and never merges a sensitive one without that
+  approval.
 - **A position in the flow is a Status; a property of a ticket is a label**:
   `hold` (skip entirely), `dependencies` (Dependabot's),
   and, **only while a ticket waits in `Backlog`**, its route: `needs: spec` (a
