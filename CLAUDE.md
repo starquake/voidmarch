@@ -452,8 +452,11 @@ release candidate tag; production from a `vX.Y.Z` tag. A tag doesn't rebuild:
 development's `:edge` only run images `ci.yml` signed on `main`. Tags and
 releases are the maintainer's to make, numbered as the README's Versions
 section says. The tag ruleset `.github/rulesets/tags.json` lets only a
-repository admin create, move or delete a `v*` tag, so @starquake-bot can't
-deploy one.
+repository admin create, move or delete a `v*` tag, and `deploy.yml` deploys
+production only for a tag push or a manual run that the repository owner
+started (a dispatched or re-run CI, or a branch named like a tag, could put an
+old release back). So @starquake-bot can't deploy production; it can still
+run a staging or development deploy.
 
 ## Comments
 
