@@ -60,6 +60,8 @@ field() {
 head="$(field .headRefOid)"
 echo "head: $head"
 [[ "$(field .state)" == OPEN ]] || hold "#$pr is $(field .state)"
+# The ruleset, and CODEOWNERS as GitHub reads it, protect main only.
+[[ "$(field .baseRefName)" == main ]] || hold "#$pr merges into '$(field .baseRefName)', not main"
 [[ "$(field 'any(.labels.nodes[]; .name == "hold")')" == false ]] || hold "#$pr is labeled hold"
 [[ "$(field '.reviews.nodes[0].state // ""')" != CHANGES_REQUESTED ]] || hold "@starquake requested changes"
 

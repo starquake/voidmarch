@@ -176,6 +176,11 @@ run
 want closed 1 '^hold: #7 is MERGED'
 
 setup
+pr '{"baseRefName": "release"}'
+run
+want "base other than main" 1 "^hold: #7 merges into 'release', not main" '^verdict: hold$'
+
+setup
 pr '{"labels": {"nodes": [{"name": "dependencies"}, {"name": "hold"}]}}'
 run
 want "labeled hold" 1 '^hold: #7 is labeled hold'
