@@ -85,13 +85,15 @@ jobs:
 
   # CI green on a v*.*.* tag deploys that release, but not a release candidate;
   # a manual run deploys :latest. Only the repository owner starts either: a
-  # dispatched or re-run CI could otherwise put an old release back.
+  # dispatched or re-run CI, or a re-run of this job, could otherwise put an
+  # old release back.
   deploy-production:
     if: >-
       (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
         github.event.workflow_run.event == 'push' &&
         github.event.workflow_run.triggering_actor.login == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
         github.event.workflow_run.head_repository.full_name == github.repository &&
         startsWith(github.event.workflow_run.head_branch, 'v') &&
         !contains(github.event.workflow_run.head_branch, '-rc.')) ||
