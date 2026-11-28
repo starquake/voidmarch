@@ -2,7 +2,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { HOME_SPAWN_Y, MAX_DAMAGE, RAM_SPEED, RESPAWN_DELAY, SHIP_RADIUS, TICK_RATE, TICK_SECONDS, WEAPON_STATS } from './sim/rules.gen.ts';
+import {
+  HOME_SPAWN_Y,
+  MAX_DAMAGE,
+  MAX_TICKS_PER_FRAME,
+  RAM_SPEED,
+  RESPAWN_DELAY,
+  SHIP_RADIUS,
+  TICK_RATE,
+  TICK_SECONDS,
+  WEAPON_STATS,
+  WEAPON_SWAP_SECONDS,
+} from './sim/rules.gen.ts';
 import type { InputSnapshot } from './sim/input.ts';
 import { Sandbox, instantiate, isWeapon, type GoRuntime } from './simwasm.ts';
 
@@ -45,6 +56,31 @@ test('advance runs whole ticks, moves the ship and remembers where it was', asyn
   assert.ok(s.ship.y < 160);
   assert.ok(s.previous.y > s.ship.y);
   assert.equal(s.ship.thrusting, true);
+});
+
+test('ticks counts the fixed ticks run, at most MAX_TICKS_PER_FRAME for a stalled frame (#383)', async () => {
+  const s = await sim();
+  assert.equal(s.ticks, 0);
+  s.advance(TICK_SECONDS * 2.5, input());
+  s.advance(TICK_SECONDS * 0.75, input());
+  assert.equal(s.ticks, 3);
+  s.advance(10, input());
+  assert.equal(s.ticks, 3 + MAX_TICKS_PER_FRAME);
+  s.takeHit(Math.PI / 2, 'autoCannon');
+  s.setLoadout({ ...s.ship.loadout, weapon: 'zapper' });
+  assert.equal(s.ticks, 3 + MAX_TICKS_PER_FRAME, 'only advance runs ticks');
+});
+
+test('a new weapon held firing shoots no sooner than WEAPON_SWAP_SECONDS of ticks (#191)', async () => {
+  const s = await sim();
+  s.setLoadout({ ...s.ship.loadout, weapon: 'rockets' });
+  const swapped = s.ticks;
+  while (s.advance(TICK_SECONDS, input({ fire: true })).shots.length === 0) {
+    assert.ok(s.ticks - swapped < TICK_RATE * 2, 'the new weapon never fired');
+  }
+  const waited = s.ticks - swapped;
+  assert.ok(waited >= WEAPON_SWAP_SECONDS * TICK_RATE, `fired after ${String(waited)} ticks`);
+  assert.ok(waited <= WEAPON_SWAP_SECONDS * TICK_RATE + 1, `fired after ${String(waited)} ticks`);
 });
 
 test('firing reports shots, which fly in the pool as own shots', async () => {

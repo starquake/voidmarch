@@ -2772,6 +2772,7 @@ var Sandbox = class {
   exports;
   mode = "ship";
   alphaValue = 0;
+  ticksRun = 0;
   shipState;
   constructor(exports) {
     this.exports = exports;
@@ -2801,6 +2802,10 @@ var Sandbox = class {
   get alpha() {
     return this.alphaValue;
   }
+  /** The fixed ticks run so far: the game's own clock, which a slow frame never shortens. */
+  get ticks() {
+    return this.ticksRun;
+  }
   /** How WASD maps to movement; ship-relative unless the player switched. */
   get controlMode() {
     return this.mode;
@@ -2817,7 +2822,9 @@ var Sandbox = class {
   advance(frameSeconds, input, squadmateDistance = Infinity, friendDistance = Infinity) {
     const cmd = toCommand(input);
     this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance, friendDistance);
-    return this.read();
+    const events = this.read();
+    this.ticksRun += events.ticks;
+    return events;
   }
   /** Applies a hit by a projectile of kind on the ship from direction from, as shipScan reports it (a Torpedo takes two steps); true when the shield took any. */
   takeHit(from, kind) {
@@ -7179,6 +7186,7 @@ var SandboxScene = class extends Phaser14.Scene {
       unlocks: {},
       pickups: [],
       shotsFired: 0,
+      simTicks: 0,
       zoom: 1,
       fps: 0,
       layerTextures: this.registry.get("layerTextures") ?? [],
@@ -8516,6 +8524,7 @@ var SandboxScene = class extends Phaser14.Scene {
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
     this.debug.ownShards = projectiles.items.filter((p) => p.active && p.faction === "own" && p.kind === "shard").length;
     this.debug.shotsFired = this.shotsFired;
+    this.debug.simTicks = this.sim.ticks;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
     this.debug.frameMs = { average: this.frameTimes.average, worst: this.frameTimes.worst };

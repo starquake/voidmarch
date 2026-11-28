@@ -42,6 +42,8 @@ export interface DebugState {
   unlocks: Record<string, number>;
   pickups: { id: number; part: string; x: number; y: number }[];
   shotsFired: number;
+  /** The fixed ticks the local sim has run: the game's own clock, for timing a rule (#383). */
+  simTicks: number;
   zoom: number;
   fps: number;
   /** The WebGL textures each stars layer's DynamicTexture holds: 1, or 0 on a canvas (#260). */

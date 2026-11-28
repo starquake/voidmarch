@@ -228,6 +228,7 @@ export class Sandbox {
   private readonly exports: Exports;
   private mode: ControlMode = 'ship';
   private alphaValue = 0;
+  private ticksRun = 0;
   private readonly shipState: Mutable<Ship>;
 
   constructor(exports: Exports) {
@@ -260,6 +261,11 @@ export class Sandbox {
     return this.alphaValue;
   }
 
+  /** The fixed ticks run so far: the game's own clock, which a slow frame never shortens. */
+  get ticks(): number {
+    return this.ticksRun;
+  }
+
   /** How WASD maps to movement; ship-relative unless the player switched. */
   get controlMode(): ControlMode {
     return this.mode;
@@ -278,8 +284,10 @@ export class Sandbox {
   advance(frameSeconds: number, input: InputSnapshot, squadmateDistance = Infinity, friendDistance = Infinity): FrameEvents {
     const cmd = toCommand(input);
     this.exports.advance(frameSeconds, cmd.moveX, cmd.moveY, cmd.aimX, cmd.aimY, cmd.fire ? 1 : 0, squadmateDistance, friendDistance);
+    const events = this.read();
+    this.ticksRun += events.ticks;
 
-    return this.read();
+    return events;
   }
 
   /** Applies a hit by a projectile of kind on the ship from direction from, as shipScan reports it (a Torpedo takes two steps); true when the shield took any. */

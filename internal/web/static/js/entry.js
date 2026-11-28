@@ -1,6 +1,6 @@
 // src/bootsizes.gen.ts
 var CODE_BYTES = {
-  "/static/js/main.js": 313298,
+  "/static/js/main.js": 313577,
   "/static/js/vendor/phaser.js": 1377611,
   "/static/js/vendor/protobuf.js": 27604,
   "/static/js/vendor/protobuf-ULXGU3X6.js": 82257,
