@@ -183,7 +183,16 @@ covers_head() {
   diff="$(git range-diff --no-color "$old_base..$reviewed" "$new_base..$head" 2> /dev/null)" || return 1
   [[ -n "$diff" ]] || return 1
   why="a commit's patch changed, or a commit was added or dropped"
-  ! grep -Ev '^ *[0-9]+: +[0-9a-f]+ = +[0-9]+: +[0-9a-f]+( |$)' <<< "$diff" | grep -q .
+  grep -Ev '^ *[0-9]+: +[0-9a-f]+ = +[0-9]+: +[0-9a-f]+( |$)' <<< "$diff" | grep -q . && return 1
+  # range-diff calls two binary files the same if both differ, and misses a
+  # mode, so each pair's modes and blobs must match too.
+  why="a pair of commits differs in its modes or blobs (a binary, a mode, or a file main changed too)"
+  local old new old_raw new_raw
+  while read -r _ old _ _ new _; do
+    old_raw="$(git diff-tree -r --raw --no-abbrev --no-commit-id "$old" 2> /dev/null)" &&
+      new_raw="$(git diff-tree -r --raw --no-abbrev --no-commit-id "$new" 2> /dev/null)" &&
+      [[ -n "$old_raw" && "$old_raw" == "$new_raw" ]] || return 1
+  done <<< "$diff"
 }
 
 # Dependabot's own commits need no review, nor Claude's that only regenerate output.

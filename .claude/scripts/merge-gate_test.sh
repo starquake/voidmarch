@@ -497,6 +497,49 @@ pr "$(reviewed_body "$reviewed")"
 run
 want "reviewed an empty branch" 1 "^hold: $head_sha is not $reviewed .*no commits to compare"
 
+# rebuilt_after_review MUTATE...: main has sim.wasm; a branch reviewed with one
+# commit that rebuilds it and adds "run me.sh", then rebased onto a newer main
+# with MUTATE run (by eval, after the repositories exist) on that commit;
+# points the PR at it.
+rebuilt_after_review() {
+  gitrepos
+  printf '\000\001\002' > "$seed/sim.wasm"
+  sg add sim.wasm
+  sg commit -q -m "Add the sim"
+  sg push -q origin main
+  sg checkout -q -b feature
+  printf '\001\001\001' > "$seed/sim.wasm"
+  echo 'echo hi' > "$seed/run me.sh"
+  sg add sim.wasm "run me.sh"
+  sg commit -q -m "Rebuild the sim and add a script"
+  push_pr
+  reviewed="$head_sha"
+  sg checkout -q main
+  commit m.txt main
+  sg push -q origin main
+  sg checkout -q feature
+  sg rebase -q main
+  eval "$*"
+  sg commit -q -a --amend --no-edit
+  push_pr
+  pr "$(reviewed_body "$reviewed")"
+}
+
+setup
+rebuilt_after_review true
+run
+want "rebased with a binary and a path with spaces" 0 "^reviewed: $reviewed covers $head_sha"
+
+setup
+rebuilt_after_review 'printf "\002\002\002" > "$seed/sim.wasm"'
+run
+want "binary rebuilt after the review" 1 "^hold: $head_sha is not $reviewed .*modes or blobs"
+
+setup
+rebuilt_after_review 'chmod +x "$seed/run me.sh"'
+run
+want "mode changed after the review" 1 "^hold: $head_sha is not $reviewed .*modes or blobs"
+
 # Dependabot.
 
 setup
