@@ -30,10 +30,14 @@ case "$*" in
   "api graphql"*) answer pr.json ;;
   *"/contents/.github/CODEOWNERS"*) answer codeowners ;;
   *"/pulls/"*"/files"*) answer files.json ;;
+  *"/rulesets/24078077") answer ruleset.json ;;
+  *"/rulesets") answer rulesets.json ;;
 esac
 exit 1
 STUB
   chmod +x "$stub/gh"
+  echo '[{"id": 9, "name": "tags"}, {"id": 24078077, "name": "main"}]' > "$stub/rulesets.json"
+  ruleset active true
   pr '{}'
   printf '%s\n' '# owners' '/.github/ @starquake' '/CLAUDE.md @starquake' > "$stub/codeowners"
   files a.go
@@ -47,6 +51,14 @@ pr() {
     author: {__typename: "User", login: "starquake-bot"},
     headRepository: {nameWithOwner: "starquake/voidmarch"},
     labels: {nodes: []}, reviews: {nodes: []}} + $over)}}}' > "$stub/pr.json"
+}
+
+# ruleset ENFORCEMENT CODE_OWNER: the live ruleset main.
+ruleset() {
+  jq -n --arg e "$1" --argjson c "$2" '{name: "main", enforcement: $e, rules: [
+    {type: "deletion"},
+    {type: "pull_request", parameters: {required_approving_review_count: 0, require_code_owner_review: $c}}]}' \
+    > "$stub/ruleset.json"
 }
 
 # files PATH...: the PR changes these files.
@@ -249,6 +261,48 @@ setup
 pr '{"reviewDecision": "REVIEW_REQUIRED"}'
 run
 want "review required" 1 '^sensitive: GitHub says a review is required'
+
+setup
+ruleset active false
+run
+want "ruleset without code owners" 1 "^sensitive: the live ruleset main does not require a code owner's review"
+
+setup
+ruleset disabled true
+run
+want "ruleset not enforced" 1 "^sensitive: the live ruleset main does not require"
+
+setup
+ruleset active true
+pr "$(approved_at APPROVED "$head_sha")"
+ruleset active false
+run
+want "ruleset loosened, approved" 0 "^approved: "
+
+setup
+echo '{"name": "main", "enforcement": "active", "rules": []}' > "$stub/ruleset.json"
+run
+want "ruleset without a pull request rule" 1 "^sensitive: the live ruleset main does not require"
+
+setup
+echo ERROR > "$stub/rulesets.json"
+run
+want "rulesets read fails" 1 '^sensitive: could not read the live ruleset main'
+
+setup
+echo '[{"id": 9, "name": "tags"}]' > "$stub/rulesets.json"
+run
+want "no ruleset main" 1 '^sensitive: could not read the live ruleset main'
+
+setup
+echo '[{"id": 24078077, "name": "main"}, {"id": 5, "name": "main"}]' > "$stub/rulesets.json"
+run
+want "two rulesets main" 1 '^sensitive: could not read the live ruleset main'
+
+setup
+echo ERROR > "$stub/ruleset.json"
+run
+want "ruleset read fails" 1 '^sensitive: could not read the live ruleset main'
 
 if [[ "$failed" -ne 0 ]]; then
   exit 1

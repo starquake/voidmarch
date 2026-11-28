@@ -135,6 +135,19 @@ if [[ "$codeowners_ok" -eq 1 ]]; then
 fi
 [[ "$(field '.reviewDecision // ""')" == REVIEW_REQUIRED ]] && sensitive "GitHub says a review is required"
 
+# Until the live ruleset requires a code owner, nothing makes GitHub stop a
+# sensitive PR that this check missed.
+ruleset_id="$(gh api "repos/$repo/rulesets" 2> /dev/null |
+  jq -r '[.[] | select(.name == "main")] | if length == 1 then .[0].id else empty end' 2> /dev/null)"
+if [[ ! "$ruleset_id" =~ ^[0-9]+$ ]] ||
+  ! gh api "repos/$repo/rulesets/$ruleset_id" > "$tmp/ruleset.json" 2> /dev/null; then
+  sensitive "could not read the live ruleset main"
+elif [[ "$(jq -r '.enforcement == "active" and
+  any(.rules[]; .type == "pull_request" and .parameters.require_code_owner_review == true)' \
+  "$tmp/ruleset.json" 2> /dev/null)" != true ]]; then
+  sensitive "the live ruleset main does not require a code owner's review"
+fi
+
 if [[ "$is_sensitive" -eq 1 ]]; then
   if [[ "$(field '.reviews.nodes[0].state // ""')" == APPROVED &&
     "$(field '.reviews.nodes[0].commit.oid // ""')" == "$head" ]]; then
