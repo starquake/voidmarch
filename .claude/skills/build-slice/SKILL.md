@@ -115,8 +115,9 @@ alone links nothing (#343).
   to its body makes the link but closes nothing, so close the sub-issue by
   hand.
 
-**Review is the bottleneck**: the maintainer reviews alone, so the body is a
-guide to reviewing, not a defence.
+**The body is a guide to reviewing, not a defence**: the separate agent reads
+it beside the diff, and @starquake reads it when the PR waits for them (a
+sensitive path, or an open question).
 
 0. **The PR body carries no attribution line** (CLAUDE.md): you open it as
    @starquake-bot, and the author's name says who wrote it.
