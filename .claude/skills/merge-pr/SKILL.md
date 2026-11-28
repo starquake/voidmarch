@@ -74,6 +74,9 @@ under it, as GitHub reads it) and a bare `name` with no slash (that name at
 any depth). Any other form, a CODEOWNERS with no patterns, or a failed read
 prints `CHECK FAILED`, and the PR counts as sensitive.
 
+**Any PR, sensitive or not, is held** while it is labeled `hold`, or while
+@starquake's latest review that is not a plain comment requests changes.
+
 **A sensitive PR needs @starquake's approval of `head`**: their latest review
 that is not a plain comment is `APPROVED`, and for that commit. Replying to a
 review thread makes a `COMMENTED` review, which neither gives nor takes away

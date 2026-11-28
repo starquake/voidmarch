@@ -60,6 +60,8 @@ field() {
 head="$(field .headRefOid)"
 echo "head: $head"
 [[ "$(field .state)" == OPEN ]] || hold "#$pr is $(field .state)"
+[[ "$(field 'any(.labels.nodes[]; .name == "hold")')" == false ]] || hold "#$pr is labeled hold"
+[[ "$(field '.reviews.nodes[0].state // ""')" != CHANGES_REQUESTED ]] || hold "@starquake requested changes"
 
 # The repository is public: anyone can open a PR and write its body.
 author="$(field '.author.__typename + "/" + .author.login')"

@@ -106,6 +106,27 @@ run
 want closed 1 '^hold: #7 is MERGED'
 
 setup
+pr '{"labels": {"nodes": [{"name": "dependencies"}, {"name": "hold"}]}}'
+run
+want "labeled hold" 1 '^hold: #7 is labeled hold'
+
+setup
+pr '{"labels": {"nodes": [{"name": "dependencies"}]}}'
+run
+want "other labels" 0
+
+setup
+pr "$(approved_at CHANGES_REQUESTED "$head_sha")"
+run
+want "changes requested" 1 '^hold: @starquake requested changes'
+
+setup
+files .github/workflows/ci.yml
+pr "$(approved_at CHANGES_REQUESTED "$head_sha")"
+run
+want "changes requested on a sensitive PR" 1 '^hold: @starquake requested changes'
+
+setup
 pr '{"author": {"__typename": "Bot", "login": "dependabot"}}'
 run
 want dependabot 0 '^verdict: merge$'
