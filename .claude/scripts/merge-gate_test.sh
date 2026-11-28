@@ -446,6 +446,57 @@ pr "$(reviewed_body "$old_sha")"
 run
 want "no checkout to compare in" 1 "^hold: $head_sha is not $old_sha"
 
+# An "evil merge": main merged into the branch, with code added in the merge.
+setup
+gitrepos
+sg checkout -q -b feature
+commit a.txt one
+push_pr
+reviewed="$head_sha"
+sg checkout -q main
+commit m.txt main
+sg push -q origin main
+sg checkout -q feature
+sg merge -q --no-commit main > /dev/null 2>&1
+echo evil > "$seed/evil.txt"
+sg add evil.txt
+sg commit -q -m "Merge main"
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "merge commit after the review" 1 "^hold: $head_sha is not $reviewed .*a merge commit"
+
+setup
+gitrepos
+sg checkout -q -b feature
+commit a.txt one
+sg checkout -q main
+commit m.txt main
+sg checkout -q feature
+sg merge -q --no-edit main > /dev/null 2>&1
+push_pr
+reviewed="$head_sha"
+sg checkout -q main
+commit n.txt newer
+sg push -q origin main
+sg checkout -q feature
+sg rebase -q --rebase-merges main
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "merge commit in the reviewed branch" 1 "a merge commit"
+
+setup
+gitrepos
+sg checkout -q -b feature
+push_pr
+reviewed="$head_sha"
+commit a.txt one
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "reviewed an empty branch" 1 "^hold: $head_sha is not $reviewed .*no commits to compare"
+
 # Dependabot.
 
 setup

@@ -159,18 +159,30 @@ if [[ "$is_sensitive" -eq 1 ]]; then
 fi
 
 # A rebase changes the commits but not their patches. Each side of the
-# range-diff runs from where that commit leaves the base branch.
+# range-diff runs from where that commit leaves the base branch. Sets $why
+# when it fails.
 covers_head() {
   local reviewed="$1" old_base new_base diff
+  why=""
   [[ "$reviewed" == "$head" ]] && return 0
+  why="could not fetch or compare the commits"
   git fetch --quiet origin "+refs/heads/$base:refs/remotes/origin/$base" "refs/pull/$pr/head" 2> /dev/null ||
     return 1
   git cat-file -e "$reviewed^{commit}" 2> /dev/null ||
     git fetch --quiet origin "$reviewed" 2> /dev/null || return 1
   old_base="$(git merge-base "origin/$base" "$reviewed" 2> /dev/null)" || return 1
   new_base="$(git merge-base "origin/$base" "$head" 2> /dev/null)" || return 1
+  # range-diff skips merge commits, so a merge could add code unseen.
+  if [[ -n "$(git rev-list --merges "$old_base..$reviewed" 2> /dev/null)$(git rev-list --merges "$new_base..$head" 2> /dev/null)" ]]; then
+    why="a merge commit, which range-diff can't compare"
+    return 1
+  fi
+  why="no commits to compare"
+  [[ -n "$(git rev-list "$old_base..$reviewed" 2> /dev/null)" ]] || return 1
+  why="could not compare the commits"
   diff="$(git range-diff --no-color "$old_base..$reviewed" "$new_base..$head" 2> /dev/null)" || return 1
   [[ -n "$diff" ]] || return 1
+  why="a commit's patch changed, or a commit was added or dropped"
   ! grep -Ev '^ *[0-9]+: +[0-9a-f]+ = +[0-9]+: +[0-9a-f]+( |$)' <<< "$diff" | grep -q .
 }
 
@@ -207,7 +219,7 @@ if needs_review; then
   elif covers_head "$reviewed"; then
     echo "reviewed: $reviewed covers $head"
   else
-    hold "$head is not $reviewed or only a rebase of it: have the new work reviewed"
+    hold "$head is not $reviewed or only a rebase of it ($why): have the new work reviewed"
   fi
 else
   echo "reviewed: only Dependabot's commits and regenerated output"

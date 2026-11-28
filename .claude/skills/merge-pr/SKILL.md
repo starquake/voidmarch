@@ -165,8 +165,10 @@ git push --force-with-lease
 
 **Never merge `main` into the branch, and never `gh pr update-branch`** (or the
 "Update branch" button): a server-side update makes unsigned commits, which the
-ruleset blocks, and a merge commit breaks linear history. The local rebase
-re-signs the commits with the local SSH key.
+ruleset blocks. A merge commit on the branch can also carry code of its own
+that `git range-diff` doesn't show, so Step 1 holds any branch with one until
+it is reviewed again. The local rebase re-signs the commits with the local SSH
+key.
 
 A force-push re-runs CI and dismisses an approval, so go back to Step 1 with
 the new head: a sensitive PR waits for @starquake to approve it again.
