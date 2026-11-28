@@ -113,13 +113,16 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       # head_branch is a name, not a ref: check a tag by that name points here.
+      # ls-remote also lists refs that only end in the pattern, so match it whole.
       - name: Check the release tag
         if: github.event_name == 'workflow_run'
         env:
           TAG: ${{ github.event.workflow_run.head_branch }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          got="$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -n 1 | cut -f1)"
+          got="$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
+            awk -v r="refs/tags/$TAG" '$2 == r { sha = $1 } $2 == r "^{}" { peeled = $1 }
+              END { print (peeled != "" ? peeled : sha) }')"
           if [ "$got" != "$SHA" ]; then
             echo "error: no tag $TAG at $SHA" >&2
             exit 1
