@@ -1,11 +1,11 @@
 import { expect, registerPlayer, signIn, test } from './fixtures.ts';
 import { state } from './hunt.ts';
 import { coveredOnScreen } from './screens.ts';
+import { TICK_RATE, WEAPON_SWAP_SECONDS } from '../src/sim/rules.gen.ts';
 import { PART_LIST_IDLE_MS } from '../src/sim/tuning.ts';
 
-/** How long a newly fitted weapon waits before it fires (sim.WeaponSwapSeconds), and the frames that may blur its measure. */
-const SWAP_MS = 500;
-const SWAP_SLACK_MS = 150;
+/** The sim ticks a newly fitted weapon waits before it fires. */
+const SWAP_TICKS = WEAPON_SWAP_SECONDS * TICK_RATE;
 
 test('the HUD shows the fitted parts, the hull and shield, and a labelled panel (#91)', async ({ page }) => {
   await page.goto('/');
@@ -192,30 +192,39 @@ test('a newly fitted weapon waits out the swap before it fires (#191)', async ({
   const view = page.viewportSize() ?? { width: 640, height: 360 };
   await page.mouse.move(view.width / 2 + 100, view.height / 2);
   await page.mouse.down();
-  // Timed in the page, frame by frame: the game runs in real time (#322), and round trips to the page take a while.
-  const waited = page.evaluate(async (timeout) => {
+  // Armed in the page before the key goes down, and counted in sim ticks, so slow frames can't shorten it (#383).
+  const watch = await page.evaluateHandle((timeout) => {
     const frame = (): Promise<number> => new Promise((resolve) => requestAnimationFrame(resolve));
     const end = performance.now() + timeout;
-    while (window.voidmarch?.loadout.weapon === 'autoCannon') {
-      if (performance.now() > end) {
-        throw new Error('the weapon was never swapped');
+    const waited = (async (): Promise<number> => {
+      // The old weapon as last seen: the swap came no sooner, and every later shot is the new weapon's.
+      let old: { ticks: number; shots: number } | undefined;
+      while (window.voidmarch?.loadout.weapon === 'autoCannon') {
+        old = { ticks: window.voidmarch.simTicks, shots: window.voidmarch.shotsFired };
+        if (performance.now() > end) {
+          throw new Error('the weapon was never swapped');
+        }
+        await frame();
       }
-      await frame();
-    }
-    const fitted = await frame();
-    const before = window.voidmarch?.shotsFired ?? 0;
-    for (;;) {
-      const at = await frame();
-      if ((window.voidmarch?.shotsFired ?? 0) > before) {
-        return at - fitted;
+      if (old === undefined) {
+        throw new Error('the weapon was swapped before the watch began');
       }
-      if (at > end) {
-        throw new Error('the new weapon never fired');
+      const swapped = old;
+      while ((window.voidmarch?.shotsFired ?? 0) <= swapped.shots) {
+        if (performance.now() > end) {
+          throw new Error('the new weapon never fired');
+        }
+        await frame();
       }
-    }
+
+      return (window.voidmarch?.simTicks ?? 0) - swapped.ticks;
+    })();
+
+    return { waited };
   }, 10_000);
   await page.keyboard.press('1');
-  expect(await waited, 'ms from the swap to the new weapon\'s first shot').toBeGreaterThan(SWAP_MS - SWAP_SLACK_MS);
+  const ticks = await watch.evaluate((w) => w.waited);
+  expect(ticks, 'sim ticks from the swap to the new weapon\'s first shot').toBeGreaterThanOrEqual(SWAP_TICKS);
   await page.mouse.up();
 });
 

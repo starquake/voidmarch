@@ -352,6 +352,7 @@ export class SandboxScene extends Phaser.Scene {
       unlocks: {},
       pickups: [],
       shotsFired: 0,
+      simTicks: 0,
       zoom: 1,
       fps: 0,
       layerTextures: (this.registry.get('layerTextures') as number[] | undefined) ?? [],
@@ -1848,6 +1849,7 @@ export class SandboxScene extends Phaser.Scene {
     this.debug.pickups = this.pickups.items.map(({ id, part, x, y }) => ({ id, part, x, y }));
     this.debug.ownShards = projectiles.items.filter((p) => p.active && p.faction === 'own' && p.kind === 'shard').length;
     this.debug.shotsFired = this.shotsFired;
+    this.debug.simTicks = this.sim.ticks;
     this.debug.zoom = this.cameras.main.zoom;
     this.debug.fps = this.game.loop.actualFps;
     this.debug.frameMs = { average: this.frameTimes.average, worst: this.frameTimes.worst };

@@ -83,6 +83,7 @@ func writeTunables(w writer) {
 	w("export const SHIP_RADIUS = %d;\n", sim.ShipRadius)
 	w("export const MAX_DAMAGE = %d;\n", sim.MaxDamage)
 	w("export const RESPAWN_DELAY = %s;\n", num(sim.RespawnDelay))
+	w("export const WEAPON_SWAP_SECONDS = %s;\n", num(sim.WeaponSwapSeconds))
 	w("export const HOME_SPAWN_Y = %d;\n", sim.HomeSpawnY)
 	w("export const BRAIN_SPACING = %d;\n", sim.BrainSpacing)
 	w("export const RAM_DAMAGE = %d;\n", sim.RammingDamage)

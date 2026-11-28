@@ -41,6 +41,7 @@ export const INTEREST_MARGIN = 200;
 export const SHIP_RADIUS = 12;
 export const MAX_DAMAGE = 3;
 export const RESPAWN_DELAY = 3;
+export const WEAPON_SWAP_SECONDS = 0.5;
 export const HOME_SPAWN_Y = 160;
 export const BRAIN_SPACING = 40;
 export const RAM_DAMAGE = 2;
