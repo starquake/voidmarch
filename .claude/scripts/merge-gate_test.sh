@@ -78,12 +78,18 @@ pr() {
     labels: {nodes: []}, reviews: {nodes: []}} + $over)}}}' > "$stub/pr.json"
 }
 
-# ruleset ENFORCEMENT CODE_OWNER: the live ruleset main.
+# ruleset ENFORCEMENT CODE_OWNER [OVERRIDES]: the live ruleset main, as the API
+# shows it to an account that can't bypass it, with OVERRIDES merged over it.
 ruleset() {
-  jq -n --arg e "$1" --argjson c "$2" '{name: "main", enforcement: $e, rules: [
-    {type: "deletion"},
-    {type: "pull_request", parameters: {required_approving_review_count: 0, require_code_owner_review: $c}}]}' \
-    > "$stub/ruleset.json"
+  local over='{}'
+  [[ $# -lt 3 ]] || over="$3"
+  jq -n --arg e "$1" --argjson c "$2" --argjson over "$over" '{name: "main", target: "branch",
+    enforcement: $e, current_user_can_bypass: "never",
+    conditions: {ref_name: {exclude: [], include: ["~DEFAULT_BRANCH"]}},
+    rules: [
+      {type: "deletion"},
+      {type: "pull_request", parameters: {required_approving_review_count: 0, require_code_owner_review: $c}}]}
+    + $over' > "$stub/ruleset.json"
 }
 
 # files PATH...: the PR changes these files.
@@ -402,6 +408,27 @@ setup
 echo ERROR > "$stub/ruleset.json"
 run
 want "ruleset read fails" 1 '^sensitive: could not read the live ruleset main'
+
+setup
+ruleset active true '{"conditions": {"ref_name": {"exclude": [], "include": ["refs/heads/main"]}}}'
+run
+want "ruleset naming main" 0
+
+for over in '{"conditions": {"ref_name": {"exclude": [], "include": ["refs/heads/release"]}}}' \
+  '{"conditions": {"ref_name": {"exclude": ["~DEFAULT_BRANCH"], "include": ["~DEFAULT_BRANCH"]}}}' \
+  '{"conditions": {"ref_name": {"exclude": [], "include": []}}}' '{"conditions": null}' '{"target": "tag"}'; do
+  setup
+  ruleset active true "$over"
+  run
+  want "ruleset $over" 1 '^sensitive: the live ruleset main does not cover the main branch'
+done
+
+for bypass in '"always"' '"pull_requests_only"' 'null'; do
+  setup
+  ruleset active true "{\"current_user_can_bypass\": $bypass}"
+  run
+  want "ruleset bypass $bypass" 1 '^sensitive: the live ruleset main lets this account bypass it'
+done
 
 # The review covers the head.
 

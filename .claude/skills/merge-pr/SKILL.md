@@ -83,8 +83,9 @@ by @starquake-bot or Dependabot from a branch in this repository**: the
 repository is public, so anyone can open a PR and write a *Found in review*
 into its body. @starquake's own PRs count too, and wait for them. **And
 every PR is sensitive while the live ruleset `main` does not require a code
-owner's review** (`require_code_owner_review`, in an active ruleset), or
-can't be read: before @starquake applies `.github/rulesets/main.json`, or
+owner's review** (`require_code_owner_review`, in an active ruleset that
+targets the default branch, excludes nothing, and that this account can't
+bypass), or can't be read: before @starquake applies `.github/rulesets/main.json`, or
 after anyone loosens it, nothing on GitHub would stop a sensitive PR this
 check missed.
 

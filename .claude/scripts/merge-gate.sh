@@ -148,6 +148,12 @@ elif [[ "$(jq -r '.enforcement == "active" and
   any(.rules[]; .type == "pull_request" and .parameters.require_code_owner_review == true)' \
   "$tmp/ruleset.json" 2> /dev/null)" != true ]]; then
   sensitive "the live ruleset main does not require a code owner's review"
+elif [[ "$(jq -r '.target == "branch" and
+  any(.conditions.ref_name.include[]?; . == "~DEFAULT_BRANCH" or . == "refs/heads/main") and
+  ((.conditions.ref_name.exclude // []) | length == 0)' "$tmp/ruleset.json" 2> /dev/null)" != true ]]; then
+  sensitive "the live ruleset main does not cover the main branch"
+elif [[ "$(jq -r '.current_user_can_bypass' "$tmp/ruleset.json" 2> /dev/null)" != never ]]; then
+  sensitive "the live ruleset main lets this account bypass it"
 fi
 
 if [[ "$is_sensitive" -eq 1 ]]; then
