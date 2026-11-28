@@ -24,7 +24,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # A direct bump in /tools must be mirrored into the Makefile's
-      # GOLANGCI_VERSION by hand, so it is left for a person.
+      # GOLANGCI_VERSION by hand, so it is left for Claude.
       - name: Enable auto-merge
         if: steps.meta.outputs.directory != '/tools' || !startsWith(steps.meta.outputs.dependency-type, 'direct')
         run: gh pr merge --auto --squash "$PR_URL"
