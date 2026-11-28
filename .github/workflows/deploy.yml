@@ -230,7 +230,7 @@ jobs:
       - name: Build date
         id: builddate
         run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      # Unsigned: development only runs same-repository PRs a writer labeled.
+      # Unsigned: development only runs labeled same-repository PRs.
       - name: Build and push
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

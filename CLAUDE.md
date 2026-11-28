@@ -220,11 +220,11 @@ answer given in chat is written back into the issue body before acting on it.
   its `GITHUB_TOKEN` and squash-merges it once the required checks pass. Its
   merge starts no workflows, so the same workflow then dispatches CI on
   `main`, which publishes `:edge`, and when it passes Deploy for development.
-  Claude never approves one. It keeps them
-  mergeable: one left behind `main` is rebased locally and force-pushed, and
-  a `frontend/` bump that fails only on bundle drift gets the rebuilt bundle
-  committed onto its branch, and one that changes `THIRD-PARTY.md` gets
-  `make third-party` committed the same way. A bump of `@playwright/test`
+  Claude never approves one. It keeps them mergeable: one left behind `main`
+  is rebased locally and force-pushed, and a `frontend/` bump that fails only
+  on bundle drift gets the rebuilt bundle committed onto its branch, and one
+  that changes `THIRD-PARTY.md` gets `make third-party` committed the same
+  way. A bump of `@playwright/test`
   gets the E2E job's image tag (`ci.yml`,
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
   on its branch: the image carries the browsers that version expects. A push

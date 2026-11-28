@@ -5,8 +5,8 @@ description: >
   over Voidmarch's open issues and pull requests (plus recently closed ones, for
   late comments), moving each to its next step in the ticket workflow. Reply to
   comments, draft or refine specs and plans, build slices the maintainer has
-  already approved, and merge PRs that @starquake approved (Dependabot's
-  merge themselves). It stops at every maintainer gate. "work the board every
+  already approved, and merge PRs that @starquake approved (most of
+  Dependabot's merge themselves). It stops at every maintainer gate. "work the board every
   30m" / "…in a loop" runs the same pass on a schedule (see Loop form).
   Trigger on the phrase even without "skill". "stop the board" ends the loop.
 ---
@@ -121,7 +121,7 @@ direct maintainer request, and they are named as exceptions.
 
 0. **Reconcile before anything else.** Never trust what you remember, or what
    a summary says, about whether a pull request is still open. Another session
-   or the maintainer may have merged it, Dependabot's PRs merge themselves,
+   or the maintainer may have merged it, most Dependabot PRs merge themselves,
    and a pass that assumes otherwise works on a branch that has already
    landed.
 
