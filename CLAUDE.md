@@ -337,10 +337,10 @@ tell Claude's comments from the maintainer's by the author: @starquake-bot is
 Claude, @starquake is the maintainer.
 
 Claude merges as @starquake-bot, so the squash-merge commit on `main` is the
-bot's, signed by GitHub. @starquake approves a pull request that touches a
-sensitive path before it merges, and stays accountable for what is merged.
-The board monitor keeps watching for @starquake's approvals, since those PRs
-wait for them.
+bot's, signed by GitHub. @starquake owns the process: they set the rules,
+approve every change to them, and stay accountable for what Claude merges
+under them. A pull request that touches a sensitive path waits for their
+approval, so the board monitor keeps watching for it.
 
 The procedure behind each step lives in the skills: `work-the-board` (and its
 `/board` alias), `design-slice`, `mockup`, `build-slice`, `merge-pr`,
