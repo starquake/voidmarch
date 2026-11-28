@@ -380,18 +380,18 @@ owned_here=(.github/workflows/ci.yml deployments/podman/deploy.sh .claude/skills
   CLAUDE.md frontend/src/CLAUDE.md Makefile .golangci.yml .testcoverage.yml Dockerfile
   frontend/eslint.config.js frontend/tsconfig.json frontend/playwright.config.ts
   frontend/.claude/settings.json internal/.mcp.json .Claude/skills/x.md frontend/Claude.md .GitHub/workflows/x.yml
-  MAKEFILE "deployments/my unit.container")
+  MAKEFILE "deployments/my unit.container" buf.yaml buf.gen.yaml sqlc.yaml)
 setup
 cp "$(dirname "$script")/../../.github/CODEOWNERS" "$stub/codeowners"
-files "${owned_here[@]}" internal/sim/sim.go tools/go.mod frontend/src/main.ts
-pr "{\"changedFiles\": $((${#owned_here[@]} + 3))}"
+files "${owned_here[@]}" internal/sim/sim.go tools/go.mod frontend/src/main.ts frontend/package.json
+pr "{\"changedFiles\": $((${#owned_here[@]} + 4))}"
 run
 want "this repository's CODEOWNERS" 1
 want_not "this repository's CODEOWNERS" 'CHECK FAILED'
 for f in "${owned_here[@]}"; do
   want "this repository's CODEOWNERS owns $f" 1 "^sensitive: $f is in CODEOWNERS"
 done
-want_not "this repository's CODEOWNERS" '^sensitive: (internal/sim|tools|frontend/src/main)'
+want_not "this repository's CODEOWNERS" '^sensitive: (internal/sim|tools|frontend/src/main|frontend/package.json)'
 
 setup
 printf '%s\n' 'docs/ @starquake' > "$stub/codeowners"

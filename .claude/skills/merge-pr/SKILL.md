@@ -17,8 +17,9 @@ description: >
 decision 8), **except a PR whose diff touches a sensitive path**: one that
 `.github/CODEOWNERS` gives to @starquake (`.github/`, `deployments/`,
 `.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check configs: the
-`Makefile`, `.golangci.yml`, `.testcoverage.yml`, the `Dockerfile`, and
-frontend's ESLint, TypeScript and Playwright configs). That one is mergeable
+`Makefile`, `.golangci.yml`, `.testcoverage.yml`, the `Dockerfile`, the buf
+and sqlc configs, and frontend's ESLint, TypeScript and Playwright configs,
+but not `frontend/package.json`). That one is mergeable
 only when @starquake has approved its current head commit. Claude works as
 @starquake-bot and **never approves a PR**, its own or anyone else's.
 

@@ -18,3 +18,7 @@ CLAUDE.md @starquake
 /frontend/eslint.config.js @starquake
 /frontend/tsconfig.json @starquake
 /frontend/playwright.config.ts @starquake
+/buf.yaml @starquake
+/buf.gen.yaml @starquake
+/sqlc.yaml @starquake
+# frontend/package.json stays unowned: every npm bump touches it (#373, decision 9).
