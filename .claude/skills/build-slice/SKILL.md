@@ -7,9 +7,10 @@ description: >
   ticket. Also for bugs and tweaks small enough to need no plan. Executes the
   plan task by task on ONE PR: branch `<issue>-<slug>`, failing tests first,
   `make check` (and `make test-e2e` for the client) green per signed one-line
-  commit, CI watched after every push, then the ticket moves to `Your review`.
-  Merging stays gated on @starquake's approving review. Trigger even if the
-  user doesn't say "skill".
+  commit, CI watched after every push, a separate agent's review, then
+  `merge-pr` merges it, unless it touches a sensitive path or carries an open
+  question: then the ticket moves to `Your review`. Trigger even if the user
+  doesn't say "skill".
 ---
 
 You execute an approved plan from a ticket, task by task, on one PR.
@@ -132,16 +133,18 @@ with the `frontend/` change that moved it.
 
 ## Review the whole diff
 
-Before the PR is handed over, a **separate reviewer agent** reads the change
-as a reviewer would, all of it against `main`, not just the last commit
-(starquake-recompiled#74; #374). Brief it with the PR, the ticket and what to
-look at, never with your own conclusions, so its read isn't anchored on
-yours. Pick its effort for the change: low for config and one-liners, medium
-for most code, high for protocol, sim or concurrency changes. It reports;
-you act on what it finds. Read the diff yourself too:
+Before the PR is handed over or merged, a **separate reviewer agent** reads
+the change as a reviewer would, all of it against `main`, not just the last
+commit (starquake-recompiled#74; #374). Brief it with the PR, the ticket and
+what to look at, never with your own conclusions, so its read isn't anchored
+on yours. Pick its effort for the change: low for config and one-liners,
+medium for most code, high for protocol, sim or concurrency changes. It
+reports; you act on what it finds. **Its report names the full sha of the
+head it read** (`git rev-parse HEAD`), and you record that sha. Read the
+diff yourself too:
 
 ```bash
-git fetch origin && git diff origin/main...HEAD
+git fetch origin && git rev-parse HEAD && git diff origin/main...HEAD
 ```
 
 The gates prove it compiles, lints and passes its tests. They cannot see:
@@ -220,10 +223,15 @@ Replies arrive through the board monitor, which watches PR review comments. A
 finding with no line to anchor to (something missing) goes on the file's first
 changed line, saying so.
 
-The PR body gets a *Found in review* section: each defect fixed, with its
-commit; each judgement call you decided, fixed or kept, with its reason; and
-how many are waiting as comments (or that there were none). The card moves to `Your review` with those still open;
-the maintainer's replies are part of the review.
+The PR body gets a *Found in review* section. It opens with the line
+`Reviewed at <full sha>` for the head the separate agent read, then lists
+each defect fixed, with its commit; each judgement call you decided, fixed
+or kept, with its reason; and how many are waiting as comments (or that
+there were none). `merge-pr` merges only that commit or a rebase of it, so
+the fixes themselves get reviewed again: have the agent read the new head
+and add a new `Reviewed at` line (the last one counts). A PR with judgement
+calls still open moves to `Your review`; the maintainer's replies are part
+of the review.
 
 ## Finish
 
@@ -232,9 +240,7 @@ the maintainer's replies are part of the review.
 - **A mockup in the ticket?** Its image must reach `main` in this PR. Once
   merged, repoint the embed from `/raw/<branch>/` to `/raw/main/`, because
   merging deletes the branch and a branch embed 404s.
-- `gh pr ready <n>`, watch CI green, then **STOP. Never merge, and never
-  approve.** The approval is the maintainer's; `merge-pr` lands the PR once
-  @starquake has approved its current head.
+- `gh pr ready <n>` and watch CI green. **Never approve.**
 - **Re-read the ticket's plan before handing over.** Every box this PR covers
   is ticked. If any box is still open, including one that's the maintainer's,
   the PR body must say `Part of #NN`, not `Closes #NN`; fix it now.
@@ -244,7 +250,11 @@ the maintainer's replies are part of the review.
   starquake-recompiled#76 closed its #1 with four sub-issues still open
   (starquake-recompiled#84). A PR for a sub-issue says `Closes` only for that
   sub-issue, never for its parent.
-- Move the card to **`Your review`** (NOT `Your sign-off`, which is the
-  pre-build gate), and the PR's sub-issue with it if it has one, and post a
-  Next-steps comment: *Next: review the PR and approve it.* List
-  any task still open after the merge in that comment, with whose it is.
+- **Then `merge-pr`, Step 1, says who is next.** A PR that touches no
+  sensitive path and has no thread open: merge it now (`merge-pr`). A
+  sensitive one, or one with a judgement call waiting: move the card to
+  **`Your review`** (NOT `Your sign-off`, which is the pre-build gate), and
+  the PR's sub-issue with it if it has one, and post a Next-steps comment:
+  *Next: approve the PR (it touches a sensitive path), or answer its open
+  review comments.* List any task still open after the merge in that comment,
+  with whose it is.

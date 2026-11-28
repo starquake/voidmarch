@@ -5,8 +5,9 @@ description: >
   over Voidmarch's open issues and pull requests (plus recently closed ones, for
   late comments), moving each to its next step in the ticket workflow. Reply to
   comments, draft or refine specs and plans, build slices the maintainer has
-  already approved, and merge PRs that @starquake approved (most of
-  Dependabot's merge themselves). It stops at every maintainer gate. "work the board every
+  already approved, and merge PRs that are reviewed and green (one touching a
+  sensitive path once @starquake approved it; most of Dependabot's merge
+  themselves). It stops at every maintainer gate. "work the board every
   30m" / "…in a loop" runs the same pass on a schedule (see Loop form).
   Trigger on the phrase even without "skill". "stop the board" ends the loop.
 ---
@@ -15,8 +16,8 @@ You run the issue tracker forward so the maintainer can drive everything
 through tickets and the board. The ticket is canonical (CLAUDE.md): the
 maintainer may never read chat. A pass reads the board, does every
 **work-state** step it can, carries out actions the maintainer has already
-authorised (a go signal, an approving review), and **stops at every gate
-that is theirs**.
+authorised (a go signal, an approving review), merges what is reviewed and
+green, and **stops at every gate that is theirs**.
 
 Read the board with `.claude/scripts/board.sh list "<state>"` and move a card
 with `.claude/scripts/board.sh state <n> "<state>"`. The board is the
@@ -35,7 +36,8 @@ hand-written query goes through `user(login:"starquake")`, never
 
 **Do not re-ask permission on a work state, however big or risky it looks.**
 A load-bearing decision inside a `Build` is made and **surfaced in the PR** for
-review; the maintainer's approving review of the PR is the sign-off.
+review: a judgement call is a review comment, and the PR waits in
+`Your review` until the maintainer answers it.
 Converting a work state back into "shall I start?" re-invents a gate the
 maintainer already opened. (mediumrogue, 2026-07-21: a large `Build` was held with "kick it off
 now, or park it?"; the maintainer asked *"why don't you pick up the needs build
@@ -56,16 +58,22 @@ found and let the maintainer confirm the shape first.
 
 - **Never decide design direction.** Open questions go TO the maintainer
   (`Your input`).
-- **Never approve a PR, and never merge without @starquake's approval of its
-  current head.** Re-read the approval from the API at the moment you merge,
-  never from a notification: a push dismisses it, and the maintainer can take
-  it back. The same goes for CI: green before a push is not green after it.
+- **Never approve a PR.** A PR that touches no sensitive path doesn't wait
+  for @starquake: merge it once the separate agent's review is done, CI is
+  green and every thread is resolved. **Never merge one that touches a
+  sensitive path** (`.github/CODEOWNERS`: `.github/`, `deployments/`,
+  `CLAUDE.md`, `.claude/`) **without @starquake's approval of its current
+  head** (`merge-pr`, Step 1). Re-read the gate from the API at the moment you
+  merge, never from a notification: a push dismisses an approval, and the
+  maintainer can take it back. The same goes for CI: green before a push is
+  not green after it.
 - **Never approve a Dependabot PR.**
-  `.github/workflows/dependabot-auto-merge.yml` approves Dependabot's own
-  pushes and squash-merges them once the required checks pass. One Claude
-  pushed onto, or a direct bump in `/tools`, waits for @starquake's approval
-  and then merges through `merge-pr`. Your part is keeping them mergeable (see
-  the table).
+  `.github/workflows/dependabot-auto-merge.yml` turns on auto-merge for
+  Dependabot's own pushes, and GitHub squash-merges them once the required
+  checks pass. One that touches `.github/` (an actions bump) waits for
+  @starquake's approval as code owner, and auto-merge lands it once given. A
+  direct bump in `/tools` gets no auto-merge and merges through `merge-pr`.
+  Your part is keeping them mergeable (see the table).
 - **Build only what's authorised**: a card the maintainer moved to `Build`, a
   `go` / `approved` comment on a `Your sign-off` ticket, or a **bug** or
   **tweak** small enough to need no plan. Never build a `Your input` or
@@ -116,8 +124,8 @@ while it is red inherits the breakage. Fix it, say what it was, and carry on.
 **Standing authorised work goes first.** Read every work lane (`Build`, then
 `Plan`, then `Spec`) and work from there. A spec waiting to be written is
 standing work exactly as a build is. Work does not earn priority by being new;
-the only pre-emptions are a red `main`, a PR the maintainer approved, and a
-direct maintainer request, and they are named as exceptions.
+the only pre-emptions are a red `main`, a PR whose `merge-pr` gate is met,
+and a direct maintainer request, and they are named as exceptions.
 
 0. **Reconcile before anything else.** Never trust what you remember, or what
    a summary says, about whether a pull request is still open. Another session
@@ -155,7 +163,8 @@ direct maintainer request, and they are named as exceptions.
    pending merge lands on a stale base):
 
    1. cheap advancement (replies, labels, specs, plans, reminders)
-   2. every PR whose current head @starquake approved: merge them all
+   2. every PR whose `merge-pr` gate is met (reviewed and green; a sensitive
+      one also approved by @starquake at its current head): merge them all
       (`merge-pr`), then re-pull
    3. then the pass's one build, branched off the freshly merged `main`
 
@@ -170,12 +179,12 @@ direct maintainer request, and they are named as exceptions.
 | `Your input` | **stop**, UNLESS a new maintainer comment answers the block → write the answers into the body → nothing left open → `Plan` | `design-slice` |
 | `Plan` | write the plan (and mockup) → `Your sign-off`. A plan already in the body (ported, or drafted earlier)? Check it against this repository, say in the Next-steps comment what does not fit, and move on to `Your sign-off` | `design-slice`, `mockup` |
 | `Your sign-off` | **stop**, UNLESS the maintainer signalled go (a `go`/`approved` comment, OR moved it to `Build`) → build | `build-slice` |
-| `Build` | build the slice → green PR → `Your review`. No plan that fits this repository? Write it into the body first and build it: the move was the go. | `build-slice` |
-| `Your review` | **stop**: only @starquake's approving review moves it. Do keep the PR mergeable: CI green, rebased locally if behind, and no thread left open that Claude has acted on (the ruleset refuses to merge with one). | `merge-pr` |
+| `Build` | build the slice → green PR → the separate agent's review → merge it if it touches no sensitive path and carries no open question, else `Your review`. No plan that fits this repository? Write it into the body first and build it: the move was the go. | `build-slice` |
+| `Your review` | **stop**, UNLESS its `merge-pr` gate is now met: @starquake approved the current head of a sensitive PR, or answered the last open question on any other → merge it. Do keep the PR mergeable: CI green, rebased locally if behind, and no thread left open that Claude has acted on (the ruleset refuses to merge with one). | `merge-pr` |
 | reply to one of Claude's review comments | `fix`: fix, push, reply with the commit, **resolve the thread**; `skip`: acknowledge, resolve; `ticket`: file a Backlog issue, reply with the link, resolve; anything else: answer in the thread (starquake-recompiled#77) | `build-slice` |
 | PR with new maintainer comments | address them, re-push | rework |
-| PR whose current head @starquake approved | **merge it** (approval + green CI + title + squash) | `merge-pr` |
-| Dependabot PR (no issue, no card) | **never approved by hand**: the auto-merge workflow approves Dependabot's own pushes and lands them once the required checks pass; one waiting for @starquake's approval merges through `merge-pr` once they give it. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. Your push takes away the workflow's approval, and only @starquake gives it back: say in the report that it waits for their approval. No auto-merge enabled on it: say so in the report | rework |
+| PR whose `merge-pr` gate is met | **merge it** (review or approval + green CI + threads + title + squash) | `merge-pr` |
+| Dependabot PR (no issue, no card) | **never approved by hand**: the auto-merge workflow turns on auto-merge for Dependabot's own pushes, and GitHub lands them once the required checks pass. One that touches `.github/` (an actions bump, or the Playwright image tag you moved) waits for @starquake's approval: say so in the report. A direct bump in `/tools`: mirror its version into the Makefile's `GOLANGCI_VERSION`, push, and merge it through `merge-pr` once green. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. Your push dismisses an approval @starquake gave, so a sensitive one waits for them again. No auto-merge on one that should have it: say so in the report | rework |
 
 3. **Post a Next-steps comment on every ticket whose state you moved** (below).
 4. **The build cap: at most one build per pass, and ZERO is a valid pass.**
@@ -282,9 +291,10 @@ it):
   builds it into a PR.*
 - `Spec` / `Plan`: *Next: Claude drafts it and hands back; nothing needed from
   you.*
-- `Build`: *Next: Claude builds a PR; then approve it once you've reviewed
-  it.*
-- `Your review`: *Next: review the PR and approve it; a pass merges it.*
+- `Build`: *Next: Claude builds a PR and merges it once reviewed and green;
+  one that touches a sensitive path waits for your approval.*
+- `Your review`: *Next: approve the PR (it touches a sensitive path), or
+  answer its open review comments; a pass merges it.*
 - `Backlog`: blocked (name the blocker), a record (no action), or waiting for a
   go (say what the go is).
 
@@ -314,7 +324,7 @@ real miss on mediumrogue.
 |---|---|
 | issue/PR conversation comments not by @starquake-bot | the maintainer's answers and go signals |
 | PR review comments (a different endpoint) | inline diff feedback |
-| a new approving review by @starquake | the only merge authorisation |
+| a new approving review by @starquake | what a PR touching a sensitive path waits for |
 | `hold` added / lifted | an override that stops or releases work |
 | board Status transitions | a move to `Build` authorises a build |
 | `main` going red | pre-empts everything |
