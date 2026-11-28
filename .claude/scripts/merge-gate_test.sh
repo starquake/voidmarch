@@ -33,8 +33,6 @@ case "$args" in
   "api graphql"*) answer pr.json ;;
   *"/contents/.github/CODEOWNERS"*) answer codeowners ;;
   *"/pulls/"*"/files"*) answer files.json ;;
-  *"/pulls/"*"/commits"*) answer commits.json ;;
-  *"/commits/"*) answer "commit-${args##*/commits/}.json" ;;
   *"/rulesets/24078077") answer ruleset.json ;;
   *"/rulesets") answer rulesets.json ;;
 esac
@@ -46,20 +44,6 @@ STUB
   pr '{}'
   printf '%s\n' '# owners' '/.github/ @starquake' '/CLAUDE.md @starquake' > "$stub/codeowners"
   files a.go
-  commits d1:dependabot[bot]:web-flow:true
-}
-
-# commits SHA:AUTHOR:COMMITTER:VERIFIED...: the PR's commits, shaped like the
-# API's (a login of "null" is a commit GitHub can't tie to an account).
-commits() {
-  local c
-  for c in "$@"; do
-    IFS=: read -r sha author committer verified <<< "$c"
-    jq -n --arg sha "$sha" --arg a "$author" --arg c "$committer" --argjson v "$verified" '{sha: $sha,
-      author: (if $a == "null" then null else {login: $a} end),
-      committer: (if $c == "null" then null else {login: $c} end),
-      commit: {verification: {verified: $v}}}'
-  done | jq -s . > "$stub/commits.json"
 }
 
 # reviewed_body SHA [HEADING]: a PR body recording a review of SHA under HEADING.
@@ -704,125 +688,21 @@ rebuilt_after_review 'chmod +x "$seed/run me.sh"'
 run
 want "mode changed after the review" 1 "^hold: $head_sha is not $reviewed .*modes or blobs"
 
-# Dependabot.
+# Dependabot's PRs need a recorded review like any other: nothing in a
+# commit's metadata proves Dependabot made it.
 
 setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": "Bumps x from 1 to 2."}'
 run
-want "dependabot's commits" 0 "^reviewed: only Dependabot's commits"
+want "dependabot without a review" 1 "^hold: no 'Reviewed at <sha>'"
 
 setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits d1:dependabot[bot]:web-flow:true c2:starquake-bot:starquake-bot:true
-echo '{"files": [{"filename": "internal/web/static/js/game.js"}, {"filename": "THIRD-PARTY.md"}]}' \
-  > "$stub/commit-c2.json"
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}}'
 run
-want "dependabot with a rebuilt bundle" 0 "^reviewed: only Dependabot's commits and regenerated output"
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits c2:null:null:true
-echo '{"files": [{"filename": "internal/web/static/js/game.js"}, {"filename": "Makefile"}]}' \
-  > "$stub/commit-c2.json"
-run
-want "dependabot with a hand edit" 1 "^hold: no 'Reviewed at <sha>'"
-
-# A rebase or an amend keeps Dependabot as the author.
-for c in d1:dependabot[bot]:starquake-bot:true d1:dependabot[bot]:web-flow:false d1:dependabot[bot]:null:true; do
-  setup
-  pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-  commits "$c"
-  echo '{"files": [{"filename": "go.mod"}]}' > "$stub/commit-d1.json"
-  run
-  want "dependabot's commit as $c" 1 "^hold: no 'Reviewed at <sha>'"
-done
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits d1:dependabot[bot]:starquake-bot:true
-echo '{"files": [{"filename": "internal/web/static/js/game.js"}]}' > "$stub/commit-d1.json"
-run
-want "dependabot's commit rebased, regenerated output only" 0 "^reviewed: only Dependabot's commits"
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits d1:dependabot[bot]:dependabot[bot]:true
-run
-want "dependabot as its own committer" 0 "^reviewed: only Dependabot's commits"
-
-for f in internal/web/static/js/vendor/phaser.js frontend/src/bootsizes.gen.ts internal/web/static/wasm/sim.wasm \
-  internal/web/static/wasm/wasm_exec.js frontend/src/sim/rules.gen.ts internal/gen/voidmarch/v1/messages.pb.go \
-  frontend/src/gen/voidmarch/v1/messages_pb.ts THIRD-PARTY.md; do
-  setup
-  pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-  commits c2:starquake-bot:starquake-bot:true
-  jq -n --arg f "$f" '{files: [{filename: $f}]}' > "$stub/commit-c2.json"
-  run
-  want "regenerated $f" 0 "^reviewed: only Dependabot's commits and regenerated output"
-done
-
-# pages FILE N [LAST]: FILE as the commit endpoint pages it, 300 a page: N
-# regenerated files, then LAST if given.
-pages() {
-  local out="$1" n="$2" last="${3:-}"
-  jq -n --argjson n "$n" --arg last "$last" '
-    [range($n) | {filename: "internal/web/static/js/f\(.).js"}]
-    + (if $last == "" then [] else [{filename: $last}] end)
-    | [range(0; length; 300) as $i | {files: .[$i:$i + 300]}] | .[]' > "$out"
-}
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits c2:starquake-bot:starquake-bot:true
-pages "$stub/commit-c2.json" 450
-run
-want "a commit with more than 300 regenerated files" 0 "^reviewed: only Dependabot's commits and regenerated output"
-if ! grep -q -- '--paginate repos/starquake/voidmarch/commits/c2' "$stub/calls"; then
-  fail "a commit with more than 300 files: not read with --paginate: $(cat "$stub/calls")"
+want "dependabot reviewed at its head" 0 "^reviewed: $head_sha covers $head_sha"
+if grep -q '/commits' "$stub/calls"; then
+  fail "dependabot: read its commits from the API: $(cat "$stub/calls")"
 fi
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits c2:starquake-bot:starquake-bot:true
-pages "$stub/commit-c2.json" 450 go.mod
-run
-want "a hand edit on a commit's second page" 1 "^hold: no 'Reviewed at <sha>'"
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits c2:starquake-bot:starquake-bot:true
-pages "$stub/commit-c2.json" 3000
-run
-want "a commit at the 3000-file limit" 1 "^hold: no 'Reviewed at <sha>'"
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-commits c2:starquake-bot:starquake-bot:true
-echo '{"files": [{"filename": "THIRD-PARTY.md", "previous_filename": "LICENSE.md"}]}' > "$stub/commit-c2.json"
-run
-want "a regenerated file renamed from another" 1 "^hold: no 'Reviewed at <sha>'"
-
-for f in internal/db/players.sql.go internal/web/static/wasm/extra.js internal/web/static/index.html \
-  frontend/src/sim/tuning.ts THIRD-PARTY.md.bak "internal/gen/../../go.mod"; do
-  setup
-  pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-  commits c2:starquake-bot:starquake-bot:true
-  jq -n --arg f "$f" '{files: [{filename: $f}]}' > "$stub/commit-c2.json"
-  run
-  want "not regenerated: $f" 1 "^hold: no 'Reviewed at <sha>'"
-done
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-echo ERROR > "$stub/commits.json"
-run
-want "dependabot commits read fails" 1 "^hold: no 'Reviewed at <sha>'"
-
-setup
-pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-echo '[{"sha": "c2", "author": {"login": "starquake-bot"}}]' > "$stub/commits.json"
-run
-want "dependabot commit read fails" 1 "^hold: no 'Reviewed at <sha>'"
 
 if [[ "$failed" -ne 0 ]]; then
   exit 1

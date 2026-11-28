@@ -226,54 +226,16 @@ covers_head() {
   done <<< "$diff"
 }
 
-# Dependabot's own commits need no review, nor Claude's that only regenerate
-# output. Only output a CI check fails on when a file is changed, added or
-# missing: js-check and proto-check (diff -r), wasm-check (cmp of each file),
-# third-party-check (diff).
-regenerated() {
-  case "$1" in
-    *..*) return 1 ;;
-    internal/web/static/js/* | frontend/src/bootsizes.gen.ts | \
-      internal/web/static/wasm/sim.wasm | internal/web/static/wasm/wasm_exec.js | \
-      frontend/src/sim/rules.gen.ts | internal/gen/* | frontend/src/gen/* | THIRD-PARTY.md) return 0 ;;
-  esac
-  return 1
-}
-needs_review() {
-  local sha f
-  [[ "$author" == Bot/dependabot ]] || return 0
-  # Dependabot's own commits are committed by GitHub (web-flow) and signed; an
-  # author alone survives a rebase or an amend by anyone.
-  gh api --paginate "repos/$repo/pulls/$pr/commits?per_page=100" > "$tmp/commits.json" 2> /dev/null &&
-    jq -r '.[] | select((.author.login == "dependabot[bot]" and
-      (.committer.login == "web-flow" or .committer.login == "dependabot[bot]") and
-      .commit.verification.verified == true) | not) | .sha' "$tmp/commits.json" \
-      > "$tmp/others" 2> /dev/null || return 0
-  while IFS= read -r sha; do
-    # 300 files a page, and no more than 3000 in all.
-    gh api --paginate "repos/$repo/commits/$sha" > "$tmp/commit.json" 2> /dev/null &&
-      jq -r '.files[] | .filename, (.previous_filename // empty)' "$tmp/commit.json" \
-        > "$tmp/commit-files" 2> /dev/null || return 0
-    [[ "$(jq -s 'map(.files | length) | add // 0' "$tmp/commit.json")" -lt 3000 ]] || return 0
-    while IFS= read -r f; do
-      regenerated "$f" || return 0
-    done < "$tmp/commit-files"
-  done < "$tmp/others"
-  return 1
-}
-
-if needs_review; then
-  reviewed="$(field .body | tr -d '\r' |
-    awk '/^## / { found = ($0 ~ /^## Found in review/) } found' |
-    grep -oE 'Reviewed at `?[0-9a-f]{40}' | tail -n 1 | grep -oE '[0-9a-f]{40}')"
-  if [[ -z "$reviewed" ]]; then
-    hold "no 'Reviewed at <sha>' under Found in review: have a separate agent review it"
-  elif covers_head "$reviewed"; then
-    echo "reviewed: $reviewed covers $head"
-  else
-    hold "$head is not $reviewed or only a rebase of it ($why): have the new work reviewed"
-  fi
+# Every PR that isn't sensitive needs a recorded review, Dependabot's too: a
+# writer can make a commit that names dependabot[bot] as author.
+reviewed="$(field .body | tr -d '\r' |
+  awk '/^## / { found = ($0 ~ /^## Found in review/) } found' |
+  grep -oE 'Reviewed at `?[0-9a-f]{40}' | tail -n 1 | grep -oE '[0-9a-f]{40}')"
+if [[ -z "$reviewed" ]]; then
+  hold "no 'Reviewed at <sha>' under Found in review: have a separate agent review it"
+elif covers_head "$reviewed"; then
+  echo "reviewed: $reviewed covers $head"
 else
-  echo "reviewed: only Dependabot's commits and regenerated output"
+  hold "$head is not $reviewed or only a rebase of it ($why): have the new work reviewed"
 fi
 verdict

@@ -39,15 +39,14 @@ moves `ci.yml`'s image tag. A direct bump in `/tools` gets no auto-merge:
 Claude mirrors its version into the Makefile's `GOLANGCI_VERSION`, which
 makes it sensitive (the Makefile is @starquake's, decision 9), and merges it
 here once they approve.
-A Dependabot PR needs no *Found in review* while every commit on it is
-Dependabot's own (authored by `dependabot[bot]`, committed by GitHub's
-`web-flow` and verified; a rebase or an amend keeps the author but not the
-committer), or one that only regenerates output a CI drift check compares
-in full (the bundle and its sizes, the WebAssembly sim and `rules.gen.ts`,
-the protobuf code, `THIRD-PARTY.md`). Anything else Claude
-pushed onto it (the pin, a fix) gets a separate agent's review first,
-recorded in its body like any PR's. Keeping them mergeable is
-`work-the-board`'s.
+
+**A Dependabot PR that comes here needs a separate agent's review like any
+other**: nothing in a commit's metadata proves Dependabot made it (a writer
+can make a commit with `dependabot[bot]` as author, and GitHub then signs it
+as `web-flow`). Record the review in the PR's body: add a `## Found in
+review` heading with the `Reviewed at <full sha>` line under it. Dependabot
+rewrites its body only when it pushes a new head, which needs a new review
+anyway. Keeping them mergeable is `work-the-board`'s.
 
 **Anything that becomes permanent at merge is verified AT merge**: a push
 dismisses an approval, CI can go stale on a push, and the title can be
