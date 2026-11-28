@@ -681,12 +681,58 @@ want "rebased with a binary and a path with spaces" 0 "^reviewed: $reviewed cove
 setup
 rebuilt_after_review 'printf "\002\002\002" > "$seed/sim.wasm"'
 run
-want "binary rebuilt after the review" 1 "^hold: $head_sha is not $reviewed .*modes or blobs"
+want "binary rebuilt after the review" 1 "^hold: $head_sha is not $reviewed .*modes, paths or binary files"
 
 setup
 rebuilt_after_review 'chmod +x "$seed/run me.sh"'
 run
-want "mode changed after the review" 1 "^hold: $head_sha is not $reviewed .*modes or blobs"
+want "mode changed after the review" 1 "^hold: $head_sha is not $reviewed .*modes, paths or binary files"
+
+setup
+rebuilt_after_review 'rm "$seed/run me.sh"; echo "echo hi" > "$seed/run.sh"; sg add -A'
+run
+want "a file renamed after the review" 1 "^hold: $head_sha is not $reviewed"
+
+# rebased_over_text: main and the branch both change notes.txt, far enough
+# apart that the branch's patch stays the same, and the branch rebuilds
+# main's sim.wasm; the branch, reviewed, is rebased over main's change.
+rebased_over_text() {
+  gitrepos
+  seq 1 30 > "$seed/notes.txt"
+  printf '\000\000\000' > "$seed/sim.wasm"
+  sg add notes.txt sim.wasm
+  sg commit -q -m "Add notes and the sim"
+  sg push -q origin main
+  sg checkout -q -b feature
+  sed -i.bak 's/^2$/two/' "$seed/notes.txt" && rm "$seed/notes.txt.bak"
+  printf '\001\001\001' > "$seed/sim.wasm"
+  sg add notes.txt sim.wasm
+  sg commit -q -m "Change line 2 and add the sim"
+  push_pr
+  reviewed="$head_sha"
+  sg checkout -q main
+  sed -i.bak 's/^28$/twenty-eight/' "$seed/notes.txt" && rm "$seed/notes.txt.bak"
+  sg commit -q -a -m "Change line 28"
+  sg push -q origin main
+  sg checkout -q feature
+  sg rebase -q main
+}
+
+setup
+rebased_over_text
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "rebased over a text file main changed too" 0 "^reviewed: $reviewed covers $head_sha"
+
+setup
+rebased_over_text
+printf '\002\002\002' > "$seed/sim.wasm"
+sg commit -q -a --amend --no-edit
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "rebased over text, binary rebuilt" 1 "^hold: $head_sha is not $reviewed .*binary files"
 
 # Dependabot's PRs need a recorded review like any other: nothing in a
 # commit's metadata proves Dependabot made it.

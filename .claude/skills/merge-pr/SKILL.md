@@ -114,10 +114,14 @@ explicitly override.
 - **The separate reviewer agent's review covers `head`**, which the script
   checks: *Found in review* records `Reviewed at <full sha>` (`build-slice`,
   *Review the whole diff*; the last such line counts), and `head` is that
-  commit or only a rebase of it. A rebase means `git range-diff
-  <old-base>..<reviewed> <new-base>..<head>` pairs every commit with `=` (the
-  same patch), where each base is `git merge-base origin/main` with that
-  commit. No such line, or new or changed work since? Have it reviewed first.
+  commit or only a rebase of it. A rebase means: neither side has a merge
+  commit; `git range-diff <old-base>..<reviewed> <new-base>..<head>` pairs
+  every commit with `=` (the same patch), where each base is `git merge-base
+  origin/main` with that commit; and each pair touches the same paths with
+  the same modes and statuses, and leaves each binary file (`-` `-` in `git
+  diff --numstat`) with the same blob. A text file may differ in its blob,
+  when `main` changed it too. No such line, or new or changed work since?
+  Have it reviewed first.
 - **CI is green** for `head` (Step 2).
 - **Every review thread is resolved** (Step 2b). A judgement call still
   waiting for @starquake's `fix`, `skip` or `ticket` holds the PR.

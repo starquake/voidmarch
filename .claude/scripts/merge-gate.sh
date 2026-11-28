@@ -215,15 +215,34 @@ covers_head() {
   [[ -n "$diff" ]] || return 1
   why="a commit's patch changed, or a commit was added or dropped"
   grep -Ev '^ *[0-9]+: +[0-9a-f]+ = +[0-9]+: +[0-9a-f]+( |$)' <<< "$diff" | grep -q . && return 1
-  # range-diff calls two binary files the same if both differ, and misses a
-  # mode, so each pair's modes and blobs must match too.
-  why="a pair of commits differs in its modes or blobs (a binary, a mode, or a file main changed too)"
-  local old new old_raw new_raw
+  why="a pair of commits differs in its modes, paths or binary files"
+  local old new
   while read -r _ old _ _ new _; do
-    old_raw="$(git diff-tree -r --raw --no-abbrev --no-commit-id "$old" 2> /dev/null)" &&
-      new_raw="$(git diff-tree -r --raw --no-abbrev --no-commit-id "$new" 2> /dev/null)" &&
-      [[ -n "$old_raw" && "$old_raw" == "$new_raw" ]] || return 1
+    pair_matches "$old" "$new" || return 1
   done <<< "$diff"
+}
+
+# pair_matches OLD NEW: range-diff calls any two binary changes the same and
+# misses a mode, so both commits must touch the same paths with the same modes
+# and statuses, and leave each binary file with the same blob. A text file's
+# blob may differ, when main changed it too: range-diff compared its patch.
+pair_matches() {
+  local a b
+  a="$(shape "$1")" && b="$(shape "$2")" && [[ -n "$a" && "$a" == "$b" ]] || return 1
+  a="$(binary_blobs "$1")" && b="$(binary_blobs "$2")" && [[ "$a" == "$b" ]]
+}
+shape() {
+  git diff-tree -r --raw --no-abbrev --no-renames --no-commit-id "$1" 2> /dev/null |
+    sed -E 's/^(:[0-7]+ [0-7]+) [0-9a-f]+ [0-9a-f]+ /\1 /'
+}
+binary_blobs() {
+  local rec path
+  git diff --numstat --no-renames -z "$1^" "$1" > "$tmp/numstat" 2> /dev/null || return 1
+  while IFS= read -r -d '' rec; do
+    [[ "$rec" == $'-\t-\t'* ]] || continue
+    path="${rec#$'-\t-\t'}"
+    printf '%s %s\n' "$path" "$(git rev-parse -q --verify "$1:$path" 2> /dev/null || echo deleted)"
+  done < "$tmp/numstat"
 }
 
 # Every PR that isn't sensitive needs a recorded review, Dependabot's too: a
