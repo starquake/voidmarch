@@ -206,8 +206,12 @@ regenerated() {
 needs_review() {
   local sha f
   [[ "$author" == Bot/dependabot ]] || return 0
+  # Dependabot's own commits are committed by GitHub (web-flow) and signed; an
+  # author alone survives a rebase or an amend by anyone.
   gh api --paginate "repos/$repo/pulls/$pr/commits?per_page=100" > "$tmp/commits.json" 2> /dev/null &&
-    jq -r '.[] | select(.author.login != "dependabot[bot]") | .sha' "$tmp/commits.json" \
+    jq -r '.[] | select((.author.login == "dependabot[bot]" and
+      (.committer.login == "web-flow" or .committer.login == "dependabot[bot]") and
+      .commit.verification.verified == true) | not) | .sha' "$tmp/commits.json" \
       > "$tmp/others" 2> /dev/null || return 0
   while IFS= read -r sha; do
     gh api "repos/$repo/commits/$sha" > "$tmp/commit.json" 2> /dev/null &&

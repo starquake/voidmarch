@@ -38,7 +38,9 @@ Claude mirrors its version into the Makefile's `GOLANGCI_VERSION`, which
 makes it sensitive (the Makefile is @starquake's, decision 9), and merges it
 here once they approve.
 A Dependabot PR needs no *Found in review* while every commit on it is
-Dependabot's, or Claude's that only regenerate output (the bundle, the
+Dependabot's own (authored by `dependabot[bot]`, committed by GitHub's
+`web-flow` and verified; a rebase or an amend keeps the author but not the
+committer), or one that only regenerates output (the bundle, the
 WebAssembly sim, generated code, `THIRD-PARTY.md`). Anything else Claude
 pushed onto it (the pin, a fix) gets a separate agent's review first,
 recorded in its body like any PR's. Keeping them mergeable is

@@ -46,7 +46,20 @@ STUB
   pr '{}'
   printf '%s\n' '# owners' '/.github/ @starquake' '/CLAUDE.md @starquake' > "$stub/codeowners"
   files a.go
-  echo '[{"sha": "d1", "author": {"login": "dependabot[bot]"}}]' > "$stub/commits.json"
+  commits d1:dependabot[bot]:web-flow:true
+}
+
+# commits SHA:AUTHOR:COMMITTER:VERIFIED...: the PR's commits, shaped like the
+# API's (a login of "null" is a commit GitHub can't tie to an account).
+commits() {
+  local c
+  for c in "$@"; do
+    IFS=: read -r sha author committer verified <<< "$c"
+    jq -n --arg sha "$sha" --arg a "$author" --arg c "$committer" --argjson v "$verified" '{sha: $sha,
+      author: (if $a == "null" then null else {login: $a} end),
+      committer: (if $c == "null" then null else {login: $c} end),
+      commit: {verification: {verified: $v}}}'
+  done | jq -s . > "$stub/commits.json"
 }
 
 # reviewed_body SHA [HEADING]: a PR body recording a review of SHA under HEADING.
@@ -549,8 +562,7 @@ want "dependabot's commits" 0 "^reviewed: only Dependabot's commits"
 
 setup
 pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-echo '[{"sha": "d1", "author": {"login": "dependabot[bot]"}}, {"sha": "c2", "author": {"login": "starquake-bot"}}]' \
-  > "$stub/commits.json"
+commits d1:dependabot[bot]:web-flow:true c2:starquake-bot:starquake-bot:true
 echo '{"files": [{"filename": "internal/web/static/js/game.js"}, {"filename": "THIRD-PARTY.md"}]}' \
   > "$stub/commit-c2.json"
 run
@@ -558,11 +570,34 @@ want "dependabot with a rebuilt bundle" 0 "^reviewed: only Dependabot's commits 
 
 setup
 pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
-echo '[{"sha": "c2", "author": null}]' > "$stub/commits.json"
+commits c2:null:null:true
 echo '{"files": [{"filename": "internal/web/static/js/game.js"}, {"filename": "Makefile"}]}' \
   > "$stub/commit-c2.json"
 run
 want "dependabot with a hand edit" 1 "^hold: no 'Reviewed at <sha>'"
+
+# A rebase or an amend keeps Dependabot as the author.
+for c in d1:dependabot[bot]:starquake-bot:true d1:dependabot[bot]:web-flow:false d1:dependabot[bot]:null:true; do
+  setup
+  pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+  commits "$c"
+  echo '{"files": [{"filename": "go.mod"}]}' > "$stub/commit-d1.json"
+  run
+  want "dependabot's commit as $c" 1 "^hold: no 'Reviewed at <sha>'"
+done
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+commits d1:dependabot[bot]:starquake-bot:true
+echo '{"files": [{"filename": "internal/web/static/js/game.js"}]}' > "$stub/commit-d1.json"
+run
+want "dependabot's commit rebased, regenerated output only" 0 "^reviewed: only Dependabot's commits"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+commits d1:dependabot[bot]:dependabot[bot]:true
+run
+want "dependabot as its own committer" 0 "^reviewed: only Dependabot's commits"
 
 setup
 pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
