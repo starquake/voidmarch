@@ -230,8 +230,11 @@ answer given in chat is written back into the issue body before acting on it.
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
   on its branch: the image carries the browsers that version expects. A bump
   that touches `.github/` (the actions bumps, and that image tag) waits for
-  @starquake's approval as code owner, and auto-merge lands it once they give
-  it. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
+  @starquake's approval as code owner, and Claude merges it through
+  `merge-pr`, not auto-merge: a late approval would merge it as
+  `GITHUB_TOKEN` after the workflow stopped waiting, and run no CI on `main`.
+  The workflow leaves auto-merge off for an actions bump, and Claude turns it
+  off on the Playwright bump when it moves the tag. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
   into the Makefile's `GOLANGCI_VERSION`, and since the Makefile is
   @starquake's (decision 9) it merges through `merge-pr` once they approve.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,

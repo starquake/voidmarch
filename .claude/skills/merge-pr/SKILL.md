@@ -28,10 +28,13 @@ approves a PR**, its own or anyone else's.
 **Dependabot's PRs mostly merge themselves.**
 `.github/workflows/dependabot-auto-merge.yml` turns on auto-merge for
 Dependabot's own pushes, and GitHub squash-merges each once the required
-checks pass. Never approve one. One that touches `.github/` (an actions bump,
-or a `@playwright/test` bump once Claude moved `ci.yml`'s image tag) waits for
-@starquake's approval as code owner, and auto-merge lands it once they give
-it. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
+checks pass. Never approve one. One that touches `.github/` waits for
+@starquake's approval as code owner, and Claude merges it here once they give
+it, never auto-merge: merged as `GITHUB_TOKEN` after
+`dispatch-after-merge.sh` stopped waiting, it would run no CI on `main`. So
+the workflow leaves auto-merge off for an actions bump, and Claude turns it
+off (`gh pr merge <n> --disable-auto`) on a `@playwright/test` bump when it
+moves `ci.yml`'s image tag. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
 into the Makefile's `GOLANGCI_VERSION`, which makes it sensitive (the
 Makefile is @starquake's, decision 9), and merges it here once they approve.
 A Dependabot PR needs no *Found in review* while every commit on it is

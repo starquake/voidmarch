@@ -70,9 +70,9 @@ found and let the maintainer confirm the shape first.
 - **Never approve a Dependabot PR.**
   `.github/workflows/dependabot-auto-merge.yml` turns on auto-merge for
   Dependabot's own pushes, and GitHub squash-merges them once the required
-  checks pass. One that touches `.github/` (an actions bump) waits for
-  @starquake's approval as code owner, and auto-merge lands it once given. A
-  direct bump in `/tools` gets no auto-merge; once you mirror its pin into
+  checks pass. One that touches `.github/` (an actions bump, or the Playwright
+  image tag you moved) gets no auto-merge, waits for @starquake's approval as
+  code owner, and merges through `merge-pr`. A direct bump in `/tools` gets no auto-merge; once you mirror its pin into
   the Makefile it waits for @starquake's approval too, then merges through
   `merge-pr`.
   Your part is keeping them mergeable (see the table).
@@ -188,7 +188,7 @@ and a direct maintainer request, and they are named as exceptions.
 | reply to one of Claude's review comments | `fix`: fix, push, reply with the commit, **resolve the thread**; `skip`: acknowledge, resolve; `ticket`: file a Backlog issue, reply with the link, resolve; anything else: answer in the thread (starquake-recompiled#77) | `build-slice` |
 | PR with new maintainer comments | address them, re-push | rework |
 | PR whose `merge-pr` gate is met | **merge it** (review or approval + green CI + threads + title + squash) | `merge-pr` |
-| Dependabot PR (no issue, no card) | **never approved by hand**: the auto-merge workflow turns on auto-merge for Dependabot's own pushes, and GitHub lands them once the required checks pass. One that touches `.github/` (an actions bump, or the Playwright image tag you moved) waits for @starquake's approval: say so in the report. A direct bump in `/tools`: mirror its version into the Makefile's `GOLANGCI_VERSION` and push; the Makefile is @starquake's, so it then waits for their approval and merges through `merge-pr`. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. Your push dismisses an approval @starquake gave, so a sensitive one waits for them again. No auto-merge on one that should have it: say so in the report | rework |
+| Dependabot PR (no issue, no card) | **never approved by hand**: the auto-merge workflow turns on auto-merge for Dependabot's own pushes, and GitHub lands them once the required checks pass. One that touches `.github/` (an actions bump, or the Playwright image tag you moved, after which you turn its auto-merge off with `gh pr merge <n> --disable-auto`) waits for @starquake's approval, then merges through `merge-pr`: say so in the report. A direct bump in `/tools`: mirror its version into the Makefile's `GOLANGCI_VERSION` and push; the Makefile is @starquake's, so it then waits for their approval and merges through `merge-pr`. Behind `main`: rebase it locally and `--force-with-lease` (which re-signs its commits), never `update-branch`. Red only on bundle drift (a `frontend/` dependency that changes the bundle): rebuild the bundle on the branch, commit it, push, watch CI. Red on anything else: comment what broke on the PR. Your push dismisses an approval @starquake gave, so a sensitive one waits for them again. No auto-merge on one that should have it: say so in the report | rework |
 
 3. **Post a Next-steps comment on every ticket whose state you moved** (below).
 4. **The build cap: at most one build per pass, and ZERO is a valid pass.**

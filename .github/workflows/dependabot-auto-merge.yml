@@ -23,10 +23,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # A direct bump in /tools must be mirrored into the Makefile's
-      # GOLANGCI_VERSION by hand, so it is left for Claude.
+      # Left for Claude to merge: an actions bump waits for a code owner, and
+      # merged as GITHUB_TOKEN after dispatch-after-merge.sh stops waiting it
+      # would run no CI on main; a direct bump in /tools must be mirrored into
+      # the Makefile's GOLANGCI_VERSION by hand.
       - name: Enable auto-merge
-        if: steps.meta.outputs.directory != '/tools' || !startsWith(steps.meta.outputs.dependency-type, 'direct')
+        if: >-
+          steps.meta.outputs.package-ecosystem != 'github_actions' &&
+          (steps.meta.outputs.directory != '/tools' || !startsWith(steps.meta.outputs.dependency-type, 'direct'))
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
