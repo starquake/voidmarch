@@ -26,8 +26,10 @@ quoting.
 
 **The author tells Claude's comments from the maintainer's**: Claude's are by
 @starquake-bot, the maintainer's by @starquake. Before the bot (#373), Claude
-posted through @starquake's account with a `> 🤖` line at the top, so an
-older @starquake comment that starts with `> 🤖` is Claude's too.
+posted through @starquake's account with a `> 🤖` line at the top, so a
+@starquake comment created before 2026-11-27T21:00:00Z that starts with
+`> 🤖` is Claude's too. Any later @starquake comment is the maintainer's,
+whatever it starts with.
 
 1. List candidate threads (open, and touched in the last ~2 weeks):
    `gh issue list --state all --limit 40 --json number,title,updatedAt,state`

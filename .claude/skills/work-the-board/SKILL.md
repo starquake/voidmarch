@@ -82,8 +82,11 @@ found and let the maintainer confirm the shape first.
   `Your sign-off` ticket.
 - **Skip anything labelled `hold`** entirely: no comment, no build, no merge.
 - **You post as @starquake-bot, with no attribution line** (CLAUDE.md). The
-  monitor tells your comments from the maintainer's by the author: anything by
-  @starquake is theirs.
+  monitor tells your comments from the maintainer's by the author and date:
+  anything by @starquake-bot is yours, and so is a @starquake comment created
+  before 2026-11-27T21:00:00Z that starts with `> 🤖` (posted through their
+  account before the bot, #373). Any other @starquake comment is theirs,
+  whatever it starts with.
 - **Never bring a branch forward on the server.** No merging `main` into a
   branch, no `gh pr update-branch`, no "Update branch" button: those make
   unsigned commits, which the ruleset refuses. Rebase locally and
@@ -153,8 +156,10 @@ and a direct maintainer request, and they are named as exceptions.
    fetch its comments and look for the maintainer's answer block or go signal
    *after your last comment*. Scope that read by your last comment, never by a
    wall-clock window. An answer is a comment by @starquake; yours are by
-   @starquake-bot. A @starquake comment that starts with `> 🤖` is yours too:
-   Claude posted it through @starquake's account before the bot (#373).
+   @starquake-bot. A @starquake comment created before 2026-11-27T21:00:00Z
+   that starts with `> 🤖` is yours too: Claude posted it through
+   @starquake's account before the bot (#373). A later one is theirs,
+   whatever it starts with.
 
    **Read a ticket before answering anything about it**, including your own
    earlier comments. After a context break especially: a summary carries
@@ -380,8 +385,9 @@ while true; do
   sleep 60
   now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-  # Claude's own: by starquake-bot, or older ones posted through starquake with the robot line.
-  MINE='def mine: .user.login == "starquake-bot" or (.user.login == "starquake" and (.body | startswith("> 🤖")));'
+  # Claude's own: by starquake-bot, or posted through starquake with the robot line before the bot.
+  MINE='def mine: .user.login == "starquake-bot" or (.user.login == "starquake"
+    and .created_at < "2026-11-27T21:00:00Z" and (.body | startswith("> 🤖")));'
   gh api "repos/$R/issues/comments?since=$since&per_page=30" \
     --jq "$MINE"'.[] | select(mine | not)
           | "COMMENT on #\(.issue_url | split("/") | last): \(.body | gsub("\n"; " ") | .[0:120])"' 2>/dev/null || true
