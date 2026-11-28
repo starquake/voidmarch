@@ -4,7 +4,6 @@
 set -uo pipefail
 
 script="$(cd "$(dirname "$0")" && pwd)/merge-gate.sh"
-head_sha=1111111111111111111111111111111111111111
 old_sha=2222222222222222222222222222222222222222
 failed=0
 
@@ -14,9 +13,12 @@ fail() {
 }
 
 # setup: a stub gh answering from files in $stub, filled with a plain PR by
-# starquake-bot that changes a.go. A file holding ERROR makes that call fail.
+# starquake-bot that changes a.go, reviewed at its head. A file holding ERROR
+# makes that call fail.
 setup() {
   stub="$(mktemp -d)"
+  work=""
+  head_sha=1111111111111111111111111111111111111111
   cat > "$stub/gh" << 'STUB'
 #!/bin/sh
 echo "gh $*" >> "$STUB/calls"
@@ -26,10 +28,13 @@ answer() {
   cat "$STUB/$1"
   exit 0
 }
-case "$*" in
+args="$*"
+case "$args" in
   "api graphql"*) answer pr.json ;;
   *"/contents/.github/CODEOWNERS"*) answer codeowners ;;
   *"/pulls/"*"/files"*) answer files.json ;;
+  *"/pulls/"*"/commits"*) answer commits.json ;;
+  *"/commits/"*) answer "commit-${args##*/commits/}.json" ;;
   *"/rulesets/24078077") answer ruleset.json ;;
   *"/rulesets") answer rulesets.json ;;
 esac
@@ -41,13 +46,20 @@ STUB
   pr '{}'
   printf '%s\n' '# owners' '/.github/ @starquake' '/CLAUDE.md @starquake' > "$stub/codeowners"
   files a.go
+  echo '[{"sha": "d1", "author": {"login": "dependabot[bot]"}}]' > "$stub/commits.json"
+}
+
+# reviewed_body SHA [HEADING]: a PR body recording a review of SHA under HEADING.
+reviewed_body() {
+  printf '## Where to look\n\nNothing.\n\n## %s\n\nReviewed at %s. None found.\n' \
+    "${2:-Found in review}" "$1" | jq -Rs '{body: .}'
 }
 
 # pr OVERRIDES: the PR, with the JSON object OVERRIDES merged over the plain one.
 pr() {
   jq -n --arg head "$head_sha" --argjson over "$1" '{data: {repository: {pullRequest: ({
     state: "OPEN", headRefOid: $head, baseRefName: "main", changedFiles: 1,
-    reviewDecision: null, body: "",
+    reviewDecision: null, body: "## Found in review\n\nReviewed at \($head).\n",
     author: {__typename: "User", login: "starquake-bot"},
     headRepository: {nameWithOwner: "starquake/voidmarch"},
     labels: {nodes: []}, reviews: {nodes: []}} + $over)}}}' > "$stub/pr.json"
@@ -70,9 +82,42 @@ approved_at() {
   printf '{"reviews": {"nodes": [{"state": "%s", "commit": {"oid": "%s"}}]}}' "$1" "$2"
 }
 
-# run [ARGS...]: runs the script with the stub first on PATH; sets $status.
+# gitrepos: a bare origin whose main has one commit, a clone of it in $work
+# for the script to run in, and $seed to make commits in and push from.
+gitrepos() {
+  local g
+  g="$(mktemp -d)"
+  seed="$g/seed"
+  work="$g/work"
+  git init -q -b main "$seed"
+  commit base.txt base
+  git clone -q --bare "$seed" "$g/origin.git"
+  git -C "$g/origin.git" config uploadpack.allowAnySHA1InWant true
+  sg remote add origin "$g/origin.git"
+  git clone -q "$g/origin.git" "$work"
+}
+
+sg() {
+  git -C "$seed" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false "$@"
+}
+
+# commit FILE TEXT: writes TEXT to FILE in $seed and commits it.
+commit() {
+  echo "$2" > "$seed/$1"
+  sg add "$1"
+  sg commit -q -m "Write $2 to $1"
+}
+
+# push_pr: pushes $seed's HEAD as PR 7's head, and points the PR at it.
+push_pr() {
+  sg push -q --force origin "HEAD:refs/pull/7/head"
+  head_sha="$(sg rev-parse HEAD)"
+}
+
+# run [ARGS...]: runs the script with the stub first on PATH, in $work if it
+# is set; sets $status.
 run() {
-  env STUB="$stub" PATH="$stub:$PATH" bash "$script" "${@-7}" > "$stub/out" 2>&1
+  (cd "${work:-$stub}" && env STUB="$stub" PATH="$stub:$PATH" bash "$script" "${@-7}") > "$stub/out" 2>&1
   status=$?
 }
 
@@ -303,6 +348,124 @@ setup
 echo ERROR > "$stub/ruleset.json"
 run
 want "ruleset read fails" 1 '^sensitive: could not read the live ruleset main'
+
+# The review covers the head.
+
+setup
+run
+want "reviewed at the head" 0 "^reviewed: $head_sha covers $head_sha"
+
+setup
+pr '{"body": ""}'
+run
+want "no review" 1 "^hold: no 'Reviewed at <sha>' under Found in review"
+
+setup
+pr "$(reviewed_body "$head_sha" "Where to look again")"
+run
+want "review line in another section" 1 "^hold: no 'Reviewed at <sha>'"
+
+setup
+pr "$(printf '## Found in review\n\nReviewed at `%s`.\n' "$head_sha" | jq -Rs '{body: .}')"
+run
+want "review line in backticks" 0 "^reviewed: "
+
+setup
+pr "$(printf '## Found in review\n\nReviewed at %s.\n\nReviewed at %s.\n' "$old_sha" "$head_sha" | jq -Rs '{body: .}')"
+run
+want "the last review line counts" 0 "^reviewed: $head_sha"
+
+setup
+gitrepos
+sg checkout -q -b feature
+commit a.txt one
+commit b.txt two
+push_pr
+reviewed="$head_sha"
+sg checkout -q main
+commit m.txt main
+sg push -q origin main
+sg checkout -q feature
+sg rebase -q main
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "rebased onto a newer main" 0 "^reviewed: $reviewed covers $head_sha"
+
+setup
+gitrepos
+sg checkout -q -b feature
+commit a.txt one
+push_pr
+reviewed="$head_sha"
+commit b.txt two
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "new commit after the review" 1 "^hold: $head_sha is not $reviewed or only a rebase of it"
+
+setup
+gitrepos
+sg checkout -q -b feature
+commit a.txt one
+push_pr
+reviewed="$head_sha"
+echo changed > "$seed/a.txt"
+sg commit -q -a --amend --no-edit
+push_pr
+pr "$(reviewed_body "$reviewed")"
+run
+want "commit changed after the review" 1 "^hold: $head_sha is not $reviewed"
+
+setup
+gitrepos
+sg checkout -q -b feature
+commit a.txt one
+push_pr
+pr "$(reviewed_body 3333333333333333333333333333333333333333)"
+run
+want "reviewed commit unknown" 1 "^hold: $head_sha is not 3333333333333333333333333333333333333333"
+
+setup
+pr "$(reviewed_body "$old_sha")"
+run
+want "no checkout to compare in" 1 "^hold: $head_sha is not $old_sha"
+
+# Dependabot.
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+run
+want "dependabot's commits" 0 "^reviewed: only Dependabot's commits"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+echo '[{"sha": "d1", "author": {"login": "dependabot[bot]"}}, {"sha": "c2", "author": {"login": "starquake-bot"}}]' \
+  > "$stub/commits.json"
+echo '{"files": [{"filename": "internal/web/static/js/game.js"}, {"filename": "THIRD-PARTY.md"}]}' \
+  > "$stub/commit-c2.json"
+run
+want "dependabot with a rebuilt bundle" 0 "^reviewed: only Dependabot's commits and regenerated output"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+echo '[{"sha": "c2", "author": null}]' > "$stub/commits.json"
+echo '{"files": [{"filename": "internal/web/static/js/game.js"}, {"filename": "Makefile"}]}' \
+  > "$stub/commit-c2.json"
+run
+want "dependabot with a hand edit" 1 "^hold: no 'Reviewed at <sha>'"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+echo ERROR > "$stub/commits.json"
+run
+want "dependabot commits read fails" 1 "^hold: no 'Reviewed at <sha>'"
+
+setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+echo '[{"sha": "c2", "author": {"login": "starquake-bot"}}]' > "$stub/commits.json"
+run
+want "dependabot commit read fails" 1 "^hold: no 'Reviewed at <sha>'"
 
 if [[ "$failed" -ne 0 ]]; then
   exit 1

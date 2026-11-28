@@ -30,10 +30,12 @@ or a `@playwright/test` bump once Claude moved `ci.yml`'s image tag) waits for
 @starquake's approval as code owner, and auto-merge lands it once they give
 it. A direct bump in `/tools` gets no auto-merge: once Claude has mirrored its
 version into the Makefile's `GOLANGCI_VERSION` and CI is green, merge it here.
-A Dependabot PR has no *Found in review*, so its gate is the rest of Step 1's
-three things, unless Claude pushed more onto it than a rebase, regenerated
-output or the pin: a separate agent reviews that first. Keeping them
-mergeable is `work-the-board`'s.
+A Dependabot PR needs no *Found in review* while every commit on it is
+Dependabot's, or Claude's that only regenerate output (the bundle, the
+WebAssembly sim, generated code, `THIRD-PARTY.md`). Anything else Claude
+pushed onto it (the pin, a fix) gets a separate agent's review first,
+recorded in its body like any PR's. Keeping them mergeable is
+`work-the-board`'s.
 
 **Anything that becomes permanent at merge is verified AT merge**: a push
 dismisses an approval, CI can go stale on a push, and the title can be
@@ -91,11 +93,13 @@ explicitly override.
 
 **Any other PR's gate is three things**, and no approval:
 
-- **The separate reviewer agent's review is done**: the PR body's *Found in
-  review* says a separate agent reviewed the whole branch (`build-slice`,
-  *Review the whole diff*), and nothing but a rebase or regenerated output
-  was pushed after it. No such section, or new work since? Have it reviewed
-  first.
+- **The separate reviewer agent's review covers `head`**, which the script
+  checks: *Found in review* records `Reviewed at <full sha>` (`build-slice`,
+  *Review the whole diff*; the last such line counts), and `head` is that
+  commit or only a rebase of it. A rebase means `git range-diff
+  <old-base>..<reviewed> <new-base>..<head>` pairs every commit with `=` (the
+  same patch), where each base is `git merge-base origin/main` with that
+  commit. No such line, or new or changed work since? Have it reviewed first.
 - **CI is green** for `head` (Step 2).
 - **Every review thread is resolved** (Step 2b). A judgement call still
   waiting for @starquake's `fix`, `skip` or `ticket` holds the PR.

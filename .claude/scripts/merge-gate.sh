@@ -155,5 +155,61 @@ if [[ "$is_sensitive" -eq 1 ]]; then
   else
     hold "needs @starquake's approval of $head"
   fi
+  verdict
+fi
+
+# A rebase changes the commits but not their patches. Each side of the
+# range-diff runs from where that commit leaves the base branch.
+covers_head() {
+  local reviewed="$1" old_base new_base diff
+  [[ "$reviewed" == "$head" ]] && return 0
+  git fetch --quiet origin "+refs/heads/$base:refs/remotes/origin/$base" "refs/pull/$pr/head" 2> /dev/null ||
+    return 1
+  git cat-file -e "$reviewed^{commit}" 2> /dev/null ||
+    git fetch --quiet origin "$reviewed" 2> /dev/null || return 1
+  old_base="$(git merge-base "origin/$base" "$reviewed" 2> /dev/null)" || return 1
+  new_base="$(git merge-base "origin/$base" "$head" 2> /dev/null)" || return 1
+  diff="$(git range-diff --no-color "$old_base..$reviewed" "$new_base..$head" 2> /dev/null)" || return 1
+  [[ -n "$diff" ]] || return 1
+  ! grep -Ev '^ *[0-9]+: +[0-9a-f]+ = +[0-9]+: +[0-9a-f]+( |$)' <<< "$diff" | grep -q .
+}
+
+# Dependabot's own commits need no review, nor Claude's that only regenerate output.
+regenerated() {
+  case "$1" in
+    internal/web/static/js/* | internal/web/static/wasm/* | frontend/src/sim/rules.gen.ts | \
+      internal/gen/* | frontend/src/gen/* | internal/db/* | THIRD-PARTY.md) return 0 ;;
+  esac
+  return 1
+}
+needs_review() {
+  local sha f
+  [[ "$author" == Bot/dependabot ]] || return 0
+  gh api --paginate "repos/$repo/pulls/$pr/commits?per_page=100" > "$tmp/commits.json" 2> /dev/null &&
+    jq -r '.[] | select(.author.login != "dependabot[bot]") | .sha' "$tmp/commits.json" \
+      > "$tmp/others" 2> /dev/null || return 0
+  while IFS= read -r sha; do
+    gh api "repos/$repo/commits/$sha" > "$tmp/commit.json" 2> /dev/null &&
+      jq -r '.files[].filename' "$tmp/commit.json" > "$tmp/commit-files" 2> /dev/null || return 0
+    while IFS= read -r f; do
+      regenerated "$f" || return 0
+    done < "$tmp/commit-files"
+  done < "$tmp/others"
+  return 1
+}
+
+if needs_review; then
+  reviewed="$(field .body | tr -d '\r' |
+    awk '/^## / { found = ($0 ~ /^## Found in review/) } found' |
+    grep -oE 'Reviewed at `?[0-9a-f]{40}' | tail -n 1 | grep -oE '[0-9a-f]{40}')"
+  if [[ -z "$reviewed" ]]; then
+    hold "no 'Reviewed at <sha>' under Found in review: have a separate agent review it"
+  elif covers_head "$reviewed"; then
+    echo "reviewed: $reviewed covers $head"
+  else
+    hold "$head is not $reviewed or only a rebase of it: have the new work reviewed"
+  fi
+else
+  echo "reviewed: only Dependabot's commits and regenerated output"
 fi
 verdict
