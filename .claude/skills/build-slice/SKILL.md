@@ -175,8 +175,8 @@ The gates prove it compiles, lints and passes its tests. They cannot see:
   have one recommended answer, decide it yourself**: fix it or keep it, and
   say so in the PR's *Found in review* (@starquake, 2026-11-28, #374). **Ask
   only when it is genuinely open**, or the maintainer's by nature (their
-  accounts, their machine, security settings, merging). When unsure which
-  kind a finding is, or which answer is right, ask.
+  accounts, their machine, security settings, the merge rules). When unsure
+  which kind a finding is, or which answer is right, ask.
 
 Ask by posting a review comment on the line it is about. It says what is
 wrong and what you recommend, and **ends with

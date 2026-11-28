@@ -194,8 +194,8 @@ answer given in chat is written back into the issue body before acting on it.
   straight away, and decides a judgement call itself when it has one
   recommended answer, saying so in the PR. Only a genuinely open choice, or
   one that is the maintainer's by nature (their accounts, their machine,
-  security settings, merging), is a review comment on its line, left for the
-  maintainer to answer `fix`, `skip` or `ticket` (`build-slice`). **The
+  security settings, the merge rules), is a review comment on its line, left
+  for the maintainer to answer `fix`, `skip` or `ticket` (`build-slice`). **The
   comment ends with what each of the three does for that finding**, one
   concrete line each, the recommended one marked: `fix` names the change it
   makes (the alternative, when the recommendation is to keep it as built),
