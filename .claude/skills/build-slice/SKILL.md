@@ -171,7 +171,8 @@ The gates prove it compiles, lints and passes its tests. They cannot see:
   have one recommended answer, decide it yourself**: fix it or keep it, and
   say so in the PR's *Found in review* (@starquake, 2026-11-28, #374). **Ask
   only when it is genuinely open**, or the maintainer's by nature (their
-  accounts, their machine, security settings, merging).
+  accounts, their machine, security settings, merging). When unsure which
+  kind a finding is, or which answer is right, ask.
 
 Ask by posting a review comment on the line it is about. It opens with the 🤖
 attribution line, says what is wrong and what you recommend, and **ends with
@@ -220,8 +221,8 @@ finding with no line to anchor to (something missing) goes on the file's first
 changed line, saying so.
 
 The PR body gets a *Found in review* section: each defect fixed, with its
-commit, and how many judgement calls are waiting as comments (or that there
-were none of either). The card moves to `Your review` with those still open;
+commit; each judgement call you decided, fixed or kept, with its reason; and
+how many are waiting as comments (or that there were none). The card moves to `Your review` with those still open;
 the maintainer's replies are part of the review.
 
 ## Finish
