@@ -195,11 +195,16 @@ covers_head() {
   done <<< "$diff"
 }
 
-# Dependabot's own commits need no review, nor Claude's that only regenerate output.
+# Dependabot's own commits need no review, nor Claude's that only regenerate
+# output. Only output a CI check fails on when a file is changed, added or
+# missing: js-check and proto-check (diff -r), wasm-check (cmp of each file),
+# third-party-check (diff).
 regenerated() {
   case "$1" in
-    internal/web/static/js/* | internal/web/static/wasm/* | frontend/src/sim/rules.gen.ts | \
-      internal/gen/* | frontend/src/gen/* | internal/db/* | THIRD-PARTY.md) return 0 ;;
+    *..*) return 1 ;;
+    internal/web/static/js/* | frontend/src/bootsizes.gen.ts | \
+      internal/web/static/wasm/sim.wasm | internal/web/static/wasm/wasm_exec.js | \
+      frontend/src/sim/rules.gen.ts | internal/gen/* | frontend/src/gen/* | THIRD-PARTY.md) return 0 ;;
   esac
   return 1
 }

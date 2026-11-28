@@ -599,6 +599,27 @@ commits d1:dependabot[bot]:dependabot[bot]:true
 run
 want "dependabot as its own committer" 0 "^reviewed: only Dependabot's commits"
 
+for f in internal/web/static/js/vendor/phaser.js frontend/src/bootsizes.gen.ts internal/web/static/wasm/sim.wasm \
+  internal/web/static/wasm/wasm_exec.js frontend/src/sim/rules.gen.ts internal/gen/voidmarch/v1/messages.pb.go \
+  frontend/src/gen/voidmarch/v1/messages_pb.ts THIRD-PARTY.md; do
+  setup
+  pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+  commits c2:starquake-bot:starquake-bot:true
+  jq -n --arg f "$f" '{files: [{filename: $f}]}' > "$stub/commit-c2.json"
+  run
+  want "regenerated $f" 0 "^reviewed: only Dependabot's commits and regenerated output"
+done
+
+for f in internal/db/players.sql.go internal/web/static/wasm/extra.js internal/web/static/index.html \
+  frontend/src/sim/tuning.ts THIRD-PARTY.md.bak "internal/gen/../../go.mod"; do
+  setup
+  pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
+  commits c2:starquake-bot:starquake-bot:true
+  jq -n --arg f "$f" '{files: [{filename: $f}]}' > "$stub/commit-c2.json"
+  run
+  want "not regenerated: $f" 1 "^hold: no 'Reviewed at <sha>'"
+done
+
 setup
 pr '{"author": {"__typename": "Bot", "login": "dependabot"}, "body": ""}'
 echo ERROR > "$stub/commits.json"
