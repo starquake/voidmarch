@@ -270,6 +270,21 @@ files deployments-old.txt
 run
 want "anchored name is the whole name" 0
 
+owned_here=(.github/workflows/ci.yml deployments/podman/deploy.sh .claude/skills/merge-pr/SKILL.md .mcp.json
+  CLAUDE.md frontend/src/CLAUDE.md Makefile .golangci.yml .testcoverage.yml Dockerfile
+  frontend/eslint.config.js frontend/tsconfig.json frontend/playwright.config.ts)
+setup
+cp "$(dirname "$script")/../../.github/CODEOWNERS" "$stub/codeowners"
+files "${owned_here[@]}" internal/sim/sim.go tools/go.mod frontend/src/main.ts
+pr "{\"changedFiles\": $((${#owned_here[@]} + 3))}"
+run
+want "this repository's CODEOWNERS" 1
+want_not "this repository's CODEOWNERS" 'CHECK FAILED'
+for f in "${owned_here[@]}"; do
+  want "this repository's CODEOWNERS owns $f" 1 "^sensitive: $f is in CODEOWNERS"
+done
+want_not "this repository's CODEOWNERS" '^sensitive: (internal/sim|tools|frontend/src/main)'
+
 for pattern in '*.yml' '/docs/*' 'docs/' 'docs/x.md' '/a?b' '/[ab]' '/a\ b' '!x' '/' '/a//b'; do
   setup
   printf '%s @starquake\n' "$pattern" > "$stub/codeowners"

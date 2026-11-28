@@ -1,7 +1,7 @@
 # Claude merges its own pull requests once they are reviewed and green, but a
 # change to how work is checked, merged or deployed needs @starquake's
-# approval: the ruleset requires a code owner's review (#373, decision 8).
-# Only the forms .claude/scripts/merge-gate.sh parses: /dir/, /path, and a
+# approval: the ruleset requires a code owner's review (#373, decisions 8 and
+# 9). Only the forms .claude/scripts/merge-gate.sh parses: /dir/, /path, and a
 # bare name, which matches at any depth.
 /.github/ @starquake
 /deployments/ @starquake
@@ -9,3 +9,12 @@
 /.mcp.json @starquake
 # Claude Code also loads a CLAUDE.md in any directory.
 CLAUDE.md @starquake
+
+# The configs of the checks a merge waits for.
+/Makefile @starquake
+/.golangci.yml @starquake
+/.testcoverage.yml @starquake
+/Dockerfile @starquake
+/frontend/eslint.config.js @starquake
+/frontend/tsconfig.json @starquake
+/frontend/playwright.config.ts @starquake

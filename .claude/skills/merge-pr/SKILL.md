@@ -16,7 +16,10 @@ description: >
 **Claude merges its own PRs once they are reviewed and green** (#373,
 decision 8), **except a PR whose diff touches a sensitive path**: one that
 `.github/CODEOWNERS` gives to @starquake (`.github/`, `deployments/`,
-`CLAUDE.md`, `.claude/`). That one is mergeable only when @starquake has
+`.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check configs: the
+`Makefile`, `.golangci.yml`, `.testcoverage.yml`, the `Dockerfile`, and
+frontend's ESLint, TypeScript and Playwright configs). That one is mergeable
+only when @starquake has
 approved its current head commit. Claude works as @starquake-bot and **never
 approves a PR**, its own or anyone else's.
 
@@ -28,8 +31,9 @@ Dependabot's own pushes, and GitHub squash-merges each once the required
 checks pass. Never approve one. One that touches `.github/` (an actions bump,
 or a `@playwright/test` bump once Claude moved `ci.yml`'s image tag) waits for
 @starquake's approval as code owner, and auto-merge lands it once they give
-it. A direct bump in `/tools` gets no auto-merge: once Claude has mirrored its
-version into the Makefile's `GOLANGCI_VERSION` and CI is green, merge it here.
+it. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
+into the Makefile's `GOLANGCI_VERSION`, which makes it sensitive (the
+Makefile is @starquake's, decision 9), and merges it here once they approve.
 A Dependabot PR needs no *Found in review* while every commit on it is
 Dependabot's, or Claude's that only regenerate output (the bundle, the
 WebAssembly sim, generated code, `THIRD-PARTY.md`). Anything else Claude

@@ -232,8 +232,8 @@ answer given in chat is written back into the issue body before acting on it.
   that touches `.github/` (the actions bumps, and that image tag) waits for
   @starquake's approval as code owner, and auto-merge lands it once they give
   it. A direct bump in `/tools` gets no auto-merge: Claude mirrors its version
-  into the Makefile's `GOLANGCI_VERSION` and merges it through `merge-pr` once
-  it is green.
+  into the Makefile's `GOLANGCI_VERSION`, and since the Makefile is
+  @starquake's (decision 9) it merges through `merge-pr` once they approve.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,
   bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
   for anything touching the client, on every commit. The ruleset lives as code
@@ -288,9 +288,9 @@ answer given in chat is written back into the issue body before acting on it.
   checks, once the separate agent's review is done, CI is green and every
   thread is resolved (#373, decision 8). **A PR that touches a sensitive
   path** (one `.github/CODEOWNERS` gives to @starquake: `.github/`,
-  `deployments/`, `CLAUDE.md`, `.claude/`) **also needs @starquake's approving
-  review** of its current head commit, re-read from the API at the moment of
-  merging. Claude never approves a PR, and never merges a sensitive one
+  `deployments/`, `.claude/`, `.mcp.json`, any `CLAUDE.md`, and the check
+  configs, decision 9) **also needs @starquake's approving review** of its
+  current head commit, re-read from the API at the moment of merging. Claude never approves a PR, and never merges a sensitive one
   without that approval.
 - **A position in the flow is a Status; a property of a ticket is a label**:
   `hold` (skip entirely), `dependencies` (Dependabot's),
