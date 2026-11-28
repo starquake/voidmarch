@@ -21,7 +21,7 @@ only decides *which form* to run and *with what defaults*.
 | `/board stop`, `stop the board` | End the loop **and** stop the monitor |
 
 **60 minutes is the default on purpose.** The monitor makes the loop react to
-a maintainer comment, a `ready to merge` or a card move within about a minute;
+a maintainer comment, an approving review or a card move within about a minute;
 the timed tick is only a backstop for things no event announces.
 
 ## Starting a loop session

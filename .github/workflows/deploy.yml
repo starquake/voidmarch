@@ -84,18 +84,21 @@ jobs:
         run: .github/scripts/health-check.sh "${{ vars.SERVER_URL }}/healthz"
 
   # CI green on a v*.*.* tag deploys that release, but not a release candidate;
-  # a manual run deploys :latest.
+  # a manual run deploys :latest. Only the repository owner starts either: a
+  # dispatched or re-run CI, or a re-run of this job, could otherwise put an
+  # old release back.
   deploy-production:
-    # ci.yml pushes only main and v*.*.* tags, so a v-prefixed head_branch is a tag.
     if: >-
       (github.event_name == 'workflow_run' &&
         github.event.workflow_run.conclusion == 'success' &&
-        (github.event.workflow_run.event == 'push' ||
-          github.event.workflow_run.event == 'workflow_dispatch') &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.triggering_actor.login == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
         github.event.workflow_run.head_repository.full_name == github.repository &&
         startsWith(github.event.workflow_run.head_branch, 'v') &&
         !contains(github.event.workflow_run.head_branch, '-rc.')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'production' &&
+        github.triggering_actor == github.repository_owner)
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -109,6 +112,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      # head_branch is a name, not a ref: check a tag by that name points here.
+      # ls-remote also lists refs that only end in the pattern, so match it whole.
+      - name: Check the release tag
+        if: github.event_name == 'workflow_run'
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          got="$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}" |
+            awk -v r="refs/tags/$TAG" '$2 == r { sha = $1 } $2 == r "^{}" { peeled = $1 }
+              END { print (peeled != "" ? peeled : sha) }')"
+          if [ "$got" != "$SHA" ]; then
+            echo "error: no tag $TAG at $SHA" >&2
+            exit 1
+          fi
       - name: Image tag
         id: tag
         env:
@@ -230,7 +248,7 @@ jobs:
       - name: Build date
         id: builddate
         run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-      # Unsigned: development only runs the maintainer's own labeled PRs.
+      # Unsigned: development only runs labeled same-repository PRs.
       - name: Build and push
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

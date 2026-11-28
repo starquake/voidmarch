@@ -185,22 +185,23 @@ versions so Dependabot sees new releases. TinyGo and Binaryen (its `wasm-opt`) u
 in its GitHub issue. Chat is optional and the maintainer may not read it: an
 answer given in chat is written back into the issue body before acting on it.
 
-- **A separate reviewer agent reads every PR before Claude hands it over**
-  (@starquake, 2026-11-27, #374): the whole branch against `main` and the
-  ticket, briefed with the code and not with Claude's own conclusions, at the
-  effort the change needs. It looks for what the gates cannot see (leftovers
-  from earlier iterations, behaviour against the ticket, input and state edge
-  cases, the art rule). Claude fixes a defect straight away, and decides a
-  judgement call itself when it has one recommended answer, saying so in the
-  PR. Only a genuinely open choice, or one that is the maintainer's by nature
-  (their accounts, their machine, security settings, merging), is a review
-  comment on its line, left for the maintainer to answer `fix`, `skip` or
-  `ticket` (`build-slice`). **The comment ends with what each
-  of the three does for that finding**, one concrete line each, the
-  recommended one marked: `fix` names the change it makes (the alternative,
-  when the recommendation is to keep it as built), `skip` what stays as built,
-  `ticket` what gets filed for later while the PR stays as it is. A bare
-  "Reply `fix`, `skip` or `ticket`" is unclear (@starquake, 2026-10-06, #267).
+- **A separate reviewer agent reads every PR before Claude hands it over or
+  merges it** (@starquake, 2026-11-27, #374): the whole branch against `main`
+  and the ticket, briefed with the code and not with Claude's own
+  conclusions, at the effort the change needs. It looks for what the gates
+  cannot see (leftovers from earlier iterations, behaviour against the
+  ticket, input and state edge cases, the art rule). Claude fixes a defect
+  straight away, and decides a judgement call itself when it has one
+  recommended answer, saying so in the PR. Only a genuinely open choice, or
+  one that is the maintainer's by nature (their accounts, their machine,
+  security settings, the merge rules), is a review comment on its line, left
+  for the maintainer to answer `fix`, `skip` or `ticket` (`build-slice`). **The
+  comment ends with what each of the three does for that finding**, one
+  concrete line each, the recommended one marked: `fix` names the change it
+  makes (the alternative, when the recommendation is to keep it as built),
+  `skip` what stays as built, `ticket` what gets filed for later while the PR
+  stays as it is. A bare "Reply `fix`, `skip` or `ticket`" is unclear
+  (@starquake, 2026-10-06, #267).
 - **Everything lands via a pull request** with an issue behind it, including
   chores and docs. One issue, one deliverable. **Every PR closes exactly one
   issue**, since a closing keyword is the only link GitHub shows both ways
@@ -216,30 +217,43 @@ answer given in chat is written back into the issue body before acting on it.
   last sub-issue closes and every box in its plan is ticked.
 - **Dependabot's pull requests are the one exception**: they have no issue
   behind them and no card (`.github/dependabot.yml`), and they merge
-  themselves: `.github/workflows/dependabot-auto-merge.yml` squash-merges each
-  once the required checks pass. Its merge starts no workflows, so the same
-  workflow then dispatches CI on `main`, which publishes `:edge`, and when it
-  passes Deploy for development. Claude never merges one by hand and never adds
-  `ready to merge` to one. It keeps them mergeable: one left behind `main` is
-  rebased locally and force-pushed, and a `frontend/` bump that fails only on
-  bundle drift gets the rebuilt bundle committed onto its branch, and one that
-  changes `THIRD-PARTY.md` gets `make third-party` committed the same way. A bump of
-  `@playwright/test` gets the E2E job's image tag (`ci.yml`,
+  themselves: `.github/workflows/dependabot-auto-merge.yml` turns on
+  auto-merge, and GitHub squash-merges each once the required checks pass.
+  Its merge starts no workflows, so the same workflow then dispatches CI on
+  `main`, which publishes `:edge`, and when it passes Deploy for development.
+  Claude never approves one. It keeps them mergeable: one left behind `main`
+  is rebased locally and force-pushed, and a `frontend/` bump that fails only
+  on bundle drift gets the rebuilt bundle committed onto its branch, and one
+  that changes `THIRD-PARTY.md` gets `make third-party` committed the same
+  way. A bump of `@playwright/test` gets the E2E job's image tag (`ci.yml`,
   `mcr.microsoft.com/playwright:v<version>-noble`) moved to the same version
-  on its branch: the image carries the browsers that version expects.
+  on its branch: the image carries the browsers that version expects. A bump
+  that touches `.github/` (the actions bumps, and that image tag) waits for
+  @starquake's approval as code owner, and Claude merges it through
+  `merge-pr`, not auto-merge: a late approval would merge it as
+  `GITHUB_TOKEN` after the workflow stopped waiting, and run no CI on `main`.
+  The workflow leaves auto-merge off for an actions bump. **A Dependabot PR
+  that Claude pushed onto merges only through `merge-pr`**, after a separate
+  review recorded in its body: the workflow turns auto-merge off on any push
+  not by Dependabot. A direct bump in `/tools` gets no auto-merge: Claude
+  mirrors its version into the Makefile's `GOLANGCI_VERSION`, and since the
+  Makefile is @starquake's (decision 9) it merges through `merge-pr` once
+  they approve.
 - **The gate is `make check`** (lint, the TypeScript check, lint and tests,
   bundle drift, the build, the Go tests with coverage), plus `make test-e2e`
   for anything touching the client, on every commit. The ruleset lives as code
   in `.github/rulesets/main.json`: squash only, signed commits, linear history,
-  every review thread resolved, the branch up to date with `main`, and the
-  required checks `lint`, `build`, `e2e (chromium)`, `e2e (firefox)` and
-  `docker`.
+  a code owner's approval for a PR that touches a path in `.github/CODEOWNERS`
+  (a push after it needs a new one) and no other approval, every review thread
+  resolved, the branch up to date with `main`, and the required checks
+  `lint`, `build`, `e2e (chromium)`, `e2e (firefox)` and `docker`.
 - **Branches and commits**: a branch is `<issue>-<slug>`
   (`1-single-player-sandbox`). A commit is a plain one-line capitalized
-  subject with no body and no trailer, signed with the local SSH key, staging
-  explicit paths. A branch behind `main` is rebased locally and force-pushed:
-  never merge `main` into a branch and never `gh pr update-branch`, since a
-  server-side update makes unsigned commits, which the ruleset blocks.
+  subject with no body and no trailer, made by @starquake-bot and signed with
+  its SSH key, staging explicit paths. A branch behind `main` is rebased
+  locally and force-pushed: never merge `main` into a branch and never
+  `gh pr update-branch`, since a server-side update makes unsigned commits,
+  which the ruleset blocks.
 - **The board is the handoff baton**: the Status field of the "Voidmarch"
   user Project (https://github.com/users/starquake/projects/6).
   Read and move it with `.claude/scripts/board.sh`.
@@ -252,8 +266,11 @@ answer given in chat is written back into the issue body before acting on it.
   `Spec`, `Plan` and `Build` are Claude's and proceed without re-asking.
   `Your input` (questions) can interrupt any stage. `Your sign-off` comes
   BEFORE a build (approve the spec, plan or mockup); `Your review` comes AFTER
-  it (the PR is open, awaiting `ready to merge`). Cards move both ways and
-  stages can be skipped: a bug or tweak goes straight to `Build`.
+  it, and only for a PR that touches a sensitive path (awaiting @starquake's
+  approving review) or carries an open question (a judgement call waiting for
+  their reply). Any other PR doesn't wait for @starquake: a pass merges it
+  once it is reviewed and green. Cards move both ways and stages can be
+  skipped: a bug or tweak goes straight to `Build`.
 
 - **Approval** of a spec or plan is the maintainer dragging the card on, or a
   `go` / `approved` comment. Never proceed from plan to build without it.
@@ -272,10 +289,18 @@ answer given in chat is written back into the issue body before acting on it.
   the release is cut, Claude proposes the level and the milestone is renamed
   if it changed. The issues titled "Milestone 1" to "Milestone 10" are the
   design's stages, not releases (#279).
-- **Merging needs the `ready to merge` label** on the PR, re-read from the API
-  at the moment of merging. Claude never adds it and never merges without it.
+- **Claude merges its own PRs**, as @starquake-bot after the `merge-pr`
+  checks, once the separate agent's review is done, CI is green and every
+  thread is resolved (#373, decision 8). **A PR that touches a sensitive
+  path** (one `.github/CODEOWNERS` gives to @starquake: `.github/`,
+  `deployments/`, and at any depth `.claude/`, `.mcp.json`, `CLAUDE.md` and
+  `CLAUDE.local.md`, and the check configs, decision 9) **also needs
+  @starquake's approving review** of its current head commit, re-read from
+  the API at the moment of merging.
+  Claude never approves a PR, never dismisses a review, and never merges a
+  sensitive one without that approval.
 - **A position in the flow is a Status; a property of a ticket is a label**:
-  `ready to merge`, `hold` (skip entirely), `dependencies` (Dependabot's),
+  `hold` (skip entirely), `dependencies` (Dependabot's),
   and, **only while a ticket waits in `Backlog`**, its route: `needs: spec` (a
   design question to settle) or `needs: build` (none left), with the routing
   reason in the body. The route says where the card goes when it is picked up.
@@ -305,21 +330,23 @@ answer given in chat is written back into the issue body before acting on it.
   exist yet. Mockups are committed under `docs/mockups/`.
 - **Nothing becomes public without asking**: the board, a release or a tag.
 
-### Attribution: issues and comments yes, PR descriptions and commits no
+### Claude's account: @starquake-bot
 
-`gh` acts as @starquake, so an unmarked Claude comment reads as the
-maintainer's own answer — and the board monitor tells them apart by exactly
-that prefix. So **every issue and comment Claude posts** opens with one of
-these lines, posted via `--body-file`:
+Claude works on GitHub as its own machine account, @starquake-bot (#373): it
+files the issues, posts the comments, opens the pull requests, makes the
+commits and presses merge. The author's name says who wrote something, so
+nothing Claude posts carries an attribution line. Write long bodies to a file
+and post them with `--body-file`. The board monitor and `issue-comment-replies`
+tell Claude's comments from the maintainer's by the author and the date:
+@starquake-bot is Claude, and so is a @starquake comment from before
+2026-11-27T21:00:00Z that starts with `> 🤖` (posted through their account
+before the bot). Any other @starquake comment is the maintainer's.
 
-- `> 🤖 **Issue by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
-- `> 🤖 **Comment by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
-
-**Pull request descriptions and commit messages carry no attribution line**
-(#257): the maintainer reviews and merges a pull request and takes
-accountability for what is merged, and the squash-merge commit on `main` is
-their own, signed by GitHub. Line comments on a pull request are comments,
-so they keep their line.
+Claude merges as @starquake-bot, so the squash-merge commit on `main` is the
+bot's, signed by GitHub. @starquake owns the process: they set the rules,
+approve every change to them, and stay accountable for what Claude merges
+under them. A pull request that touches a sensitive path waits for their
+approval, so the board monitor keeps watching for it.
 
 The procedure behind each step lives in the skills: `work-the-board` (and its
 `/board` alias), `design-slice`, `mockup`, `build-slice`, `merge-pr`,
@@ -429,7 +456,15 @@ release candidate tag; production from a `vX.Y.Z` tag. A tag doesn't rebuild:
 `ci.yml`'s `promote` retags main's signed image. Staging, production and
 development's `:edge` only run images `ci.yml` signed on `main`. Tags and
 releases are the maintainer's to make, numbered as the README's Versions
-section says.
+section says. The tag ruleset `.github/rulesets/tags.json` lets only a
+repository admin create, move or delete a `v*` tag, but only once @starquake
+has created it on GitHub (their step in #373; until then any writer can push
+a `v*` tag, and a `-rc.` one deploys staging). `deploy.yml` deploys
+production only for a tag push or a manual run that the repository owner
+started, and only in a Deploy run the owner started or re-ran (a dispatched
+or re-run CI, a re-run of an old deploy, or a branch named like a tag, could
+put an old release back). So @starquake-bot can't deploy production; it can
+still run a staging or development deploy.
 
 ## Comments
 

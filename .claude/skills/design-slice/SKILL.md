@@ -36,9 +36,8 @@ maintainer's.
   The maintainer overrides by dragging the card back.
 - **No issue yet?** Create one from `.github/ISSUE_TEMPLATE/spec.md`. Read that
   file and fill its sections; `gh issue create --body-file` bypasses templates
-  entirely, so nothing fails when the structure goes missing. The body's first
-  line is the attribution header:
-  `> 🤖 **Issue by Claude** (AI pair-programmer working with @starquake) — posted through @starquake's account.`
+  entirely, so nothing fails when the structure goes missing. You file it as
+  @starquake-bot, with no attribution line.
 - **A sub-issue** (filed under a parent, or split out of one) names its parent
   as `Part of #NN` and never with `Closes`, `Fixes` or `Resolves`; nor does
   its plan ask its PR to close the parent. A parent's own plan, while any

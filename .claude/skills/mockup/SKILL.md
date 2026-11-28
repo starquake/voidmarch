@@ -60,8 +60,7 @@ This repo is public, so `raw.githubusercontent.com` would also render. Use the
 is ever made private, and `github.com/…/blob/…` is a click-through link rather
 than an embed.
 
-Put it in the ticket's *Mockup* section. If you post it in a comment instead,
-the comment opens with the 🤖 attribution line.
+Put it in the ticket's *Mockup* section (or a comment).
 
 **The embed must end up pointing at `main`.** A `/raw/<branch>/` embed dies
 when the branch is deleted on merge, silently and retroactively. The PR that
