@@ -61,6 +61,15 @@ head="$(field .headRefOid)"
 echo "head: $head"
 [[ "$(field .state)" == OPEN ]] || hold "#$pr is $(field .state)"
 
+# The repository is public: anyone can open a PR and write its body.
+author="$(field '.author.__typename + "/" + .author.login')"
+head_repo="$(field '.headRepository.nameWithOwner // ""')"
+if [[ "$head_repo" != "$repo" ]]; then
+  sensitive "its branch is in '$head_repo', not $repo"
+elif [[ "$author" != User/starquake-bot && "$author" != Bot/dependabot ]]; then
+  sensitive "opened by ${author#*/}, not by starquake-bot or Dependabot"
+fi
+
 # CODEOWNERS knows more forms than these; anything else fails the check, so the
 # PR counts as sensitive. "/x" is matched as GitHub does: x itself or under x/.
 anchored=()

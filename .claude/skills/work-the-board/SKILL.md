@@ -165,7 +165,9 @@ and a direct maintainer request, and they are named as exceptions.
    1. cheap advancement (replies, labels, specs, plans, reminders)
    2. every PR whose `merge-pr` gate is met (reviewed and green; a sensitive
       one also approved by @starquake at its current head): merge them all
-      (`merge-pr`), then re-pull
+      (`merge-pr`), then re-pull. Only a PR opened by @starquake-bot or
+      Dependabot from a branch in this repository can merge without that
+      approval; anyone else's, @starquake's own included, waits for them
    3. then the pass's one build, branched off the freshly merged `main`
 
    Hand each item to the skill that owns that step:

@@ -106,6 +106,34 @@ run
 want closed 1 '^hold: #7 is MERGED'
 
 setup
+pr '{"author": {"__typename": "Bot", "login": "dependabot"}}'
+run
+want dependabot 0 '^verdict: merge$'
+
+for author in '"User", "login": "starquake"' '"User", "login": "someone"' '"Bot", "login": "starquake-bot"' \
+  '"User", "login": "dependabot"'; do
+  setup
+  pr "{\"author\": {\"__typename\": $author}}"
+  run
+  want "author $author" 1 '^sensitive: opened by ' "^hold: needs @starquake's approval"
+done
+
+setup
+pr '{"author": null}'
+run
+want "no author" 1 '^sensitive: opened by '
+
+setup
+pr '{"headRepository": {"nameWithOwner": "someone/voidmarch"}}'
+run
+want fork 1 "^sensitive: its branch is in 'someone/voidmarch'"
+
+setup
+pr '{"headRepository": null}'
+run
+want "deleted fork" 1 "^sensitive: its branch is in ''"
+
+setup
 files .github/workflows/ci.yml
 run
 want "owned directory" 1 '^sensitive: .github/workflows/ci.yml is in CODEOWNERS' \
