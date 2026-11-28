@@ -1,0 +1,7 @@
+# Claude merges its own pull requests once they are reviewed and green, but a
+# change to how work is checked, merged or deployed needs @starquake's
+# approval: the ruleset requires a code owner's review (#373, decision 8).
+/.github/ @starquake
+/deployments/ @starquake
+/CLAUDE.md @starquake
+/.claude/ @starquake

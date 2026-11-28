@@ -12,8 +12,6 @@ on:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    # The actor, not the PR's author: a commit anyone else pushes onto the
-    # branch waits for a person's approval (fetch-metadata checks only the first).
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
     permissions:
       contents: write
@@ -25,18 +23,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # The ruleset requires an approving review. Giving one as GITHUB_TOKEN
-      # needs "Allow GitHub Actions to create and approve pull requests".
-      #
       # A direct bump in /tools must be mirrored into the Makefile's
-      # GOLANGCI_VERSION by hand, so neither step runs for it.
-      - name: Approve
-        if: steps.meta.outputs.directory != '/tools' || !startsWith(steps.meta.outputs.dependency-type, 'direct')
-        run: gh pr review --approve "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      # GOLANGCI_VERSION by hand, so it is left for a person.
       - name: Enable auto-merge
         if: steps.meta.outputs.directory != '/tools' || !startsWith(steps.meta.outputs.dependency-type, 'direct')
         run: gh pr merge --auto --squash "$PR_URL"
