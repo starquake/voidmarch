@@ -378,7 +378,9 @@ want "anchored name is the whole name" 0
 
 owned_here=(.github/workflows/ci.yml deployments/podman/deploy.sh .claude/skills/merge-pr/SKILL.md .mcp.json
   CLAUDE.md frontend/src/CLAUDE.md Makefile .golangci.yml .testcoverage.yml Dockerfile
-  frontend/eslint.config.js frontend/tsconfig.json frontend/playwright.config.ts)
+  frontend/eslint.config.js frontend/tsconfig.json frontend/playwright.config.ts
+  frontend/.claude/settings.json internal/.mcp.json .Claude/skills/x.md frontend/Claude.md .GitHub/workflows/x.yml
+  MAKEFILE "deployments/my unit.container")
 setup
 cp "$(dirname "$script")/../../.github/CODEOWNERS" "$stub/codeowners"
 files "${owned_here[@]}" internal/sim/sim.go tools/go.mod frontend/src/main.ts
@@ -391,7 +393,20 @@ for f in "${owned_here[@]}"; do
 done
 want_not "this repository's CODEOWNERS" '^sensitive: (internal/sim|tools|frontend/src/main)'
 
-for pattern in '*.yml' '/docs/*' 'docs/' 'docs/x.md' '/a?b' '/[ab]' '/a\ b' '!x' '/' '/a//b'; do
+setup
+printf '%s\n' 'docs/ @starquake' > "$stub/codeowners"
+files a/docs/x.md
+run
+want "bare directory at any depth" 1 '^sensitive: a/docs/x.md is in CODEOWNERS'
+
+setup
+printf '%s\n' 'docs/ @starquake' > "$stub/codeowners"
+files "my docs/x.md" a/docsy/x.md
+pr '{"changedFiles": 2}'
+run
+want "bare directory is the whole name, with spaces near" 0
+
+for pattern in '*.yml' '/docs/*' 'a/docs/' 'docs/x.md' '/a?b' '/[ab]' '/a\ b' '!x' '/' '/a//b'; do
   setup
   printf '%s @starquake\n' "$pattern" > "$stub/codeowners"
   run

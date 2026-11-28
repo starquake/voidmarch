@@ -90,6 +90,8 @@ fi
 
 # CODEOWNERS knows more forms than these; anything else fails the check, so the
 # PR counts as sensitive. "/x" is matched as GitHub does: x itself or under x/.
+# A bare "x" or "x/" matches x at any depth, as a file or a directory, and case
+# never matters: both match more than GitHub, never less.
 anchored=()
 bare=()
 codeowners_ok=1
@@ -107,6 +109,11 @@ parse_codeowners() {
     case "$p" in
       *[\*\?\[\\!]* | / | *//*) check_failed "CODEOWNERS pattern '$p' is of a form this check doesn't know" ;;
       /*) anchored+=("${p#/}") ;;
+      */) if [[ "${p%/}" == */* ]]; then
+        check_failed "CODEOWNERS pattern '$p' is of a form this check doesn't know"
+      else
+        bare+=("${p%/}")
+      fi ;;
       */*) check_failed "CODEOWNERS pattern '$p' is of a form this check doesn't know" ;;
       *) bare+=("$p") ;;
     esac
@@ -116,17 +123,19 @@ parse_codeowners() {
   fi
 }
 owned() {
-  local p
+  local p found=1
+  shopt -s nocasematch
   for p in ${anchored[@]+"${anchored[@]}"}; do
     case "$p" in
-      */) [[ "$1" == "$p"* ]] && return 0 ;;
-      *) [[ "$1" == "$p" || "$1" == "$p"/* ]] && return 0 ;;
+      */) [[ "$1" == "$p"* ]] && found=0 ;;
+      *) [[ "$1" == "$p" || "$1" == "$p"/* ]] && found=0 ;;
     esac
   done
   for p in ${bare[@]+"${bare[@]}"}; do
-    [[ "$1" == "$p" || "$1" == */"$p" || "$1" == "$p"/* || "$1" == */"$p"/* ]] && return 0
+    [[ "$1" == "$p" || "$1" == */"$p" || "$1" == "$p"/* || "$1" == */"$p"/* ]] && found=0
   done
-  return 1
+  shopt -u nocasematch
+  return "$found"
 }
 
 base="$(field .baseRefName)"

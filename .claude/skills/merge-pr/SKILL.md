@@ -91,10 +91,10 @@ after anyone loosens it, nothing on GitHub would stop a sensitive PR this
 check missed.
 
 The check **fails closed**: it knows the CODEOWNERS forms `/dir/`, `/name`
-(that path and everything under it, as GitHub reads it) and a bare `name`
-with no slash (that name at any depth). Any other form, a CODEOWNERS with no
-patterns, or a failed read prints `CHECK FAILED`, and the PR counts as
-sensitive.
+(that path and everything under it, as GitHub reads it), and a bare `name/`
+or `name` (that name at any depth), and it ignores case. Any other form, a
+CODEOWNERS with no patterns, or a failed read prints `CHECK FAILED`, and the
+PR counts as sensitive.
 
 **Any PR, sensitive or not, is held** while it is labeled `hold`, while
 @starquake's latest review that is not a plain comment requests changes, or

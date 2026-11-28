@@ -2,12 +2,12 @@
 # change to how work is checked, merged or deployed needs @starquake's
 # approval: the ruleset requires a code owner's review (#373, decisions 8 and
 # 9). Only the forms .claude/scripts/merge-gate.sh parses: /dir/, /path, and a
-# bare name, which matches at any depth.
+# bare name/ or name, which matches at any depth.
 /.github/ @starquake
 /deployments/ @starquake
-/.claude/ @starquake
-/.mcp.json @starquake
-# Claude Code also loads a CLAUDE.md in any directory.
+# Claude Code reads these, and any CLAUDE.md, in any directory.
+.claude/ @starquake
+.mcp.json @starquake
 CLAUDE.md @starquake
 
 # The configs of the checks a merge waits for.
